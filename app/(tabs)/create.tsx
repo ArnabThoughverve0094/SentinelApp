@@ -1,23 +1,25 @@
-import React, { useState, useEffect } from "react";
-import {
-  Text,
-  View,
-  TouchableOpacity,
-  SafeAreaView,
-  StatusBar,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Image,
-  Alert,
-  Keyboard,
-  ActivityIndicator,
-  Dimensions,
-} from "react-native";
-import { useRouter } from "expo-router";
+import { db } from "@/FirebaseConfig";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from "expo-router";
+import { addDoc, collection } from "firebase/firestore";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -54,6 +56,28 @@ export default function CreatePost(): React.JSX.Element {
     };
   }, []);
 
+  const handlePost = async () => {
+    setLoading(true);
+    try {
+      await addDoc(collection(db, 'SentinelPosts'), {
+        AuthorImageURL: "https://tse1.mm.bing.net/th/id/OIP.3Kzmgs5IGnuIVL7SHDcYmgHaF7?r=0&rs=1&pid=ImgDetMain&o=7&rm=3",
+        AuthorName: "Arnab Das",
+        ContentDate: new Date(),
+        ContentDesc: postText,
+        ContentLikeCount: 0,
+        isLiked: false,
+        ContentURL: ""
+      });
+      setPostText('');
+      // Alert.alert('Success', 'Post added to Firestore');
+    } catch (error) {
+      console.error(error);
+      // Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const pickImages = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     
@@ -87,6 +111,7 @@ export default function CreatePost(): React.JSX.Element {
     try {
       console.log("Post Text:", postText);
       console.log("Selected Images:", selectedImages);
+      handlePost();
       setTimeout(() => {
         router.back();
       }, 1000);
