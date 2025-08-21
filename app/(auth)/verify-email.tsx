@@ -185,7 +185,7 @@ export default function VerifyEmail(): React.JSX.Element {
         [
           {
             text: 'Continue',
-            onPress: () => router.push("/(tabs)")
+            onPress: () => router.push("/(auth)/email-login")
           }
         ]
       );
@@ -283,7 +283,7 @@ export default function VerifyEmail(): React.JSX.Element {
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <View className="flex-1">
+        <View className="flex-1 pt-10">
           {/* Header with back button */}
           <View className="px-6 pt-4 pb-4">
             <TouchableOpacity 

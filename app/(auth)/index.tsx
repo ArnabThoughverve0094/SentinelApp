@@ -1,7 +1,7 @@
-import React from 'react';
-import { Text, View, TouchableOpacity, SafeAreaView, StatusBar, Image, ImageBackground } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
+import React from 'react';
+import { Image, ImageBackground, SafeAreaView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 
 export default function Index(): React.JSX.Element {
   return (
@@ -10,17 +10,17 @@ export default function Index(): React.JSX.Element {
       
       {/* Background Image */}
       <ImageBackground 
-        source={require('../../assets/images/bg.jpeg')}
+        source={require('../../assets/images/page-bg.jpg')}
         className="flex-1"
         resizeMode="cover"
       >
         {/* Main content - NO OVERLAY */}
-        <View className="flex-1 px-6 justify-center pt-16">
+        <View className="flex-1 px-6 justify-center pt-64">
           {/* Logo positioned above welcome text */}
           <View className="items-start mb-8">
-            <View className="w-14 h-14 rounded-xl bg-white/90 justify-center items-center shadow-lg border border-white/20">
+            <View className="w-14 h-14 rounded-xl bg-transparent justify-center items-center ">
               <Image 
-                source={require('../../assets/images/sentinel-logo.png')}
+                source={require('../../assets/images/Sentinal-logo-big.png')}
                 className="w-12 h-12"
                 resizeMode="contain"
               />
@@ -54,7 +54,7 @@ export default function Index(): React.JSX.Element {
             </TouchableOpacity>
 
             <Link href="/(auth)/email-login" asChild>
-              <TouchableOpacity className="bg-violet-500/90 py-4 px-6 rounded-xl items-center shadow-lg">
+              <TouchableOpacity className="bg-violet-500 py-4 px-6 rounded-xl items-center shadow-lg">
                 <Text className="text-base text-white font-semibold">Continue with email</Text>
               </TouchableOpacity>
             </Link>

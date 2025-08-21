@@ -1,22 +1,24 @@
-import React, { useState } from 'react';
-import { 
-  Text, 
-  View, 
-  TouchableOpacity, 
-  SafeAreaView, 
-  StatusBar, 
-  TextInput, 
-  KeyboardAvoidingView, 
-  Platform, 
-  ScrollView,
-  Modal,
-  FlatList,
-  Alert
-} from 'react-native';
-import { Link, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { Link, useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import {
+  Alert,
+  FlatList,
+  ImageBackground,
+  KeyboardAvoidingView,
+  Linking,
+  Modal,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 // Country list
 const COUNTRIES = [
@@ -32,6 +34,33 @@ const COUNTRIES = [
   'South Africa'
 ];
 
+// Simplified Password Requirements Component - Single Line
+const PasswordRequirements = ({ password }: { password: string }) => {
+  if (!password) return null;
+
+  const hasMinLength = password.length >= 8;
+  const hasCapital = /[A-Z]/.test(password);
+  const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+  const hasDigits = (password.match(/\d/g) || []).length >= 3;
+
+  const allMet = hasMinLength && hasCapital && hasSpecial && hasDigits;
+
+  return (
+    <View className="mt-2 mb-2">
+      <View className="flex-row items-center">
+        <Ionicons 
+          name={allMet ? "checkmark-circle" : "information-circle"} 
+          size={14} 
+          color={allMet ? "#10B981" : "#6B7280"} 
+        />
+        <Text className={`text-xs ml-2 ${allMet ? 'text-green-600' : 'text-gray-500'}`}>
+          {allMet ? 'Password requirements met' : '8+ chars, 1 capital, 1 special char, 3 digits'}
+        </Text>
+      </View>
+    </View>
+  );
+};
+
 export default function Register(): React.JSX.Element {
   const router = useRouter();
   const [name, setName] = useState<string>('');
@@ -45,6 +74,7 @@ export default function Register(): React.JSX.Element {
   const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
   const [agreeToTerms, setAgreeToTerms] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
+  const [emailCheckTimeout, setEmailCheckTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
   
   // Date picker states
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
@@ -64,13 +94,64 @@ export default function Register(): React.JSX.Element {
     terms?: string;
   }>({});
 
+  // Email existence check
+  const checkEmailExists = async (email: string): Promise<boolean> => {
+    try {
+      const response = await fetch('https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/check-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data.exists || false;
+      }
+      return false;
+    } catch (error) {
+      console.log('Error checking email:', error);
+      return false;
+    }
+  };
+
   // Validation functions
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
 
-  const validateForm = (): boolean => {
+  // Updated password validation with single line error message
+  const validatePassword = (password: string): { isValid: boolean; error: string } => {
+    const errors: string[] = [];
+    
+    // Check all requirements
+    if (password.length < 8) {
+      errors.push('8+ chars');
+    }
+    
+    if (!/[A-Z]/.test(password)) {
+      errors.push('1 capital');
+    }
+    
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+      errors.push('1 special char');
+    }
+    
+    const digitCount = (password.match(/\d/g) || []).length;
+    if (digitCount < 3) {
+      errors.push('3 digits');
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      error: errors.length > 0 ? `Need: ${errors.join(', ')}` : ''
+    };
+  };
+
+  const validateForm = async (): Promise<boolean> => {
     const newErrors: typeof errors = {};
 
     // Name validation
@@ -83,13 +164,22 @@ export default function Register(): React.JSX.Element {
       newErrors.email = 'Email is required';
     } else if (!validateEmail(email)) {
       newErrors.email = 'Please enter a valid email address';
+    } else {
+      // Check if email already exists
+      const emailExists = await checkEmailExists(email);
+      if (emailExists) {
+        newErrors.email = 'User already exists with this email';
+      }
     }
 
-    // Password validation
+    // Enhanced password validation with single line error
     if (!password.trim()) {
       newErrors.password = 'Password is required';
-    } else if (password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+    } else {
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.isValid) {
+        newErrors.password = passwordValidation.error;
+      }
     }
 
     // Confirm password validation
@@ -123,20 +213,40 @@ export default function Register(): React.JSX.Element {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Handle email change with debounced email checking
+  const handleEmailChange = (text: string) => {
+    setEmail(text);
+    if (text.trim()) clearError('email');
+    
+    // Clear existing timeout
+    if (emailCheckTimeout) {
+      clearTimeout(emailCheckTimeout);
+    }
+    
+    // Set new timeout for email check
+    if (validateEmail(text)) {
+      const timeout = setTimeout(async () => {
+        const exists = await checkEmailExists(text);
+        if (exists) {
+          setErrors(prev => ({ ...prev, email: 'User already exists with this email' }));
+        }
+      }, 1000);
+      
+      setEmailCheckTimeout(timeout);
+    }
+  };
+
   const handleSignUp = async () => {
+    setLoading(true);
+    
     // Always validate form on submit attempt
-    const isValid = validateForm();
+    const isValid = await validateForm();
     
     if (!isValid) {
-      // Show alert with first error found
-      const firstError = Object.values(errors)[0];
-      if (firstError) {
-        Alert.alert('Validation Error', firstError);
-      }
+      setLoading(false);
+      // Don't show popup alert, just let the field errors show
       return;
     }
-
-    setLoading(true);
     
     try {
       // Format data exactly as your API expects
@@ -144,11 +254,12 @@ export default function Register(): React.JSX.Element {
         email: email.trim().toLowerCase(),
         password: password.trim(),
         name: name.trim(),
-        nickName: username.trim(), // Changed from 'username' to 'nickName'
-        confirmPassword: confirmPassword.trim(), // Added confirmPassword
-        dob: dob?.toISOString().split('T')[0] || '', // Format: YYYY-MM-DD
+        nickName: username.trim(),
+        confirmPassword: confirmPassword.trim(),
+        dob: dob?.toISOString().split('T')[0] || '',
         country: country.trim(),
-        termsAccepted: "true" // Send as string, not boolean
+        termsAccepted: "true",
+        role: "User",
       };
 
       console.log('=== SENDING DATA IN EXACT API FORMAT ===');
@@ -180,6 +291,14 @@ export default function Register(): React.JSX.Element {
 
       if (!response.ok) {
         console.error('API Error:', responseData);
+        
+        // Handle specific error messages from API - only set email error, no popup
+        if (responseData.error === 'User already exists' || responseData.message?.includes('already exists')) {
+          setErrors(prev => ({ ...prev, email: 'User already exists with this email' }));
+          setLoading(false);
+          return;
+        }
+        
         throw new Error(responseData.message || `HTTP error! status: ${response.status}`);
       }
 
@@ -201,19 +320,22 @@ export default function Register(): React.JSX.Element {
     } catch (error: any) {
       console.error("Registration failed:", error);
       
-      let errorMessage = 'Registration failed. Please try again.';
-      
-      if (error.message.includes('All fields are required')) {
-        errorMessage = 'Please fill in all required fields correctly.';
-      } else if (error.message.includes('Network')) {
-        errorMessage = 'Network error. Please check your internet connection.';
-      } else if (error.message.includes('already exists')) {
-        errorMessage = 'An account with this email already exists.';
-      } else if (error.message) {
-        errorMessage = error.message;
+      // Only show popup for network errors or unexpected errors
+      if (error.message.includes('Network') || error.message.includes('Invalid response')) {
+        let errorMessage = 'Registration failed. Please try again.';
+        
+        if (error.message.includes('Network')) {
+          errorMessage = 'Network error. Please check your internet connection.';
+        }
+        
+        Alert.alert('Registration Failed', errorMessage);
+      } else if (error.message.includes('already exists') || error.message.includes('User already exists')) {
+        // For user exists error, just set the field error without popup
+        setErrors(prev => ({ ...prev, email: 'User already exists with this email' }));
+      } else {
+        // For other API errors, show popup
+        Alert.alert('Registration Failed', error.message || 'Registration failed. Please try again.');
       }
-      
-      Alert.alert('Registration Failed', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -247,16 +369,38 @@ export default function Register(): React.JSX.Element {
     }
   };
 
+  // Handle Terms and Privacy Policy links
+  const handleTermsPress = () => {
+    const termsUrl = 'https://docs.google.com/document/d/1S64mjGx4R0gcq3OHkJ08xGsEno0FVvd9QZi8nisbRI0/edit?usp=sharing';
+    Linking.openURL(termsUrl).catch(err => {
+      console.error('Failed to open terms URL:', err);
+      Alert.alert('Error', 'Unable to open Terms & Conditions');
+    });
+  };
+
+  const handlePrivacyPress = () => {
+    const privacyUrl = 'https://docs.google.com/document/d/1S64mjGx4R0gcq3OHkJ08xGsEno0FVvd9QZi8nisbRI0/edit?usp=sharing';
+    Linking.openURL(privacyUrl).catch(err => {
+      console.error('Failed to open privacy URL:', err);
+      Alert.alert('Error', 'Unable to open Privacy Policy');
+    });
+  };
+
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
-      <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
+    <SafeAreaView className="flex-1">
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <ImageBackground 
+        source={require('../../assets/images/page-bg.jpg')}
+        className="flex-1"
+        resizeMode="cover"
+      >
       
       <KeyboardAvoidingView 
         className="flex-1" 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         {/* Header with back button */}
-        <View className="px-6 pt-4 pb-4">
+        <View className="px-6 pt-10 pb-4">
           <Link href="/(auth)/email-login" asChild>
             <TouchableOpacity className="w-10 h-10 rounded-full bg-white items-center justify-center shadow-sm border border-gray-100">
               <Ionicons name="arrow-back" size={20} color="#374151" />
@@ -270,7 +414,10 @@ export default function Register(): React.JSX.Element {
             {/* Title section */}
             <View className="mb-8">
               <Text className="text-3xl font-bold text-gray-900 mb-3 leading-tight">
-                Create new{'\n'}account
+                Create New Account
+              </Text>
+              <Text className="text-base text-black">
+                Start sharing your moments with the world.
               </Text>
             </View>
 
@@ -278,7 +425,7 @@ export default function Register(): React.JSX.Element {
             <View className="mb-8">
               {/* Name input */}
               <View className="mb-5">
-                <Text className="text-sm font-medium text-gray-700 mb-2">Name *</Text>
+                <Text className="text-sm font-medium text-gray-700 mb-2">Name  <Text className="text-red-500">*</Text></Text>
                 <TextInput
                   className={`w-full px-4 py-3 bg-white border rounded-xl text-base text-gray-900 ${
                     errors.name ? 'border-red-500' : 'border-gray-200'
@@ -300,7 +447,9 @@ export default function Register(): React.JSX.Element {
 
               {/* Email input */}
               <View className="mb-5">
-                <Text className="text-sm font-medium text-gray-700 mb-2">Email *</Text>
+                <Text className="text-sm font-medium text-gray-700 mb-2">
+                                Email <Text className="text-red-500">*</Text>
+                              </Text>
                 <TextInput
                   className={`w-full px-4 py-3 bg-white border rounded-xl text-base text-gray-900 ${
                     errors.email ? 'border-red-500' : 'border-gray-200'
@@ -308,10 +457,7 @@ export default function Register(): React.JSX.Element {
                   placeholder="username@gmail.com"
                   placeholderTextColor="#9CA3AF"
                   value={email}
-                  onChangeText={(text) => {
-                    setEmail(text);
-                    if (text.trim()) clearError('email');
-                  }}
+                  onChangeText={handleEmailChange}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -323,7 +469,7 @@ export default function Register(): React.JSX.Element {
 
               {/* Password input */}
               <View className="mb-5">
-                <Text className="text-sm font-medium text-gray-700 mb-2">Password *</Text>
+                <Text className="text-sm font-medium text-gray-700 mb-2">Password  <Text className="text-red-500">*</Text></Text>
                 <View className="relative">
                   <TextInput
                     className={`w-full px-4 py-3 bg-white border rounded-xl text-base text-gray-900 pr-12 ${
@@ -354,6 +500,10 @@ export default function Register(): React.JSX.Element {
                     />
                   </TouchableOpacity>
                 </View>
+                
+                {/* Password requirements display - Single line */}
+                <PasswordRequirements password={password} />
+                
                 {errors.password && (
                   <Text className="text-red-500 text-xs mt-1">{errors.password}</Text>
                 )}
@@ -361,7 +511,7 @@ export default function Register(): React.JSX.Element {
 
               {/* Confirm Password input */}
               <View className="mb-5">
-                <Text className="text-sm font-medium text-gray-700 mb-2">Confirm Password *</Text>
+                <Text className="text-sm font-medium text-gray-700 mb-2">Confirm Password  <Text className="text-red-500">*</Text></Text>
                 <View className="relative">
                   <TextInput
                     className={`w-full px-4 py-3 bg-white border rounded-xl text-base text-gray-900 pr-12 ${
@@ -396,7 +546,7 @@ export default function Register(): React.JSX.Element {
 
               {/* Nickname input */}
               <View className="mb-5">
-                <Text className="text-sm font-medium text-gray-700 mb-2">Nickname *</Text>
+                <Text className="text-sm font-medium text-gray-700 mb-2">Nickname  <Text className="text-red-500">*</Text></Text>
                 <TextInput
                   className={`w-full px-4 py-3 bg-white border rounded-xl text-base text-gray-900 ${
                     errors.username ? 'border-red-500' : 'border-gray-200'
@@ -418,7 +568,7 @@ export default function Register(): React.JSX.Element {
 
               {/* Date of Birth input */}
               <View className="mb-5">
-                <Text className="text-sm font-medium text-gray-700 mb-2">Date of Birth *</Text>
+                <Text className="text-sm font-medium text-gray-700 mb-2">Date of Birth  <Text className="text-red-500">*</Text></Text>
                 <TouchableOpacity
                   className={`w-full px-4 py-3 bg-white border rounded-xl flex-row items-center justify-between ${
                     errors.dob ? 'border-red-500' : 'border-gray-200'
@@ -448,7 +598,7 @@ export default function Register(): React.JSX.Element {
 
               {/* Country input */}
               <View className="mb-6">
-                <Text className="text-sm font-medium text-gray-700 mb-2">Country *</Text>
+                <Text className="text-sm font-medium text-gray-700 mb-2">Country  <Text className="text-red-500">*</Text></Text>
                 <TouchableOpacity
                   className={`w-full px-4 py-3 bg-white border rounded-xl flex-row items-center justify-between ${
                     errors.country ? 'border-red-500' : 'border-gray-200'
@@ -465,7 +615,7 @@ export default function Register(): React.JSX.Element {
                 )}
               </View>
 
-              {/* Terms & Conditions */}
+              {/* Terms & Conditions with clickable links */}
               <View className="mb-8">
                 <TouchableOpacity 
                   className="flex-row items-start"
@@ -484,9 +634,19 @@ export default function Register(): React.JSX.Element {
                   <View className="flex-1">
                     <Text className="text-sm text-gray-600 leading-5">
                       I agree to the{' '}
-                      <Text className="text-violet-500 font-medium">Terms & Conditions</Text>
+                      <Text 
+                        className="text-violet-500 font-medium underline" 
+                        onPress={handleTermsPress}
+                      >
+                        Terms & Conditions
+                      </Text>
                       {' '}and{' '}
-                      <Text className="text-violet-500 font-medium">Privacy Policy</Text>
+                      <Text 
+                        className="text-violet-500 font-medium underline" 
+                        onPress={handlePrivacyPress}
+                      >
+                        Privacy Policy
+                      </Text>
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -555,6 +715,7 @@ export default function Register(): React.JSX.Element {
           </View>
         </Modal>
       </KeyboardAvoidingView>
+      </ImageBackground>
     </SafeAreaView>
   );
 }

@@ -20,7 +20,7 @@ export default function ForgotPassword(): React.JSX.Element {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         
         {/* Header with Back Button */}
-        <View className="px-6 pt-4 pb-8">
+        <View className="px-6 pt-10 pb-8">
           <Link href="/(auth)/email-login" asChild>
             <TouchableOpacity className="w-10 h-10 rounded-full bg-white items-center justify-center shadow-sm border border-gray-100">
               <Ionicons name="arrow-back" size={20} color="#374151" />
