@@ -1,14 +1,15 @@
+import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import {
-  Text,
-  View,
-  SafeAreaView,
-  StatusBar,
   FlatList,
   Image,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
   TouchableOpacity,
+  View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 
 // Sample notification data with remote avatar URLs
 const searchResults = [
@@ -99,6 +100,7 @@ export default function NotificationPage() {
     <SafeAreaView className="flex-1 bg-gray-50">
       <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
 
+      <View style={styles.results} />
       {/* Header */}
       <View className="px-6 pt-8 pb-4">
         <Text className="text-2xl font-bold text-gray-900">Search</Text>
@@ -135,3 +137,10 @@ export default function NotificationPage() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  results: { 
+    marginTop: 20, 
+    width: '100%' 
+  },
+});

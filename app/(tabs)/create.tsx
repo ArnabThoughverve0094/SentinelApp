@@ -20,6 +20,7 @@ import {
   SafeAreaView,
   ScrollView,
   StatusBar,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -306,6 +307,7 @@ export default function CreatePost(): React.JSX.Element {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "white" }}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <View style={styles.results} />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -541,4 +543,12 @@ export default function CreatePost(): React.JSX.Element {
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
+  
 }
+
+const styles = StyleSheet.create({
+  results: { 
+    marginTop: 20, 
+    width: '100%' 
+  },
+});

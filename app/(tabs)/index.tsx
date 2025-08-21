@@ -439,6 +439,7 @@ export default function SentinelFeed(): React.JSX.Element {
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       
       {/* Header */}
+      <View style={styles.results} />
       <View className="flex-row items-center justify-between px-4 py-3 bg-white border-b border-gray-100">
         <Text className="text-xl font-bold text-gray-900">Sentinel</Text>
         <TouchableOpacity>

@@ -8,21 +8,19 @@ import {
   SafeAreaView,
   ScrollView,
   StatusBar,
+  StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from "react-native";
 
-interface UserData {
-  name?: string;
-  nickname?: string;
-  email?: string;
-}
-
 export default function ProfilePage(): React.JSX.Element {
   const router = useRouter();
   const [showAccountModal, setShowAccountModal] = useState<boolean>(false);
-  const [userData, setUserData] = useState<UserData>({});
+  const [userId, setUserId] = useState("1");
+  const [userEmail, setUserEmail] = useState("");
+  const [userName, setUserName] = useState("");
+  const [userNickName, setUserNickName] = useState("");
 
   // Load user data from stored tokens
   useEffect(() => {
@@ -31,35 +29,29 @@ export default function ProfilePage(): React.JSX.Element {
 
   const loadUserData = async () => {
     try {
-      const idToken = await AsyncStorage.getItem('userIdToken');
-      const email = await AsyncStorage.getItem('userEmail');
-      
-      if (idToken) {
-        // Decode JWT token to get user info
-        const tokenData = JSON.parse(atob(idToken.split('.')[1]));
-        console.log('Decoded user data:', tokenData);
-        
-        setUserData({
-          name: tokenData.name || 'Current User',
-          nickname: tokenData.nickname || 'username',
-          email: tokenData.email || email || 'user@example.com'
-        });
-      } else if (email) {
-        // Fallback to stored email if no ID token
-        setUserData({
-          name: 'Current User',
-          nickname: 'username',
-          email: email
-        });
+      const fetchuserID = await AsyncStorage.getItem('userId');
+      const fetchuserEmail = await AsyncStorage.getItem('userEmail');
+      const fetchuserName = await AsyncStorage.getItem('userName');
+      const fetchuserNickName = await AsyncStorage.getItem('userNickName');
+      if(fetchuserID !== null) {
+        console.log("userId: ", fetchuserID);
+        setUserId(fetchuserID);
       }
+      if(fetchuserEmail !== null) {
+        console.log("userEmail: ", fetchuserEmail);
+        setUserEmail(fetchuserEmail);
+      }
+      if(fetchuserName !== null) {
+        console.log("userName: ", fetchuserName);
+        setUserName(fetchuserName);
+      }
+      if(fetchuserNickName !== null) {
+        console.log("userNickName: ", fetchuserNickName);
+        setUserNickName(fetchuserNickName);
+      }
+      
     } catch (error) {
       console.error('Error loading user data:', error);
-      // Set default values if error occurs
-      setUserData({
-        name: 'Current User',
-        nickname: 'username',
-        email: 'user@example.com'
-      });
     }
   };
 
@@ -73,6 +65,10 @@ export default function ProfilePage(): React.JSX.Element {
         'userRefreshToken', 
         'userIdToken',
         'userEmail',
+        'userName',
+        'userNickName',
+        'userId',
+        'userRole',
         'tokenExpiry',
         'userData',
       ]);
@@ -134,6 +130,7 @@ export default function ProfilePage(): React.JSX.Element {
     <SafeAreaView className="flex-1 bg-white">
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
+      <View style={styles.results} />
       {/* Header with Account Button */}
       <View className="flex-row items-center justify-between px-5 py-4 pt-10 border-b border-gray-100">
         <Text className="text-2xl font-bold text-black">Profile</Text>
@@ -156,8 +153,8 @@ export default function ProfilePage(): React.JSX.Element {
             <View className="w-24 h-24 bg-violet-500 rounded-full items-center justify-center mb-4">
               <Ionicons name="person" size={40} color="white" />
             </View>
-            <Text className="text-xl font-bold text-gray-900 mb-2">{userData.name}</Text>
-            <Text className="text-gray-500">@{userData.nickname}</Text>
+            <Text className="text-xl font-bold text-gray-900 mb-2">{userName}</Text>
+            <Text className="text-gray-500">@{userNickName}</Text>
           </View>
 
           {/* Profile Stats */}
@@ -233,8 +230,8 @@ export default function ProfilePage(): React.JSX.Element {
                   <Ionicons name="person" size={24} color="white" />
                 </View>
                 <View className="flex-1">
-                  <Text className="font-semibold text-gray-900 text-base">{userData.name}</Text>
-                  <Text className="text-gray-500 text-sm">{userData.email}</Text>
+                  <Text className="font-semibold text-gray-900 text-base">{userName}</Text>
+                  <Text className="text-gray-500 text-sm">{userEmail}</Text>
                 </View>
               </View>
 
@@ -295,3 +292,10 @@ export default function ProfilePage(): React.JSX.Element {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  results: { 
+    marginTop: 20, 
+    width: '100%' 
+  },
+});
