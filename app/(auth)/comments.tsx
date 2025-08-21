@@ -5,9 +5,11 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Link } from 'expo-router';
 import { addDoc, collection, getDocs } from 'firebase/firestore';
 import React, { Key, useCallback, useReducer, useState } from 'react';
-import { FlatList, Image, SafeAreaView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function CommentScreen() {
+  const insets = useSafeAreaInsets();
   const [, forceRerender] = useReducer(x => x + 1, 0);
   const [userId, setUserId] = useState("1");
   const [userName, setUserName] = useState("");
@@ -161,7 +163,15 @@ export default function CommentScreen() {
   )
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <View
+      style={{
+        flex: 1,
+        paddingBottom: insets.bottom,
+        paddingTop: insets.top,
+        // Add left/right insets if needed...
+      }}
+    >
+      {/* <SafeAreaView className="flex-1 bg-white"> */}
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       {/* Header with back button */}
       <View className="px-6 pt-4 pb-8">
@@ -210,8 +220,7 @@ export default function CommentScreen() {
             {item.replies.length > 0 && (
               <View style={styles.results}>
                 {item.replies.map((itemReply: {
-                  [x: string]: Key | null | undefined; AuthorImageURL: string | undefined; AuthorName: string ; Comment: string  | undefined; 
-}) => 
+                  [x: string]: Key | null | undefined; AuthorImageURL: string | undefined; AuthorName: string ; Comment: string  | undefined; }) => 
                   <View className="bg-white border-b border-gray-100 px-4 py-4" key={itemReply.id}>
                   <View className="flex-row items-center mb-3">
                     <View className="w-8 h-8 rounded-full mr-3 overflow-hidden">
@@ -255,7 +264,9 @@ export default function CommentScreen() {
       </View>
     </View>
       
-    </SafeAreaView>
+    {/* </SafeAreaView> */}
+    </View>
+    
     
   );
 }

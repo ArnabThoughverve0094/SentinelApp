@@ -1,6 +1,6 @@
-import React from "react";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
-import { Feather, Ionicons } from "@expo/vector-icons";
+import React from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const TabsLayout = () => {
@@ -9,81 +9,84 @@ const TabsLayout = () => {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: "#1DA1F2",
-        tabBarInactiveTintColor: "#657786",
+        tabBarShowLabel: false,
+        tabBarActiveTintColor: "#9B59B6", // Purple active
+        tabBarInactiveTintColor: "#9CA3AF", // Gray inactive
         tabBarStyle: {
-          backgroundColor: "#fff",
-          borderTopWidth: 1,
-          borderTopColor: "#E1E8ED",
-          height: 60 + insets.bottom, // taller to accommodate center icon
-          paddingTop: 8,
+          backgroundColor: "#FFFFFF",
+          borderTopWidth: 0,
+          height: 55 + insets.bottom,
+          paddingTop: 5,
         },
         headerShown: false,
       }}
     >
-      {/* Home Tab */}
+      {/* Home */}
       <Tabs.Screen
         name="index"
         options={{
-          title: "",
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="home" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <MaterialIcons
+              name={focused ? "home" : "home"}
+              size={size}
+              color={color}
+            />
           ),
         }}
       />
 
-      {/* Search Tab */}
+      {/* Search */}
       <Tabs.Screen
         name="search"
         options={{
-          title: "",
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="search" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "search" : "search-outline"}
+              size={size}
+              color={color}
+            />
           ),
         }}
       />
 
-      {/* Create Post Tab */}
+      {/* Add */}
       <Tabs.Screen
         name="create"
         options={{
-          title: "",
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
               name={focused ? "add-circle" : "add-circle-outline"}
-              size={size + 10}
+              size={size + 2}
               color={color}
-              style={{
-                marginTop: -18,
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.2,
-                shadowRadius: 4,
-              }}
             />
           ),
-          tabBarLabel: "",
         }}
       />
 
-      {/* Notifications Tab */}
+      {/* Likes */}
       <Tabs.Screen
         name="notifications"
         options={{
-          title: "",
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="heart" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "heart" : "heart-outline"}
+              size={size}
+              color={color}
+            />
           ),
         }}
       />
 
-      {/* Profile Tab */}
+      {/* Profile */}
       <Tabs.Screen
         name="profile"
         options={{
-          title: "",
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="user" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "person-circle" : "person-circle-outline"}
+              size={size + 2}
+              color={color}
+            />
           ),
         }}
       />
@@ -92,3 +95,4 @@ const TabsLayout = () => {
 };
 
 export default TabsLayout;
+//(tabs)/_layout.tsx code
