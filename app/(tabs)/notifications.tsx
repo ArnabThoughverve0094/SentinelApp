@@ -1,6 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { FlatList, Image, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Text, View, SafeAreaView, StatusBar, FlatList, Image, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 // Updated notification data to match your image exactly
 const notifications = [
@@ -113,9 +113,8 @@ export default function NotificationPage() {
     <SafeAreaView className="flex-1 bg-gray-50">
       <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
       
-      <View style={styles.results} />
       {/* Header */}
-      <View className="px-4 pt-4 pb-3 bg-gray-50">
+      <View className="px-4 pt-10 pb-3 bg-gray-50">
         <Text className="text-xl font-semibold text-gray-900">Notifications</Text>
       </View>
 
@@ -140,10 +139,4 @@ export default function NotificationPage() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  results: { 
-    marginTop: 20, 
-    width: '100%' 
-  },
-});
+//Notification

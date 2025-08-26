@@ -1,14 +1,10 @@
 import { db } from "@/FirebaseConfig";
-import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from 'axios';
-import * as DocumentPicker from 'expo-document-picker';
-import * as ImageManipulator from 'expo-image-manipulator';
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from "expo-router";
 import { addDoc, collection } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
-
 import {
   ActivityIndicator,
   Alert,
@@ -20,7 +16,6 @@ import {
   SafeAreaView,
   ScrollView,
   StatusBar,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -28,63 +23,24 @@ import {
 } from "react-native";
 
 const { width: screenWidth } = Dimensions.get('window');
-type SelectedMedia = {
-  [x: string]: string; uri: string; name: string; type: string 
-};
 
-export default function CreatePost(): React.JSX.Element {
+type SelectedMedia = { uri: string; name: string; type: string };
+
+export default function CreatePost() {
   const router = useRouter();
-  const [userId, setUserId] = useState("1");
-  const [userName, setUserName] = useState("");
-  const [postText, setPostText] = useState<string>("");
-  const [selectedMedia, setSelectedMedia] = useState<SelectedMedia>();
-  const [loading, setLoading] = useState<boolean>(false);
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState<boolean>(false);
+  const [postText, setPostText] = useState("");
+  const [selectedMedia, setSelectedMedia] = useState<SelectedMedia[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(false);
 
-  // Extended suggested images (more than 3)
-  const suggestedImages = [
-    'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400',
-    'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400',
-    'https://images.unsplash.com/photo-1551963831-b3b1ca40c98e?w=400',
-    'https://images.unsplash.com/photo-1484723091739-30a097e8f929?w=400',
-    'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400',
-    'https://images.unsplash.com/photo-1476224203421-9ac39bcb3327?w=400',
-    'https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=400'
+  // Updated with 5 suggested images to show exactly 4 full images
+  const suggestedImages: string[] = [
+    "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=400",
+    "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?w=400",
+    "https://images.unsplash.com/photo-1519125323398-675f0ddb6308?w=400",
+    "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=400",
+    "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400"
   ];
-
-  //get Async Storage Data
-  const getItem = async () => {
-    try {
-      const fetchuserID = await AsyncStorage.getItem('userId');
-      const fetchuserName = await AsyncStorage.getItem('userName');
-      if(fetchuserID !== null) {
-        console.log("userId: ", fetchuserID);
-        setUserId(fetchuserID);
-      }
-      if(fetchuserName !== null) {
-        console.log("userName: ", fetchuserName);
-        setUserName(fetchuserName);
-      }
-    } catch (error) {
-      console.log("Error retriving userId", error);
-    }
-  }
-
-  // Keyboard listeners
-  useEffect(() => {
-    getItem();
-    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
-      setIsKeyboardVisible(true);
-    });
-    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-      setIsKeyboardVisible(false);
-    });
-
-    return () => {
-      keyboardDidShowListener?.remove();
-      keyboardDidHideListener?.remove();
-    };
-  }, []);
 
   // Helper: Pick image from gallery
   const pickImages = async () => {
@@ -94,43 +50,58 @@ export default function CreatePost(): React.JSX.Element {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images', 'videos'],
-      allowsMultipleSelection: false,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
       quality: 0.8,
     });
     if (!result.canceled && result.assets) {
-      // const assets = result.assets.map((a) => ({
-      //   uri: a.uri,
-      //   name: a.fileName || a.uri.split('/').pop() || 'file.jpg',
-      //   type: a.mimeType || 'image/jpeg',
-      // }));
-      // setSelectedMedia((curr) => [...curr, ...assets]);
-      const assets = {
-        uri: result.assets[0].uri,
-        name: result.assets[0].fileName || result.assets[0].uri.split('/').pop() || 'file.jpg',
-        type: result.assets[0].mimeType || 'image/jpeg',
-      };
-      setSelectedMedia(assets);
+      const assets = result.assets.map((a) => ({
+        uri: a.uri,
+        name: a.fileName || a.uri.split('/').pop() || 'file.jpg',
+        type: a.mimeType || 'image/jpeg',
+      }));
+      setSelectedMedia((curr) => [...curr, ...assets]);
     }
   };
 
-  // Helper: Pick ANY file (incl. video)
+  // Helper: Pick video
+  const pickVideo = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please grant camera roll permissions.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets) {
+      const assets = result.assets.map((a) => ({
+        uri: a.uri,
+        name: a.fileName || a.uri.split('/').pop() || 'file.mp4',
+        type: a.mimeType || 'video/mp4',
+      }));
+      setSelectedMedia((curr) => [...curr, ...assets]);
+    }
+  };
+
+  // Helper: Pick GIF/ANY file
   const pickDocument = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: '/',
+        type: '*/*',
         copyToCacheDirectory: true,
       });
       if (!result.canceled && result.assets) {
         const asset = result.assets[0];
-        // setSelectedMedia((curr) => [
-        //   ...curr,
-        //   {
-        //     uri: asset.uri,
-        //     name: asset.name || asset.uri.split('/').pop() || 'file',
-        //     type: asset.mimeType || 'application/octet-stream',
-        //   },
-        // ]);
+        setSelectedMedia((curr) => [
+          ...curr,
+          {
+            uri: asset.uri,
+            name: asset.name || asset.uri.split('/').pop() || 'file',
+            type: asset.mimeType || 'application/octet-stream',
+          },
+        ]);
       }
     } catch (e) {
       Alert.alert("Document picker error", String(e));
@@ -139,166 +110,130 @@ export default function CreatePost(): React.JSX.Element {
 
   // Helper: Add from suggestions (remote)
   const addSuggestedImage = (uri: string) => {
-    // setSelectedMedia((curr) => [
-    //   ...curr,
-    //   { uri, name: uri.split('/').pop() || 'remote.jpg', type: 'image/jpeg' },
-    // ]);
-    setSelectedMedia({ uri, name: uri.split('/').pop() || 'remote.jpg', type: 'image/jpeg' });
+    setSelectedMedia((curr) => [
+      ...curr,
+      { uri, name: uri.split('/').pop() || 'remote.jpg', type: 'image/jpeg' },
+    ]);
   };
 
   // Helper: Remove file
-  // const removeMedia = (idx: number) => {
-  //   setSelectedMedia((curr) => curr.filter((_, i) => i !== idx));
-  // };
-  const removeMedia = () => {
-    setSelectedMedia({ uri: '', name: '', type: '' });
+  const removeMedia = (idx: number) => {
+    setSelectedMedia((curr) => curr.filter((_, i) => i !== idx));
   };
 
-  // FIXED: Actual upload function with better error handling
-  const uploadMediaFile = async (file: any) => {
+  // Upload function
+  const uploadMediaFile = async (file: SelectedMedia): Promise<string> => {
     if (Platform.OS === "web") {
       console.warn("File upload not supported on web.");
       return '';
     }
 
-    const formattedUri =
-    file.uri.startsWith('content://')
-        ? file.uri.replace('content://', 'file://')
-        : file.uri;
-
-        const compressed = await ImageManipulator.manipulateAsync(
-          formattedUri,
-          [{ resize: { width: 800 } }],
-          { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG }
-        );
-
     console.log("Uploading file:", file.name, "Type:", file.type);
+    setUploadProgress(true);
     
     const formData = new FormData();
     formData.append("file", {
-      uri: compressed.uri,
-      name: Date.now().toString() + Math.random().toString().slice(2, 6) + 'compressed.jpg',
-      type: 'image/jpeg',
+      uri: file.uri,
+      name: file.name,
+      type: file.type,
     } as any);
 
     try {
       console.log("Starting upload to API...");
-      // const res = await fetch(
-      //   'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/uploadFile',
-      //   {
-      //     method: 'POST',
-      //     body: formData,
-      //   }
-      // );
-      const res = await axios.post('https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/uploadFile', formData, {
-        headers: { Accept: 'application/json' },
-      });
+      const res = await fetch(
+        'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/uploadFile',
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
 
-      console.log('Upload response:', res.data);
       console.log("Upload response status:", res.status);
       
-      // if (!res.ok) {
-      //   const errText = await res.text();
-      //   console.error("Upload failed with status:", res.status, "Error:", errText);
-      //   throw new Error(`HTTP status ${res.status}: ${errText}`);
-      // }
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error("Upload failed with status:", res.status, "Error:", errText);
+        throw new Error(`HTTP status ${res.status}: ${errText}`);
+      }
 
-      // const data = await res.json();
-      // console.log("Upload response data:", data);
+      const data = await res.json();
+      console.log("Upload response data:", data);
       
-      // if (!data.fileUrl || data.fileUrl.trim() === '') {
-      //   throw new Error("No valid fileUrl returned from API");
-      // }
+      if (!data.fileUrl || data.fileUrl.trim() === '') {
+        throw new Error("No valid fileUrl returned from API");
+      }
       
-      // console.log("Upload successful. URL:", data.fileUrl);
-      // return data.fileUrl;
-
-      return res.data;
+      console.log("Upload successful. URL:", data.fileUrl);
+      return data.fileUrl;
     } catch (e) {
       console.error("Upload error:", e);
-      throw e; // Re-throw to handle in calling function
+      throw e;
+    } finally {
+      setUploadProgress(false);
     }
   };
 
   // Post Submit Handler
   const handlePostNow = async () => {
-    // Validation: Don't allow posting if text is empty and no media
-    // if (!postText.trim() && selectedMedia.length === 0) {
-    if (!postText.trim() && selectedMedia === null) {
+    if (!postText.trim() && selectedMedia.length === 0) {
       Alert.alert("Error", "Please add some content or media before posting.");
       return;
     }
-    else{
-      setLoading(true);
-      try {
-        var uploadedUrl: string = "";
-        // Upload each media file
-      // for (let i = 0; i < selectedMedia.length; i++) {
-        // const asset = selectedMedia[i];
-        // console.log(`Processing media ${i + 1}/${selectedMedia.length}:`, asset.name);
-        const asset = selectedMedia;
-        console.log(`Processing media:`, asset?.name);
-        
-        try {
-          if (!asset?.uri.startsWith("http")) {
-            // Local file - needs upload
-            const url = await uploadMediaFile(asset);
-            if (url && url.trim() !== '') {
-              uploadedUrl = url;
-              console.log(`Successfully uploaded ${asset?.name}:`, url);
-            } else {
-              console.warn(`Upload failed for ${asset?.name} - skipping`);
-            }
-          } else {
-            // Remote URL - add directly
-            uploadedUrl = asset?.uri;
-            console.log(`Added remote URL:`, asset?.uri);
-          }
-          handlePost(uploadedUrl);
-        } catch (uploadError) {
-          console.error(`Failed to upload ${asset?.name}:`, uploadError);
-          Alert.alert("Upload Error", `Failed to upload ${asset?.name}. Continue anyway?`, [
-            { text: "Cancel", style: "cancel", onPress: () => { setLoading(false); return; } },
-            { text: "Continue", onPress: () => {
-              console.log("Continuing without this file");
-              handlePost(uploadedUrl);
-            } }
-          ]);
-        }
-      // }
 
-      console.log("Final uploaded URL:", uploadedUrl);
-  
-        
-      } catch (e) {
-        Alert.alert('Error', 'Failed to create post: ' + String(e));
-      } finally {
-        setLoading(false);
-      }
-    }
-    
-  };
-
-  const handlePost = async (uploadedUrl: string) => {
     setLoading(true);
     try {
+      const uploadedUrls: string[] = [];
+      
+      // Upload each media file
+      for (let i = 0; i < selectedMedia.length; i++) {
+        const asset = selectedMedia[i];
+        console.log(`Processing media ${i + 1}/${selectedMedia.length}:`, asset.name);
+        
+        try {
+          if (!asset.uri.startsWith("http")) {
+            const url = await uploadMediaFile(asset);
+            if (url && url.trim() !== '') {
+              uploadedUrls.push(url);
+              console.log(`Successfully uploaded ${asset.name}:`, url);
+            } else {
+              console.warn(`Upload failed for ${asset.name} - skipping`);
+            }
+          } else {
+            uploadedUrls.push(asset.uri);
+            console.log(`Added remote URL:`, asset.uri);
+          }
+        } catch (uploadError) {
+          console.error(`Failed to upload ${asset.name}:`, uploadError);
+          Alert.alert("Upload Error", `Failed to upload ${asset.name}. Continue anyway?`, [
+            { text: "Cancel", style: "cancel", onPress: () => { setLoading(false); return; } },
+            { text: "Continue", onPress: () => console.log("Continuing without this file") }
+          ]);
+        }
+      }
+
+      console.log("Final uploaded URLs:", uploadedUrls);
+
+      // Save to Firebase with proper field names
       await addDoc(collection(db, 'SentinelPosts'), {
-        AuthorImageURL: "",
-        AuthorName: userName,
+        AuthorImageURL: "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+        AuthorName: "Arnab Das",
         ContentDate: new Date(),
         ContentDesc: postText,
+        ContentURL: uploadedUrls.length > 0 ? uploadedUrls[0] : null,
+        ContentURLs: uploadedUrls,
         ContentLikeCount: 0,
-        ContentURL: uploadedUrl,
-        isApproved: false
+        ContentRepostCount: 0,
+        isApproved: false,
+        isLiked: false,
       });
+
       setPostText('');
-      // setSelectedMedia([]);
-      setSelectedMedia({ uri: '', name: '', type: '' });
+      setSelectedMedia([]);
+      Alert.alert("Success", `Post created successfully! ${uploadedUrls.length} media files uploaded.`);
       setTimeout(() => router.back(), 1000);
-      // Alert.alert('Success', 'Post added to Firestore');
-    } catch (error) {
-      console.error(error);
-      // Alert.alert('Error', error.message);
+    } catch (e) {
+      console.error("Post creation error:", e);
+      Alert.alert('Error', 'Failed to create post: ' + String(e));
     } finally {
       setLoading(false);
     }
@@ -307,7 +242,6 @@ export default function CreatePost(): React.JSX.Element {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "white" }}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      <View style={styles.results} />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -315,14 +249,23 @@ export default function CreatePost(): React.JSX.Element {
       >
         <View style={{ flex: 1 }}>
           {/* Header */}
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, borderBottomWidth: 1, borderColor: "#eee" }}>
+          <View style={{ 
+            flexDirection: "row", 
+            justifyContent: "space-between", 
+            alignItems: "center", 
+            padding: 16, 
+            borderBottomWidth: 1, 
+            borderColor: "#eee" 
+          }}>
             <Text style={{ fontWeight: "bold", fontSize: 18, color: "#000" }}>Create post</Text>
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              {loading && <ActivityIndicator size="small" color="#8B5CF6" style={{ marginRight: 12 }} />}
-              <TouchableOpacity onPress={() => router.back()} style={{ width: 32, height: 32, alignItems: "center", justifyContent: "center" }}>
-                <Ionicons name="close" size={26} color="#000" />
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity onPress={() => router.back()} style={{ 
+              width: 32, 
+              height: 32, 
+              alignItems: "center", 
+              justifyContent: "center" 
+            }}>
+              <Ionicons name="close" size={26} color="#000" />
+            </TouchableOpacity>
           </View>
 
           {/* Post Input */}
@@ -333,8 +276,14 @@ export default function CreatePost(): React.JSX.Element {
           >
             <View style={{ flexDirection: "row", alignItems: "flex-start", padding: 16 }}>
               <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face' }}
-                style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12, backgroundColor: "#F3F4F6" }}
+                source={{ uri: 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg' }}
+                style={{ 
+                  width: 40, 
+                  height: 40, 
+                  borderRadius: 20, 
+                  marginRight: 12, 
+                  backgroundColor: "#F3F4F6" 
+                }}
                 resizeMode="cover"
               />
               <View style={{ flex: 1 }}>
@@ -348,7 +297,7 @@ export default function CreatePost(): React.JSX.Element {
                     paddingTop: 0,
                     paddingBottom: 10,
                   }}
-                  placeholder="Type your message here..."
+                  placeholder="What's on your mind?"
                   placeholderTextColor="#9CA3AF"
                   value={postText}
                   onChangeText={setPostText}
@@ -359,7 +308,7 @@ export default function CreatePost(): React.JSX.Element {
             </View>
 
             {/* Media Preview */}
-            {/* {selectedMedia.length > 0 && (
+            {selectedMedia.length > 0 && (
               <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
                 <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
                   {selectedMedia.map((obj, idx) => (
@@ -396,7 +345,12 @@ export default function CreatePost(): React.JSX.Element {
                           }}
                         >
                           <Ionicons name="document-text" size={48} color="#8B5CF6" />
-                          <Text style={{ marginTop: 8, fontSize: 12, color: "#333", textAlign: "center" }}>
+                          <Text style={{ 
+                            marginTop: 8, 
+                            fontSize: 12, 
+                            color: "#333", 
+                            textAlign: "center" 
+                          }}>
                             {obj.name}
                           </Text>
                         </View>
@@ -422,111 +376,145 @@ export default function CreatePost(): React.JSX.Element {
                   ))}
                 </View>
               </View>
-            )} */}
-            {selectedMedia != null && (
-              <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
-                <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-                  
-                <View
-                      style={{
-                        position: "relative",
-                        marginBottom: 8,
-                        width: screenWidth - 32,
-                        marginRight: 0,
-                        marginLeft: 0,
-                      }}
-                    >
-                      {selectedMedia.type.startsWith("image/") ? (
-                        <Image
-                          source={{ uri: selectedMedia.uri }}
-                          style={{
-                            width: "100%",
-                            height: 300,
-                            borderRadius: 12,
-                            backgroundColor: "#F3F4F6",
-                          }}
-                          resizeMode="cover"
-                        />
-                      ) : (
-                        <View
-                          style={{
-                            width: "100%",
-                            height: 300,
-                            borderRadius: 12,
-                            backgroundColor: "#E5E7EB",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        >
-                          <Ionicons name="document-text" size={48} color="#8B5CF6" />
-                          <Text style={{ marginTop: 8, fontSize: 12, color: "#333", textAlign: "center" }}>
-                            {selectedMedia.name}
-                          </Text>
-                        </View>
-                      )}
-                      <TouchableOpacity
-                        style={{
-                          position: "absolute",
-                          top: 8,
-                          right: 8,
-                          width: 24,
-                          height: 24,
-                          borderRadius: 12,
-                          backgroundColor: "red",
-                          justifyContent: "center",
-                          alignItems: "center",
-                          elevation: 7,
-                        }}
-                        onPress={() => removeMedia()}
-                      >
-                        <Ionicons name="close" size={14} color="#fff" />
-                      </TouchableOpacity>
-                    </View>
-                  
-                </View>
-              </View>
             )}
           </ScrollView>
 
-          {/* Bottom toolbar */}
+          {/* Bottom toolbar - Updated to match Figma design exactly */}
           <View style={{ backgroundColor: "white", borderTopWidth: 1, borderColor: "#eee" }}>
-            <View style={{ flexDirection: "row", padding: 16 }}>
+            {/* Media Picker Icons Row */}
+            <View style={{ 
+              flexDirection: "row", 
+              justifyContent: "space-between", 
+              alignItems: "center", 
+              paddingHorizontal: 16, 
+              paddingTop: 16,
+              paddingBottom: 8
+            }}>
+              {/* Left side - Media picker buttons */}
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                {/* Image Picker - Updated icon to match Figma */}
+                <TouchableOpacity
+                  style={{ 
+                    width: 40, 
+                    height: 40, 
+                    alignItems: "center", 
+                    justifyContent: "center", 
+                    marginRight: 30 
+                  }}
+                  onPress={pickImages}
+                >
+                  <Ionicons name="images-outline" size={30} color="#666" />
+                </TouchableOpacity>
+
+                {/* GIF Picker - Updated to show "GIF" text */}
+                <TouchableOpacity
+                  style={{ 
+                    width: 50, 
+                    height: 40, 
+                    alignItems: "center", 
+                    justifyContent: "center", 
+                    marginRight: 30,
+                    backgroundColor: "#f0f0f0",
+                    borderRadius: 8
+                  }}
+                  onPress={pickDocument}
+                >
+                  <Text style={{ 
+                    fontSize: 16, 
+                    fontWeight: "bold", 
+                    color: "#666" 
+                  }}>
+                    GIF
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Video Picker */}
+                <TouchableOpacity
+                  style={{ 
+                    width: 40, 
+                    height: 40, 
+                    alignItems: "center", 
+                    justifyContent: "center" 
+                  }}
+                  onPress={pickVideo}
+                >
+                  <Ionicons name="videocam" size={30} color="#666" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Right side - Loading indicator */}
+              {(loading || uploadProgress) && (
+                <View style={{ 
+                  backgroundColor: "#f0f0f0", 
+                  borderRadius: 50, 
+                  padding: 8 
+                }}>
+                  <ActivityIndicator size="small" color="#8B5CF6" />
+                </View>
+              )}
+            </View>
+
+            {/* Plus icon and suggested images row */}
+            <View style={{ 
+              flexDirection: "row", 
+              alignItems: "center", 
+              paddingHorizontal: 16, 
+              paddingBottom: 16 
+            }}>
+              {/* Large Plus button */}
               <TouchableOpacity
-                style={{ width: 48, height: 48, backgroundColor: "#F3F4F6", borderRadius: 8, alignItems: "center", justifyContent: "center", marginRight: 8 }}
+                style={{ 
+                  width: 65, 
+                  height: 65, 
+                  backgroundColor: "#F3F4F6", 
+                  borderRadius: 12, 
+                  alignItems: "center", 
+                  justifyContent: "center", 
+                  marginRight: 8 
+                }}
                 onPress={pickImages}
               >
-                <Ionicons name="add" size={20} color="#666" />
+                <Ionicons name="add" size={32} color="#666" />
               </TouchableOpacity>
 
-              {/* <TouchableOpacity
-                style={{ width: 48, height: 48, backgroundColor: "#F3F4F6", borderRadius: 8, alignItems: "center", justifyContent: "center", marginRight: 8 }}
-                onPress={pickDocument}
-              >
-                <Ionicons name="document-outline" size={20} color="#666" />
-              </TouchableOpacity> */}
-              
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {suggestedImages.map((uri, idx) => (
+              {/* Suggested images - Adjusted to show exactly 4 full images */}
+              <View style={{ 
+                flex: 1, 
+                flexDirection: "row", 
+                justifyContent: "space-between" 
+              }}>
+                {suggestedImages.slice(0, 4).map((uri, idx) => (
                   <TouchableOpacity
                     key={idx}
-                    style={{ marginRight: 8 }}
+                    style={{
+                      width: (screenWidth - 65 - 8 - 32 - 24) / 4, // Adjusted calculation for 4 full images
+                      height: 65,
+                      marginLeft: idx === 0 ? 0 : 6, // Small gap between images
+                    }}
                     onPress={() => addSuggestedImage(uri)}
                   >
                     <Image
                       source={{ uri }}
-                      style={{ width: 48, height: 48, borderRadius: 8, backgroundColor: "#F3F4F6" }}
+                      style={{ 
+                        width: "100%", 
+                        height: "100%", 
+                        borderRadius: 12, 
+                        backgroundColor: "#F3F4F6" 
+                      }}
                       resizeMode="cover"
                     />
                   </TouchableOpacity>
                 ))}
-              </ScrollView>
+              </View>
             </View>
-            <View style={{ padding: 16 }}>
+
+            {/* Post Now Button */}
+            <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
               <TouchableOpacity
                 style={{
                   backgroundColor: "#8B5CF6",
                   borderRadius: 16,
-                  paddingVertical: 14,
+                  paddingVertical: 16,
                   alignItems: "center",
                   opacity: loading ? 0.5 : 1,
                 }}
@@ -543,12 +531,5 @@ export default function CreatePost(): React.JSX.Element {
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
-  
 }
-
-const styles = StyleSheet.create({
-  results: { 
-    marginTop: 20, 
-    width: '100%' 
-  },
-});
+//Final create post
