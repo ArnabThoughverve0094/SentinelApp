@@ -23,6 +23,7 @@ import {
   View,
 } from 'react-native';
 import FlipCard from 'react-native-flip-card';
+import CommentsModal from '../../components/CommentsModal';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -69,6 +70,11 @@ export default function SentinelFeed(): React.JSX.Element {
   const [isInitialized, setIsInitialized] = useState(false);
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
   const flipCardRef = useRef<any>(null);
+
+  // ------- COMMENT MODAL STATE -------
+  const [isCommentModalVisible, setIsCommentModalVisible] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [selectedPostType, setSelectedPostType] = useState<string | null>(null);
 
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
 
@@ -283,9 +289,48 @@ export default function SentinelFeed(): React.JSX.Element {
       //   getDocs(collection(db, 'X-Data'))
       // ]);
       
-      const allPosts: PostItem[] = [];
       const postsXData: any = [];
       
+      // Process X-Data
+      const collXDataRefPost = collection(db, 'X-Data');
+      const queryXData = query(
+        collXDataRefPost,
+        orderBy('ContentDate', 'desc')
+      );
+      const unsubscribeXData = onSnapshot(queryXData, async xDataSnapshot => {
+        const xdataDataArr = xDataSnapshot.docs.map(doc => ({
+          id: doc.id,
+          data: doc.data(),
+        }))
+
+        for (const doc of xdataDataArr) {
+          const postData = doc.data;
+          const postId = doc.id;
+
+          postsXData.push({
+            uniqueId: `xdata-${postId}`,
+            id: postId,
+            liked: false,
+            AuthorImageURL: postData.AuthorImageURL,
+            AuthorName: postData.AuthorName,
+            ContentDate: postData.ContentDate,
+            ContentDesc: postData.ContentDesc,
+            ContentURL: postData.ContentURL,
+            ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+            ContentLikeCount: postData.ContentLikeCount || 0,
+            ContentRepostCount: postData.ContentRepostCount || 0,
+            ContentCommentCount: postData.ContentCommentCount || 0,
+            isApproved: true,
+            postType: "X-Data",
+            Liked: false,
+            Reposted: false,
+            createdAt: postData.createdAt || postData.ContentDate,
+          });
+        }
+
+        setFetchedXData(postsXData);
+      });
+
       const collSentinelRefPost = collection(db, 'SentinelPosts');
       const querySentinel = query(
         collSentinelRefPost,
@@ -294,7 +339,7 @@ export default function SentinelFeed(): React.JSX.Element {
 
       console.log("Sentinel OnSnapshot");
       // Process SentinelPosts
-      const unsubscribeSentinel = onSnapshot(querySentinel, sentinelSnapshot => {
+      const unsubscribeSentinel = onSnapshot(querySentinel, async sentinelSnapshot => {
         const sentineldataArr = sentinelSnapshot.docs.map(doc => ({
           id: doc.id,
           data: doc.data(),
@@ -327,77 +372,16 @@ export default function SentinelFeed(): React.JSX.Element {
 
         }
 
-        setFetchedData(postsData.concat(fetchedXData));
+        setFetchedData(postsData.concat(postsXData));
       });
       
-      // Process X-Data
-      const collXDataRefPost = collection(db, 'X-Data');
-      const queryXData = query(
-        collXDataRefPost,
-        orderBy('ContentDate', 'desc')
-      );
-      const unsubscribeXData = onSnapshot(queryXData, xDataSnapshot => {
-        const xdataDataArr = xDataSnapshot.docs.map(doc => ({
-          id: doc.id,
-          data: doc.data(),
-        }))
-
-        for (const doc of xdataDataArr) {
-          const postData = doc.data;
-          const postId = doc.id;
-
-          postsXData.push({
-            uniqueId: `xdata-${postId}`,
-            id: postId,
-            liked: false,
-            AuthorImageURL: postData.AuthorImageURL,
-            AuthorName: postData.AuthorName,
-            ContentDate: postData.ContentDate,
-            ContentDesc: postData.ContentDesc,
-            ContentURL: postData.ContentURL,
-            ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
-            ContentLikeCount: postData.ContentLikeCount || 0,
-            ContentRepostCount: postData.ContentRepostCount || 0,
-            ContentCommentCount: postData.ContentCommentCount || 0,
-            isApproved: true,
-            postType: "X-Data",
-            Liked: false,
-            Reposted: false,
-            createdAt: postData.createdAt || postData.ContentDate,
-          });
-        }
-
-        
-
-        setFetchedXData(postsXData);
-      });
       
-      const uniquePosts = allPosts.filter((item, index, self) => 
-        index === self.findIndex(t => t.uniqueId === item.uniqueId)
-      );
       
-      // Sort posts by creation date (latest first)
-      const sortedPosts = uniquePosts.sort((a, b) => {
-        const getTimestamp = (item: PostItem) => {
-          if (item.createdAt && typeof item.createdAt === 'object' && item.createdAt.toDate) {
-            return item.createdAt.toDate().getTime();
-          } else if (item.createdAt) {
-            return new Date(item.createdAt).getTime();
-          } else if (item.ContentDate) {
-            return new Date(item.ContentDate).getTime();
-          }
-          return 0;
-        };
-        
-        return getTimestamp(b) - getTimestamp(a);
-      });
-      
-      // setFetchedData(sortedPosts);
       setLastFetchTime(currentTime);
-      console.log('All Data Fetched and Sorted', `Total: ${sortedPosts.length} documents`);
+      console.log('All Data Fetched and Sorted', `Total: ${fetchedData.length} documents`);
       
       // ✅ Fetch comments count after posts are loaded
-      await fetchCommentsCount(sortedPosts);
+      await fetchCommentsCount(fetchedData);
       
       setIsInitialized(true);
 
@@ -455,19 +439,19 @@ export default function SentinelFeed(): React.JSX.Element {
     }, [isInitialized, fetchSinglePostComments])
   );
 
-  const nextScreen = useCallback(async (item: PostItem) => {
-    try {
-      await AsyncStorage.setItem('item', item.id);
-      await AsyncStorage.setItem('postType', item.postType);
-      // ✅ Track which post was visited for comment updates
-      await AsyncStorage.setItem('lastVisitedPost', item.id);
-      await AsyncStorage.setItem('lastVisitedPostType', item.postType);
-      console.log("Item stored, navigating to comments");
-      router.push("/comments");
-    } catch (error) {
-      console.error("Item store error, ", error);
-    }
-  }, [router]);
+  // TO OPEN COMMENTS MODAL (replace navigation to comments with this)
+  const openCommentsModal = useCallback((item: PostItem) => {
+    setSelectedPostId(item.id);
+    setSelectedPostType(item.postType);
+    setIsCommentModalVisible(true);
+  }, []);
+
+  // TO CLOSE COMMENTS MODAL
+  const closeCommentsModal = useCallback(() => {
+    setIsCommentModalVisible(false);
+    setSelectedPostId(null);
+    setSelectedPostType(null);
+  }, []);
 
   // MEDIA MODAL CONTROLS
   const openFullScreenImage = useCallback((imageUrl: string) => {
@@ -888,7 +872,7 @@ export default function SentinelFeed(): React.JSX.Element {
                 resizeMode="cover"
               />
             </View>
-            <View className="absolute top-1 right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white" />
+            {/* <View className="absolute top-1 right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white" /> */}
           </View>
           <View className="flex-1">
             <Text className="font-bold text-gray-900 text-xl">{item.AuthorName}</Text>
@@ -943,7 +927,10 @@ export default function SentinelFeed(): React.JSX.Element {
 
             <TouchableOpacity
               className="flex-row items-center px-5 py-4 rounded-full bg-gray-50 border-2 border-gray-200"
-              onPress={() => nextScreen(item)}
+              onPress={() => {
+                closeFullScreenCard();
+                openCommentsModal(item);
+              }}
               activeOpacity={0.7}
             >
               <MaterialCommunityIcons
@@ -985,7 +972,7 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
       </ScrollView>
     </View>
-  ), [getTimeAgo, handleFlipCard, isFlipping, renderMediaContent, toggleLike, nextScreen, handleRepost, getCommentsCount, dummyAuthorImage]);
+  ), [getTimeAgo, handleFlipCard, isFlipping, renderMediaContent, toggleLike, handleRepost, getCommentsCount, dummyAuthorImage]);
 
   const renderFlipCardBack = useCallback((item: PostItem) => (
     <View style={{ 
@@ -1122,7 +1109,10 @@ export default function SentinelFeed(): React.JSX.Element {
                     paddingVertical: 16, 
                     alignItems: 'center' 
                   }}
-                  onPress={() => nextScreen(item)}
+                  onPress={() => {
+                    closeFullScreenCard();
+                    openCommentsModal(item);
+                  }}
                 >
                   <MaterialCommunityIcons name="comment-plus" size={24} color="white" />
                   <Text className="text-white text-sm mt-2 font-medium">Comment</Text>
@@ -1159,7 +1149,7 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
       </ScrollView>
     </View>
-  ), [handleFlipCard, isFlipping, getTimeAgo, userRole, ApprovalToggle, handleApprovalToggle, nextScreen, getCommentsCount]);
+  ), [handleFlipCard, isFlipping, getTimeAgo, userRole, ApprovalToggle, handleApprovalToggle, getCommentsCount]);
 
   const renderPostContent = useCallback((item: PostItem) => (
     <TouchableOpacity 
@@ -1177,7 +1167,7 @@ export default function SentinelFeed(): React.JSX.Element {
                   resizeMode="cover"
                 />
               </View>
-              <View className="absolute top-0.5 right-0.5 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-white" />
+              {/* <View className="absolute top-0.5 right-0.5 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-white" /> */}
             </View>
             <View className="flex-1">
               <Text className="font-bold text-gray-900 text-lg">{item.AuthorName}</Text>
@@ -1228,7 +1218,7 @@ export default function SentinelFeed(): React.JSX.Element {
               className="flex-row items-center px-4 py-3 rounded-full bg-gray-50 border border-gray-200"
               onPress={(e) => {
                 e.stopPropagation();
-                nextScreen(item);
+                openCommentsModal(item);
               }}
               activeOpacity={0.7}
             >
@@ -1302,7 +1292,7 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
       </EnhancedCard>
     </TouchableOpacity>
-  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, nextScreen, handleRepost, ApprovalToggle, handleApprovalToggle, dummyAuthorImage, userRole, getCommentsCount]);
+  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, ApprovalToggle, handleApprovalToggle, dummyAuthorImage, userRole, getCommentsCount]);
 
   const renderPostUserContent = useCallback((item: PostItem) => (
     <TouchableOpacity 
@@ -1320,7 +1310,7 @@ export default function SentinelFeed(): React.JSX.Element {
                   resizeMode="cover"
                 />
               </View>
-              <View className="absolute top-0.5 right-0.5 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-white" />
+              {/* <View className="absolute top-0.5 right-0.5 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-white" /> */}
             </View>
             <View className="flex-1">
               <Text className="font-bold text-gray-900 text-base">{item.AuthorName}</Text>
@@ -1370,7 +1360,7 @@ export default function SentinelFeed(): React.JSX.Element {
               className="flex-row items-center px-3 py-2 rounded-full bg-gray-50"
               onPress={(e) => {
                 e.stopPropagation();
-                nextScreen(item);
+                openCommentsModal(item);
               }}
               activeOpacity={0.7}
             >
@@ -1418,7 +1408,7 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
       </EnhancedCard>
     </TouchableOpacity>
-  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, nextScreen, handleRepost, dummyAuthorImage, getCommentsCount]);
+  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, dummyAuthorImage, getCommentsCount]);
 
   const renderFullScreenFlipCard = useCallback((item: PostItem) => (
     <View className="flex-1 bg-gray-900">
@@ -1494,7 +1484,7 @@ export default function SentinelFeed(): React.JSX.Element {
       <View className="bg-white border-b border-gray-200 pt-5">
         <View 
           className="px-6 py-4 flex-row items-center justify-between"
-          style={{ paddingTop: Platform.OS === 'ios' ? 50 : 20 }}
+          style={{ paddingTop: Platform.OS === 'ios' ? 20 : 20 }}
         >
           <View>
             <Text className="text-3xl font-bold text-gray-900">Sentinel</Text>
@@ -1668,6 +1658,14 @@ export default function SentinelFeed(): React.JSX.Element {
       >
         {fullScreenCard && renderFullScreenFlipCard(fullScreenCard)}
       </Modal>
+      {/* COMMENTS MODAL */}
+      <CommentsModal
+        visible={isCommentModalVisible}
+        onClose={closeCommentsModal}
+        postId={selectedPostId}
+        postType={selectedPostType}
+        postData={fetchedData.find(item => item.id === selectedPostId)} // ✅ NEW: Pass post data
+      />
     </SafeAreaView>
   );
 }
