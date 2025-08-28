@@ -9,11 +9,141 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
+  ImageBackground,
+  Modal,
+  Animated,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Custom Modal Component
+interface CustomModalProps {
+  visible: boolean;
+  type: 'success' | 'error' | 'info' | 'warning';
+  title: string;
+  message: string;
+  buttons: Array<{
+    text: string;
+    onPress: () => void;
+    style?: 'default' | 'cancel' | 'destructive';
+  }>;
+  onClose?: () => void;
+}
+
+const CustomModal: React.FC<CustomModalProps> = ({
+  visible,
+  type,
+  title,
+  message,
+  buttons,
+  onClose
+}) => {
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      scaleAnim.setValue(0);
+    }
+  }, [visible, scaleAnim]);
+
+  const getModalStyle = () => {
+    switch (type) {
+      case 'success':
+        return {
+          iconName: 'checkmark-circle' as const,
+          iconColor: '#22C55E',
+          iconBg: 'bg-green-100',
+        };
+      case 'error':
+        return {
+          iconName: 'close-circle' as const,
+          iconColor: '#EF4444',
+          iconBg: 'bg-red-100',
+        };
+      case 'warning':
+        return {
+          iconName: 'warning' as const,
+          iconColor: '#F59E0B',
+          iconBg: 'bg-yellow-100',
+        };
+      default:
+        return {
+          iconName: 'information-circle' as const,
+          iconColor: '#3B82F6',
+          iconBg: 'bg-blue-100',
+        };
+    }
+  };
+
+  const modalStyle = getModalStyle();
+
+  if (!visible) return null;
+
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View className="flex-1 bg-black/50 items-center justify-center px-6">
+        <Animated.View 
+          style={[{ transform: [{ scale: scaleAnim }] }]}
+          className="bg-white rounded-3xl p-8 items-center w-full max-w-sm shadow-2xl"
+        >
+          {/* Icon */}
+          <View className={`w-20 h-20 ${modalStyle.iconBg} rounded-full items-center justify-center mb-6`}>
+            <Ionicons name={modalStyle.iconName} size={48} color={modalStyle.iconColor} />
+          </View>
+
+          {/* Title */}
+          <Text className="text-2xl font-bold text-gray-900 text-center mb-3">
+            {title}
+          </Text>
+
+          {/* Message */}
+          <Text className="text-base text-gray-600 text-center mb-8 leading-6">
+            {message}
+          </Text>
+
+          {/* Buttons */}
+          <View className="w-full space-y-3">
+            {buttons.map((button, index) => (
+              <TouchableOpacity
+                key={index}
+                className={`py-4 px-8 rounded-xl items-center w-full shadow-lg ${
+                  button.style === 'cancel' 
+                    ? 'bg-gray-200' 
+                    : button.style === 'destructive'
+                    ? 'bg-red-500'
+                    : 'bg-violet-500'
+                }`}
+                onPress={button.onPress}
+                activeOpacity={0.8}
+              >
+                <Text className={`text-lg font-semibold ${
+                  button.style === 'cancel' 
+                    ? 'text-gray-700' 
+                    : 'text-white'
+                }`}>
+                  {button.text}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+};
 
 export default function VerifyEmail(): React.JSX.Element {
   const router = useRouter();
@@ -21,6 +151,25 @@ export default function VerifyEmail(): React.JSX.Element {
   const [resendLoading, setResendLoading] = useState<boolean>(false);
   const [otp, setOtp] = useState<string[]>(["", "", "", "", "", ""]);
   const [userEmail, setUserEmail] = useState<string>("");
+  
+  // Modal states
+  const [modalConfig, setModalConfig] = useState<{
+    visible: boolean;
+    type: 'success' | 'error' | 'info' | 'warning';
+    title: string;
+    message: string;
+    buttons: Array<{
+      text: string;
+      onPress: () => void;
+      style?: 'default' | 'cancel' | 'destructive';
+    }>;
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+    buttons: []
+  });
   
   const otpRefs = useRef<(TextInput | null)[]>([]);
 
@@ -38,6 +187,30 @@ export default function VerifyEmail(): React.JSX.Element {
     
     getStoredEmail();
   }, []);
+
+  // Custom Alert function
+  const showCustomAlert = (
+    type: 'success' | 'error' | 'info' | 'warning',
+    title: string,
+    message: string,
+    buttons: Array<{
+      text: string;
+      onPress: () => void;
+      style?: 'default' | 'cancel' | 'destructive';
+    }>
+  ) => {
+    setModalConfig({
+      visible: true,
+      type,
+      title,
+      message,
+      buttons
+    });
+  };
+
+  const hideModal = () => {
+    setModalConfig(prev => ({ ...prev, visible: false }));
+  };
 
   const handleOtpChange = (value: string, index: number) => {
     // Only allow digits
@@ -157,12 +330,32 @@ export default function VerifyEmail(): React.JSX.Element {
 
   const handleContinue = async () => {
     if (!isOtpComplete) {
-      Alert.alert('Incomplete OTP', 'Please enter all 6 digits of the verification code.');
+      showCustomAlert(
+        'warning',
+        'Incomplete OTP',
+        'Please enter all 6 digits of the verification code.',
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
       return;
     }
 
     if (!userEmail || userEmail === "your-email@example.com") {
-      Alert.alert('Error', 'Email not found. Please go back and register again.');
+      showCustomAlert(
+        'error',
+        'Error',
+        'Email not found. Please go back and register again.',
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
       return;
     }
 
@@ -179,13 +372,17 @@ export default function VerifyEmail(): React.JSX.Element {
       // Clear stored email after successful verification
       await AsyncStorage.removeItem('userEmail');
       
-      Alert.alert(
-        'Registration Successful!', 
-        'Your account has been verified successfully.',
+      showCustomAlert(
+        'success',
+        'Registration Successful!',
+        'Your account has been verified successfully. You can now access all features.',
         [
           {
-            text: 'Continue',
-            onPress: () => router.push("/(auth)/email-login")
+            text: 'Continue to Login',
+            onPress: () => {
+              hideModal();
+              setTimeout(() => router.push("/(auth)/email-login"), 300);
+            }
           }
         ]
       );
@@ -205,16 +402,18 @@ export default function VerifyEmail(): React.JSX.Element {
         errorMessage = error.message;
       }
       
-      Alert.alert(
-        'Verification Failed', 
+      showCustomAlert(
+        'error',
+        'Verification Failed',
         errorMessage,
         [
           {
             text: 'Try Again',
             onPress: () => {
+              hideModal();
               // Clear OTP fields and focus first input
               setOtp(["", "", "", "", "", ""]);
-              otpRefs.current[0]?.focus();
+              setTimeout(() => otpRefs.current[0]?.focus(), 100);
             }
           }
         ]
@@ -227,7 +426,17 @@ export default function VerifyEmail(): React.JSX.Element {
   // IMPROVED: Better resend handler with proper error handling
   const handleResendCode = async () => {
     if (!userEmail || userEmail === "your-email@example.com") {
-      Alert.alert('Error', 'Email not found. Please go back and register again.');
+      showCustomAlert(
+        'error',
+        'Error',
+        'Email not found. Please go back and register again.',
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
       return;
     }
 
@@ -248,9 +457,16 @@ export default function VerifyEmail(): React.JSX.Element {
       setOtp(["", "", "", "", "", ""]);
       otpRefs.current[0]?.focus();
       
-      Alert.alert(
-        'Code Sent!', 
-        'A new verification code has been sent to your email address.'
+      showCustomAlert(
+        'success',
+        'Code Sent!',
+        'A new verification code has been sent to your email address.',
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
       );
       
     } catch (error: any) {
@@ -270,117 +486,138 @@ export default function VerifyEmail(): React.JSX.Element {
         errorMessage = error.message;
       }
       
-      Alert.alert('Failed to Resend', errorMessage);
+      showCustomAlert(
+        'error',
+        'Failed to Resend',
+        errorMessage,
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
     } finally {
       setResendLoading(false);
     }
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
-      <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
-      <KeyboardAvoidingView
+    <SafeAreaView className="flex-1">
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      
+      {/* Background Image */}
+      <ImageBackground 
+        source={require('../../assets/images/page-bg.jpg')}
         className="flex-1"
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        resizeMode="cover"
       >
-        <View className="flex-1 pt-10">
-          {/* Header with back button */}
-          <View className="px-6 pt-4 pb-4">
-            <TouchableOpacity 
-              onPress={() => router.back()}
-              className="w-10 h-10 rounded-full bg-white items-center justify-center shadow-sm border border-gray-100"
+        <KeyboardAvoidingView
+          className="flex-1"
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <View className="flex-1 pt-16">
+            {/* Header with back button */}
+            <View className="px-6 pt-4 pb-4">
+              <TouchableOpacity 
+                onPress={() => router.back()}
+                className="w-10 h-10 rounded-full bg-white/95 items-center justify-center shadow-lg border border-white/30"
+              >
+                <Ionicons name="arrow-back" size={20} color="#374151" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Scrollable content */}
+            <ScrollView 
+              className="flex-1 px-6" 
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ flexGrow: 1 }}
             >
-              <Ionicons name="arrow-back" size={20} color="#374151" />
-            </TouchableOpacity>
-          </View>
+              <View className="flex-1">
+                {/* Title and description - FIXED: 2 lines max */}
+                <View className="mb-8">
+                  <Text className="text-3xl font-bold text-black mb-4 leading-tight">
+                    Verify email id
+                  </Text>
+                  <Text className="text-base text-black/80 leading-6">
+                    Enter the verification code that we have sent to{"\n"}
+                    <Text className="font-medium text-black">{userEmail}</Text>
+                  </Text>
+                </View>
 
-          {/* Scrollable content */}
-          <ScrollView 
-            className="flex-1 px-6" 
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ flexGrow: 1 }}
-          >
-            <View className="flex-1">
-              {/* Title and description */}
-              <View className="mb-8">
-                <Text className="text-3xl font-bold text-gray-900 mb-4 leading-tight">
-                  Verify email id
-                </Text>
-                <Text className="text-base text-gray-600 leading-6">
-                  Enter the 6-digit verification code that we have sent to{"\n"}
-                  <Text className="font-medium text-gray-900">{userEmail}</Text>
-                </Text>
-              </View>
+                {/* OTP Input Boxes - 6 boxes in single horizontal line */}
+                <View className="mb-8 px-2">
+                  <View className="flex-row justify-between items-center">
+                    {otp.map((digit, index) => (
+                      <TextInput
+                        key={index}
+                        ref={ref => { otpRefs.current[index] = ref; }}
+                        className={`w-12 h-14 bg-white/95 border-2 rounded-lg text-center text-xl font-bold text-gray-900 shadow-lg ${
+                          digit ? 'border-violet-500 bg-violet-50/95' : 'border-white/50'
+                        }`}
+                        value={digit}
+                        onChangeText={(value) => handleOtpChange(value, index)}
+                        onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
+                        keyboardType="number-pad"
+                        maxLength={1}
+                        selectTextOnFocus
+                      />
+                    ))}
+                  </View>
+                </View>
 
-              {/* OTP Input Boxes - 6 boxes in single horizontal line */}
-              <View className="mb-8 px-4">
-                <View className="flex-row justify-between items-center">
-                  {otp.map((digit, index) => (
-                    <TextInput
-                      key={index}
-                      ref={ref => { otpRefs.current[index] = ref; }}
-                      className={`w-12 h-14 bg-white border-2 rounded-lg text-center text-xl font-bold text-gray-900 ${
-                        digit ? 'border-violet-500 bg-violet-50' : 'border-gray-300'
-                      }`}
-                      value={digit}
-                      onChangeText={(value) => handleOtpChange(value, index)}
-                      onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
-                      keyboardType="number-pad"
-                      maxLength={1}
-                      selectTextOnFocus
-                      style={{
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.1,
-                        shadowRadius: 3,
-                        elevation: 2,
-                      }}
-                    />
-                  ))}
+                {/* Resend code text */}
+                <View className="mb-8 items-center">
+                  <Text className="text-sm text-black/70 text-center mb-2">
+                    Haven't got the code yet?
+                  </Text>
+                  <TouchableOpacity 
+                    onPress={handleResendCode}
+                    disabled={resendLoading}
+                    className={`${resendLoading ? 'opacity-50' : ''} bg-white/95 px-4 py-2 rounded-lg shadow-lg border border-white/30`}
+                  >
+                    <Text className={`font-semibold text-base ${
+                      resendLoading ? 'text-gray-400' : 'text-violet-500'
+                    }`}>
+                      {resendLoading ? 'Sending...' : 'Resend'}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               </View>
+            </ScrollView>
 
-              {/* Resend code text */}
-              <View className="mb-8 items-center">
-                <Text className="text-sm text-gray-600 text-center mb-2">
-                  Haven't got the code yet?
+            {/* Continue Button - Fixed at bottom */}
+            <View className="px-6 pb-8">
+              <TouchableOpacity
+                className={`py-4 px-6 rounded-xl items-center shadow-lg ${
+                  loading ? "opacity-50" : ""
+                }`}
+                style={{ 
+                  backgroundColor: isOtpComplete ? '#8B5CF6' : '#D1D5DB90' 
+                }}
+                disabled={loading || !isOtpComplete}
+                onPress={handleContinue}
+              >
+                <Text className={`text-base font-semibold ${
+                  isOtpComplete ? 'text-white' : 'text-gray-500'
+                }`}>
+                  {loading ? "Verifying..." : "Continue"}
                 </Text>
-                <TouchableOpacity 
-                  onPress={handleResendCode}
-                  disabled={resendLoading}
-                  className={resendLoading ? 'opacity-50' : ''}
-                >
-                  <Text className={`font-semibold text-base underline ${
-                    resendLoading ? 'text-gray-400' : 'text-violet-500'
-                  }`}>
-                    {resendLoading ? 'Sending...' : 'Resend Code'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
             </View>
-          </ScrollView>
-
-          {/* Continue Button - Fixed at bottom */}
-          <View className="px-6 pb-8">
-            <TouchableOpacity
-              className={`py-4 px-6 rounded-xl items-center shadow-sm ${
-                loading ? "opacity-50" : ""
-              }`}
-              style={{ 
-                backgroundColor: isOtpComplete ? '#8B5CF6' : '#D1D5DB' 
-              }}
-              disabled={loading || !isOtpComplete}
-              onPress={handleContinue}
-            >
-              <Text className={`text-base font-semibold ${
-                isOtpComplete ? 'text-white' : 'text-gray-500'
-              }`}>
-                {loading ? "Verifying..." : "Continue"}
-              </Text>
-            </TouchableOpacity>
           </View>
-        </View>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </ImageBackground>
+
+      {/* Custom Modal */}
+      <CustomModal
+        visible={modalConfig.visible}
+        type={modalConfig.type}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        buttons={modalConfig.buttons}
+        onClose={hideModal}
+      />
     </SafeAreaView>
   );
 }

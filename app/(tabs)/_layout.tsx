@@ -77,6 +77,20 @@ const TabsLayout = () => {
         }}
       />
 
+      {/* Notifications */}
+      <Tabs.Screen
+        name="alerts"
+        options={{
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "notifications" : "notifications-outline"}
+              size={size}
+              color={color}
+            />
+          ),
+        }}
+      />
+
       {/* Profile */}
       <Tabs.Screen
         name="profile"
@@ -95,4 +109,3 @@ const TabsLayout = () => {
 };
 
 export default TabsLayout;
-//(tabs)/_layout.tsx code

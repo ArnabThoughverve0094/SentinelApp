@@ -13,10 +13,12 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
+import SentinelFAQ from '../../components/SentinelFAQ'; // Import your FAQ component
 
 export default function ProfilePage(): React.JSX.Element {
   const router = useRouter();
   const [showAccountModal, setShowAccountModal] = useState<boolean>(false);
+  const [showFAQModal, setShowFAQModal] = useState<boolean>(false);
   const [userId, setUserId] = useState("1");
   const [userEmail, setUserEmail] = useState("");
   const [userName, setUserName] = useState("");
@@ -49,7 +51,6 @@ export default function ProfilePage(): React.JSX.Element {
         console.log("userNickName: ", fetchuserNickName);
         setUserNickName(fetchuserNickName);
       }
-      
     } catch (error) {
       console.error('Error loading user data:', error);
     }
@@ -58,7 +59,6 @@ export default function ProfilePage(): React.JSX.Element {
   const handleLogout = async () => {
     try {
       console.log('Logging out user...');
-      
       // Clear all stored user data and tokens
       await AsyncStorage.multiRemove([
         'userToken',
@@ -72,15 +72,10 @@ export default function ProfilePage(): React.JSX.Element {
         'tokenExpiry',
         'userData',
       ]);
-      
       console.log('✅ User data cleared');
-      
-      // Close modal first
       setShowAccountModal(false);
-      
       // Navigate to auth page (not directly to login)
       router.replace('/(auth)');
-      
     } catch (error) {
       console.error('❌ Error during logout:', error);
       Alert.alert('Error', 'Failed to logout. Please try again.');
@@ -92,15 +87,8 @@ export default function ProfilePage(): React.JSX.Element {
       'Logout',
       'Are you sure you want to logout?',
       [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: handleLogout,
-        },
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Logout', style: 'destructive', onPress: handleLogout },
       ]
     );
   };
@@ -126,6 +114,12 @@ export default function ProfilePage(): React.JSX.Element {
     console.log('Navigate to Help & Support');
   };
 
+  const handleFAQ = () => {
+    setShowAccountModal(false);
+    setShowFAQModal(true);
+    console.log('Opening FAQ');
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-white">
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
@@ -134,9 +128,8 @@ export default function ProfilePage(): React.JSX.Element {
       {/* Header with Account Button */}
       <View className="flex-row items-center justify-between px-5 py-4 pt-10 border-b border-gray-100">
         <Text className="text-2xl font-bold text-black">Profile</Text>
-        
         {/* Account Settings Button */}
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => setShowAccountModal(true)}
           className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center"
         >
@@ -186,7 +179,6 @@ export default function ProfilePage(): React.JSX.Element {
             <TouchableOpacity className="bg-violet-500 py-4 px-6 rounded-2xl mb-4 shadow-sm">
               <Text className="text-white font-semibold text-center text-base">Edit Profile</Text>
             </TouchableOpacity>
-            
             <TouchableOpacity className="border-2 border-gray-200 py-4 px-6 rounded-2xl bg-white">
               <Text className="text-gray-900 font-semibold text-center text-base">Share Profile</Text>
             </TouchableOpacity>
@@ -247,7 +239,6 @@ export default function ProfilePage(): React.JSX.Element {
                   <Text className="flex-1 text-gray-900 font-medium">Profile Settings</Text>
                   <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
                 </TouchableOpacity>
-
                 <TouchableOpacity 
                   onPress={handleAppSettings}
                   className="flex-row items-center p-4 rounded-xl active:bg-gray-50"
@@ -258,7 +249,6 @@ export default function ProfilePage(): React.JSX.Element {
                   <Text className="flex-1 text-gray-900 font-medium">App Settings</Text>
                   <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
                 </TouchableOpacity>
-
                 <TouchableOpacity 
                   onPress={handleHelpSupport}
                   className="flex-row items-center p-4 rounded-xl active:bg-gray-50"
@@ -269,10 +259,19 @@ export default function ProfilePage(): React.JSX.Element {
                   <Text className="flex-1 text-gray-900 font-medium">Help & Support</Text>
                   <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
                 </TouchableOpacity>
-
+                {/* FAQ Option */}
+                <TouchableOpacity 
+                  onPress={handleFAQ}
+                  className="flex-row items-center p-4 rounded-xl active:bg-gray-50"
+                >
+                  <View className="w-10 h-10 bg-purple-100 rounded-full items-center justify-center mr-4">
+                    <Ionicons name="help-outline" size={20} color="#8B5CF6" />
+                  </View>
+                  <Text className="flex-1 text-gray-900 font-medium">F A Q</Text>
+                  <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+                </TouchableOpacity>
                 {/* Divider */}
                 <View className="h-px bg-gray-200 my-2" />
-
                 {/* Logout Button */}
                 <TouchableOpacity 
                   onPress={confirmLogout}
@@ -288,6 +287,46 @@ export default function ProfilePage(): React.JSX.Element {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* Full Screen FAQ Modal */}
+      <Modal
+        visible={showFAQModal}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setShowFAQModal(false)}
+      >
+        <SafeAreaView className="flex-1 bg-white">
+          <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+          {/* FAQ Header with close icon and FAQ title */}
+          <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
+            <Text className="text-2xl font-bold text-black">F A Q</Text>
+            <TouchableOpacity 
+              onPress={() => setShowFAQModal(false)}
+              className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center"
+            >
+              <Ionicons name="close" size={20} color="#374151" />
+            </TouchableOpacity>
+          </View>
+          {/* FAQ Content */}
+          <ScrollView className="flex-1 px-5 py-6">
+            {/* FAQ Title + Subtitle */}
+            <SentinelFAQ showHeader={true} />
+            {/* Contact Support Section */}
+            <View className="mt-8 bg-violet-50 rounded-xl p-6 border border-violet-100">
+              <Text className="text-lg font-semibold text-gray-900 mb-2">
+                Still need help?
+              </Text>
+              <Text className="text-sm text-gray-600 mb-4 leading-6">
+                Can't find what you're looking for? Our support team is ready to assist you with any questions or concerns.
+              </Text>
+              <TouchableOpacity className="bg-violet-500 py-3 px-6 rounded-lg items-center mb-8">
+                <Text className="text-white font-semibold text-sm">Contact Support</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={{ height: 24 }} />
+          </ScrollView>
+        </SafeAreaView>
       </Modal>
     </SafeAreaView>
   );
