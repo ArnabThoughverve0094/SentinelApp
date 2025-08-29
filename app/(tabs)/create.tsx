@@ -5,13 +5,14 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from "expo-router";
 import { addDoc, collection } from "firebase/firestore";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
+  Animated,
   Dimensions,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -19,10 +20,190 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 
 const { width: screenWidth } = Dimensions.get('window');
+
+// Custom Modal Component
+interface CustomModalProps {
+  visible: boolean;
+  type: 'success' | 'error' | 'info' | 'warning';
+  title: string;
+  message: string;
+  buttons: Array<{
+    text: string;
+    onPress: () => void;
+    style?: 'default' | 'cancel' | 'destructive';
+  }>;
+  onClose?: () => void;
+}
+
+const CustomModal: React.FC<CustomModalProps> = ({
+  visible,
+  type,
+  title,
+  message,
+  buttons,
+  onClose
+}) => {
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    if (visible) {
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      scaleAnim.setValue(0);
+    }
+  }, [visible, scaleAnim]);
+
+  const getModalStyle = () => {
+    switch (type) {
+      case 'success':
+        return {
+          iconName: 'checkmark-circle' as const,
+          iconColor: '#22C55E',
+          iconBg: '#F0FDF4',
+        };
+      case 'error':
+        return {
+          iconName: 'close-circle' as const,
+          iconColor: '#EF4444',
+          iconBg: '#FEF2F2',
+        };
+      case 'warning':
+        return {
+          iconName: 'warning' as const,
+          iconColor: '#F59E0B',
+          iconBg: '#FFFBEB',
+        };
+      default:
+        return {
+          iconName: 'information-circle' as const,
+          iconColor: '#3B82F6',
+          iconBg: '#EFF6FF',
+        };
+    }
+  };
+
+  const modalStyle = getModalStyle();
+
+  if (!visible) return null;
+
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={{
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 24,
+      }}>
+        <Animated.View 
+          style={[
+            { transform: [{ scale: scaleAnim }] },
+            {
+              backgroundColor: 'white',
+              borderRadius: 24,
+              padding: 32,
+              alignItems: 'center',
+              width: '100%',
+              maxWidth: 320,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.3,
+              shadowRadius: 20,
+              elevation: 10,
+            }
+          ]}
+        >
+          {/* Icon */}
+          <View style={{
+            width: 80,
+            height: 80,
+            backgroundColor: modalStyle.iconBg,
+            borderRadius: 40,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 24,
+          }}>
+            <Ionicons name={modalStyle.iconName} size={48} color={modalStyle.iconColor} />
+          </View>
+
+          {/* Title */}
+          <Text style={{
+            fontSize: 22,
+            fontWeight: 'bold',
+            color: '#111827',
+            textAlign: 'center',
+            marginBottom: 12,
+          }}>
+            {title}
+          </Text>
+
+          {/* Message */}
+          <Text style={{
+            fontSize: 16,
+            color: '#6B7280',
+            textAlign: 'center',
+            marginBottom: 32,
+            lineHeight: 24,
+          }}>
+            {message}
+          </Text>
+
+          {/* Buttons */}
+          <View style={{ width: '100%' }}>
+            {buttons.map((button, index) => (
+              <TouchableOpacity
+                key={index}
+                style={{
+                  paddingVertical: 16,
+                  paddingHorizontal: 32,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  width: '100%',
+                  marginBottom: index < buttons.length - 1 ? 12 : 0,
+                  backgroundColor: 
+                    button.style === 'cancel' 
+                      ? '#F3F4F6' 
+                      : button.style === 'destructive'
+                      ? '#EF4444'
+                      : '#8B5CF6',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 4,
+                  elevation: 3,
+                }}
+                onPress={button.onPress}
+                activeOpacity={0.8}
+              >
+                <Text style={{
+                  fontSize: 18,
+                  fontWeight: '600',
+                  color: button.style === 'cancel' ? '#374151' : 'white',
+                }}>
+                  {button.text}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+};
 
 type SelectedMedia = { uri: string; name: string; type: string };
 
@@ -33,6 +214,49 @@ export default function CreatePost() {
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(false);
+
+  // Modal states
+  const [modalConfig, setModalConfig] = useState<{
+    visible: boolean;
+    type: 'success' | 'error' | 'info' | 'warning';
+    title: string;
+    message: string;
+    buttons: Array<{
+      text: string;
+      onPress: () => void;
+      style?: 'default' | 'cancel' | 'destructive';
+    }>;
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+    buttons: []
+  });
+
+  // Custom Alert function
+  const showCustomAlert = (
+    type: 'success' | 'error' | 'info' | 'warning',
+    title: string,
+    message: string,
+    buttons: Array<{
+      text: string;
+      onPress: () => void;
+      style?: 'default' | 'cancel' | 'destructive';
+    }>
+  ) => {
+    setModalConfig({
+      visible: true,
+      type,
+      title,
+      message,
+      buttons
+    });
+  };
+
+  const hideModal = () => {
+    setModalConfig(prev => ({ ...prev, visible: false }));
+  };
 
   // Updated with 5 suggested images to show exactly 4 full images
   const suggestedImages: string[] = [
@@ -61,7 +285,17 @@ export default function CreatePost() {
   const pickImages = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please grant camera roll permissions.');
+      showCustomAlert(
+        'warning',
+        'Permission needed',
+        'Please grant camera roll permissions to select images.',
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -83,7 +317,17 @@ export default function CreatePost() {
   const pickVideo = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please grant camera roll permissions.');
+      showCustomAlert(
+        'warning',
+        'Permission needed',
+        'Please grant camera roll permissions to select videos.',
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -119,7 +363,17 @@ export default function CreatePost() {
         ]);
       }
     } catch (e) {
-      Alert.alert("Document picker error", String(e));
+      showCustomAlert(
+        'error',
+        'Document picker error',
+        String(e),
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
     }
   };
 
@@ -191,7 +445,17 @@ export default function CreatePost() {
   // Post Submit Handler
   const handlePostNow = async () => {
     if (!postText.trim() && selectedMedia.length === 0) {
-      Alert.alert("Error", "Please add some content or media before posting.");
+      showCustomAlert(
+        'warning',
+        'Empty Post',
+        'Please add some content or media before posting.',
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
       return;
     }
 
@@ -219,10 +483,34 @@ export default function CreatePost() {
           }
         } catch (uploadError) {
           console.error(`Failed to upload ${asset.name}:`, uploadError);
-          Alert.alert("Upload Error", `Failed to upload ${asset.name}. Continue anyway?`, [
-            { text: "Cancel", style: "cancel", onPress: () => { setLoading(false); return; } },
-            { text: "Continue", onPress: () => console.log("Continuing without this file") }
-          ]);
+          
+          // Show custom modal for upload error with choice to continue or cancel
+          return new Promise<void>((resolve) => {
+            showCustomAlert(
+              'error',
+              'Upload Error',
+              `Failed to upload ${asset.name}. Continue anyway?`,
+              [
+                {
+                  text: 'Cancel',
+                  style: 'cancel',
+                  onPress: () => {
+                    hideModal();
+                    setLoading(false);
+                    resolve();
+                  }
+                },
+                {
+                  text: 'Continue',
+                  onPress: () => {
+                    hideModal();
+                    console.log("Continuing without this file");
+                    resolve();
+                  }
+                }
+              ]
+            );
+          });
         }
       }
 
@@ -244,11 +532,34 @@ export default function CreatePost() {
 
       setPostText('');
       setSelectedMedia([]);
-      Alert.alert("Success", `Post created successfully! ${uploadedUrls.length} media files uploaded.`);
-      setTimeout(() => router.back(), 1000);
+      
+      showCustomAlert(
+        'success',
+        'Success!',
+        `Post created successfully! ${uploadedUrls.length} media files uploaded.`,
+        [
+          {
+            text: 'Continue',
+            onPress: () => {
+              hideModal();
+              setTimeout(() => router.back(), 500);
+            }
+          }
+        ]
+      );
     } catch (e) {
       console.error("Post creation error:", e);
-      Alert.alert('Error', 'Failed to create post: ' + String(e));
+      showCustomAlert(
+        'error',
+        'Post Creation Failed',
+        'Failed to create post: ' + String(e),
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
     } finally {
       setLoading(false);
     }
@@ -272,7 +583,8 @@ export default function CreatePost() {
             flexDirection: "row", 
             justifyContent: "space-between", 
             alignItems: "center", 
-            padding: 16, 
+            padding: 16,
+            marginTop: 16,
             borderBottomWidth: 1, 
             borderColor: "#eee" 
           }}>
@@ -548,7 +860,16 @@ export default function CreatePost() {
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Custom Modal */}
+      <CustomModal
+        visible={modalConfig.visible}
+        type={modalConfig.type}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        buttons={modalConfig.buttons}
+        onClose={hideModal}
+      />
     </SafeAreaView>
   );
 }
-//Final create post

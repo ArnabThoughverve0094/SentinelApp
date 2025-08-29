@@ -2,9 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Link, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
-  Alert,
   FlatList,
   ImageBackground,
   KeyboardAvoidingView,
@@ -18,7 +17,136 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Animated,
 } from 'react-native';
+
+// Custom Modal Component
+interface CustomModalProps {
+  visible: boolean;
+  type: 'success' | 'error' | 'info' | 'warning';
+  title: string;
+  message: string;
+  buttons: Array<{
+    text: string;
+    onPress: () => void;
+    style?: 'default' | 'cancel' | 'destructive';
+  }>;
+  onClose?: () => void;
+}
+
+const CustomModal: React.FC<CustomModalProps> = ({
+  visible,
+  type,
+  title,
+  message,
+  buttons,
+  onClose
+}) => {
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      scaleAnim.setValue(0);
+    }
+  }, [visible, scaleAnim]);
+
+  const getModalStyle = () => {
+    switch (type) {
+      case 'success':
+        return {
+          iconName: 'checkmark-circle' as const,
+          iconColor: '#22C55E',
+          iconBg: 'bg-green-100',
+        };
+      case 'error':
+        return {
+          iconName: 'close-circle' as const,
+          iconColor: '#EF4444',
+          iconBg: 'bg-red-100',
+        };
+      case 'warning':
+        return {
+          iconName: 'warning' as const,
+          iconColor: '#F59E0B',
+          iconBg: 'bg-yellow-100',
+        };
+      default:
+        return {
+          iconName: 'information-circle' as const,
+          iconColor: '#3B82F6',
+          iconBg: 'bg-blue-100',
+        };
+    }
+  };
+
+  const modalStyle = getModalStyle();
+
+  if (!visible) return null;
+
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View className="flex-1 bg-black/50 items-center justify-center px-6">
+        <Animated.View 
+          style={[{ transform: [{ scale: scaleAnim }] }]}
+          className="bg-white rounded-3xl p-8 items-center w-full max-w-sm shadow-2xl"
+        >
+          {/* Icon */}
+          <View className={`w-20 h-20 ${modalStyle.iconBg} rounded-full items-center justify-center mb-6`}>
+            <Ionicons name={modalStyle.iconName} size={48} color={modalStyle.iconColor} />
+          </View>
+
+          {/* Title */}
+          <Text className="text-2xl font-bold text-gray-900 text-center mb-3">
+            {title}
+          </Text>
+
+          {/* Message */}
+          <Text className="text-base text-gray-600 text-center mb-8 leading-6">
+            {message}
+          </Text>
+
+          {/* Buttons */}
+          <View className="w-full space-y-3">
+            {buttons.map((button, index) => (
+              <TouchableOpacity
+                key={index}
+                className={`py-4 px-8 rounded-xl items-center w-full shadow-lg ${
+                  button.style === 'cancel' 
+                    ? 'bg-gray-200' 
+                    : button.style === 'destructive'
+                    ? 'bg-red-500'
+                    : 'bg-violet-500'
+                }`}
+                onPress={button.onPress}
+                activeOpacity={0.8}
+              >
+                <Text className={`text-lg font-semibold ${
+                  button.style === 'cancel' 
+                    ? 'text-gray-700' 
+                    : 'text-white'
+                }`}>
+                  {button.text}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+};
 
 // Country list
 const COUNTRIES = [
@@ -40,7 +168,7 @@ const PasswordRequirements = ({ password }: { password: string }) => {
 
   const hasMinLength = password.length >= 8;
   const hasCapital = /[A-Z]/.test(password);
-  const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+  const hasSpecial = /[!@#$%^&\*()\_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
   const hasDigits = (password.match(/\d/g) || []).length >= 3;
 
   const allMet = hasMinLength && hasCapital && hasSpecial && hasDigits;
@@ -82,6 +210,25 @@ export default function Register(): React.JSX.Element {
   // Country dropdown state
   const [showCountryDropdown, setShowCountryDropdown] = useState<boolean>(false);
   
+  // Modal states
+  const [modalConfig, setModalConfig] = useState<{
+    visible: boolean;
+    type: 'success' | 'error' | 'info' | 'warning';
+    title: string;
+    message: string;
+    buttons: Array<{
+      text: string;
+      onPress: () => void;
+      style?: 'default' | 'cancel' | 'destructive';
+    }>;
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+    buttons: []
+  });
+  
   // Error states
   const [errors, setErrors] = useState<{
     name?: string;
@@ -93,6 +240,30 @@ export default function Register(): React.JSX.Element {
     country?: string;
     terms?: string;
   }>({});
+
+  // Custom Alert function
+  const showCustomAlert = (
+    type: 'success' | 'error' | 'info' | 'warning',
+    title: string,
+    message: string,
+    buttons: Array<{
+      text: string;
+      onPress: () => void;
+      style?: 'default' | 'cancel' | 'destructive';
+    }>
+  ) => {
+    setModalConfig({
+      visible: true,
+      type,
+      title,
+      message,
+      buttons
+    });
+  };
+
+  const hideModal = () => {
+    setModalConfig(prev => ({ ...prev, visible: false }));
+  };
 
   // Email existence check
   const checkEmailExists = async (email: string): Promise<boolean> => {
@@ -136,7 +307,7 @@ export default function Register(): React.JSX.Element {
       errors.push('1 capital');
     }
     
-    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+    if (!/[!@#$%^&\*()\_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
       errors.push('1 special char');
     }
     
@@ -306,13 +477,17 @@ export default function Register(): React.JSX.Element {
       await AsyncStorage.setItem('userEmail', email.trim());
       console.log('Email stored in AsyncStorage:', email.trim());
       
-      Alert.alert(
+      showCustomAlert(
+        'success',
         'Success!',
         'Registration successful! Please check your email for verification code.',
         [
           {
             text: 'Continue',
-            onPress: () => router.push("/(auth)/verify-email")
+            onPress: () => {
+              hideModal();
+              setTimeout(() => router.push("/(auth)/verify-email"), 300);
+            }
           }
         ]
       );
@@ -328,13 +503,33 @@ export default function Register(): React.JSX.Element {
           errorMessage = 'Network error. Please check your internet connection.';
         }
         
-        Alert.alert('Registration Failed', errorMessage);
+        showCustomAlert(
+          'error',
+          'Registration Failed',
+          errorMessage,
+          [
+            {
+              text: 'OK',
+              onPress: hideModal
+            }
+          ]
+        );
       } else if (error.message.includes('already exists') || error.message.includes('User already exists')) {
         // For user exists error, just set the field error without popup
         setErrors(prev => ({ ...prev, email: 'User already exists with this email' }));
       } else {
         // For other API errors, show popup
-        Alert.alert('Registration Failed', error.message || 'Registration failed. Please try again.');
+        showCustomAlert(
+          'error',
+          'Registration Failed',
+          error.message || 'Registration failed. Please try again.',
+          [
+            {
+              text: 'OK',
+              onPress: hideModal
+            }
+          ]
+        );
       }
     } finally {
       setLoading(false);
@@ -374,7 +569,17 @@ export default function Register(): React.JSX.Element {
     const termsUrl = 'https://docs.google.com/document/d/1S64mjGx4R0gcq3OHkJ08xGsEno0FVvd9QZi8nisbRI0/edit?usp=sharing';
     Linking.openURL(termsUrl).catch(err => {
       console.error('Failed to open terms URL:', err);
-      Alert.alert('Error', 'Unable to open Terms & Conditions');
+      showCustomAlert(
+        'error',
+        'Error',
+        'Unable to open Terms & Conditions',
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
     });
   };
 
@@ -382,7 +587,17 @@ export default function Register(): React.JSX.Element {
     const privacyUrl = 'https://docs.google.com/document/d/1S64mjGx4R0gcq3OHkJ08xGsEno0FVvd9QZi8nisbRI0/edit?usp=sharing';
     Linking.openURL(privacyUrl).catch(err => {
       console.error('Failed to open privacy URL:', err);
-      Alert.alert('Error', 'Unable to open Privacy Policy');
+      showCustomAlert(
+        'error',
+        'Error',
+        'Unable to open Privacy Policy',
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
     });
   };
 
@@ -400,9 +615,9 @@ export default function Register(): React.JSX.Element {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         {/* Header with back button */}
-        <View className="px-6 pt-10 pb-4">
+        <View className="px-6 pt-16 pb-4">
           <Link href="/(auth)/email-login" asChild>
-            <TouchableOpacity className="w-10 h-10 rounded-full bg-white items-center justify-center shadow-sm border border-gray-100">
+            <TouchableOpacity className="w-10 h-10 rounded-full bg-white/95 items-center justify-center shadow-lg border border-white/30">
               <Ionicons name="arrow-back" size={20} color="#374151" />
             </TouchableOpacity>
           </Link>
@@ -413,10 +628,10 @@ export default function Register(): React.JSX.Element {
           <View className="px-6">
             {/* Title section */}
             <View className="mb-8">
-              <Text className="text-3xl font-bold text-gray-900 mb-3 leading-tight">
+              <Text className="text-3xl font-bold text-black mb-3 leading-tight">
                 Create New Account
               </Text>
-              <Text className="text-base text-black">
+              <Text className="text-base text-black/80">
                 Start sharing your moments with the world.
               </Text>
             </View>
@@ -425,10 +640,10 @@ export default function Register(): React.JSX.Element {
             <View className="mb-8">
               {/* Name input */}
               <View className="mb-5">
-                <Text className="text-sm font-medium text-gray-700 mb-2">Name  <Text className="text-red-500">*</Text></Text>
+                <Text className="text-sm font-medium text-black/90 mb-2">Name  <Text className="text-red-500">*</Text></Text>
                 <TextInput
-                  className={`w-full px-4 py-3 bg-white border rounded-xl text-base text-gray-900 ${
-                    errors.name ? 'border-red-500' : 'border-gray-200'
+                  className={`w-full px-4 py-3 bg-white/95 border rounded-xl text-base text-gray-900 shadow-lg ${
+                    errors.name ? 'border-red-500' : 'border-white/30'
                   }`}
                   placeholder="Enter your full name"
                   placeholderTextColor="#9CA3AF"
@@ -447,12 +662,12 @@ export default function Register(): React.JSX.Element {
 
               {/* Email input */}
               <View className="mb-5">
-                <Text className="text-sm font-medium text-gray-700 mb-2">
-                                Email <Text className="text-red-500">*</Text>
-                              </Text>
+                <Text className="text-sm font-medium text-black/90 mb-2">
+                  Email <Text className="text-red-500">*</Text>
+                </Text>
                 <TextInput
-                  className={`w-full px-4 py-3 bg-white border rounded-xl text-base text-gray-900 ${
-                    errors.email ? 'border-red-500' : 'border-gray-200'
+                  className={`w-full px-4 py-3 bg-white/95 border rounded-xl text-base text-gray-900 shadow-lg ${
+                    errors.email ? 'border-red-500' : 'border-white/30'
                   }`}
                   placeholder="username@gmail.com"
                   placeholderTextColor="#9CA3AF"
@@ -469,11 +684,11 @@ export default function Register(): React.JSX.Element {
 
               {/* Password input */}
               <View className="mb-5">
-                <Text className="text-sm font-medium text-gray-700 mb-2">Password  <Text className="text-red-500">*</Text></Text>
+                <Text className="text-sm font-medium text-black/90 mb-2">Password  <Text className="text-red-500">*</Text></Text>
                 <View className="relative">
                   <TextInput
-                    className={`w-full px-4 py-3 bg-white border rounded-xl text-base text-gray-900 pr-12 ${
-                      errors.password ? 'border-red-500' : 'border-gray-200'
+                    className={`w-full px-4 py-3 bg-white/95 border rounded-xl text-base text-gray-900 pr-12 shadow-lg ${
+                      errors.password ? 'border-red-500' : 'border-white/30'
                     }`}
                     placeholder="••••••••••"
                     placeholderTextColor="#9CA3AF"
@@ -511,11 +726,11 @@ export default function Register(): React.JSX.Element {
 
               {/* Confirm Password input */}
               <View className="mb-5">
-                <Text className="text-sm font-medium text-gray-700 mb-2">Confirm Password  <Text className="text-red-500">*</Text></Text>
+                <Text className="text-sm font-medium text-black/90 mb-2">Confirm Password  <Text className="text-red-500">*</Text></Text>
                 <View className="relative">
                   <TextInput
-                    className={`w-full px-4 py-3 bg-white border rounded-xl text-base text-gray-900 pr-12 ${
-                      errors.confirmPassword ? 'border-red-500' : 'border-gray-200'
+                    className={`w-full px-4 py-3 bg-white/95 border rounded-xl text-base text-gray-900 pr-12 shadow-lg ${
+                      errors.confirmPassword ? 'border-red-500' : 'border-white/30'
                     }`}
                     placeholder="••••••••••"
                     placeholderTextColor="#9CA3AF"
@@ -546,10 +761,10 @@ export default function Register(): React.JSX.Element {
 
               {/* Nickname input */}
               <View className="mb-5">
-                <Text className="text-sm font-medium text-gray-700 mb-2">Nickname  <Text className="text-red-500">*</Text></Text>
+                <Text className="text-sm font-medium text-black/90 mb-2">Nickname  <Text className="text-red-500">*</Text></Text>
                 <TextInput
-                  className={`w-full px-4 py-3 bg-white border rounded-xl text-base text-gray-900 ${
-                    errors.username ? 'border-red-500' : 'border-gray-200'
+                  className={`w-full px-4 py-3 bg-white/95 border rounded-xl text-base text-gray-900 shadow-lg ${
+                    errors.username ? 'border-red-500' : 'border-white/30'
                   }`}
                   placeholder="Choose a nickname"
                   placeholderTextColor="#9CA3AF"
@@ -568,10 +783,10 @@ export default function Register(): React.JSX.Element {
 
               {/* Date of Birth input */}
               <View className="mb-5">
-                <Text className="text-sm font-medium text-gray-700 mb-2">Date of Birth  <Text className="text-red-500">*</Text></Text>
+                <Text className="text-sm font-medium text-black/90 mb-2">Date of Birth  <Text className="text-red-500">*</Text></Text>
                 <TouchableOpacity
-                  className={`w-full px-4 py-3 bg-white border rounded-xl flex-row items-center justify-between ${
-                    errors.dob ? 'border-red-500' : 'border-gray-200'
+                  className={`w-full px-4 py-3 bg-white/95 border rounded-xl flex-row items-center justify-between shadow-lg ${
+                    errors.dob ? 'border-red-500' : 'border-white/30'
                   }`}
                   onPress={() => setShowDatePicker(true)}
                 >
@@ -598,10 +813,10 @@ export default function Register(): React.JSX.Element {
 
               {/* Country input */}
               <View className="mb-6">
-                <Text className="text-sm font-medium text-gray-700 mb-2">Country  <Text className="text-red-500">*</Text></Text>
+                <Text className="text-sm font-medium text-black/90 mb-2">Country  <Text className="text-red-500">*</Text></Text>
                 <TouchableOpacity
-                  className={`w-full px-4 py-3 bg-white border rounded-xl flex-row items-center justify-between ${
-                    errors.country ? 'border-red-500' : 'border-gray-200'
+                  className={`w-full px-4 py-3 bg-white/95 border rounded-xl flex-row items-center justify-between shadow-lg ${
+                    errors.country ? 'border-red-500' : 'border-white/30'
                   }`}
                   onPress={() => setShowCountryDropdown(true)}
                 >
@@ -632,7 +847,7 @@ export default function Register(): React.JSX.Element {
                     )}
                   </View>
                   <View className="flex-1">
-                    <Text className="text-sm text-gray-600 leading-5">
+                    <Text className="text-sm text-black/70 leading-5">
                       I agree to the{' '}
                       <Text 
                         className="text-violet-500 font-medium underline" 
@@ -658,7 +873,7 @@ export default function Register(): React.JSX.Element {
 
             {/* Sign Up button */}
             <TouchableOpacity 
-              className={`py-4 px-6 rounded-xl items-center shadow-sm mb-6 ${
+              className={`py-4 px-6 rounded-xl items-center shadow-lg mb-6 ${
                 loading ? "opacity-50" : ""
               }`}
               style={{ backgroundColor: '#8B5CF6' }}
@@ -672,7 +887,7 @@ export default function Register(): React.JSX.Element {
 
             {/* Sign in link */}
             <View className="flex-row justify-center mb-8">
-              <Text className="text-gray-600">Already have an account? </Text>
+              <Text className="text-black/70">Already have an account? </Text>
               <Link href="/(auth)/email-login" asChild>
                 <TouchableOpacity>
                   <Text className="text-violet-500 font-medium">Login</Text>
@@ -689,7 +904,7 @@ export default function Register(): React.JSX.Element {
           animationType="slide"
           onRequestClose={() => setShowCountryDropdown(false)}
         >
-          <View className="flex-1 justify-end bg-black bg-opacity-50">
+          <View className="flex-1 justify-end bg-black/50">
             <View className="bg-white rounded-t-3xl max-h-96">
               <View className="p-4 border-b border-gray-200">
                 <View className="flex-row items-center justify-between">
@@ -714,6 +929,16 @@ export default function Register(): React.JSX.Element {
             </View>
           </View>
         </Modal>
+
+        {/* Custom Modal */}
+        <CustomModal
+          visible={modalConfig.visible}
+          type={modalConfig.type}
+          title={modalConfig.title}
+          message={modalConfig.message}
+          buttons={modalConfig.buttons}
+          onClose={hideModal}
+        />
       </KeyboardAvoidingView>
       </ImageBackground>
     </SafeAreaView>
