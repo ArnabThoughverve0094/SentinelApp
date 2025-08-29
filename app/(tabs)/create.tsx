@@ -536,7 +536,7 @@ export default function CreatePost() {
       showCustomAlert(
         'success',
         'Success!',
-        `Post created successfully! ${uploadedUrls.length} media files uploaded.`,
+        `Post created successfully! Kindly await review from admin. ${uploadedUrls.length} media files uploaded.`,
         [
           {
             text: 'Continue',
@@ -853,7 +853,7 @@ export default function CreatePost() {
                 onPress={handlePostNow}
               >
                 <Text style={{ color: "white", fontSize: 16, fontWeight: "bold" }}>
-                  {loading ? "Posting..." : "Post Now"}
+                  {loading ? "Posting..." : "Submit Now"}
                 </Text>
               </TouchableOpacity>
             </View>
