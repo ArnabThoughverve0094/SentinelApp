@@ -48,9 +48,22 @@ export default function Index(): React.JSX.Element {
   const [isCardModalVisible, setIsCardModalVisible] = useState(false);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(-1);
   const flipCardRef = useRef<any>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const videoRefs = useRef<{ [key: string]: any }>({});
 
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
+
+  // ✅ MOVE filteredData EARLY - Before any usage
+  const filteredData = useMemo(() => {
+    return fetchedData.filter(item => {
+      if (userRole === "User") {
+        return item.isApproved;
+      }
+      return true;
+    });
+  }, [fetchedData, userRole]);
 
   // ✅ FIXED: Fetch comments from correct subcollection structure
   const fetchCommentsCount = useCallback(async (posts: PostItem[]) => {
@@ -100,12 +113,6 @@ export default function Index(): React.JSX.Element {
   const handleFetchAllData = useCallback(async (forceRefresh: boolean = false) => {
     const currentTime = Date.now();
     const cacheValidTime = 5 * 60 * 1000; // 5 minutes cache
-    
-    // if (!forceRefresh && isInitialized && fetchedData.length > 0 && 
-    //     (currentTime - lastFetchTime) < cacheValidTime) {
-    //   console.log('Using cached data, skipping fetch');
-    //   return;
-    // }
 
     setLoading(true);
     try {
@@ -213,13 +220,8 @@ export default function Index(): React.JSX.Element {
 
       });
       
-      
-      
       setLastFetchTime(currentTime);
       console.log('All Data Fetched and Sorted', `Total: ${fetchedData.length} documents`);
-      
-      // ✅ Fetch comments count after posts are loaded
-      // await fetchCommentsCount(fetchedData);
       
       setIsInitialized(true);
 
@@ -389,7 +391,8 @@ export default function Index(): React.JSX.Element {
     return urlPath.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt)$/) ? 'doc' : 'image';
   }, []);
 
-  const renderMediaContent = useCallback((item: PostItem) => {
+  // OPTIMIZED MEDIA CONTENT - REDUCED SIZES
+  const renderMediaContent = useCallback((item: PostItem, index?: number) => {
     const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
                      (item.ContentURL ? [item.ContentURL] : []);
     
@@ -400,7 +403,7 @@ export default function Index(): React.JSX.Element {
 
     if (mediaType === 'image') {
       return (
-        <View className="mb-6">
+        <View className="mb-2">
           <TouchableOpacity 
             onPress={(e) => {
               e?.stopPropagation?.();
@@ -408,18 +411,18 @@ export default function Index(): React.JSX.Element {
             }}
             activeOpacity={0.95}
           >
-            <View className="relative rounded-2xl overflow-hidden">
+            <View className="relative rounded-xl overflow-hidden">
               <Image
                 source={{ uri: primaryMediaUrl }}
-                style={{ width: '100%', height: 320 }}
+                style={{ width: '100%', height: 200 }}
                 className="bg-gray-100"
                 resizeMode="cover"
                 onError={(error) => {
                   console.log("Image load error:", error.nativeEvent.error);
                 }}
               />
-              <View className="absolute top-4 right-4 p-3 rounded-full bg-black/50">
-                <Ionicons name="expand-outline" size={20} color="white" />
+              <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+                <Ionicons name="expand-outline" size={14} color="white" />
               </View>
             </View>
           </TouchableOpacity>
@@ -427,7 +430,7 @@ export default function Index(): React.JSX.Element {
       );
     } else if (mediaType === 'video') {
       return (
-        <View className="mb-6">
+        <View className="mb-2">
           <TouchableOpacity 
             onPress={(e) => {
               e?.stopPropagation?.();
@@ -435,26 +438,38 @@ export default function Index(): React.JSX.Element {
             }}
             activeOpacity={0.95}
           >
-            <View className="relative rounded-2xl overflow-hidden bg-black">
+            <View className="relative rounded-xl overflow-hidden bg-black">
               <Video
+                ref={(ref) => {
+                  if (ref && index !== undefined) {
+                    videoRefs.current[`video-${index}`] = ref;
+                  }
+                }}
                 source={{ uri: primaryMediaUrl }}
-                style={{ width: '100%', height: 320 }}
+                style={{ width: '100%', height: 200 }}
                 resizeMode={ResizeMode.CONTAIN}
                 useNativeControls={false}
-                shouldPlay={false}
+                shouldPlay={currentVideoIndex === index}
                 isMuted={true}
-                isLooping={false}
+                isLooping={true}
               />
-              <View className="absolute top-4 right-4 p-3 rounded-full bg-black/50">
-                <Ionicons name="play-outline" size={20} color="white" />
+              <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+                <Ionicons name="play-outline" size={14} color="white" />
               </View>
+              {currentVideoIndex !== index && (
+                <View className="absolute inset-0 bg-black/20 items-center justify-center">
+                  <View className="w-10 h-10 bg-black/60 rounded-full items-center justify-center">
+                    <Ionicons name="play" size={20} color="white" />
+                  </View>
+                </View>
+              )}
             </View>
           </TouchableOpacity>
         </View>
       );
     } else if (mediaType === 'gif') {
       return (
-        <View className="mb-6">
+        <View className="mb-2">
           <TouchableOpacity 
             onPress={(e) => {
               e?.stopPropagation?.();
@@ -462,15 +477,15 @@ export default function Index(): React.JSX.Element {
             }}
             activeOpacity={0.95}
           >
-            <View className="relative rounded-2xl overflow-hidden">
+            <View className="relative rounded-xl overflow-hidden">
               <Image
                 source={{ uri: primaryMediaUrl }}
-                style={{ width: '100%', height: 320 }}
+                style={{ width: '100%', height: 200 }}
                 className="bg-gray-100"
                 resizeMode="cover"
               />
-              <View className="absolute top-4 right-4 p-3 rounded-full bg-black/50">
-                 <MaterialIcons name="gif" size={28} color="#666" />
+              <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+                 <MaterialIcons name="gif" size={20} color="white" />
               </View>
             </View>
           </TouchableOpacity>
@@ -478,7 +493,7 @@ export default function Index(): React.JSX.Element {
       );
     } else if (mediaType === 'doc') {
       return (
-        <View className="mb-6">
+        <View className="mb-2">
           <TouchableOpacity 
             onPress={(e) => {
               e?.stopPropagation?.();
@@ -488,18 +503,18 @@ export default function Index(): React.JSX.Element {
           >
             <View
               style={{
-                borderRadius: 16,
+                borderRadius: 12,
                 overflow: 'hidden',
                 backgroundColor: '#EEF2F6',
                 alignItems: 'center',
                 justifyContent: 'center',
-                height: 120,
+                height: 80,
               }}>
-              <Ionicons name="document-text-outline" size={48} color="#8B5CF6" />
-              <Text numberOfLines={2} style={{ color: '#333', marginTop: 8, textAlign: 'center', paddingHorizontal: 16 }}>
+              <Ionicons name="document-text-outline" size={32} color="#8B5CF6" />
+              <Text numberOfLines={1} style={{ color: '#333', marginTop: 4, textAlign: 'center', paddingHorizontal: 12, fontSize: 11 }}>
                 {primaryMediaUrl.split('/').pop() || 'Document'}
               </Text>
-              <Text style={{ color: '#aaa', fontSize: 12, marginTop: 4 }}>Tap to open</Text>
+              <Text style={{ color: '#aaa', fontSize: 9, marginTop: 1 }}>Tap to open</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -507,7 +522,31 @@ export default function Index(): React.JSX.Element {
     } else {
       return null;
     }
-  }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc]);
+  }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, currentVideoIndex]);
+
+  // AUTO PLAY VIDEO ON SCROLL - Now filteredData is available
+  const handleScroll = useCallback((event: any) => {
+    const { contentOffset, layoutMeasurement } = event.nativeEvent;
+    const currentScrollY = contentOffset.y;
+    const viewHeight = layoutMeasurement.height;
+    const viewCenter = currentScrollY + viewHeight / 2;
+
+    filteredData.forEach((item, index) => {
+      const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
+                       (item.ContentURL ? [item.ContentURL] : []);
+      
+      if (mediaUrls.length > 0 && getMediaType(mediaUrls[0]) === 'video') {
+        const itemY = index * 340;
+        const itemCenter = itemY + 150;
+        
+        if (Math.abs(viewCenter - itemCenter) < 100) {
+          if (currentVideoIndex !== index) {
+            setCurrentVideoIndex(index);
+          }
+        }
+      }
+    });
+  }, [filteredData, getMediaType, currentVideoIndex]);
 
   const EnhancedCard = useCallback(({ children, postId }: { children: React.ReactNode, postId: string }) => {
     const animValue = cardAnimations[postId] || new Animated.Value(0);
@@ -536,63 +575,62 @@ export default function Index(): React.JSX.Element {
             shadowColor: '#000',
             shadowOffset: {
               width: 0,
-              height: 4,
+              height: 2,
             },
-            shadowOpacity: 0.12,
-            shadowRadius: 12,
-            elevation: 6,
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
+            elevation: 4,
           }
         ]}
-        className="mx-4 mb-6 bg-white rounded-3xl overflow-hidden border border-gray-100"
+        className="mx-3 mb-1.5 bg-white rounded-xl overflow-hidden border border-gray-100"
       >
         {children}
       </Animated.View>
     );
   }, [cardAnimations]);
 
-  const renderPostUserContent = useCallback((item: PostItem) => (
+  const renderPostUserContent = useCallback((item: PostItem, index: number) => (
     <TouchableOpacity 
       activeOpacity={0.95}
       onPress={() => openFullScreenCard(item)}
     >
       <EnhancedCard postId={item.uniqueId}>
-        <View className="px-6 py-5 bg-gray-50 border-b border-gray-100">
+        <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
           <View className="flex-row items-center">
             <View className="relative">
-              <View className="w-12 h-12 rounded-full mr-3 overflow-hidden border-2 border-white shadow-md">
+              <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
                 <Image
                   source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
                   className="w-full h-full"
                   resizeMode="cover"
                 />
               </View>
-              {/* <View className="absolute top-0.5 right-0.5 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-white" /> */}
             </View>
             <View className="flex-1">
-              <Text className="font-bold text-gray-900 text-base">{item.AuthorName}</Text>
-              <View className="flex-row items-center mt-1">
-                <Text className="text-gray-500 text-sm mr-3">{getTimeAgo(item.ContentDate)}</Text>
+              <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text>
+              <View className="flex-row items-center mt-0.5">
+                <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
                 {item.postType === 'X-Data' && (
-                  <View className="bg-blue-100 px-2 py-1 rounded-full">
+                  <View className="bg-blue-100 px-1.5 py-0.5 rounded-full">
                     <Text className="text-blue-600 text-xs font-medium">𝕏 POST</Text>
                   </View>
                 )}
               </View>
             </View>
-            <TouchableOpacity className="p-2 rounded-full bg-gray-100">
-              <Ionicons name="ellipsis-horizontal" size={18} color="#64748b" />
+            <TouchableOpacity className="p-1.5 rounded-full bg-gray-100">
+              <Ionicons name="ellipsis-horizontal" size={12} color="#64748b" />
             </TouchableOpacity>
           </View>
         </View>
 
-        <View className="px-6 py-5">
-          <Text className="text-gray-800 text-base leading-6 mb-5">{item.ContentDesc}</Text>
+        <View className="px-3 py-2.5">
+          <Text className="text-gray-800 text-sm leading-5 mb-2">{item.ContentDesc}</Text>
 
-          {renderMediaContent(item)}
+          {renderMediaContent(item, index)}
 
-          <View className="flex-row items-center justify-between pt-4 ">
+          <View className="flex-row items-center justify-between pt-1.5 ">
             <TouchableOpacity
-              className="flex-row items-center px-3 py-2 "
+              className="flex-row items-center px-1.5 py-1 "
               onPress={(e) => {
                 e.stopPropagation();
                 loginScreen();
@@ -601,16 +639,16 @@ export default function Index(): React.JSX.Element {
             >
               <Ionicons
                 name={item.Liked ? "heart" : "heart-outline"}
-                size={20}
+                size={14}
                 color={item.Liked ? "#ef4444" : "#64748b"}
               />
-              <Text className={`ml-2 text-sm font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
+              <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
                 {item.ContentLikeCount}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-3 py-2 "
+              className="flex-row items-center px-1.5 py-1 "
               onPress={(e) => {
                 e.stopPropagation();
                 loginScreen();
@@ -619,15 +657,14 @@ export default function Index(): React.JSX.Element {
             >
               <MaterialCommunityIcons
                 name="comment-outline"
-                size={20}
+                size={14}
                 color="#64748b"
               />
-              {/* ✅ FIXED: Shows actual comment count */}
-              <Text className="text-gray-600 ml-2 text-sm font-medium">{item.ContentCommentCount}</Text>
+              <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-3 py-2 "
+              className="flex-row items-center px-1.5 py-1 "
               onPress={(e) => {
                 e.stopPropagation();
                 loginScreen();
@@ -636,38 +673,29 @@ export default function Index(): React.JSX.Element {
             >
               <Ionicons 
                 name="repeat-outline" 
-                size={20} 
+                size={14} 
                 color={item.Reposted ? "#0ea5e9" : "#64748b"} 
               />
-              <Text className={`ml-2 text-sm font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
+              <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
                 {item.ContentRepostCount}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
-              className="p-2"
+              className="p-1"
               onPress={(e) => {
                 e.stopPropagation();
                 console.log("Share pressed:", item.id);
               }}
               activeOpacity={0.7}
             >
-              <Feather name="share-2" size={18} color="#64748b" />
+              <Feather name="share-2" size={12} color="#64748b" />
             </TouchableOpacity>
           </View>
         </View>
       </EnhancedCard>
     </TouchableOpacity>
   ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, dummyAuthorImage]);
-
-  const filteredData = useMemo(() => {
-    return fetchedData.filter(item => {
-      if (userRole === "User") {
-        return item.isApproved;
-      }
-      return true;
-    });
-  }, [fetchedData, userRole]);
 
   const initializeCardAnimation = useCallback((postId: string) => {
     if (!cardAnimations[postId]) {
@@ -689,19 +717,19 @@ export default function Index(): React.JSX.Element {
   }, [cardAnimations]);
 
   const listItems = useMemo(() => {
-    return filteredData.map((item) => {
+    return filteredData.map((item, index) => {
       initializeCardAnimation(item.uniqueId);
       
       if (userRole === "User") {
         return (
           <React.Fragment key={item.uniqueId}>
-            {renderPostUserContent(item)}
+            {renderPostUserContent(item, index)}
           </React.Fragment>
         );
       } else {
         return (
           <React.Fragment key={item.uniqueId}>
-            {renderPostUserContent(item)}
+            {renderPostUserContent(item, index)}
           </React.Fragment>
         );
       }
@@ -726,37 +754,36 @@ export default function Index(): React.JSX.Element {
       borderRadius: 24, 
       overflow: 'hidden' 
     }}>
-      <View className="px-6 py-5 bg-gray-50 border-b border-gray-100">
+      <View className="px-4 py-3 bg-gray-50 border-b border-gray-100">
         <View className="flex-row items-center">
           <View className="relative">
-            <View className="w-16 h-16 rounded-full mr-4 overflow-hidden border-2 border-white shadow-lg">
+            <View className="w-10 h-10 rounded-full mr-2.5 overflow-hidden border-2 border-white shadow-lg">
               <Image
                 source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
                 className="w-full h-full"
                 resizeMode="cover"
               />
             </View>
-            {/* <View className="absolute top-1 right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white" /> */}
           </View>
           <View className="flex-1">
-            <Text className="font-bold text-gray-900 text-xl">{item.AuthorName}</Text>
-            <View className="flex-row items-center mt-2">
-              <Text className="text-gray-500 text-base mr-3">{getTimeAgo(item.ContentDate)}</Text>
+            <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text>
+            <View className="flex-row items-center mt-0.5">
+              <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
               {item.postType === 'X-Data' && (
-                <View className="bg-blue-100 px-3 py-2 rounded-full">
-                  <Text className="text-blue-600 text-sm font-semibold">𝕏 POST</Text>
+                <View className="bg-blue-100 px-2 py-0.5 rounded-full">
+                  <Text className="text-blue-600 text-xs font-semibold">𝕏 POST</Text>
                 </View>
               )}
             </View>
           </View>
           <View className="flex-col items-center">
             <TouchableOpacity 
-              className="p-3 rounded-full bg-blue-100 mb-2"
+              className="p-1.5 rounded-full bg-blue-100 mb-1"
               onPress={handleFlipCard}
               disabled={isFlipping}
               style={{ opacity: isFlipping ? 0.6 : 1 }}
             >
-              <Ionicons name="repeat" size={20} color="#3b82f6" />
+              <Ionicons name="repeat" size={14} color="#3b82f6" />
             </TouchableOpacity>
             <Text className="text-xs text-blue-600 font-medium">Flip</Text>
           </View>
@@ -764,29 +791,29 @@ export default function Index(): React.JSX.Element {
       </View>
 
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-        <View className="px-6 py-6">
-          <Text className="text-gray-800 text-lg leading-8 mb-6 font-normal">{item.ContentDesc}</Text>
+        <View className="px-4 py-3">
+          <Text className="text-gray-800 text-sm leading-5 mb-3 font-normal">{item.ContentDesc}</Text>
           
           {renderMediaContent(item)}
 
-          <View className="flex-row items-center justify-between pt-6  mb-6">
+          <View className="flex-row items-center justify-between pt-3  mb-3">
             <TouchableOpacity
-              className="flex-row items-center px-5 py-4 "
+              className="flex-row items-center px-2 py-1.5 "
               onPress={() => loginScreen()}
               activeOpacity={0.7}
             >
               <Ionicons
                 name={item.Liked ? "heart" : "heart-outline"}
-                size={24}
+                size={18}
                 color={item.Liked ? "#ef4444" : "#64748b"}
               />
-              <Text className={`ml-3 text-lg font-semibold ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
+              <Text className={`ml-2 text-sm font-semibold ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
                 {item.ContentLikeCount}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-5 py-4 "
+              className="flex-row items-center px-2 py-1.5 "
               onPress={() => {
                 closeFullScreenCard();
                 loginScreen();
@@ -795,34 +822,33 @@ export default function Index(): React.JSX.Element {
             >
               <MaterialCommunityIcons
                 name="comment-outline"
-                size={24}
+                size={18}
                 color="#64748b"
               />
-              {/* ✅ FIXED: Shows actual comment count */}
-              <Text className="text-gray-600 ml-3 text-lg font-semibold">{item.ContentCommentCount}</Text>
+              <Text className="text-gray-600 ml-2 text-sm font-semibold">{item.ContentCommentCount}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-5 py-4 "
+              className="flex-row items-center px-2 py-1.5 "
               onPress={() => loginScreen()}
               activeOpacity={0.7}
             >
               <Ionicons 
                 name="repeat-outline" 
-                size={24} 
+                size={18} 
                 color={item.Reposted ? "#0ea5e9" : "#64748b"} 
               />
-              <Text className={`ml-3 text-lg font-semibold ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
+              <Text className={`ml-2 text-sm font-semibold ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
                 {item.ContentRepostCount}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
-              className="p-4"
+              className="p-1.5"
               onPress={() => console.log("Share pressed:", item.id)}
               activeOpacity={0.7}
             >
-              <Feather name="share-2" size={22} color="#64748b" />
+              <Feather name="share-2" size={16} color="#64748b" />
             </TouchableOpacity>
           </View>
         </View>
@@ -838,25 +864,25 @@ export default function Index(): React.JSX.Element {
       overflow: 'hidden'
     }}>
       <View style={{ 
-        paddingHorizontal: 24, 
-        paddingVertical: 20, 
+        paddingHorizontal: 16, 
+        paddingVertical: 12, 
         backgroundColor: 'rgba(0,0,0,0.2)', 
         borderBottomWidth: 1, 
         borderBottomColor: 'rgba(255,255,255,0.2)' 
       }}>
         <View className="flex-row items-center">
           <View className="flex-1">
-            <Text className="font-bold text-white text-xl">Post Analytics</Text>
-            <Text className="text-white/80 text-base mt-1">Detailed insights</Text>
+            <Text className="font-bold text-white text-base">Post Analytics</Text>
+            <Text className="text-white/80 text-sm mt-0.5">Detailed insights</Text>
           </View>
           <View className="flex-col items-center">
             <TouchableOpacity 
-              className="p-3 rounded-full mb-2" 
+              className="p-1.5 rounded-full mb-1" 
               style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
               onPress={handleFlipCard}
               disabled={isFlipping}
             >
-              <Ionicons name="repeat" size={20} color="white" />
+              <Ionicons name="repeat" size={14} color="white" />
             </TouchableOpacity>
             <Text className="text-xs text-white font-medium">Flip</Text>
           </View>
@@ -864,86 +890,85 @@ export default function Index(): React.JSX.Element {
       </View>
 
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-        <View style={{ paddingHorizontal: 24, paddingVertical: 24 }}>
-          <View style={{ gap: 16 }}>
+        <View style={{ paddingHorizontal: 16, paddingVertical: 16 }}>
+          <View style={{ gap: 12 }}>
             <View style={{ 
               backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-              borderRadius: 16, 
-              padding: 24 
+              borderRadius: 14, 
+              padding: 16 
             }}>
-              <Text className="text-white font-bold text-lg mb-4">Engagement</Text>
-              <View className="flex-row justify-between items-center mb-3">
+              <Text className="text-white font-bold text-sm mb-3">Engagement</Text>
+              <View className="flex-row justify-between items-center mb-2">
                 <View className="flex-row items-center">
-                  <Ionicons name="heart" size={20} color="#ff6b6b" />
-                  <Text className="text-white ml-2">Likes</Text>
+                  <Ionicons name="heart" size={16} color="#ff6b6b" />
+                  <Text className="text-white ml-2 text-sm">Likes</Text>
                 </View>
-                <Text className="text-white font-bold text-xl">{item.ContentLikeCount}</Text>
+                <Text className="text-white font-bold text-base">{item.ContentLikeCount}</Text>
               </View>
-              <View className="flex-row justify-between items-center mb-3">
+              <View className="flex-row justify-between items-center mb-2">
                 <View className="flex-row items-center">
-                  <Ionicons name="repeat" size={20} color="#4ecdc4" />
-                  <Text className="text-white ml-2">Reposts</Text>
+                  <Ionicons name="repeat" size={16} color="#4ecdc4" />
+                  <Text className="text-white ml-2 text-sm">Reposts</Text>
                 </View>
-                <Text className="text-white font-bold text-xl">{item.ContentRepostCount}</Text>
+                <Text className="text-white font-bold text-base">{item.ContentRepostCount}</Text>
               </View>
               <View className="flex-row justify-between items-center">
                 <View className="flex-row items-center">
-                  <MaterialCommunityIcons name="comment" size={20} color="#45b7d1" />
-                  <Text className="text-white ml-2">Comments</Text>
+                  <MaterialCommunityIcons name="comment" size={16} color="#45b7d1" />
+                  <Text className="text-white ml-2 text-sm">Comments</Text>
                 </View>
-                {/* ✅ FIXED: Shows actual comment count */}
-                <Text className="text-white font-bold text-xl">{item.ContentCommentCount}</Text>
+                <Text className="text-white font-bold text-base">{item.ContentCommentCount}</Text>
               </View>
             </View>
 
             <View style={{ 
               backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-              borderRadius: 16, 
-              padding: 24 
+              borderRadius: 14, 
+              padding: 16 
             }}>
-              <Text className="text-white font-bold text-lg mb-4">Post Details</Text>
-              <View style={{ gap: 12 }}>
+              <Text className="text-white font-bold text-sm mb-3">Post Details</Text>
+              <View style={{ gap: 8 }}>
                 <View>
-                  <Text className="text-white/70 text-sm">Post Type</Text>
-                  <Text className="text-white font-semibold">{item.postType}</Text>
+                  <Text className="text-white/70 text-xs">Post Type</Text>
+                  <Text className="text-white font-semibold text-sm">{item.postType}</Text>
                 </View>
                 <View>
-                  <Text className="text-white/70 text-sm">Status</Text>
+                  <Text className="text-white/70 text-xs">Status</Text>
                   <View className="flex-row items-center mt-1">
                     <View 
                       style={{ 
-                        width: 12, 
-                        height: 12, 
-                        borderRadius: 6, 
-                        marginRight: 8,
+                        width: 6, 
+                        height: 6, 
+                        borderRadius: 3, 
+                        marginRight: 6,
                         backgroundColor: item.isApproved ? '#4ade80' : '#f87171'
                       }} 
                     />
-                    <Text className="text-white font-semibold">
+                    <Text className="text-white font-semibold text-sm">
                       {item.isApproved ? 'Approved' : 'Pending'}
                     </Text>
                   </View>
                 </View>
                 <View>
-                  <Text className="text-white/70 text-sm">Published</Text>
-                  <Text className="text-white font-semibold">{getTimeAgo(item.ContentDate)}</Text>
+                  <Text className="text-white/70 text-xs">Published</Text>
+                  <Text className="text-white font-semibold text-sm">{getTimeAgo(item.ContentDate)}</Text>
                 </View>
               </View>
             </View>
 
             <View style={{ 
               backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-              borderRadius: 16, 
-              padding: 24 
+              borderRadius: 14, 
+              padding: 16 
             }}>
-              <Text className="text-white font-bold text-lg mb-4">Quick Actions</Text>
-              <View className="flex-row justify-between" style={{ gap: 12 }}>
+              <Text className="text-white font-bold text-sm mb-3">Quick Actions</Text>
+              <View className="flex-row justify-between" style={{ gap: 8 }}>
                 <TouchableOpacity 
                   style={{ 
                     flex: 1, 
                     backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                    borderRadius: 12, 
-                    paddingVertical: 16, 
+                    borderRadius: 8, 
+                    paddingVertical: 10, 
                     alignItems: 'center' 
                   }}
                   onPress={() => {
@@ -951,34 +976,34 @@ export default function Index(): React.JSX.Element {
                     loginScreen();
                   }}
                 >
-                  <MaterialCommunityIcons name="comment-plus" size={24} color="white" />
-                  <Text className="text-white text-sm mt-2 font-medium">Comment</Text>
+                  <MaterialCommunityIcons name="comment-plus" size={18} color="white" />
+                  <Text className="text-white text-xs mt-1 font-medium">Comment</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={{ 
                     flex: 1, 
                     backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                    borderRadius: 12, 
-                    paddingVertical: 16, 
+                    borderRadius: 8, 
+                    paddingVertical: 10, 
                     alignItems: 'center' 
                   }}
                   onPress={() => console.log("Edit pressed:", item.id)}
                 >
-                  <Ionicons name="create-outline" size={24} color="white" />
-                  <Text className="text-white text-sm mt-2 font-medium">Edit</Text>
+                  <Ionicons name="create-outline" size={18} color="white" />
+                  <Text className="text-white text-xs mt-1 font-medium">Edit</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={{ 
                     flex: 1, 
                     backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                    borderRadius: 12, 
-                    paddingVertical: 16, 
+                    borderRadius: 8, 
+                    paddingVertical: 10, 
                     alignItems: 'center' 
                   }}
                   onPress={() => console.log("Archive pressed:", item.id)}
                 >
-                  <Ionicons name="archive-outline" size={24} color="white" />
-                  <Text className="text-white text-sm mt-2 font-medium">Archive</Text>
+                  <Ionicons name="archive-outline" size={18} color="white" />
+                  <Text className="text-white text-xs mt-1 font-medium">Archive</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1026,92 +1051,26 @@ export default function Index(): React.JSX.Element {
     </View>
   ), [closeFullScreenCard, isFlipped, renderFlipCardFront, renderFlipCardBack]);
 
-  
-  // return (
-  //   <SafeAreaView className="flex-1">
-  //     <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-      
-  //     {/* Background Image */}
-  //     <ImageBackground 
-  //       source={require('../../assets/images/page-bg.jpg')}
-  //       className="flex-1"
-  //       resizeMode="cover"
-  //     >
-  //       {/* Main content - NO OVERLAY */}
-  //       <View className="flex-1 px-6 justify-center pt-64">
-  //         {/* Logo positioned above welcome text */}
-  //         <View className="items-start mb-8">
-  //           <View className="w-14 h-14 rounded-xl bg-transparent justify-center items-center ">
-  //             <Image 
-  //               source={require('../../assets/images/Sentinal-logo-big.png')}
-  //               className="w-12 h-12"
-  //               resizeMode="contain"
-  //             />
-  //           </View>
-  //         </View>
-
-  //         {/* Welcome text section */}
-  //         <View className="mb-16">
-  //           <Text className="text-3xl font-bold text-black mb-3 leading-tight">
-  //             Welcome to{'\n'}Sentinel
-  //           </Text>
-  //           <Text className="text-base text-black/80 leading-6">
-  //             Connect with your community and stay updated every time, everywhere.
-  //           </Text>
-  //         </View>
-
-  //         {/* Authentication buttons */}
-  //         <View className="gap-3">
-  //           <TouchableOpacity className="flex-row items-center justify-center bg-white/95 py-4 px-6 rounded-xl border border-white/30 shadow-lg">
-  //             <Image
-  //               source={{ uri: 'https://developers.google.com/identity/images/g-logo.png'}}
-  //               className="w-5 h-5"
-  //               resizeMode="contain"
-  //             />
-  //             <Text className="text-base text-gray-700 font-medium ml-3">Continue with Google</Text>
-  //           </TouchableOpacity>
-
-  //           <TouchableOpacity className="flex-row items-center justify-center bg-white/95 py-4 px-6 rounded-xl border border-white/30 shadow-lg">
-  //             <Ionicons name="logo-apple" size={20} color="#000" />
-  //             <Text className="text-base text-gray-700 font-medium ml-3">Continue with Apple</Text>
-  //           </TouchableOpacity>
-
-  //           <Link href="/(auth)/email-login" asChild>
-  //             <TouchableOpacity className="bg-violet-500 py-4 px-6 rounded-xl items-center shadow-lg">
-  //               <Text className="text-base text-white font-semibold">Continue with email</Text>
-  //             </TouchableOpacity>
-  //           </Link>
-
-  //           <Text className="text-xs text-black/70 text-center mt-4 px-4">
-  //             By continuing, you agree to the Sentinel's{' '}
-  //             <Text className="text-violet-500 underline">Terms & Conditions</Text>
-  //           </Text>
-  //         </View>
-  //       </View>
-  //     </ImageBackground>
-  //   </SafeAreaView>
-  // );
-
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
       
       <View className="bg-white border-b border-gray-200 pt-5">
         <View 
-          className="px-6 py-4 flex-row items-center justify-between"
-          style={{ paddingTop: Platform.OS === 'ios' ? 20 : 20 }}
+          className="px-4 py-2 flex-row items-center justify-between"
+          style={{ paddingTop: Platform.OS === 'ios' ? 12 : 12 }}
         >
           <View>
-            <Text className="text-3xl font-bold text-gray-900">Sentinel</Text>
-            <Text className="text-gray-500 text-sm mt-1">Your social feed</Text>
+            <Text className="text-2xl font-bold text-gray-900">Sentinel</Text>
+            {/* <Text className="text-gray-500 text-sm mt-0.5">Your social feed</Text> */}
           </View>
-          <TouchableOpacity className="p-3 rounded-full bg-gray-100 shadow-sm"
+          <TouchableOpacity className="p-2 rounded-full bg-gray-100 shadow-sm"
           onPress={(e) => {
             loginScreen();
           }}>
             <Image
               source={require("../../assets/images/Union.png")}
-              className="w-6 h-6"
+              className="w-5 h-5"
               resizeMode="contain"
             />
           </TouchableOpacity>
@@ -1119,12 +1078,15 @@ export default function Index(): React.JSX.Element {
       </View>
 
       <ScrollView 
+        ref={scrollViewRef}
         className="flex-1" 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ 
-          paddingTop: 20, 
-          paddingBottom: 30,
+          paddingTop: 6, 
+          paddingBottom: 16,
         }}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -1138,22 +1100,22 @@ export default function Index(): React.JSX.Element {
       >
         {loading ? (
           <View className="flex-1 justify-center items-center py-20">
-            <View className="bg-white p-8 rounded-2xl shadow-lg">
+            <View className="bg-white p-6 rounded-2xl shadow-lg">
               <ActivityIndicator size="large" color="#3b82f6" />
-              <Text className="text-gray-600 mt-4 text-base font-medium text-center">Loading posts...</Text>
-              <Text className="text-gray-400 text-sm mt-1 text-center">This won't take long</Text>
+              <Text className="text-gray-600 mt-3 text-sm font-medium text-center">Loading posts...</Text>
+              <Text className="text-gray-400 text-xs mt-1 text-center">This won't take long</Text>
             </View>
           </View>
         ) : listItems.length > 0 ? (
           listItems
         ) : (
           <View className="flex-1 justify-center items-center py-20">
-            <View className="bg-white p-8 rounded-3xl shadow-lg items-center">
-              <View className="w-20 h-20 bg-gray-100 rounded-full items-center justify-center mb-4">
-                <Ionicons name="document-outline" size={32} color="#9ca3af" />
+            <View className="bg-white p-6 rounded-2xl shadow-lg items-center">
+              <View className="w-16 h-16 bg-gray-100 rounded-full items-center justify-center mb-3">
+                <Ionicons name="document-outline" size={28} color="#9ca3af" />
               </View>
-              <Text className="text-gray-700 text-xl font-bold mb-2">No posts yet</Text>
-              <Text className="text-gray-500 text-center text-base px-4 leading-6">
+              <Text className="text-gray-700 text-lg font-bold mb-2">No posts yet</Text>
+              <Text className="text-gray-500 text-center text-sm px-4 leading-5">
                 Be the first to share something amazing with the community!
               </Text>
             </View>
@@ -1276,8 +1238,6 @@ export default function Index(): React.JSX.Element {
       >
         {fullScreenCard && renderFullScreenFlipCard(fullScreenCard)}
       </Modal>
-      {/* COMMENTS MODAL */}
-      
     </SafeAreaView>
   );
 }
