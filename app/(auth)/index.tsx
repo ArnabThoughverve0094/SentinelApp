@@ -2,7 +2,7 @@ import { db } from '@/FirebaseConfig';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { ResizeMode, Video } from 'expo-av';
 import { router } from 'expo-router';
-import { collection, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { collection, doc, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Dimensions, Image, Linking, Modal, Platform, RefreshControl, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import FlipCard from 'react-native-flip-card';
@@ -101,11 +101,11 @@ export default function Index(): React.JSX.Element {
     const currentTime = Date.now();
     const cacheValidTime = 5 * 60 * 1000; // 5 minutes cache
     
-    if (!forceRefresh && isInitialized && fetchedData.length > 0 && 
-        (currentTime - lastFetchTime) < cacheValidTime) {
-      console.log('Using cached data, skipping fetch');
-      return;
-    }
+    // if (!forceRefresh && isInitialized && fetchedData.length > 0 && 
+    //     (currentTime - lastFetchTime) < cacheValidTime) {
+    //   console.log('Using cached data, skipping fetch');
+    //   return;
+    // }
 
     setLoading(true);
     try {
@@ -196,35 +196,20 @@ export default function Index(): React.JSX.Element {
         setFetchedData(allData);
         console.log('OnSnapshot Fetched and Sorted', `Total: ${allData.length} documents`);
 
-        allData.forEach(async (allpostdata) => {
-          let commentCountFetch = 0;
-
-          const commentsRef = collection(db, allpostdata.postType, allpostdata.id, 'Comments');
-          onSnapshot(commentsRef, (commentSnap) => {
-            commentCountFetch = commentSnap.size;
-          // Update state: commentCountMap[postId] = count
-          
-          });
-          console.log('Comment count fetch: ', commentCountFetch);
-
-          // const collAllDataRefPost = collection(db, allpostdata.postType, allpostdata.id, 'Comments');
-          // const q = query(collAllDataRefPost, where(allpostdata.isApproved, '==', true));
-          // onSnapshot(q, commentCount => {
-          //   const snap = getCountFromServer(q);
-          // })
-          // console.log("Count:", snap.data().count);
-          
-          // setFetchedData(prevPosts =>
-          //   prevPosts.map(c =>
-          //     c.id === allpostdata.id
-          //       ? {
-          //           ...c,
-          //           ContentCommentCount: snap.data().count,
-          //         }
-          //       : c
-          //   )
-          // );
-        })
+        allData.forEach(post =>
+          onSnapshot(
+            collection(doc(db, post.postType, post.id), 'Comments'),
+            commentsSnap => {
+              setFetchedData(prev =>
+                prev.map(p =>
+                  p.id === post.id
+                    ? { ...p, ContentCommentCount: commentsSnap.size }
+                    : p
+                )
+              );
+            }
+          )
+        );
 
       });
       
@@ -605,17 +590,14 @@ export default function Index(): React.JSX.Element {
 
           {renderMediaContent(item)}
 
-          <View className="flex-row items-center justify-between pt-4 border-t border-gray-100">
+          <View className="flex-row items-center justify-between pt-4 ">
             <TouchableOpacity
-              className="flex-row items-center px-3 py-2 rounded-full bg-gray-50"
+              className="flex-row items-center px-3 py-2 "
               onPress={(e) => {
                 e.stopPropagation();
                 loginScreen();
               }}
               activeOpacity={0.7}
-              style={item.Liked ? {
-                backgroundColor: '#fef2f2',
-              } : {}}
             >
               <Ionicons
                 name={item.Liked ? "heart" : "heart-outline"}
@@ -628,7 +610,7 @@ export default function Index(): React.JSX.Element {
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-3 py-2 rounded-full bg-gray-50"
+              className="flex-row items-center px-3 py-2 "
               onPress={(e) => {
                 e.stopPropagation();
                 loginScreen();
@@ -641,19 +623,16 @@ export default function Index(): React.JSX.Element {
                 color="#64748b"
               />
               {/* ✅ FIXED: Shows actual comment count */}
-              <Text className="text-gray-600 ml-2 text-sm font-medium">{getCommentsCount(item.id)}</Text>
+              <Text className="text-gray-600 ml-2 text-sm font-medium">{item.ContentCommentCount}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-3 py-2 rounded-full bg-gray-50"
+              className="flex-row items-center px-3 py-2 "
               onPress={(e) => {
                 e.stopPropagation();
                 loginScreen();
               }}
               activeOpacity={0.7}
-              style={item.Reposted ? {
-                backgroundColor: '#f0f9ff',
-              } : {}}
             >
               <Ionicons 
                 name="repeat-outline" 
@@ -666,7 +645,7 @@ export default function Index(): React.JSX.Element {
             </TouchableOpacity>
 
             <TouchableOpacity 
-              className="p-2 rounded-full bg-gray-50"
+              className="p-2"
               onPress={(e) => {
                 e.stopPropagation();
                 console.log("Share pressed:", item.id);
@@ -679,7 +658,7 @@ export default function Index(): React.JSX.Element {
         </View>
       </EnhancedCard>
     </TouchableOpacity>
-  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, dummyAuthorImage, getCommentsCount]);
+  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, dummyAuthorImage]);
 
   const filteredData = useMemo(() => {
     return fetchedData.filter(item => {
@@ -790,15 +769,11 @@ export default function Index(): React.JSX.Element {
           
           {renderMediaContent(item)}
 
-          <View className="flex-row items-center justify-between pt-6 border-t border-gray-200 mb-6">
+          <View className="flex-row items-center justify-between pt-6  mb-6">
             <TouchableOpacity
-              className="flex-row items-center px-5 py-4 rounded-full bg-gray-50 border-2 border-gray-200"
+              className="flex-row items-center px-5 py-4 "
               onPress={() => loginScreen()}
               activeOpacity={0.7}
-              style={item.Liked ? {
-                backgroundColor: '#fef2f2',
-                borderColor: '#fecaca'
-              } : {}}
             >
               <Ionicons
                 name={item.Liked ? "heart" : "heart-outline"}
@@ -811,7 +786,7 @@ export default function Index(): React.JSX.Element {
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-5 py-4 rounded-full bg-gray-50 border-2 border-gray-200"
+              className="flex-row items-center px-5 py-4 "
               onPress={() => {
                 closeFullScreenCard();
                 loginScreen();
@@ -824,17 +799,13 @@ export default function Index(): React.JSX.Element {
                 color="#64748b"
               />
               {/* ✅ FIXED: Shows actual comment count */}
-              <Text className="text-gray-600 ml-3 text-lg font-semibold">{getCommentsCount(item.id)}</Text>
+              <Text className="text-gray-600 ml-3 text-lg font-semibold">{item.ContentCommentCount}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-5 py-4 rounded-full bg-gray-50 border-2 border-gray-200"
+              className="flex-row items-center px-5 py-4 "
               onPress={() => loginScreen()}
               activeOpacity={0.7}
-              style={item.Reposted ? {
-                backgroundColor: '#f0f9ff',
-                borderColor: '#bae6fd'
-              } : {}}
             >
               <Ionicons 
                 name="repeat-outline" 
@@ -847,7 +818,7 @@ export default function Index(): React.JSX.Element {
             </TouchableOpacity>
 
             <TouchableOpacity 
-              className="p-4 rounded-full bg-gray-50 border-2 border-gray-200"
+              className="p-4"
               onPress={() => console.log("Share pressed:", item.id)}
               activeOpacity={0.7}
             >
@@ -921,7 +892,7 @@ export default function Index(): React.JSX.Element {
                   <Text className="text-white ml-2">Comments</Text>
                 </View>
                 {/* ✅ FIXED: Shows actual comment count */}
-                <Text className="text-white font-bold text-xl">{getCommentsCount(item.id)}</Text>
+                <Text className="text-white font-bold text-xl">{item.ContentCommentCount}</Text>
               </View>
             </View>
 
