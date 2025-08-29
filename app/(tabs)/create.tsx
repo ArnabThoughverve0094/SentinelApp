@@ -1,7 +1,8 @@
 import { db } from "@/FirebaseConfig";
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from "expo-router";
 import { addDoc, collection } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
@@ -10,7 +11,6 @@ import {
   Alert,
   Dimensions,
   Image,
-  Keyboard,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -19,7 +19,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -29,6 +29,7 @@ type SelectedMedia = { uri: string; name: string; type: string };
 export default function CreatePost() {
   const router = useRouter();
   const [postText, setPostText] = useState("");
+  const [userName, setUserName] = useState("");
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(false);
@@ -41,6 +42,20 @@ export default function CreatePost() {
     "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=400",
     "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400"
   ];
+
+  const getItem = async () => {
+    try {
+      const fetchuserName = await AsyncStorage.getItem('userName');
+      
+      if(fetchuserName !== null) {
+        console.log("userName: ", fetchuserName);
+        setUserName(fetchuserName);
+      }
+      
+    } catch (error) {
+      console.log("Error retrieving item", error);
+    }
+  }
 
   // Helper: Pick image from gallery
   const pickImages = async () => {
@@ -216,7 +231,7 @@ export default function CreatePost() {
       // Save to Firebase with proper field names
       await addDoc(collection(db, 'SentinelPosts'), {
         AuthorImageURL: "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
-        AuthorName: "Arnab Das",
+        AuthorName: userName,
         ContentDate: new Date(),
         ContentDesc: postText,
         ContentURL: uploadedUrls.length > 0 ? uploadedUrls[0] : null,
@@ -238,6 +253,10 @@ export default function CreatePost() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    getItem();
+  }, []);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "white" }}>

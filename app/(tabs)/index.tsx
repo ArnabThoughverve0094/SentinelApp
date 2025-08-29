@@ -2,7 +2,7 @@ import { db } from '@/FirebaseConfig';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { collection, doc, getDocs, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
+import { collection, doc, getCountFromServer, getDocs, onSnapshot, orderBy, query, updateDoc, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ResizeMode, Video } from 'expo-av';
@@ -372,7 +372,26 @@ export default function SentinelFeed(): React.JSX.Element {
 
         }
 
-        setFetchedData(postsData.concat(postsXData));
+        const allData = postsData.concat(postsXData);
+        setFetchedData(allData);
+        console.log('OnSnapshot Fetched and Sorted', `Total: ${allData.length} documents`);
+
+        allData.forEach(async (allpostdata) => {
+          const collAllDataRefPost = collection(db, allpostdata.postType, allpostdata.id, 'Comments');
+          const q = query(collAllDataRefPost, where(allpostdata.isApproved, '==', true));
+          const snap = await getCountFromServer(q);
+          setFetchedData(prevPosts =>
+            prevPosts.map(c =>
+              c.id === allpostdata.id
+                ? {
+                    ...c,
+                    ContentCommentCount: snap.data().count,
+                  }
+                : c
+            )
+          );
+        });
+
       });
       
       

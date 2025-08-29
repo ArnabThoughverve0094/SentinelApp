@@ -276,11 +276,6 @@ export default function CommentScreen({
               });
             }
 
-            // setComments((prev) =>
-            // prev.map((c) =>
-            //   c.id === comment.id ? { ...c, replyData } : c
-            //   )
-            // );
             setComments(prevComments =>
               prevComments.map(c =>
                 c.id === comment.id

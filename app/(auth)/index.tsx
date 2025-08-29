@@ -156,7 +156,7 @@ export default function Index(): React.JSX.Element {
         collSentinelRefPost,
         orderBy('ContentDate', 'desc')
       );
-
+      
       console.log("Sentinel OnSnapshot");
       // Process SentinelPosts
       const unsubscribeSentinel = onSnapshot(querySentinel, async sentinelSnapshot => {
@@ -192,7 +192,40 @@ export default function Index(): React.JSX.Element {
 
         }
 
-        setFetchedData(postsData.concat(postsXData));
+        const allData = postsData.concat(postsXData);
+        setFetchedData(allData);
+        console.log('OnSnapshot Fetched and Sorted', `Total: ${allData.length} documents`);
+
+        allData.forEach(async (allpostdata) => {
+          let commentCountFetch = 0;
+
+          const commentsRef = collection(db, allpostdata.postType, allpostdata.id, 'Comments');
+          onSnapshot(commentsRef, (commentSnap) => {
+            commentCountFetch = commentSnap.size;
+          // Update state: commentCountMap[postId] = count
+          
+          });
+          console.log('Comment count fetch: ', commentCountFetch);
+
+          // const collAllDataRefPost = collection(db, allpostdata.postType, allpostdata.id, 'Comments');
+          // const q = query(collAllDataRefPost, where(allpostdata.isApproved, '==', true));
+          // onSnapshot(q, commentCount => {
+          //   const snap = getCountFromServer(q);
+          // })
+          // console.log("Count:", snap.data().count);
+          
+          // setFetchedData(prevPosts =>
+          //   prevPosts.map(c =>
+          //     c.id === allpostdata.id
+          //       ? {
+          //           ...c,
+          //           ContentCommentCount: snap.data().count,
+          //         }
+          //       : c
+          //   )
+          // );
+        })
+
       });
       
       
@@ -201,7 +234,7 @@ export default function Index(): React.JSX.Element {
       console.log('All Data Fetched and Sorted', `Total: ${fetchedData.length} documents`);
       
       // ✅ Fetch comments count after posts are loaded
-      await fetchCommentsCount(fetchedData);
+      // await fetchCommentsCount(fetchedData);
       
       setIsInitialized(true);
 
@@ -215,7 +248,7 @@ export default function Index(): React.JSX.Element {
     } finally {
       setLoading(false);
     }
-  }, [fetchCommentsCount, isInitialized, fetchedData.length, lastFetchTime]);
+  }, [isInitialized, fetchedData.length, lastFetchTime]);
 
   // ✅ Helper function to get actual comment counts
   const getCommentsCount = useCallback((postId: string) => {
