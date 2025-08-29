@@ -590,17 +590,14 @@ export default function Index(): React.JSX.Element {
 
           {renderMediaContent(item)}
 
-          <View className="flex-row items-center justify-between pt-4 border-t border-gray-100">
+          <View className="flex-row items-center justify-between pt-4 ">
             <TouchableOpacity
-              className="flex-row items-center px-3 py-2 rounded-full bg-gray-50"
+              className="flex-row items-center px-3 py-2 "
               onPress={(e) => {
                 e.stopPropagation();
                 loginScreen();
               }}
               activeOpacity={0.7}
-              style={item.Liked ? {
-                backgroundColor: '#fef2f2',
-              } : {}}
             >
               <Ionicons
                 name={item.Liked ? "heart" : "heart-outline"}
@@ -613,7 +610,7 @@ export default function Index(): React.JSX.Element {
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-3 py-2 rounded-full bg-gray-50"
+              className="flex-row items-center px-3 py-2 "
               onPress={(e) => {
                 e.stopPropagation();
                 loginScreen();
@@ -630,15 +627,12 @@ export default function Index(): React.JSX.Element {
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-3 py-2 rounded-full bg-gray-50"
+              className="flex-row items-center px-3 py-2 "
               onPress={(e) => {
                 e.stopPropagation();
                 loginScreen();
               }}
               activeOpacity={0.7}
-              style={item.Reposted ? {
-                backgroundColor: '#f0f9ff',
-              } : {}}
             >
               <Ionicons 
                 name="repeat-outline" 
@@ -651,7 +645,7 @@ export default function Index(): React.JSX.Element {
             </TouchableOpacity>
 
             <TouchableOpacity 
-              className="p-2 rounded-full bg-gray-50"
+              className="p-2"
               onPress={(e) => {
                 e.stopPropagation();
                 console.log("Share pressed:", item.id);
@@ -775,15 +769,11 @@ export default function Index(): React.JSX.Element {
           
           {renderMediaContent(item)}
 
-          <View className="flex-row items-center justify-between pt-6 border-t border-gray-200 mb-6">
+          <View className="flex-row items-center justify-between pt-6  mb-6">
             <TouchableOpacity
-              className="flex-row items-center px-5 py-4 rounded-full bg-gray-50 border-2 border-gray-200"
+              className="flex-row items-center px-5 py-4 "
               onPress={() => loginScreen()}
               activeOpacity={0.7}
-              style={item.Liked ? {
-                backgroundColor: '#fef2f2',
-                borderColor: '#fecaca'
-              } : {}}
             >
               <Ionicons
                 name={item.Liked ? "heart" : "heart-outline"}
@@ -796,7 +786,7 @@ export default function Index(): React.JSX.Element {
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-5 py-4 rounded-full bg-gray-50 border-2 border-gray-200"
+              className="flex-row items-center px-5 py-4 "
               onPress={() => {
                 closeFullScreenCard();
                 loginScreen();
@@ -813,13 +803,9 @@ export default function Index(): React.JSX.Element {
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-5 py-4 rounded-full bg-gray-50 border-2 border-gray-200"
+              className="flex-row items-center px-5 py-4 "
               onPress={() => loginScreen()}
               activeOpacity={0.7}
-              style={item.Reposted ? {
-                backgroundColor: '#f0f9ff',
-                borderColor: '#bae6fd'
-              } : {}}
             >
               <Ionicons 
                 name="repeat-outline" 
@@ -832,7 +818,7 @@ export default function Index(): React.JSX.Element {
             </TouchableOpacity>
 
             <TouchableOpacity 
-              className="p-4 rounded-full bg-gray-50 border-2 border-gray-200"
+              className="p-4"
               onPress={() => console.log("Share pressed:", item.id)}
               activeOpacity={0.7}
             >
