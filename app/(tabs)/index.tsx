@@ -47,6 +47,134 @@ interface PostItem {
   createdAt?: any;
 }
 
+// Custom Modal Component for Alerts
+interface CustomModalProps {
+  visible: boolean;
+  type: 'success' | 'error' | 'info' | 'warning';
+  title: string;
+  message: string;
+  buttons: Array<{
+    text: string;
+    onPress: () => void;
+    style?: 'default' | 'cancel' | 'destructive';
+  }>;
+  onClose?: () => void;
+}
+
+const CustomModal: React.FC<CustomModalProps> = ({
+  visible,
+  type,
+  title,
+  message,
+  buttons,
+  onClose
+}) => {
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      scaleAnim.setValue(0);
+    }
+  }, [visible, scaleAnim]);
+
+  const getModalStyle = () => {
+    switch (type) {
+      case 'success':
+        return {
+          iconName: 'checkmark-circle' as const,
+          iconColor: '#22C55E',
+          iconBg: 'bg-green-100',
+        };
+      case 'error':
+        return {
+          iconName: 'close-circle' as const,
+          iconColor: '#EF4444',
+          iconBg: 'bg-red-100',
+        };
+      case 'warning':
+        return {
+          iconName: 'warning' as const,
+          iconColor: '#F59E0B',
+          iconBg: 'bg-yellow-100',
+        };
+      default:
+        return {
+          iconName: 'information-circle' as const,
+          iconColor: '#3B82F6',
+          iconBg: 'bg-blue-100',
+        };
+    }
+  };
+
+  const modalStyle = getModalStyle();
+
+  if (!visible) return null;
+
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View className="flex-1 bg-black/50 items-center justify-center px-6">
+        <Animated.View 
+          style={[{ transform: [{ scale: scaleAnim }] }]}
+          className="bg-white rounded-3xl p-8 items-center w-full max-w-sm shadow-2xl"
+        >
+          {/* Icon */}
+          <View className={`w-20 h-20 ${modalStyle.iconBg} rounded-full items-center justify-center mb-6`}>
+            <Ionicons name={modalStyle.iconName} size={48} color={modalStyle.iconColor} />
+          </View>
+
+          {/* Title */}
+          <Text className="text-2xl font-bold text-gray-900 text-center mb-3">
+            {title}
+          </Text>
+
+          {/* Message */}
+          <Text className="text-base text-gray-600 text-center mb-8 leading-6">
+            {message}
+          </Text>
+
+          {/* Buttons */}
+          <View className="w-full space-y-3">
+            {buttons.map((button, index) => (
+              <TouchableOpacity
+                key={index}
+                className={`py-4 px-8 rounded-xl items-center w-full shadow-lg ${
+                  button.style === 'cancel' 
+                    ? 'bg-gray-200' 
+                    : button.style === 'destructive'
+                    ? 'bg-red-500'
+                    : 'bg-violet-500'
+                }`}
+                onPress={button.onPress}
+                activeOpacity={0.8}
+              >
+                <Text className={`text-lg font-semibold ${
+                  button.style === 'cancel' 
+                    ? 'text-gray-700' 
+                    : 'text-white'
+                }`}>
+                  {button.text}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+};
+
 export default function SentinelFeed(): React.JSX.Element {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -76,7 +204,65 @@ export default function SentinelFeed(): React.JSX.Element {
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedPostType, setSelectedPostType] = useState<string | null>(null);
 
+  // ------- REJECTION MODAL STATE -------
+  const [isRejectionModalVisible, setIsRejectionModalVisible] = useState(false);
+  const [selectedRejectionReasons, setSelectedRejectionReasons] = useState<string[]>([]);
+  const [rejectionPostId, setRejectionPostId] = useState<string | null>(null);
+
+  // ------- CUSTOM ALERT STATE -------
+  const [modalConfig, setModalConfig] = useState<{
+    visible: boolean;
+    type: 'success' | 'error' | 'info' | 'warning';
+    title: string;
+    message: string;
+    buttons: Array<{
+      text: string;
+      onPress: () => void;
+      style?: 'default' | 'cancel' | 'destructive';
+    }>;
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+    buttons: []
+  });
+
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
+
+  // REJECTION REASONS ARRAY
+  const rejectionReasons = [
+    'Inappropriate content or language',
+    'Spam or repetitive content', 
+    'Misleading or false information',
+    'Violates community guidelines',
+    'Copyright infringement',
+    'Offensive or discriminatory content'
+  ];
+
+  // Custom Alert function
+  const showCustomAlert = (
+    type: 'success' | 'error' | 'info' | 'warning',
+    title: string,
+    message: string,
+    buttons: Array<{
+      text: string;
+      onPress: () => void;
+      style?: 'default' | 'cancel' | 'destructive';
+    }>
+  ) => {
+    setModalConfig({
+      visible: true,
+      type,
+      title,
+      message,
+      buttons
+    });
+  };
+
+  const hideModal = () => {
+    setModalConfig(prev => ({ ...prev, visible: false }));
+  };
 
   // IMPROVED TIME AGO FUNCTION
   const getTimeAgo = useCallback((dateString: any) => {
@@ -284,11 +470,6 @@ export default function SentinelFeed(): React.JSX.Element {
 
     setLoading(true);
     try {
-      // const [sentinelSnapshot, xDataSnapshot] = await Promise.all([
-      //   getDocs(collection(db, 'SentinelPosts')),
-      //   getDocs(collection(db, 'X-Data'))
-      // ]);
-      
       const postsXData: any = [];
       
       // Process X-Data
@@ -375,8 +556,6 @@ export default function SentinelFeed(): React.JSX.Element {
         setFetchedData(postsData.concat(postsXData));
       });
       
-      
-      
       setLastFetchTime(currentTime);
       console.log('All Data Fetched and Sorted', `Total: ${fetchedData.length} documents`);
       
@@ -397,17 +576,6 @@ export default function SentinelFeed(): React.JSX.Element {
     }
   }, [fetchCommentsCount, isInitialized, fetchedData.length, lastFetchTime]);
 
-  // Initial load with useEffect
-  // useEffect(() => {
-  //   const initializeApp = async () => {
-  //     await getItem();
-  //     await handleFetchAllData(false);
-  //   };
-    
-  //   if (!isInitialized) {
-  //     initializeApp();
-  //   }
-  // }, [getItem, handleFetchAllData, isInitialized]);
   useEffect(() => {
     getItem();
     handleFetchAllData();
@@ -452,6 +620,87 @@ export default function SentinelFeed(): React.JSX.Element {
     setSelectedPostId(null);
     setSelectedPostType(null);
   }, []);
+
+  // ENHANCED REJECTION MODAL FUNCTIONS
+  const openRejectionModal = useCallback((postId: string) => {
+    setRejectionPostId(postId);
+    setSelectedRejectionReasons([]);
+    setIsRejectionModalVisible(true);
+  }, []);
+
+  const closeRejectionModal = useCallback(() => {
+    setIsRejectionModalVisible(false);
+    setRejectionPostId(null);
+    setSelectedRejectionReasons([]);
+  }, []);
+
+  const toggleRejectionReason = useCallback((reason: string) => {
+    setSelectedRejectionReasons(prev => {
+      if (prev.includes(reason)) {
+        return prev.filter(r => r !== reason);
+      } else {
+        return [...prev, reason];
+      }
+    });
+  }, []);
+
+  const handleRejectionSubmit = useCallback(async () => {
+    if (selectedRejectionReasons.length === 0 || !rejectionPostId) {
+      showCustomAlert(
+        'warning',
+        'Selection Required',
+        'Please select at least one reason for rejection.',
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
+      return;
+    }
+
+    try {
+      // Update the post status to rejected
+      await handleApprovalToggle(rejectionPostId, false);
+      
+      // Save the rejection reasons to your database
+      await updateDoc(doc(db, 'SentinelPosts', rejectionPostId), {
+        isApproved: false,
+        rejectionReasons: selectedRejectionReasons,
+        rejectedAt: new Date()
+      });
+
+      closeRejectionModal();
+      
+      // Show success notification
+      showCustomAlert(
+        'success',
+        'Post Rejected',
+        `Post has been rejected successfully with ${selectedRejectionReasons.length} reason(s).`,
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
+      
+    } catch (error) {
+      console.error('Error rejecting post:', error);
+      showCustomAlert(
+        'error',
+        'Rejection Failed',
+        'Failed to reject post. Please try again.',
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
+    }
+  }, [selectedRejectionReasons, rejectionPostId, closeRejectionModal, showCustomAlert, hideModal]);
 
   // MEDIA MODAL CONTROLS
   const openFullScreenImage = useCallback((imageUrl: string) => {
@@ -740,6 +989,10 @@ export default function SentinelFeed(): React.JSX.Element {
     postId: string;
     isFullScreen?: boolean;
   }) => {
+    const handleRejectClick = () => {
+      openRejectionModal(postId);
+    };
+
     return (
       <View className="flex-row items-center">
         <TouchableOpacity
@@ -752,14 +1005,11 @@ export default function SentinelFeed(): React.JSX.Element {
           activeOpacity={0.8}
           style={{
             shadowColor: isApproved ? '#22c55e' : '#000',
-            shadowOffset: {
-              width: 0,
-              height: 2,
-            },
+            shadowOffset: { width: 0, height: 2 },
             shadowOpacity: isApproved ? 0.3 : 0.1,
             shadowRadius: 4,
             elevation: isApproved ? 4 : 2,
-             marginRight: 16,
+            marginRight: 16,
           }}
         >
           <Ionicons 
@@ -775,7 +1025,7 @@ export default function SentinelFeed(): React.JSX.Element {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => onToggle(false)}
+          onPress={handleRejectClick}
           className={`px-4 py-2.5 rounded-full border-2 flex-row items-center ${
             !isApproved 
               ? 'bg-red-500 border-red-500' 
@@ -784,10 +1034,7 @@ export default function SentinelFeed(): React.JSX.Element {
           activeOpacity={0.8}
           style={{
             shadowColor: !isApproved ? '#ef4444' : '#000',
-            shadowOffset: {
-              width: 0,
-              height: 2,
-            },
+            shadowOffset: { width: 0, height: 2 },
             shadowOpacity: !isApproved ? 0.3 : 0.1,
             shadowRadius: 4,
             elevation: !isApproved ? 4 : 2,
@@ -807,7 +1054,7 @@ export default function SentinelFeed(): React.JSX.Element {
         </TouchableOpacity>
       </View>
     );
-  }, []);
+  }, [openRejectionModal]);
 
   const EnhancedCard = useCallback(({ children, postId }: { children: React.ReactNode, postId: string }) => {
     const animValue = cardAnimations[postId] || new Animated.Value(0);
@@ -831,13 +1078,8 @@ export default function SentinelFeed(): React.JSX.Element {
               }
             ],
             opacity: animValue,
-          },
-          {
             shadowColor: '#000',
-            shadowOffset: {
-              width: 0,
-              height: 4,
-            },
+            shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.12,
             shadowRadius: 12,
             elevation: 6,
@@ -872,7 +1114,6 @@ export default function SentinelFeed(): React.JSX.Element {
                 resizeMode="cover"
               />
             </View>
-            {/* <View className="absolute top-1 right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white" /> */}
           </View>
           <View className="flex-1">
             <Text className="font-bold text-gray-900 text-xl">{item.AuthorName}</Text>
@@ -905,16 +1146,12 @@ export default function SentinelFeed(): React.JSX.Element {
           
           {renderMediaContent(item)}
 
-          <View className="flex-row items-center justify-between pt-6 border-t border-gray-200 mb-6">
+          <View className="flex-row items-center justify-between pt-6  mb-6">
             <TouchableOpacity
-              className="flex-row items-center px-5 py-4 rounded-full bg-gray-50 border-2 border-gray-200"
-              onPress={() => toggleLike(item)}
-              activeOpacity={0.7}
-              style={item.Liked ? {
-                backgroundColor: '#fef2f2',
-                borderColor: '#fecaca'
-              } : {}}
-            >
+                className="flex-row items-center px-5 py-4"
+                onPress={() => toggleLike(item)}
+                activeOpacity={0.7}
+              >
               <Ionicons
                 name={item.Liked ? "heart" : "heart-outline"}
                 size={24}
@@ -926,7 +1163,7 @@ export default function SentinelFeed(): React.JSX.Element {
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-5 py-4 rounded-full bg-gray-50 border-2 border-gray-200"
+              className="flex-row items-center px-5 py-4"
               onPress={() => {
                 closeFullScreenCard();
                 openCommentsModal(item);
@@ -938,18 +1175,13 @@ export default function SentinelFeed(): React.JSX.Element {
                 size={24}
                 color="#64748b"
               />
-              {/* ✅ FIXED: Shows actual comment count */}
               <Text className="text-gray-600 ml-3 text-lg font-semibold">{getCommentsCount(item.id)}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-5 py-4 rounded-full bg-gray-50 border-2 border-gray-200"
+              className="flex-row items-center px-5 py-4 "
               onPress={() => handleRepost(item)}
               activeOpacity={0.7}
-              style={item.Reposted ? {
-                backgroundColor: '#f0f9ff',
-                borderColor: '#bae6fd'
-              } : {}}
             >
               <Ionicons 
                 name="repeat-outline" 
@@ -962,7 +1194,7 @@ export default function SentinelFeed(): React.JSX.Element {
             </TouchableOpacity>
 
             <TouchableOpacity 
-              className="p-4 rounded-full bg-gray-50 border-2 border-gray-200"
+              className="p-4 "
               onPress={() => console.log("Share pressed:", item.id)}
               activeOpacity={0.7}
             >
@@ -972,7 +1204,7 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
       </ScrollView>
     </View>
-  ), [getTimeAgo, handleFlipCard, isFlipping, renderMediaContent, toggleLike, handleRepost, getCommentsCount, dummyAuthorImage]);
+  ), [getTimeAgo, handleFlipCard, isFlipping, renderMediaContent, toggleLike, handleRepost, getCommentsCount, dummyAuthorImage, closeFullScreenCard, openCommentsModal]);
 
   const renderFlipCardBack = useCallback((item: PostItem) => (
     <View style={{ 
@@ -1035,7 +1267,6 @@ export default function SentinelFeed(): React.JSX.Element {
                   <MaterialCommunityIcons name="comment" size={20} color="#45b7d1" />
                   <Text className="text-white ml-2">Comments</Text>
                 </View>
-                {/* ✅ FIXED: Shows actual comment count */}
                 <Text className="text-white font-bold text-xl">{getCommentsCount(item.id)}</Text>
               </View>
             </View>
@@ -1149,7 +1380,7 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
       </ScrollView>
     </View>
-  ), [handleFlipCard, isFlipping, getTimeAgo, userRole, ApprovalToggle, handleApprovalToggle, getCommentsCount]);
+  ), [handleFlipCard, isFlipping, getTimeAgo, userRole, ApprovalToggle, handleApprovalToggle, getCommentsCount, closeFullScreenCard, openCommentsModal]);
 
   const renderPostContent = useCallback((item: PostItem) => (
     <TouchableOpacity 
@@ -1167,7 +1398,6 @@ export default function SentinelFeed(): React.JSX.Element {
                   resizeMode="cover"
                 />
               </View>
-              {/* <View className="absolute top-0.5 right-0.5 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-white" /> */}
             </View>
             <View className="flex-1">
               <Text className="font-bold text-gray-900 text-lg">{item.AuthorName}</Text>
@@ -1191,18 +1421,14 @@ export default function SentinelFeed(): React.JSX.Element {
 
           {renderMediaContent(item)}
 
-          <View className="flex-row items-center justify-between pt-5 border-t border-gray-100">
+          <View className="flex-row items-center justify-between pt-5">
             <TouchableOpacity
-              className="flex-row items-center px-4 py-3 rounded-full bg-gray-50 border border-gray-200"
+              className="flex-row items-center px-4 py-3"
               onPress={(e) => {
                 e.stopPropagation();
                 toggleLike(item);
               }}
               activeOpacity={0.7}
-              style={item.Liked ? {
-                backgroundColor: '#fef2f2',
-                borderColor: '#fecaca'
-              } : {}}
             >
               <Ionicons
                 name={item.Liked ? "heart" : "heart-outline"}
@@ -1215,7 +1441,7 @@ export default function SentinelFeed(): React.JSX.Element {
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-4 py-3 rounded-full bg-gray-50 border border-gray-200"
+              className="flex-row items-center px-4 py-3"
               onPress={(e) => {
                 e.stopPropagation();
                 openCommentsModal(item);
@@ -1227,21 +1453,16 @@ export default function SentinelFeed(): React.JSX.Element {
                 size={20}
                 color="#64748b"
               />
-              {/* ✅ FIXED: Shows actual comment count */}
               <Text className="text-gray-600 ml-2 text-sm font-medium">{getCommentsCount(item.id)}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-4 py-3 rounded-full bg-gray-50 border border-gray-200"
+              className="flex-row items-center px-4 py-3 "
               onPress={(e) => {
                 e.stopPropagation();
                 handleRepost(item);
               }}
               activeOpacity={0.7}
-              style={item.Reposted ? {
-                backgroundColor: '#f0f9ff',
-                borderColor: '#bae6fd'
-              } : {}}
             >
               <Ionicons 
                 name="repeat-outline" 
@@ -1254,7 +1475,7 @@ export default function SentinelFeed(): React.JSX.Element {
             </TouchableOpacity>
 
             <TouchableOpacity 
-              className="p-3 rounded-full bg-gray-50 border border-gray-200"
+              className="p-3"
               onPress={(e) => {
                 e.stopPropagation();
                 console.log("Share pressed:", item.id);
@@ -1292,7 +1513,7 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
       </EnhancedCard>
     </TouchableOpacity>
-  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, ApprovalToggle, handleApprovalToggle, dummyAuthorImage, userRole, getCommentsCount]);
+  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, ApprovalToggle, handleApprovalToggle, dummyAuthorImage, userRole, getCommentsCount, openCommentsModal]);
 
   const renderPostUserContent = useCallback((item: PostItem) => (
     <TouchableOpacity 
@@ -1310,7 +1531,6 @@ export default function SentinelFeed(): React.JSX.Element {
                   resizeMode="cover"
                 />
               </View>
-              {/* <View className="absolute top-0.5 right-0.5 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-white" /> */}
             </View>
             <View className="flex-1">
               <Text className="font-bold text-gray-900 text-base">{item.AuthorName}</Text>
@@ -1334,17 +1554,14 @@ export default function SentinelFeed(): React.JSX.Element {
 
           {renderMediaContent(item)}
 
-          <View className="flex-row items-center justify-between pt-4 border-t border-gray-100">
+          <View className="flex-row items-center justify-between pt-4 ">
             <TouchableOpacity
-              className="flex-row items-center px-3 py-2 rounded-full bg-gray-50"
+              className="flex-row items-center px-3 py-2"
               onPress={(e) => {
                 e.stopPropagation();
                 toggleLike(item);
               }}
               activeOpacity={0.7}
-              style={item.Liked ? {
-                backgroundColor: '#fef2f2',
-              } : {}}
             >
               <Ionicons
                 name={item.Liked ? "heart" : "heart-outline"}
@@ -1357,7 +1574,7 @@ export default function SentinelFeed(): React.JSX.Element {
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-3 py-2 rounded-full bg-gray-50"
+              className="flex-row items-center px-3 py-2 "
               onPress={(e) => {
                 e.stopPropagation();
                 openCommentsModal(item);
@@ -1369,20 +1586,16 @@ export default function SentinelFeed(): React.JSX.Element {
                 size={20}
                 color="#64748b"
               />
-              {/* ✅ FIXED: Shows actual comment count */}
               <Text className="text-gray-600 ml-2 text-sm font-medium">{getCommentsCount(item.id)}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-3 py-2 rounded-full bg-gray-50"
+              className="flex-row items-center px-3 py-2 "
               onPress={(e) => {
                 e.stopPropagation();
                 handleRepost(item);
               }}
               activeOpacity={0.7}
-              style={item.Reposted ? {
-                backgroundColor: '#f0f9ff',
-              } : {}}
             >
               <Ionicons 
                 name="repeat-outline" 
@@ -1395,7 +1608,7 @@ export default function SentinelFeed(): React.JSX.Element {
             </TouchableOpacity>
 
             <TouchableOpacity 
-              className="p-2 rounded-full bg-gray-50"
+              className="p-2 "
               onPress={(e) => {
                 e.stopPropagation();
                 console.log("Share pressed:", item.id);
@@ -1408,7 +1621,7 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
       </EnhancedCard>
     </TouchableOpacity>
-  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, dummyAuthorImage, getCommentsCount]);
+  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, dummyAuthorImage, getCommentsCount, openCommentsModal]);
 
   const renderFullScreenFlipCard = useCallback((item: PostItem) => (
     <View className="flex-1 bg-gray-900">
@@ -1658,13 +1871,184 @@ export default function SentinelFeed(): React.JSX.Element {
       >
         {fullScreenCard && renderFullScreenFlipCard(fullScreenCard)}
       </Modal>
+
+      {/* ENHANCED REJECTION REASON MODAL */}
+      <Modal
+        visible={isRejectionModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={closeRejectionModal}
+        statusBarTranslucent
+      >
+        <View className="flex-1 bg-black/50 justify-center items-center px-6">
+          <View className="bg-white rounded-3xl w-full max-w-md overflow-hidden"
+               style={{
+                 shadowColor: '#000',
+                 shadowOffset: { width: 0, height: 10 },
+                 shadowOpacity: 0.25,
+                 shadowRadius: 25,
+                 elevation: 10,
+               }}
+          >
+            {/* Header */}
+            <View className="bg-red-50 px-6 py-5 border-b border-red-100">
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center">
+                  <View className="w-12 h-12 bg-red-100 rounded-full items-center justify-center mr-4">
+                    <Ionicons name="close-circle" size={28} color="#ef4444" />
+                  </View>
+                  <View>
+                    <Text className="font-bold text-gray-900 text-xl">Reject Post</Text>
+                    <Text className="text-red-600 text-sm mt-1">Select rejection reasons</Text>
+                  </View>
+                </View>
+                <TouchableOpacity 
+                  className="p-2 rounded-full bg-gray-100"
+                  onPress={closeRejectionModal}
+                >
+                  <Ionicons name="close" size={20} color="#64748b" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Content */}
+            <ScrollView style={{ maxHeight: screenHeight * 0.6 }} showsVerticalScrollIndicator={false}>
+              <View className="px-6 py-6">
+                <Text className="text-gray-700 text-base mb-6 leading-6">
+                  Please select one or more reasons why this post is being rejected. This will help the user understand our community guidelines.
+                </Text>
+
+                {/* Enhanced Checkbox Options */}
+                <View style={{ gap: 12 }}>
+                  {rejectionReasons.map((reason, index) => {
+                    const isSelected = selectedRejectionReasons.includes(reason);
+                    return (
+                      <TouchableOpacity
+                        key={index}
+                        className={`flex-row items-center py-4 px-5 rounded-2xl border-2 ${
+                          isSelected 
+                            ? 'bg-red-50 border-red-300' 
+                            : 'bg-gray-50 border-gray-200'
+                        }`}
+                        onPress={() => toggleRejectionReason(reason)}
+                        activeOpacity={0.7}
+                        style={{
+                          shadowColor: isSelected ? '#ef4444' : 'transparent',
+                          shadowOffset: { width: 0, height: 2 },
+                          shadowOpacity: isSelected ? 0.1 : 0,
+                          shadowRadius: 4,
+                          elevation: isSelected ? 2 : 0,
+                        }}
+                      >
+                        {/* Enhanced Checkbox */}
+                        <View 
+                          className={`w-6 h-6 rounded-lg border-2 items-center justify-center mr-4 ${
+                            isSelected 
+                              ? 'bg-red-500 border-red-500' 
+                              : 'bg-white border-gray-300'
+                          }`}
+                          style={{
+                            shadowColor: isSelected ? '#ef4444' : 'transparent',
+                            shadowOffset: { width: 0, height: 1 },
+                            shadowOpacity: 0.2,
+                            shadowRadius: 2,
+                            elevation: isSelected ? 1 : 0,
+                          }}
+                        >
+                          {isSelected && (
+                            <Ionicons name="checkmark" size={16} color="white" />
+                          )}
+                        </View>
+                        
+                        {/* Enhanced Text */}
+                        <Text 
+                          className={`flex-1 text-base leading-6 font-medium ${
+                            isSelected ? 'text-red-700' : 'text-gray-700'
+                          }`}
+                        >
+                          {reason}
+                        </Text>
+                        
+                        {/* Selection Indicator */}
+                        {isSelected && (
+                          <View className="ml-2">
+                            <Ionicons name="checkmark-circle" size={20} color="#ef4444" />
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Selection Summary */}
+                {selectedRejectionReasons.length > 0 && (
+                  <View className="mt-6 p-4 bg-red-50 rounded-2xl border border-red-200">
+                    <Text className="text-red-700 font-semibold text-sm">
+                      {selectedRejectionReasons.length} reason{selectedRejectionReasons.length > 1 ? 's' : ''} selected
+                    </Text>
+                    <Text className="text-red-600 text-xs mt-1">
+                      The user will receive notification about these specific issues
+                    </Text>
+                  </View>
+                )}
+
+                {/* Action Buttons */}
+                <View className="flex-row mt-8" style={{ gap: 12 }}>
+                  <TouchableOpacity
+                    className="flex-1 py-4 px-6 rounded-2xl border-2 border-gray-200 bg-gray-50"
+                    onPress={closeRejectionModal}
+                    activeOpacity={0.8}
+                  >
+                    <Text className="text-gray-700 font-semibold text-center text-base">Cancel</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    className={`flex-1 py-4 px-6 rounded-2xl ${
+                      selectedRejectionReasons.length > 0 
+                        ? 'bg-red-500' 
+                        : 'bg-gray-300'
+                    }`}
+                    onPress={handleRejectionSubmit}
+                    activeOpacity={0.8}
+                    disabled={selectedRejectionReasons.length === 0}
+                    style={{
+                      shadowColor: selectedRejectionReasons.length > 0 ? '#ef4444' : 'transparent',
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.3,
+                      shadowRadius: 8,
+                      elevation: selectedRejectionReasons.length > 0 ? 6 : 0,
+                    }}
+                  >
+                    <Text className={`font-semibold text-center text-base ${
+                      selectedRejectionReasons.length > 0 ? 'text-white' : 'text-gray-500'
+                    }`}>
+                      Submit Rejection
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       {/* COMMENTS MODAL */}
       <CommentsModal
         visible={isCommentModalVisible}
         onClose={closeCommentsModal}
         postId={selectedPostId}
         postType={selectedPostType}
-        postData={fetchedData.find(item => item.id === selectedPostId)} // ✅ NEW: Pass post data
+        postData={fetchedData.find(item => item.id === selectedPostId)}
+      />
+
+      {/* CUSTOM ALERT MODAL */}
+      <CustomModal
+        visible={modalConfig.visible}
+        type={modalConfig.type}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        buttons={modalConfig.buttons}
+        onClose={hideModal}
       />
     </SafeAreaView>
   );
