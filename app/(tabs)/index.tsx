@@ -415,48 +415,48 @@ export default function SentinelFeed(): React.JSX.Element {
   }, []);
 
   // ✅ FIXED: Fetch comments from correct subcollection structure
-  const fetchCommentsCount = useCallback(async (posts: PostItem[]) => {
-    try {
-      console.log('Starting to fetch comments for', posts.length, 'posts');
-      const commentsCount: { [key: string]: number } = {};
+  // const fetchCommentsCount = useCallback(async (posts: PostItem[]) => {
+  //   try {
+  //     console.log('Starting to fetch comments for', posts.length, 'posts');
+  //     const commentsCount: { [key: string]: number } = {};
       
-      // Process each post to count comments and replies
-      const commentPromises = posts.map(async (post) => {
-        try {
-          let totalComments = 0;
+  //     // Process each post to count comments and replies
+  //     const commentPromises = posts.map(async (post) => {
+  //       try {
+  //         let totalComments = 0;
           
-          // ✅ FIXED: Use correct subcollection path
-          const commentsRef = collection(db, post.postType, post.id, 'Comments');
-          const commentsSnapshot = await getDocs(commentsRef);
+  //         // ✅ FIXED: Use correct subcollection path
+  //         const commentsRef = collection(db, post.postType, post.id, 'Comments');
+  //         const commentsSnapshot = await getDocs(commentsRef);
           
-          totalComments = commentsSnapshot.size; // Direct comments count
+  //         totalComments = commentsSnapshot.size; // Direct comments count
           
-          // Count replies for each comment
-          const replyPromises = commentsSnapshot.docs.map(async (commentDoc) => {
-            const repliesRef = collection(db, post.postType, post.id, 'Comments', commentDoc.id, 'Replies');
-            const repliesSnapshot = await getDocs(repliesRef);
-            return repliesSnapshot.size;
-          });
+  //         // Count replies for each comment
+  //         const replyPromises = commentsSnapshot.docs.map(async (commentDoc) => {
+  //           const repliesRef = collection(db, post.postType, post.id, 'Comments', commentDoc.id, 'Replies');
+  //           const repliesSnapshot = await getDocs(repliesRef);
+  //           return repliesSnapshot.size;
+  //         });
           
-          const replyCounts = await Promise.all(replyPromises);
-          totalComments += replyCounts.reduce((sum, count) => sum + count, 0);
+  //         const replyCounts = await Promise.all(replyPromises);
+  //         totalComments += replyCounts.reduce((sum, count) => sum + count, 0);
           
-          return { [post.id]: totalComments };
-        } catch (error) {
-          console.error(`Error fetching comments for post ${post.id}:`, error);
-          return { [post.id]: 0 };
-        }
-      });
+  //         return { [post.id]: totalComments };
+  //       } catch (error) {
+  //         console.error(`Error fetching comments for post ${post.id}:`, error);
+  //         return { [post.id]: 0 };
+  //       }
+  //     });
       
-      const results = await Promise.all(commentPromises);
-      results.forEach(result => Object.assign(commentsCount, result));
+  //     const results = await Promise.all(commentPromises);
+  //     results.forEach(result => Object.assign(commentsCount, result));
       
-      setCommentsData(commentsCount);
-      console.log('✅ Comments count fetched successfully:', commentsCount);
-    } catch (error) {
-      console.error('Error fetching comments count:', error);
-    }
-  }, []);
+  //     setCommentsData(commentsCount);
+  //     console.log('✅ Comments count fetched successfully:', commentsCount);
+  //   } catch (error) {
+  //     console.error('Error fetching comments count:', error);
+  //   }
+  // }, []);
 
   // OPTIMIZED DATA FETCHING
   const handleFetchAllData = useCallback(async (forceRefresh: boolean = false) => {
@@ -560,21 +560,20 @@ export default function SentinelFeed(): React.JSX.Element {
         setFetchedData(allData);
         console.log('OnSnapshot Fetched and Sorted', `Total: ${allData.length} documents`);
 
-        allData.forEach(async (allpostdata) => {
-          const collAllDataRefPost = collection(db, allpostdata.postType, allpostdata.id, 'Comments');
-          const q = query(collAllDataRefPost, where(allpostdata.isApproved, '==', true));
-          const snap = await getCountFromServer(q);
-          setFetchedData(prevPosts =>
-            prevPosts.map(c =>
-              c.id === allpostdata.id
-                ? {
-                    ...c,
-                    ContentCommentCount: snap.data().count,
-                  }
-                : c
-            )
-          );
-        });
+        allData.forEach(post =>
+          onSnapshot(
+            collection(doc(db, post.postType, post.id), 'Comments'),
+            commentsSnap => {
+              setFetchedData(prev =>
+                prev.map(p =>
+                  p.id === post.id
+                    ? { ...p, ContentCommentCount: commentsSnap.size }
+                    : p
+                )
+              );
+            }
+          )
+        );
 
       });
       
@@ -582,7 +581,7 @@ export default function SentinelFeed(): React.JSX.Element {
       console.log('All Data Fetched and Sorted', `Total: ${fetchedData.length} documents`);
       
       // ✅ Fetch comments count after posts are loaded
-      await fetchCommentsCount(fetchedData);
+      // await fetchCommentsCount(fetchedData);
       
       setIsInitialized(true);
 
@@ -596,7 +595,7 @@ export default function SentinelFeed(): React.JSX.Element {
     } finally {
       setLoading(false);
     }
-  }, [fetchCommentsCount, isInitialized, fetchedData.length, lastFetchTime]);
+  }, [ isInitialized, fetchedData.length, lastFetchTime]);
 
   useEffect(() => {
     getItem();
@@ -1258,7 +1257,7 @@ export default function SentinelFeed(): React.JSX.Element {
                 size={24}
                 color="#64748b"
               />
-              <Text className="text-gray-600 ml-3 text-lg font-semibold">{getCommentsCount(item.id)}</Text>
+              <Text className="text-gray-600 ml-3 text-lg font-semibold">{item.ContentCommentCount}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -1350,7 +1349,7 @@ export default function SentinelFeed(): React.JSX.Element {
                   <MaterialCommunityIcons name="comment" size={20} color="#45b7d1" />
                   <Text className="text-white ml-2">Comments</Text>
                 </View>
-                <Text className="text-white font-bold text-xl">{getCommentsCount(item.id)}</Text>
+                <Text className="text-white font-bold text-xl">{item.ContentCommentCount}</Text>
               </View>
             </View>
 
@@ -1544,7 +1543,7 @@ export default function SentinelFeed(): React.JSX.Element {
                 size={20}
                 color="#64748b"
               />
-              <Text className="text-gray-600 ml-2 text-sm font-medium">{getCommentsCount(item.id)}</Text>
+              <Text className="text-gray-600 ml-2 text-sm font-medium">{item.ContentCommentCount}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -1680,7 +1679,7 @@ export default function SentinelFeed(): React.JSX.Element {
                 size={20}
                 color="#64748b"
               />
-              <Text className="text-gray-600 ml-2 text-sm font-medium">{getCommentsCount(item.id)}</Text>
+              <Text className="text-gray-600 ml-2 text-sm font-medium">{item.ContentCommentCount}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
