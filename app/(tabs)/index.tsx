@@ -41,6 +41,7 @@ interface PostItem {
   ContentRepostCount: number;
   ContentCommentCount?: number;
   isApproved: boolean;
+  isNew: boolean; // New field for tracking new posts
   postType: string;
   Liked: boolean;
   Reposted: boolean;
@@ -502,6 +503,7 @@ export default function SentinelFeed(): React.JSX.Element {
             ContentRepostCount: postData.ContentRepostCount || 0,
             ContentCommentCount: postData.ContentCommentCount || 0,
             isApproved: true,
+            isNew: false, // X-Data posts are always approved
             postType: "X-Data",
             Liked: false,
             Reposted: false,
@@ -545,6 +547,7 @@ export default function SentinelFeed(): React.JSX.Element {
             ContentRepostCount: postData.ContentRepostCount || 0,
             ContentCommentCount: postData.ContentCommentCount || 0,
             isApproved: postData.isApproved || false,
+            isNew: postData.isNew !== undefined ? postData.isNew : true, // Default to New if not set
             postType: "SentinelPosts",
             Liked: false,
             Reposted: false,
@@ -680,12 +683,13 @@ export default function SentinelFeed(): React.JSX.Element {
     }
 
     try {
-      // Update the post status to rejected
-      await handleApprovalToggle(rejectionPostId, false);
+      // Update the post status to rejected and set isNew to false
+      await handleApprovalToggle(rejectionPostId, false, false);
       
       // Save the rejection reasons to your database
       await updateDoc(doc(db, 'SentinelPosts', rejectionPostId), {
         isApproved: false,
+        isNew: false,
         rejectionReasons: selectedRejectionReasons,
         rejectedAt: new Date()
       });
@@ -777,40 +781,43 @@ export default function SentinelFeed(): React.JSX.Element {
     }, 800);
   }, [isFlipped, isFlipping]);
 
-  const handleApprovalToggle = useCallback(async (postId: string, newStatus: boolean) => {
-    console.log("Toggling post:", postId, "to:", newStatus ? "Approved" : "Rejected");
+  // ENHANCED APPROVAL TOGGLE FUNCTION WITH NEW STATUS
+  const handleApprovalToggle = useCallback(async (postId: string, newApprovedStatus: boolean, newIsNew: boolean = false) => {
+    console.log("Toggling post:", postId, "to approved:", newApprovedStatus, "isNew:", newIsNew);
 
     setFetchedData(prevData => 
       prevData.map(item => 
         item.id === postId 
-          ? { ...item, isApproved: newStatus }
+          ? { ...item, isApproved: newApprovedStatus, isNew: newIsNew }
           : item
       )
     );
 
     if (fullScreenCard && fullScreenCard.id === postId) {
       setFullScreenCard((prev: PostItem | null) => 
-        prev ? { ...prev, isApproved: newStatus } : null
+        prev ? { ...prev, isApproved: newApprovedStatus, isNew: newIsNew } : null
       );
     }
 
     try {
       await updateDoc(doc(db, 'SentinelPosts', postId), {
-        isApproved: newStatus,
+        isApproved: newApprovedStatus,
+        isNew: newIsNew,
       });
       console.log("Post status updated successfully");
     } catch (error) {
       console.error("Error updating post status:", error);
+      // Revert changes on error
       setFetchedData(prevData => 
         prevData.map(item => 
           item.id === postId 
-            ? { ...item, isApproved: !newStatus }
+            ? { ...item, isApproved: !newApprovedStatus, isNew: !newIsNew }
             : item
         )
       );
       if (fullScreenCard && fullScreenCard.id === postId) {
         setFullScreenCard((prev: PostItem | null) => 
-          prev ? { ...prev, isApproved: !newStatus } : null
+          prev ? { ...prev, isApproved: !newApprovedStatus, isNew: !newIsNew } : null
         );
       }
     }
@@ -1002,21 +1009,61 @@ export default function SentinelFeed(): React.JSX.Element {
     setRefreshing(false);
   }, [handleFetchAllData]);
 
-  const ApprovalToggle = useCallback(({ isApproved, onToggle, postId, isFullScreen = false }: { 
+  // ENHANCED APPROVAL TOGGLE COMPONENT WITH NEW STATUS
+  const ApprovalToggle = useCallback(({ isApproved, isNew, onToggle, postId, isFullScreen = false }: { 
     isApproved: boolean; 
-    onToggle: (approved: boolean) => void;
+    isNew: boolean;
+    onToggle: (approved: boolean, isNew: boolean) => void;
     postId: string;
     isFullScreen?: boolean;
   }) => {
+    const handleNewClick = () => {
+      onToggle(false, true);
+    };
+
+    const handleApproveClick = () => {
+      onToggle(true, false);
+    };
+
     const handleRejectClick = () => {
       openRejectionModal(postId);
     };
 
     return (
       <View className="flex-row items-center">
+        {/* New Button */}
         <TouchableOpacity
-          onPress={() => onToggle(true)}
-          className={`px-4 py-2.5 rounded-full border-2 flex-row items-center ${
+          onPress={handleNewClick}
+          className={`px-3 py-2 rounded-full border-2 flex-row items-center mr-3 ${
+            isNew 
+              ? 'bg-orange-500 border-orange-500' 
+              : 'bg-white border-orange-300'
+          }`}
+          activeOpacity={0.8}
+          style={{
+            shadowColor: isNew ? '#f97316' : '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: isNew ? 0.3 : 0.1,
+            shadowRadius: 4,
+            elevation: isNew ? 4 : 2,
+          }}
+        >
+          <Ionicons 
+            name="star" 
+            size={isFullScreen ? 18 : 16} 
+            color={isNew ? "white" : "#f97316"} 
+          />
+          <Text className={`ml-2 font-semibold ${isFullScreen ? 'text-sm' : 'text-xs'} ${
+            isNew ? 'text-white' : 'text-orange-600'
+          }`}>
+            New
+          </Text>
+        </TouchableOpacity>
+
+        {/* Approve Button */}
+        <TouchableOpacity
+          onPress={handleApproveClick}
+          className={`px-3 py-2 rounded-full border-2 flex-row items-center mr-3 ${
             isApproved 
               ? 'bg-green-500 border-green-500' 
               : 'bg-white border-green-300'
@@ -1028,45 +1075,44 @@ export default function SentinelFeed(): React.JSX.Element {
             shadowOpacity: isApproved ? 0.3 : 0.1,
             shadowRadius: 4,
             elevation: isApproved ? 4 : 2,
-            marginRight: 16,
           }}
         >
           <Ionicons 
             name="checkmark-circle" 
-            size={isFullScreen ? 20 : 18} 
+            size={isFullScreen ? 18 : 16} 
             color={isApproved ? "white" : "#22c55e"} 
           />
-          <Text className={`ml-2 font-semibold ${isFullScreen ? 'text-base' : 'text-sm'} ${
+          <Text className={`ml-2 font-semibold ${isFullScreen ? 'text-sm' : 'text-xs'} ${
             isApproved ? 'text-white' : 'text-green-600'
           }`}>
             Approve
           </Text>
         </TouchableOpacity>
 
+        {/* Reject Button */}
         <TouchableOpacity
           onPress={handleRejectClick}
-          className={`px-4 py-2.5 rounded-full border-2 flex-row items-center ${
-            !isApproved 
+          className={`px-3 py-2 rounded-full border-2 flex-row items-center ${
+            !isApproved && !isNew 
               ? 'bg-red-500 border-red-500' 
               : 'bg-white border-red-300'
           }`}
           activeOpacity={0.8}
           style={{
-            shadowColor: !isApproved ? '#ef4444' : '#000',
+            shadowColor: (!isApproved && !isNew) ? '#ef4444' : '#000',
             shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: !isApproved ? 0.3 : 0.1,
+            shadowOpacity: (!isApproved && !isNew) ? 0.3 : 0.1,
             shadowRadius: 4,
-            elevation: !isApproved ? 4 : 2,
-            marginLeft: 16,
+            elevation: (!isApproved && !isNew) ? 4 : 2,
           }}
         >
           <Ionicons 
             name="close-circle" 
-            size={isFullScreen ? 20 : 18} 
-            color={!isApproved ? "white" : "#ef4444"} 
+            size={isFullScreen ? 18 : 16} 
+            color={(!isApproved && !isNew) ? "white" : "#ef4444"} 
           />
-          <Text className={`ml-2 font-semibold ${isFullScreen ? 'text-base' : 'text-sm'} ${
-            !isApproved ? 'text-white' : 'text-red-600'
+          <Text className={`ml-2 font-semibold ${isFullScreen ? 'text-sm' : 'text-xs'} ${
+            (!isApproved && !isNew) ? 'text-white' : 'text-red-600'
           }`}>
             Reject
           </Text>
@@ -1116,6 +1162,17 @@ export default function SentinelFeed(): React.JSX.Element {
     return commentsData[postId] || 0;
   }, [commentsData]);
 
+  // Helper function to get post status text and color
+  const getPostStatus = useCallback((item: PostItem) => {
+    if (item.isNew) {
+      return { text: 'New', color: '#f97316', bgColor: 'bg-orange-100' };
+    } else if (item.isApproved) {
+      return { text: 'Approved', color: '#22c55e', bgColor: 'bg-green-100' };
+    } else {
+      return { text: 'Rejected', color: '#ef4444', bgColor: 'bg-red-100' };
+    }
+  }, []);
+
   const renderFlipCardFront = useCallback((item: PostItem) => (
     <View style={{ 
       flex: 1, 
@@ -1139,8 +1196,15 @@ export default function SentinelFeed(): React.JSX.Element {
             <View className="flex-row items-center mt-2">
               <Text className="text-gray-500 text-base mr-3">{getTimeAgo(item.ContentDate)}</Text>
               {item.postType === 'X-Data' && (
-                <View className="bg-blue-100 px-3 py-2 rounded-full">
+                <View className="bg-blue-100 px-3 py-2 rounded-full mr-2">
                   <Text className="text-blue-600 text-sm font-semibold">𝕏 POST</Text>
+                </View>
+              )}
+              {item.postType === 'SentinelPosts' && (
+                <View className={`px-3 py-2 rounded-full ${getPostStatus(item).bgColor}`}>
+                  <Text className="text-sm font-semibold" style={{ color: getPostStatus(item).color }}>
+                    {getPostStatus(item).text}
+                  </Text>
                 </View>
               )}
             </View>
@@ -1165,7 +1229,7 @@ export default function SentinelFeed(): React.JSX.Element {
           
           {renderMediaContent(item)}
 
-          <View className="flex-row items-center justify-between pt-6  mb-6">
+          <View className="flex-row items-center justify-between pt-6 mb-6">
             <TouchableOpacity
                 className="flex-row items-center px-5 py-4"
                 onPress={() => toggleLike(item)}
@@ -1223,7 +1287,7 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
       </ScrollView>
     </View>
-  ), [getTimeAgo, handleFlipCard, isFlipping, renderMediaContent, toggleLike, handleRepost, getCommentsCount, dummyAuthorImage, closeFullScreenCard, openCommentsModal]);
+  ), [getTimeAgo, handleFlipCard, isFlipping, renderMediaContent, toggleLike, handleRepost, getCommentsCount, dummyAuthorImage, closeFullScreenCard, openCommentsModal, getPostStatus]);
 
   const renderFlipCardBack = useCallback((item: PostItem) => (
     <View style={{ 
@@ -1310,11 +1374,11 @@ export default function SentinelFeed(): React.JSX.Element {
                         height: 12, 
                         borderRadius: 6, 
                         marginRight: 8,
-                        backgroundColor: item.isApproved ? '#4ade80' : '#f87171'
+                        backgroundColor: getPostStatus(item).color
                       }} 
                     />
                     <Text className="text-white font-semibold">
-                      {item.isApproved ? 'Approved' : 'Pending'}
+                      {getPostStatus(item).text}
                     </Text>
                   </View>
                 </View>
@@ -1325,7 +1389,7 @@ export default function SentinelFeed(): React.JSX.Element {
               </View>
             </View>
 
-            {userRole !== "User" && (
+            {userRole !== "User" && item.postType === "SentinelPosts" && (
               <View style={{ 
                 backgroundColor: 'rgba(255, 255, 255, 0.2)', 
                 borderRadius: 16, 
@@ -1337,7 +1401,8 @@ export default function SentinelFeed(): React.JSX.Element {
                 </Text>
                 <ApprovalToggle
                   isApproved={item.isApproved}
-                  onToggle={(approved) => handleApprovalToggle(item.id, approved)}
+                  isNew={item.isNew}
+                  onToggle={(approved, isNew) => handleApprovalToggle(item.id, approved, isNew)}
                   postId={item.id}
                   isFullScreen={true}
                 />
@@ -1399,7 +1464,7 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
       </ScrollView>
     </View>
-  ), [handleFlipCard, isFlipping, getTimeAgo, userRole, ApprovalToggle, handleApprovalToggle, getCommentsCount, closeFullScreenCard, openCommentsModal]);
+  ), [handleFlipCard, isFlipping, getTimeAgo, userRole, ApprovalToggle, handleApprovalToggle, getCommentsCount, closeFullScreenCard, openCommentsModal, getPostStatus]);
 
   const renderPostContent = useCallback((item: PostItem) => (
     <TouchableOpacity 
@@ -1423,8 +1488,15 @@ export default function SentinelFeed(): React.JSX.Element {
               <View className="flex-row items-center mt-1">
                 <Text className="text-gray-500 text-sm mr-3">{getTimeAgo(item.ContentDate)}</Text>
                 {item.postType === 'X-Data' && (
-                  <View className="bg-blue-100 px-3 py-1 rounded-full">
+                  <View className="bg-blue-100 px-3 py-1 rounded-full mr-2">
                     <Text className="text-blue-600 text-xs font-semibold">𝕏 POST</Text>
+                  </View>
+                )}
+                {item.postType === 'SentinelPosts' && (
+                  <View className={`px-3 py-1 rounded-full ${getPostStatus(item).bgColor}`}>
+                    <Text className="text-xs font-semibold" style={{ color: getPostStatus(item).color }}>
+                      {getPostStatus(item).text}
+                    </Text>
                   </View>
                 )}
               </View>
@@ -1514,7 +1586,9 @@ export default function SentinelFeed(): React.JSX.Element {
                 <View className="mb-4">
                   <Text className="font-bold text-gray-900 text-lg">Post Status</Text>
                   <Text className="text-gray-500 text-sm mt-1">
-                    {item.isApproved 
+                    {item.isNew 
+                      ? 'This post is new and awaiting review' 
+                      : item.isApproved
                       ? 'This post is approved and visible to users' 
                       : 'This post is rejected and not visible to users'
                     }
@@ -1523,7 +1597,8 @@ export default function SentinelFeed(): React.JSX.Element {
                 
                 <ApprovalToggle
                   isApproved={item.isApproved}
-                  onToggle={(approved) => handleApprovalToggle(item.id, approved)}
+                  isNew={item.isNew}
+                  onToggle={(approved, isNew) => handleApprovalToggle(item.id, approved, isNew)}
                   postId={item.id}
                 />
               </View>
@@ -1532,7 +1607,7 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
       </EnhancedCard>
     </TouchableOpacity>
-  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, ApprovalToggle, handleApprovalToggle, dummyAuthorImage, userRole, getCommentsCount, openCommentsModal]);
+  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, ApprovalToggle, handleApprovalToggle, dummyAuthorImage, userRole, getCommentsCount, openCommentsModal, getPostStatus]);
 
   const renderPostUserContent = useCallback((item: PostItem) => (
     <TouchableOpacity 
@@ -1683,9 +1758,10 @@ export default function SentinelFeed(): React.JSX.Element {
   const filteredData = useMemo(() => {
     return fetchedData.filter(item => {
       if (userRole === "User") {
-        return item.isApproved;
+        // Users only see approved posts
+        return item.isApproved && !item.isNew;
       }
-      return true;
+      return true; // Admins see all posts
     });
   }, [fetchedData, userRole]);
 
@@ -2072,3 +2148,6 @@ export default function SentinelFeed(): React.JSX.Element {
     </SafeAreaView>
   );
 }
+
+
+//New toggle button added
