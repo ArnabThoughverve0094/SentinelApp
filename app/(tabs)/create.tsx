@@ -25,7 +25,86 @@ import {
 
 const { width: screenWidth } = Dimensions.get('window');
 
-// Custom Modal Component
+// **ENHANCED: File size limits and helpers**
+const FILE_SIZE_LIMIT_BYTES = 10 * 1024 * 1024; // 10MB
+
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+// **ENHANCED: Comprehensive error message handler**
+const getErrorDetails = (error: any, fileName: string = ''): { title: string; message: string; icon: string } => {
+  const errorString = String(error).toLowerCase();
+  const fileNameDisplay = fileName ? `"${fileName}"` : 'your file';
+  
+  // File size errors (HTTP 413)
+  if (errorString.includes('413') || errorString.includes('content length exceeded')) {
+    const sizeLimit = formatFileSize(FILE_SIZE_LIMIT_BYTES);
+    return {
+      title: 'File Too Large',
+      message: `${fileNameDisplay} is too large. Please choose a file smaller than ${sizeLimit}.\n\nTip: Try compressing your video or image before uploading.`,
+      icon: 'warning'
+    };
+  }
+  
+  // Network timeout errors
+  if (errorString.includes('timeout') || errorString.includes('network request timed out')) {
+    return {
+      title: 'Upload Timeout',
+      message: `Upload of ${fileNameDisplay} timed out. This usually happens with large files or slow connections.\n\nTry:\n• Using a smaller file\n• Checking your internet connection\n• Trying again later`,
+      icon: 'time-outline'
+    };
+  }
+  
+  // Network connection errors
+  if (errorString.includes('network') || errorString.includes('fetch') || errorString.includes('connection')) {
+    return {
+      title: 'Connection Error',
+      message: `Unable to connect to the server while uploading ${fileNameDisplay}.\n\nPlease:\n• Check your internet connection\n• Try again in a few moments`,
+      icon: 'wifi-outline'
+    };
+  }
+  
+  // File format/corruption errors
+  if (errorString.includes('format') || errorString.includes('corrupt') || errorString.includes('invalid')) {
+    return {
+      title: 'Invalid File',
+      message: `${fileNameDisplay} appears to be corrupted or in an unsupported format.\n\nTry:\n• Choosing a different file\n• Converting to a common format (JPG, PNG, MP4)`,
+      icon: 'document-text-outline'
+    };
+  }
+  
+  // Server errors (5xx)
+  if (errorString.includes('500') || errorString.includes('502') || errorString.includes('503') || errorString.includes('server error')) {
+    return {
+      title: 'Server Temporarily Unavailable',
+      message: `Our servers are experiencing issues processing ${fileNameDisplay}.\n\nPlease try uploading again in a few minutes.`,
+      icon: 'server-outline'
+    };
+  }
+  
+  // Permission/authorization errors
+  if (errorString.includes('401') || errorString.includes('403') || errorString.includes('unauthorized')) {
+    return {
+      title: 'Upload Permission Error',
+      message: `You don't have permission to upload ${fileNameDisplay}.\n\nTry logging out and back in, then try again.`,
+      icon: 'lock-closed-outline'
+    };
+  }
+  
+  // Generic upload error
+  return {
+    title: 'Upload Failed',
+    message: `Failed to upload ${fileNameDisplay}. This could be due to:\n\n• File size too large\n• Network connectivity issues\n• Temporary server problems\n\nPlease try again with a smaller file.`,
+    icon: 'cloud-upload-outline'
+  };
+};
+
+// **ENHANCED: Better Custom Modal Component**
 interface CustomModalProps {
   visible: boolean;
   type: 'success' | 'error' | 'info' | 'warning';
@@ -37,6 +116,7 @@ interface CustomModalProps {
     style?: 'default' | 'cancel' | 'destructive';
   }>;
   onClose?: () => void;
+  customIcon?: string;
 }
 
 const CustomModal: React.FC<CustomModalProps> = ({
@@ -45,7 +125,8 @@ const CustomModal: React.FC<CustomModalProps> = ({
   title,
   message,
   buttons,
-  onClose
+  onClose,
+  customIcon
 }) => {
   const scaleAnim = useRef(new Animated.Value(0)).current;
 
@@ -63,33 +144,33 @@ const CustomModal: React.FC<CustomModalProps> = ({
   }, [visible, scaleAnim]);
 
   const getModalStyle = () => {
-    switch (type) {
-      case 'success':
-        return {
-          iconName: 'checkmark-circle' as const,
-          iconColor: '#22C55E',
-          iconBg: '#F0FDF4',
-        };
-      case 'error':
-        return {
-          iconName: 'close-circle' as const,
-          iconColor: '#EF4444',
-          iconBg: '#FEF2F2',
-        };
-      case 'warning':
-        return {
-          iconName: 'warning' as const,
-          iconColor: '#F59E0B',
-          iconBg: '#FFFBEB',
-        };
-      default:
-        return {
-          iconName: 'information-circle' as const,
-          iconColor: '#3B82F6',
-          iconBg: '#EFF6FF',
-        };
-    }
-  };
+  switch (type) {
+    case 'success':
+      return {
+        iconName: (customIcon || 'checkmark-circle') as any,
+        iconColor: '#22C55E',
+        iconBg: '#F0FDF4',
+      };
+    case 'error':
+      return {
+        iconName: (customIcon || 'close-circle') as any,
+        iconColor: '#EF4444',
+        iconBg: '#FEF2F2',
+      };
+    case 'warning':
+      return {
+        iconName: (customIcon || 'warning') as any,
+        iconColor: '#F59E0B',
+        iconBg: '#FFFBEB',
+      };
+    default:
+      return {
+        iconName: (customIcon || 'information-circle') as any,
+        iconColor: '#3B82F6',
+        iconBg: '#EFF6FF',
+      };
+  }
+};
 
   const modalStyle = getModalStyle();
 
@@ -115,10 +196,10 @@ const CustomModal: React.FC<CustomModalProps> = ({
             {
               backgroundColor: 'white',
               borderRadius: 24,
-              padding: 32,
+              padding: 24,
               alignItems: 'center',
               width: '100%',
-              maxWidth: 320,
+              maxWidth: 360,
               shadowColor: '#000',
               shadowOffset: { width: 0, height: 10 },
               shadowOpacity: 0.3,
@@ -129,20 +210,20 @@ const CustomModal: React.FC<CustomModalProps> = ({
         >
           {/* Icon */}
           <View style={{
-            width: 80,
-            height: 80,
+            width: 70,
+            height: 70,
             backgroundColor: modalStyle.iconBg,
-            borderRadius: 40,
+            borderRadius: 35,
             alignItems: 'center',
             justifyContent: 'center',
-            marginBottom: 24,
+            marginBottom: 20,
           }}>
-            <Ionicons name={modalStyle.iconName} size={48} color={modalStyle.iconColor} />
+            <Ionicons name={modalStyle.iconName} size={36} color={modalStyle.iconColor} />
           </View>
 
           {/* Title */}
           <Text style={{
-            fontSize: 22,
+            fontSize: 20,
             fontWeight: 'bold',
             color: '#111827',
             textAlign: 'center',
@@ -153,11 +234,11 @@ const CustomModal: React.FC<CustomModalProps> = ({
 
           {/* Message */}
           <Text style={{
-            fontSize: 16,
+            fontSize: 15,
             color: '#6B7280',
             textAlign: 'center',
-            marginBottom: 32,
-            lineHeight: 24,
+            marginBottom: 24,
+            lineHeight: 22,
           }}>
             {message}
           </Text>
@@ -168,12 +249,12 @@ const CustomModal: React.FC<CustomModalProps> = ({
               <TouchableOpacity
                 key={index}
                 style={{
-                  paddingVertical: 16,
-                  paddingHorizontal: 32,
+                  paddingVertical: 14,
+                  paddingHorizontal: 24,
                   borderRadius: 12,
                   alignItems: 'center',
                   width: '100%',
-                  marginBottom: index < buttons.length - 1 ? 12 : 0,
+                  marginBottom: index < buttons.length - 1 ? 10 : 0,
                   backgroundColor: 
                     button.style === 'cancel' 
                       ? '#F3F4F6' 
@@ -190,7 +271,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
                 activeOpacity={0.8}
               >
                 <Text style={{
-                  fontSize: 18,
+                  fontSize: 16,
                   fontWeight: '600',
                   color: button.style === 'cancel' ? '#374151' : 'white',
                 }}>
@@ -205,7 +286,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
   );
 };
 
-type SelectedMedia = { uri: string; name: string; type: string };
+type SelectedMedia = { uri: string; name: string; type: string; size?: number };
 
 export default function CreatePost() {
   const router = useRouter();
@@ -226,15 +307,17 @@ export default function CreatePost() {
       onPress: () => void;
       style?: 'default' | 'cancel' | 'destructive';
     }>;
+    customIcon?: string;
   }>({
     visible: false,
     type: 'info',
     title: '',
     message: '',
-    buttons: []
+    buttons: [],
+    customIcon: undefined
   });
 
-  // Custom Alert function
+  // **ENHANCED: Better alert function**
   const showCustomAlert = (
     type: 'success' | 'error' | 'info' | 'warning',
     title: string,
@@ -243,14 +326,16 @@ export default function CreatePost() {
       text: string;
       onPress: () => void;
       style?: 'default' | 'cancel' | 'destructive';
-    }>
+    }>,
+    customIcon?: string
   ) => {
     setModalConfig({
       visible: true,
       type,
       title,
       message,
-      buttons
+      buttons,
+      customIcon
     });
   };
 
@@ -258,7 +343,22 @@ export default function CreatePost() {
     setModalConfig(prev => ({ ...prev, visible: false }));
   };
 
-  // Updated with 5 suggested images to show exactly 4 full images
+  // **ENHANCED: File size validation**
+  const validateFileSize = (size: number, fileName: string): boolean => {
+    if (size > FILE_SIZE_LIMIT_BYTES) {
+      const errorDetails = getErrorDetails(`File size ${size} exceeds limit`, fileName);
+      showCustomAlert(
+        'warning',
+        errorDetails.title,
+        errorDetails.message,
+        [{ text: 'OK', onPress: hideModal }],
+        errorDetails.icon
+      );
+      return false;
+    }
+    return true;
+  };
+
   const suggestedImages: string[] = [
     "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=400",
     "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?w=400",
@@ -281,103 +381,149 @@ export default function CreatePost() {
     }
   }
 
-  // Helper: Pick image from gallery
+  // **ENHANCED: Pick images with validation**
   const pickImages = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      showCustomAlert(
-        'warning',
-        'Permission needed',
-        'Please grant camera roll permissions to select images.',
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        showCustomAlert(
+          'warning',
+          'Permission Required',
+          'Please grant camera roll permissions to select images.',
+          [{ text: 'OK', onPress: hideModal }],
+          'camera-outline'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets) {
+        const validAssets: SelectedMedia[] = [];
+        const invalidFiles: string[] = [];
+
+        for (const asset of result.assets) {
+          const fileSize = asset.fileSize || 0;
+          const fileName = asset.fileName || 'image.jpg';
+
+          if (fileSize > 0 && fileSize > FILE_SIZE_LIMIT_BYTES) {
+            invalidFiles.push(`${fileName} (${formatFileSize(fileSize)})`);
+          } else {
+            validAssets.push({
+              uri: asset.uri,
+              name: fileName,
+              type: asset.mimeType || 'image/jpeg',
+              size: fileSize,
+            });
           }
-        ]
-      );
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultipleSelection: true,
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets) {
-      const assets = result.assets.map((a) => ({
-        uri: a.uri,
-        name: a.fileName || a.uri.split('/').pop() || 'file.jpg',
-        type: a.mimeType || 'image/jpeg',
-      }));
-      setSelectedMedia((curr) => [...curr, ...assets]);
+        }
+
+        if (invalidFiles.length > 0) {
+          const errorDetails = getErrorDetails('413 content length exceeded', 'selected images');
+          showCustomAlert(
+            'warning',
+            'Some Files Too Large',
+            `The following files exceed the ${formatFileSize(FILE_SIZE_LIMIT_BYTES)} limit:\n\n${invalidFiles.join('\n')}\n\nPlease compress these images or choose smaller ones.`,
+            [{ text: 'OK', onPress: hideModal }],
+            'warning'
+          );
+        }
+
+        if (validAssets.length > 0) {
+          setSelectedMedia((curr) => [...curr, ...validAssets]);
+        }
+      }
+    } catch (error) {
+      const errorDetails = getErrorDetails(error, 'images');
+      showCustomAlert('error', errorDetails.title, errorDetails.message, [
+        { text: 'OK', onPress: hideModal }
+      ], errorDetails.icon);
     }
   };
 
-  // Helper: Pick video
+  // **ENHANCED: Pick video with validation**
   const pickVideo = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      showCustomAlert(
-        'warning',
-        'Permission needed',
-        'Please grant camera roll permissions to select videos.',
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
-      );
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets) {
-      const assets = result.assets.map((a) => ({
-        uri: a.uri,
-        name: a.fileName || a.uri.split('/').pop() || 'file.mp4',
-        type: a.mimeType || 'video/mp4',
-      }));
-      setSelectedMedia((curr) => [...curr, ...assets]);
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        showCustomAlert(
+          'warning',
+          'Permission Required',
+          'Please grant camera roll permissions to select videos.',
+          [{ text: 'OK', onPress: hideModal }],
+          'videocam-outline'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['videos'],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets) {
+        const asset = result.assets[0];
+        const fileSize = asset.fileSize || 0;
+        const fileName = asset.fileName || 'video.mp4';
+
+        if (!validateFileSize(fileSize, fileName)) {
+          return; // validateFileSize shows the error
+        }
+
+        setSelectedMedia((curr) => [...curr, {
+          uri: asset.uri,
+          name: fileName,
+          type: asset.mimeType || 'video/mp4',
+          size: fileSize,
+        }]);
+      }
+    } catch (error) {
+      const errorDetails = getErrorDetails(error, 'video');
+      showCustomAlert('error', errorDetails.title, errorDetails.message, [
+        { text: 'OK', onPress: hideModal }
+      ], errorDetails.icon);
     }
   };
 
-  // Helper: Pick GIF/ANY file
+  // **ENHANCED: Pick document with validation**
   const pickDocument = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: '*/*',
         copyToCacheDirectory: true,
       });
+
       if (!result.canceled && result.assets) {
         const asset = result.assets[0];
+        const fileSize = asset.size || 0;
+        const fileName = asset.name || 'file';
+
+        if (!validateFileSize(fileSize, fileName)) {
+          return; // validateFileSize shows the error
+        }
+
         setSelectedMedia((curr) => [
           ...curr,
           {
             uri: asset.uri,
-            name: asset.name || asset.uri.split('/').pop() || 'file',
+            name: fileName,
             type: asset.mimeType || 'application/octet-stream',
+            size: fileSize,
           },
         ]);
       }
-    } catch (e) {
-      showCustomAlert(
-        'error',
-        'Document picker error',
-        String(e),
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
-      );
+    } catch (error) {
+      const errorDetails = getErrorDetails(error, 'document');
+      showCustomAlert('error', errorDetails.title, errorDetails.message, [
+        { text: 'OK', onPress: hideModal }
+      ], errorDetails.icon);
     }
   };
 
-  // Helper: Add from suggestions (remote)
   const addSuggestedImage = (uri: string) => {
     setSelectedMedia((curr) => [
       ...curr,
@@ -385,19 +531,17 @@ export default function CreatePost() {
     ]);
   };
 
-  // Helper: Remove file
   const removeMedia = (idx: number) => {
     setSelectedMedia((curr) => curr.filter((_, i) => i !== idx));
   };
 
-  // Upload function
+  // **ENHANCED: Upload function with detailed error handling**
   const uploadMediaFile = async (file: SelectedMedia): Promise<string> => {
     if (Platform.OS === "web") {
-      console.warn("File upload not supported on web.");
-      return '';
+      throw new Error("File upload not supported on web platform");
     }
 
-    console.log("Uploading file:", file.name, "Type:", file.type);
+    console.log("📤 Uploading file:", file.name, "Size:", formatFileSize(file.size || 0));
     setUploadProgress(true);
     
     const formData = new FormData();
@@ -408,7 +552,7 @@ export default function CreatePost() {
     } as any);
 
     try {
-      console.log("Starting upload to API...");
+      console.log("🚀 Starting upload to API...");
       const res = await fetch(
         'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/uploadFile',
         {
@@ -417,82 +561,84 @@ export default function CreatePost() {
         }
       );
 
-      console.log("Upload response status:", res.status);
+      console.log("📊 Upload response status:", res.status);
       
       if (!res.ok) {
         const errText = await res.text();
-        console.error("Upload failed with status:", res.status, "Error:", errText);
-        throw new Error(`HTTP status ${res.status}: ${errText}`);
+        console.error("❌ Upload failed:", res.status, errText);
+        
+        // Create detailed error based on status
+        let errorMessage = `HTTP status ${res.status}: ${errText}`;
+        if (res.status === 413) {
+          errorMessage = `File size ${formatFileSize(file.size || 0)} exceeds 10MB limit`;
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await res.json();
-      console.log("Upload response data:", data);
-      
       if (!data.fileUrl || data.fileUrl.trim() === '') {
-        throw new Error("No valid fileUrl returned from API");
+        throw new Error("Server did not return a valid file URL");
       }
       
-      console.log("Upload successful. URL:", data.fileUrl);
+      console.log("✅ Upload successful:", data.fileUrl);
       return data.fileUrl;
     } catch (e) {
-      console.error("Upload error:", e);
+      console.error("❌ Upload error:", e);
       throw e;
     } finally {
       setUploadProgress(false);
     }
   };
 
-  // Post Submit Handler
+  // **ENHANCED: Post handler with better error management**
   const handlePostNow = async () => {
     if (!postText.trim() && selectedMedia.length === 0) {
       showCustomAlert(
         'warning',
         'Empty Post',
         'Please add some content or media before posting.',
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
+        [{ text: 'OK', onPress: hideModal }],
+        'create-outline'
       );
       return;
     }
 
     setLoading(true);
+    let uploadedUrls: string[] = [];
+    let failedUploads: string[] = [];
+
     try {
-      const uploadedUrls: string[] = [];
-      
-      // Upload each media file
+      // Upload each media file with individual error handling
       for (let i = 0; i < selectedMedia.length; i++) {
         const asset = selectedMedia[i];
-        console.log(`Processing media ${i + 1}/${selectedMedia.length}:`, asset.name);
+        console.log(`📤 Processing ${i + 1}/${selectedMedia.length}: ${asset.name}`);
         
         try {
           if (!asset.uri.startsWith("http")) {
             const url = await uploadMediaFile(asset);
             if (url && url.trim() !== '') {
               uploadedUrls.push(url);
-              console.log(`Successfully uploaded ${asset.name}:`, url);
-            } else {
-              console.warn(`Upload failed for ${asset.name} - skipping`);
+              console.log(`✅ Uploaded: ${asset.name}`);
             }
           } else {
             uploadedUrls.push(asset.uri);
-            console.log(`Added remote URL:`, asset.uri);
+            console.log(`✅ Added remote URL: ${asset.uri}`);
           }
         } catch (uploadError) {
-          console.error(`Failed to upload ${asset.name}:`, uploadError);
+          console.error(`❌ Failed to upload ${asset.name}:`, uploadError);
+          failedUploads.push(asset.name);
           
-          // Show custom modal for upload error with choice to continue or cancel
+          // Show detailed error for each failed upload
+          const errorDetails = getErrorDetails(uploadError, asset.name);
+          
           return new Promise<void>((resolve) => {
             showCustomAlert(
               'error',
-              'Upload Error',
-              `Failed to upload ${asset.name}. Continue anyway?`,
+              errorDetails.title,
+              `${errorDetails.message}\n\nWould you like to continue posting without this file?`,
               [
                 {
-                  text: 'Cancel',
+                  text: 'Cancel Post',
                   style: 'cancel',
                   onPress: () => {
                     hideModal();
@@ -502,21 +648,63 @@ export default function CreatePost() {
                 },
                 {
                   text: 'Continue',
-                  onPress: () => {
+                  onPress: async () => {
                     hideModal();
-                    console.log("Continuing without this file");
+                    // Continue with remaining uploads and post creation
+                    await continueWithRemainingUploads(i + 1, uploadedUrls, failedUploads);
                     resolve();
                   }
                 }
-              ]
+              ],
+              errorDetails.icon
             );
           });
         }
       }
 
-      console.log("Final uploaded URLs:", uploadedUrls);
+      // All uploads completed successfully
+      await createPost(uploadedUrls, failedUploads);
 
-      // Save to Firebase with proper field names
+    } catch (e) {
+      console.error("❌ Post creation error:", e);
+      const errorDetails = getErrorDetails(e);
+      showCustomAlert('error', errorDetails.title, errorDetails.message, [
+        { text: 'OK', onPress: hideModal }
+      ], errorDetails.icon);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // **NEW: Continue with remaining uploads**
+  const continueWithRemainingUploads = async (startIndex: number, uploadedUrls: string[], failedUploads: string[]) => {
+    try {
+      // Process remaining files
+      for (let i = startIndex; i < selectedMedia.length; i++) {
+        const asset = selectedMedia[i];
+        try {
+          if (!asset.uri.startsWith("http")) {
+            const url = await uploadMediaFile(asset);
+            if (url) uploadedUrls.push(url);
+          } else {
+            uploadedUrls.push(asset.uri);
+          }
+        } catch (err) {
+          failedUploads.push(asset.name);
+        }
+      }
+      
+      await createPost(uploadedUrls, failedUploads);
+    } catch (error) {
+      console.error("❌ Error continuing uploads:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // **NEW: Separated post creation**
+  const createPost = async (uploadedUrls: string[], failedUploads: string[]) => {
+    try {
       await addDoc(collection(db, 'SentinelPosts'), {
         AuthorImageURL: "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
         AuthorName: userName,
@@ -533,10 +721,19 @@ export default function CreatePost() {
       setPostText('');
       setSelectedMedia([]);
       
+      // Show success message with details
+      let successMessage = `Post submitted successfully! Kindly await admin review.`;
+      if (uploadedUrls.length > 0) {
+        successMessage += `\n\n✅ ${uploadedUrls.length} file(s) uploaded successfully`;
+      }
+      if (failedUploads.length > 0) {
+        successMessage += `\n⚠️ ${failedUploads.length} file(s) couldn't be uploaded due to size/connection issues`;
+      }
+      
       showCustomAlert(
         'success',
-        'Success!',
-        `Post created successfully! ${uploadedUrls.length} media files uploaded.`,
+        'Post Submitted!',
+        successMessage,
         [
           {
             text: 'Continue',
@@ -545,23 +742,18 @@ export default function CreatePost() {
               setTimeout(() => router.back(), 500);
             }
           }
-        ]
+        ],
+        'checkmark-circle'
       );
     } catch (e) {
-      console.error("Post creation error:", e);
+      console.error("❌ Firebase error:", e);
       showCustomAlert(
         'error',
         'Post Creation Failed',
-        'Failed to create post: ' + String(e),
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
+        'Failed to save your post to the server. Please check your internet connection and try again.',
+        [{ text: 'OK', onPress: hideModal }],
+        'cloud-offline-outline'
       );
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -684,6 +876,15 @@ export default function CreatePost() {
                           }}>
                             {obj.name}
                           </Text>
+                          {obj.size && (
+                            <Text style={{ 
+                              fontSize: 10, 
+                              color: "#666", 
+                              textAlign: "center" 
+                            }}>
+                              {formatFileSize(obj.size)}
+                            </Text>
+                          )}
                         </View>
                       )}
                       <TouchableOpacity
@@ -710,7 +911,7 @@ export default function CreatePost() {
             )}
           </ScrollView>
 
-          {/* Bottom toolbar - Updated to match Figma design exactly */}
+          {/* Bottom toolbar */}
           <View style={{ backgroundColor: "white", borderTopWidth: 1, borderColor: "#eee" }}>
             {/* Media Picker Icons Row */}
             <View style={{ 
@@ -721,9 +922,7 @@ export default function CreatePost() {
               paddingTop: 16,
               paddingBottom: 8
             }}>
-              {/* Left side - Media picker buttons */}
               <View style={{ flexDirection: "row", alignItems: "center" }}>
-                {/* Image Picker - Updated icon to match Figma */}
                 <TouchableOpacity
                   style={{ 
                     width: 40, 
@@ -737,7 +936,6 @@ export default function CreatePost() {
                   <Ionicons name="images-outline" size={30} color="#666" />
                 </TouchableOpacity>
 
-                {/* GIF Picker - Updated to show "GIF" text */}
                 <TouchableOpacity
                   style={{ 
                     width: 50, 
@@ -759,7 +957,6 @@ export default function CreatePost() {
                   </Text>
                 </TouchableOpacity>
 
-                {/* Video Picker */}
                 <TouchableOpacity
                   style={{ 
                     width: 40, 
@@ -773,7 +970,6 @@ export default function CreatePost() {
                 </TouchableOpacity>
               </View>
 
-              {/* Right side - Loading indicator */}
               {(loading || uploadProgress) && (
                 <View style={{ 
                   backgroundColor: "#f0f0f0", 
@@ -792,7 +988,6 @@ export default function CreatePost() {
               paddingHorizontal: 16, 
               paddingBottom: 16 
             }}>
-              {/* Large Plus button */}
               <TouchableOpacity
                 style={{ 
                   width: 65, 
@@ -808,7 +1003,6 @@ export default function CreatePost() {
                 <Ionicons name="add" size={32} color="#666" />
               </TouchableOpacity>
 
-              {/* Suggested images - Adjusted to show exactly 4 full images */}
               <View style={{ 
                 flex: 1, 
                 flexDirection: "row", 
@@ -818,9 +1012,9 @@ export default function CreatePost() {
                   <TouchableOpacity
                     key={idx}
                     style={{
-                      width: (screenWidth - 65 - 8 - 32 - 24) / 4, // Adjusted calculation for 4 full images
+                      width: (screenWidth - 65 - 8 - 32 - 24) / 4,
                       height: 65,
-                      marginLeft: idx === 0 ? 0 : 6, // Small gap between images
+                      marginLeft: idx === 0 ? 0 : 6,
                     }}
                     onPress={() => addSuggestedImage(uri)}
                   >
@@ -853,7 +1047,7 @@ export default function CreatePost() {
                 onPress={handlePostNow}
               >
                 <Text style={{ color: "white", fontSize: 16, fontWeight: "bold" }}>
-                  {loading ? "Posting..." : "Post Now"}
+                  {loading ? "Posting..." : "Submit Now"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -861,7 +1055,7 @@ export default function CreatePost() {
         </View>
       </KeyboardAvoidingView>
 
-      {/* Custom Modal */}
+      {/* Enhanced Custom Modal */}
       <CustomModal
         visible={modalConfig.visible}
         type={modalConfig.type}
@@ -869,6 +1063,7 @@ export default function CreatePost() {
         message={modalConfig.message}
         buttons={modalConfig.buttons}
         onClose={hideModal}
+        customIcon={modalConfig.customIcon}
       />
     </SafeAreaView>
   );

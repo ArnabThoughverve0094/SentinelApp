@@ -41,10 +41,11 @@ interface PostItem {
   ContentRepostCount: number;
   ContentCommentCount?: number;
   isApproved: boolean;
-  isNew: boolean; // New field for tracking new posts
+  isNew: boolean;
   postType: string;
   Liked: boolean;
   Reposted: boolean;
+  Bookmarked?: boolean;
   createdAt?: any;
 }
 
@@ -198,6 +199,9 @@ export default function SentinelFeed(): React.JSX.Element {
   const [commentsData, setCommentsData] = useState<{ [key: string]: number }>({});
   const [isInitialized, setIsInitialized] = useState(false);
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(-1);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const videoRefs = useRef<{ [key: string]: any }>({});
   const flipCardRef = useRef<any>(null);
 
   // ------- COMMENT MODAL STATE -------
@@ -387,20 +391,17 @@ export default function SentinelFeed(): React.JSX.Element {
     try {
       let totalComments = 0;
       
-      // Fetch comments from the correct subcollection: postType/postId/Comments
       const commentsRef = collection(db, postType, postId, 'Comments');
       const commentsSnapshot = await getDocs(commentsRef);
       
-      totalComments = commentsSnapshot.size; // Count direct comments
+      totalComments = commentsSnapshot.size;
       
-      // Count replies: postType/postId/Comments/commentId/Replies
       for (const commentDoc of commentsSnapshot.docs) {
         const repliesRef = collection(db, postType, postId, 'Comments', commentDoc.id, 'Replies');
         const repliesSnapshot = await getDocs(repliesRef);
-        totalComments += repliesSnapshot.size; // Add reply counts
+        totalComments += repliesSnapshot.size;
       }
       
-      // Update only this specific post's comment count
       setCommentsData(prev => ({
         ...prev,
         [postId]: totalComments
@@ -414,54 +415,10 @@ export default function SentinelFeed(): React.JSX.Element {
     }
   }, []);
 
-  // ✅ FIXED: Fetch comments from correct subcollection structure
-  // const fetchCommentsCount = useCallback(async (posts: PostItem[]) => {
-  //   try {
-  //     console.log('Starting to fetch comments for', posts.length, 'posts');
-  //     const commentsCount: { [key: string]: number } = {};
-      
-  //     // Process each post to count comments and replies
-  //     const commentPromises = posts.map(async (post) => {
-  //       try {
-  //         let totalComments = 0;
-          
-  //         // ✅ FIXED: Use correct subcollection path
-  //         const commentsRef = collection(db, post.postType, post.id, 'Comments');
-  //         const commentsSnapshot = await getDocs(commentsRef);
-          
-  //         totalComments = commentsSnapshot.size; // Direct comments count
-          
-  //         // Count replies for each comment
-  //         const replyPromises = commentsSnapshot.docs.map(async (commentDoc) => {
-  //           const repliesRef = collection(db, post.postType, post.id, 'Comments', commentDoc.id, 'Replies');
-  //           const repliesSnapshot = await getDocs(repliesRef);
-  //           return repliesSnapshot.size;
-  //         });
-          
-  //         const replyCounts = await Promise.all(replyPromises);
-  //         totalComments += replyCounts.reduce((sum, count) => sum + count, 0);
-          
-  //         return { [post.id]: totalComments };
-  //       } catch (error) {
-  //         console.error(`Error fetching comments for post ${post.id}:`, error);
-  //         return { [post.id]: 0 };
-  //       }
-  //     });
-      
-  //     const results = await Promise.all(commentPromises);
-  //     results.forEach(result => Object.assign(commentsCount, result));
-      
-  //     setCommentsData(commentsCount);
-  //     console.log('✅ Comments count fetched successfully:', commentsCount);
-  //   } catch (error) {
-  //     console.error('Error fetching comments count:', error);
-  //   }
-  // }, []);
-
   // OPTIMIZED DATA FETCHING
   const handleFetchAllData = useCallback(async (forceRefresh: boolean = false) => {
     const currentTime = Date.now();
-    const cacheValidTime = 5 * 60 * 1000; // 5 minutes cache
+    const cacheValidTime = 5 * 60 * 1000;
     
     if (!forceRefresh && isInitialized && fetchedData.length > 0 && 
         (currentTime - lastFetchTime) < cacheValidTime) {
@@ -473,7 +430,6 @@ export default function SentinelFeed(): React.JSX.Element {
     try {
       const postsXData: any = [];
       
-      // Process X-Data
       const collXDataRefPost = collection(db, 'X-Data');
       const queryXData = query(
         collXDataRefPost,
@@ -503,10 +459,11 @@ export default function SentinelFeed(): React.JSX.Element {
             ContentRepostCount: postData.ContentRepostCount || 0,
             ContentCommentCount: postData.ContentCommentCount || 0,
             isApproved: true,
-            isNew: false, // X-Data posts are always approved
+            isNew: false,
             postType: "X-Data",
             Liked: false,
             Reposted: false,
+            Bookmarked: false,
             createdAt: postData.createdAt || postData.ContentDate,
           });
         }
@@ -521,7 +478,6 @@ export default function SentinelFeed(): React.JSX.Element {
       );
 
       console.log("Sentinel OnSnapshot");
-      // Process SentinelPosts
       const unsubscribeSentinel = onSnapshot(querySentinel, async sentinelSnapshot => {
         const sentineldataArr = sentinelSnapshot.docs.map(doc => ({
           id: doc.id,
@@ -547,13 +503,13 @@ export default function SentinelFeed(): React.JSX.Element {
             ContentRepostCount: postData.ContentRepostCount || 0,
             ContentCommentCount: postData.ContentCommentCount || 0,
             isApproved: postData.isApproved || false,
-            isNew: postData.isNew !== undefined ? postData.isNew : true, // Default to New if not set
+            isNew: postData.isNew !== undefined ? postData.isNew : true,
             postType: "SentinelPosts",
             Liked: false,
             Reposted: false,
+            Bookmarked: false,
             createdAt: postData.createdAt || postData.ContentDate,
           });
-
         }
 
         const allData = postsData.concat(postsXData);
@@ -574,14 +530,10 @@ export default function SentinelFeed(): React.JSX.Element {
             }
           )
         );
-
       });
       
       setLastFetchTime(currentTime);
       console.log('All Data Fetched and Sorted', `Total: ${fetchedData.length} documents`);
-      
-      // ✅ Fetch comments count after posts are loaded
-      // await fetchCommentsCount(fetchedData);
       
       setIsInitialized(true);
 
@@ -595,14 +547,13 @@ export default function SentinelFeed(): React.JSX.Element {
     } finally {
       setLoading(false);
     }
-  }, [ isInitialized, fetchedData.length, lastFetchTime]);
+  }, [isInitialized, fetchedData.length, lastFetchTime]);
 
   useEffect(() => {
     getItem();
     handleFetchAllData();
   }, []);
 
-  // ✅ Smart comment update when returning from comments screen
   useFocusEffect(
     useCallback(() => {
       const checkCommentUpdate = async () => {
@@ -612,10 +563,8 @@ export default function SentinelFeed(): React.JSX.Element {
           
           if (lastVisitedPost && lastVisitedPostType && isInitialized) {
             console.log('🔄 Updating comments for visited post:', lastVisitedPost);
-            // Only refresh comments for the specific post that was visited
             await fetchSinglePostComments(lastVisitedPost, lastVisitedPostType);
             
-            // Clear the visited post data
             await AsyncStorage.removeItem('lastVisitedPost');
             await AsyncStorage.removeItem('lastVisitedPostType');
           }
@@ -628,7 +577,7 @@ export default function SentinelFeed(): React.JSX.Element {
     }, [isInitialized, fetchSinglePostComments])
   );
 
-  // TO OPEN COMMENTS MODAL (replace navigation to comments with this)
+  // TO OPEN COMMENTS MODAL
   const openCommentsModal = useCallback((item: PostItem) => {
     setSelectedPostId(item.id);
     setSelectedPostType(item.postType);
@@ -682,10 +631,8 @@ export default function SentinelFeed(): React.JSX.Element {
     }
 
     try {
-      // Update the post status to rejected and set isNew to false
       await handleApprovalToggle(rejectionPostId, false, false);
       
-      // Save the rejection reasons to your database
       await updateDoc(doc(db, 'SentinelPosts', rejectionPostId), {
         isApproved: false,
         isNew: false,
@@ -695,7 +642,6 @@ export default function SentinelFeed(): React.JSX.Element {
 
       closeRejectionModal();
       
-      // Show success notification
       showCustomAlert(
         'success',
         'Post Rejected',
@@ -780,7 +726,7 @@ export default function SentinelFeed(): React.JSX.Element {
     }, 800);
   }, [isFlipped, isFlipping]);
 
-  // ENHANCED APPROVAL TOGGLE FUNCTION WITH NEW STATUS
+  // ENHANCED APPROVAL TOGGLE FUNCTION
   const handleApprovalToggle = useCallback(async (postId: string, newApprovedStatus: boolean, newIsNew: boolean = false) => {
     console.log("Toggling post:", postId, "to approved:", newApprovedStatus, "isNew:", newIsNew);
 
@@ -806,7 +752,6 @@ export default function SentinelFeed(): React.JSX.Element {
       console.log("Post status updated successfully");
     } catch (error) {
       console.error("Error updating post status:", error);
-      // Revert changes on error
       setFetchedData(prevData => 
         prevData.map(item => 
           item.id === postId 
@@ -880,7 +825,29 @@ export default function SentinelFeed(): React.JSX.Element {
     await new Promise(r => setTimeout(r, 200));
   }, [fullScreenCard]);
 
-  const renderMediaContent = useCallback((item: PostItem) => {
+  const handleBookmark = useCallback(async (postItem: PostItem) => {
+    console.log("Bookmark pressed:", postItem.id);
+    
+    setFetchedData(prevData => 
+      prevData.map(item => 
+        item.uniqueId === postItem.uniqueId 
+          ? { ...item, Bookmarked: !item.Bookmarked } 
+          : item
+      )
+    );
+
+    if (fullScreenCard && fullScreenCard.uniqueId === postItem.uniqueId) {
+      setFullScreenCard((prev: PostItem | null) => prev ? ({
+        ...prev,
+        Bookmarked: !prev.Bookmarked
+      }) : null);
+    }
+
+    await new Promise(r => setTimeout(r, 200));
+  }, [fullScreenCard]);
+
+  // OPTIMIZED MEDIA CONTENT - REDUCED SIZES
+  const renderMediaContent = useCallback((item: PostItem, index?: number) => {
     const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
                      (item.ContentURL ? [item.ContentURL] : []);
     
@@ -891,7 +858,7 @@ export default function SentinelFeed(): React.JSX.Element {
 
     if (mediaType === 'image') {
       return (
-        <View className="mb-6">
+        <View className="mb-2">
           <TouchableOpacity 
             onPress={(e) => {
               e?.stopPropagation?.();
@@ -899,18 +866,18 @@ export default function SentinelFeed(): React.JSX.Element {
             }}
             activeOpacity={0.95}
           >
-            <View className="relative rounded-2xl overflow-hidden">
+            <View className="relative rounded-xl overflow-hidden">
               <Image
                 source={{ uri: primaryMediaUrl }}
-                style={{ width: '100%', height: 320 }}
+                style={{ width: '100%', height: 200 }}
                 className="bg-gray-100"
                 resizeMode="cover"
                 onError={(error) => {
                   console.log("Image load error:", error.nativeEvent.error);
                 }}
               />
-              <View className="absolute top-4 right-4 p-3 rounded-full bg-black/50">
-                <Ionicons name="expand-outline" size={20} color="white" />
+              <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+                <Ionicons name="expand-outline" size={14} color="white" />
               </View>
             </View>
           </TouchableOpacity>
@@ -918,7 +885,7 @@ export default function SentinelFeed(): React.JSX.Element {
       );
     } else if (mediaType === 'video') {
       return (
-        <View className="mb-6">
+        <View className="mb-2">
           <TouchableOpacity 
             onPress={(e) => {
               e?.stopPropagation?.();
@@ -926,26 +893,38 @@ export default function SentinelFeed(): React.JSX.Element {
             }}
             activeOpacity={0.95}
           >
-            <View className="relative rounded-2xl overflow-hidden bg-black">
+            <View className="relative rounded-xl overflow-hidden bg-black">
               <Video
+                ref={(ref) => {
+                  if (ref && index !== undefined) {
+                    videoRefs.current[`video-${index}`] = ref;
+                  }
+                }}
                 source={{ uri: primaryMediaUrl }}
-                style={{ width: '100%', height: 320 }}
+                style={{ width: '100%', height: 200 }}
                 resizeMode={ResizeMode.CONTAIN}
                 useNativeControls={false}
-                shouldPlay={false}
+                shouldPlay={currentVideoIndex === index}
                 isMuted={true}
-                isLooping={false}
+                isLooping={true}
               />
-              <View className="absolute top-4 right-4 p-3 rounded-full bg-black/50">
-                <Ionicons name="play-outline" size={20} color="white" />
+              <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+                <Ionicons name="play-outline" size={14} color="white" />
               </View>
+              {currentVideoIndex !== index && (
+                <View className="absolute inset-0 bg-black/20 items-center justify-center">
+                  <View className="w-10 h-10 bg-black/60 rounded-full items-center justify-center">
+                    <Ionicons name="play" size={20} color="white" />
+                  </View>
+                </View>
+              )}
             </View>
           </TouchableOpacity>
         </View>
       );
     } else if (mediaType === 'gif') {
       return (
-        <View className="mb-6">
+        <View className="mb-2">
           <TouchableOpacity 
             onPress={(e) => {
               e?.stopPropagation?.();
@@ -953,15 +932,15 @@ export default function SentinelFeed(): React.JSX.Element {
             }}
             activeOpacity={0.95}
           >
-            <View className="relative rounded-2xl overflow-hidden">
+            <View className="relative rounded-xl overflow-hidden">
               <Image
                 source={{ uri: primaryMediaUrl }}
-                style={{ width: '100%', height: 320 }}
+                style={{ width: '100%', height: 200 }}
                 className="bg-gray-100"
                 resizeMode="cover"
               />
-              <View className="absolute top-4 right-4 p-3 rounded-full bg-black/50">
-                 <MaterialIcons name="gif" size={28} color="#666" />
+              <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+                 <MaterialIcons name="gif" size={20} color="white" />
               </View>
             </View>
           </TouchableOpacity>
@@ -969,7 +948,7 @@ export default function SentinelFeed(): React.JSX.Element {
       );
     } else if (mediaType === 'doc') {
       return (
-        <View className="mb-6">
+        <View className="mb-2">
           <TouchableOpacity 
             onPress={(e) => {
               e?.stopPropagation?.();
@@ -979,18 +958,18 @@ export default function SentinelFeed(): React.JSX.Element {
           >
             <View
               style={{
-                borderRadius: 16,
+                borderRadius: 12,
                 overflow: 'hidden',
                 backgroundColor: '#EEF2F6',
                 alignItems: 'center',
                 justifyContent: 'center',
-                height: 120,
+                height: 80,
               }}>
-              <Ionicons name="document-text-outline" size={48} color="#8B5CF6" />
-              <Text numberOfLines={2} style={{ color: '#333', marginTop: 8, textAlign: 'center', paddingHorizontal: 16 }}>
+              <Ionicons name="document-text-outline" size={32} color="#8B5CF6" />
+              <Text numberOfLines={1} style={{ color: '#333', marginTop: 4, textAlign: 'center', paddingHorizontal: 12, fontSize: 11 }}>
                 {primaryMediaUrl.split('/').pop() || 'Document'}
               </Text>
-              <Text style={{ color: '#aaa', fontSize: 12, marginTop: 4 }}>Tap to open</Text>
+              <Text style={{ color: '#aaa', fontSize: 9, marginTop: 1 }}>Tap to open</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -998,7 +977,7 @@ export default function SentinelFeed(): React.JSX.Element {
     } else {
       return null;
     }
-  }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc]);
+  }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, currentVideoIndex]);
 
   // OPTIMIZED REFRESH
   const onRefresh = useCallback(async () => {
@@ -1008,7 +987,41 @@ export default function SentinelFeed(): React.JSX.Element {
     setRefreshing(false);
   }, [handleFetchAllData]);
 
-  // ENHANCED APPROVAL TOGGLE COMPONENT WITH NEW STATUS
+  // Filtered data for posts
+  const filteredData = useMemo(() => {
+    return fetchedData.filter(item => {
+      if (userRole === "User") {
+        return item.isApproved && !item.isNew;
+      }
+      return true;
+    });
+  }, [fetchedData, userRole]);
+
+  // AUTO PLAY VIDEO ON SCROLL
+  const handleScroll = useCallback((event: any) => {
+    const { contentOffset, layoutMeasurement } = event.nativeEvent;
+    const currentScrollY = contentOffset.y;
+    const viewHeight = layoutMeasurement.height;
+    const viewCenter = currentScrollY + viewHeight / 2;
+
+    filteredData.forEach((item, index) => {
+      const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
+                       (item.ContentURL ? [item.ContentURL] : []);
+      
+      if (mediaUrls.length > 0 && getMediaType(mediaUrls[0]) === 'video') {
+        const itemY = index * 340;
+        const itemCenter = itemY + 150;
+        
+        if (Math.abs(viewCenter - itemCenter) < 100) {
+          if (currentVideoIndex !== index) {
+            setCurrentVideoIndex(index);
+          }
+        }
+      }
+    });
+  }, [filteredData, getMediaType, currentVideoIndex]);
+
+  // COMPACT APPROVAL TOGGLE COMPONENT
   const ApprovalToggle = useCallback(({ isApproved, isNew, onToggle, postId, isFullScreen = false }: { 
     isApproved: boolean; 
     isNew: boolean;
@@ -1029,11 +1042,11 @@ export default function SentinelFeed(): React.JSX.Element {
     };
 
     return (
-      <View className="flex-row items-center">
-        {/* New Button */}
+      <View className="flex-row items-center justify-center" style={{ gap: isFullScreen ? 8 : 4 }}>
+        {/* New Button - Compact */}
         <TouchableOpacity
           onPress={handleNewClick}
-          className={`px-3 py-2 rounded-full border-2 flex-row items-center mr-3 ${
+          className={`px-1.5 py-1 rounded-full border flex-row items-center ${
             isNew 
               ? 'bg-orange-500 border-orange-500' 
               : 'bg-white border-orange-300'
@@ -1041,28 +1054,28 @@ export default function SentinelFeed(): React.JSX.Element {
           activeOpacity={0.8}
           style={{
             shadowColor: isNew ? '#f97316' : '#000',
-            shadowOffset: { width: 0, height: 2 },
+            shadowOffset: { width: 0, height: 1 },
             shadowOpacity: isNew ? 0.3 : 0.1,
-            shadowRadius: 4,
-            elevation: isNew ? 4 : 2,
+            shadowRadius: 2,
+            elevation: isNew ? 2 : 1,
           }}
         >
           <Ionicons 
             name="star" 
-            size={isFullScreen ? 18 : 16} 
+            size={isFullScreen ? 14 : 10} 
             color={isNew ? "white" : "#f97316"} 
           />
-          <Text className={`ml-2 font-semibold ${isFullScreen ? 'text-sm' : 'text-xs'} ${
+          <Text className={`ml-1 font-semibold ${isFullScreen ? 'text-xs' : 'text-xs'} ${
             isNew ? 'text-white' : 'text-orange-600'
           }`}>
             New
           </Text>
         </TouchableOpacity>
 
-        {/* Approve Button */}
+        {/* Approve Button - Compact */}
         <TouchableOpacity
           onPress={handleApproveClick}
-          className={`px-3 py-2 rounded-full border-2 flex-row items-center mr-3 ${
+          className={`px-1.5 py-1 rounded-full border flex-row items-center ${
             isApproved 
               ? 'bg-green-500 border-green-500' 
               : 'bg-white border-green-300'
@@ -1070,28 +1083,28 @@ export default function SentinelFeed(): React.JSX.Element {
           activeOpacity={0.8}
           style={{
             shadowColor: isApproved ? '#22c55e' : '#000',
-            shadowOffset: { width: 0, height: 2 },
+            shadowOffset: { width: 0, height: 1 },
             shadowOpacity: isApproved ? 0.3 : 0.1,
-            shadowRadius: 4,
-            elevation: isApproved ? 4 : 2,
+            shadowRadius: 2,
+            elevation: isApproved ? 2 : 1,
           }}
         >
           <Ionicons 
             name="checkmark-circle" 
-            size={isFullScreen ? 18 : 16} 
+            size={isFullScreen ? 14 : 10} 
             color={isApproved ? "white" : "#22c55e"} 
           />
-          <Text className={`ml-2 font-semibold ${isFullScreen ? 'text-sm' : 'text-xs'} ${
+          <Text className={`ml-1 font-semibold ${isFullScreen ? 'text-xs' : 'text-xs'} ${
             isApproved ? 'text-white' : 'text-green-600'
           }`}>
             Approve
           </Text>
         </TouchableOpacity>
 
-        {/* Reject Button */}
+        {/* Reject Button - Compact */}
         <TouchableOpacity
           onPress={handleRejectClick}
-          className={`px-3 py-2 rounded-full border-2 flex-row items-center ${
+          className={`px-1.5 py-1 rounded-full border flex-row items-center ${
             !isApproved && !isNew 
               ? 'bg-red-500 border-red-500' 
               : 'bg-white border-red-300'
@@ -1099,18 +1112,18 @@ export default function SentinelFeed(): React.JSX.Element {
           activeOpacity={0.8}
           style={{
             shadowColor: (!isApproved && !isNew) ? '#ef4444' : '#000',
-            shadowOffset: { width: 0, height: 2 },
+            shadowOffset: { width: 0, height: 1 },
             shadowOpacity: (!isApproved && !isNew) ? 0.3 : 0.1,
-            shadowRadius: 4,
-            elevation: (!isApproved && !isNew) ? 4 : 2,
+            shadowRadius: 2,
+            elevation: (!isApproved && !isNew) ? 2 : 1,
           }}
         >
           <Ionicons 
             name="close-circle" 
-            size={isFullScreen ? 18 : 16} 
+            size={isFullScreen ? 14 : 10} 
             color={(!isApproved && !isNew) ? "white" : "#ef4444"} 
           />
-          <Text className={`ml-2 font-semibold ${isFullScreen ? 'text-sm' : 'text-xs'} ${
+          <Text className={`ml-1 font-semibold ${isFullScreen ? 'text-xs' : 'text-xs'} ${
             (!isApproved && !isNew) ? 'text-white' : 'text-red-600'
           }`}>
             Reject
@@ -1143,23 +1156,18 @@ export default function SentinelFeed(): React.JSX.Element {
             ],
             opacity: animValue,
             shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.12,
-            shadowRadius: 12,
-            elevation: 6,
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
+            elevation: 4,
           }
         ]}
-        className="mx-4 mb-6 bg-white rounded-3xl overflow-hidden border border-gray-100"
+        className="mx-3 mb-1.5 bg-white rounded-xl overflow-hidden border border-gray-100"
       >
         {children}
       </Animated.View>
     );
   }, [cardAnimations]);
-
-  // ✅ Helper function to get actual comment counts
-  const getCommentsCount = useCallback((postId: string) => {
-    return commentsData[postId] || 0;
-  }, [commentsData]);
 
   // Helper function to get post status text and color
   const getPostStatus = useCallback((item: PostItem) => {
@@ -1179,10 +1187,10 @@ export default function SentinelFeed(): React.JSX.Element {
       borderRadius: 24, 
       overflow: 'hidden' 
     }}>
-      <View className="px-6 py-5 bg-gray-50 border-b border-gray-100">
+      <View className="px-4 py-3 bg-gray-50 border-b border-gray-100">
         <View className="flex-row items-center">
           <View className="relative">
-            <View className="w-16 h-16 rounded-full mr-4 overflow-hidden border-2 border-white shadow-lg">
+            <View className="w-10 h-10 rounded-full mr-2.5 overflow-hidden border-2 border-white shadow-lg">
               <Image
                 source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
                 className="w-full h-full"
@@ -1191,17 +1199,17 @@ export default function SentinelFeed(): React.JSX.Element {
             </View>
           </View>
           <View className="flex-1">
-            <Text className="font-bold text-gray-900 text-xl">{item.AuthorName}</Text>
-            <View className="flex-row items-center mt-2">
-              <Text className="text-gray-500 text-base mr-3">{getTimeAgo(item.ContentDate)}</Text>
+            <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text>
+            <View className="flex-row items-center mt-0.5">
+              <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
               {item.postType === 'X-Data' && (
-                <View className="bg-blue-100 px-3 py-2 rounded-full mr-2">
-                  <Text className="text-blue-600 text-sm font-semibold">𝕏 POST</Text>
+                <View className="bg-blue-100 px-2 py-0.5 rounded-full mr-2">
+                  <Text className="text-blue-600 text-xs font-semibold">𝕏 POST</Text>
                 </View>
               )}
               {item.postType === 'SentinelPosts' && (
-                <View className={`px-3 py-2 rounded-full ${getPostStatus(item).bgColor}`}>
-                  <Text className="text-sm font-semibold" style={{ color: getPostStatus(item).color }}>
+                <View className={`px-2 py-0.5 rounded-full ${getPostStatus(item).bgColor}`}>
+                  <Text className="text-xs font-semibold" style={{ color: getPostStatus(item).color }}>
                     {getPostStatus(item).text}
                   </Text>
                 </View>
@@ -1210,12 +1218,12 @@ export default function SentinelFeed(): React.JSX.Element {
           </View>
           <View className="flex-col items-center">
             <TouchableOpacity 
-              className="p-3 rounded-full bg-blue-100 mb-2"
+              className="p-1.5 rounded-full bg-blue-100 mb-1"
               onPress={handleFlipCard}
               disabled={isFlipping}
               style={{ opacity: isFlipping ? 0.6 : 1 }}
             >
-              <Ionicons name="repeat" size={20} color="#3b82f6" />
+              <Ionicons name="repeat" size={14} color="#3b82f6" />
             </TouchableOpacity>
             <Text className="text-xs text-blue-600 font-medium">Flip</Text>
           </View>
@@ -1223,29 +1231,29 @@ export default function SentinelFeed(): React.JSX.Element {
       </View>
 
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-        <View className="px-6 py-6">
-          <Text className="text-gray-800 text-lg leading-8 mb-6 font-normal">{item.ContentDesc}</Text>
+        <View className="px-4 py-3">
+          <Text className="text-gray-800 text-sm leading-5 mb-3 font-normal">{item.ContentDesc}</Text>
           
           {renderMediaContent(item)}
 
-          <View className="flex-row items-center justify-between pt-6 mb-6">
+          <View className="flex-row items-center justify-between pt-3 mb-3">
             <TouchableOpacity
-                className="flex-row items-center px-5 py-4"
+                className="flex-row items-center px-2 py-1.5"
                 onPress={() => toggleLike(item)}
                 activeOpacity={0.7}
               >
               <Ionicons
                 name={item.Liked ? "heart" : "heart-outline"}
-                size={24}
+                size={18}
                 color={item.Liked ? "#ef4444" : "#64748b"}
               />
-              <Text className={`ml-3 text-lg font-semibold ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
+              <Text className={`ml-2 text-sm font-semibold ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
                 {item.ContentLikeCount}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-5 py-4"
+              className="flex-row items-center px-2 py-1.5"
               onPress={() => {
                 closeFullScreenCard();
                 openCommentsModal(item);
@@ -1254,39 +1262,51 @@ export default function SentinelFeed(): React.JSX.Element {
             >
               <MaterialCommunityIcons
                 name="comment-outline"
-                size={24}
+                size={18}
                 color="#64748b"
               />
-              <Text className="text-gray-600 ml-3 text-lg font-semibold">{item.ContentCommentCount}</Text>
+              <Text className="text-gray-600 ml-2 text-sm font-semibold">{item.ContentCommentCount}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-5 py-4 "
+              className="flex-row items-center px-2 py-1.5 "
               onPress={() => handleRepost(item)}
               activeOpacity={0.7}
             >
               <Ionicons 
                 name="repeat-outline" 
-                size={24} 
+                size={18} 
                 color={item.Reposted ? "#0ea5e9" : "#64748b"} 
               />
-              <Text className={`ml-3 text-lg font-semibold ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
+              <Text className={`ml-2 text-sm font-semibold ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
                 {item.ContentRepostCount}
               </Text>
             </TouchableOpacity>
 
+            <TouchableOpacity
+              className="flex-row items-center px-2 py-1.5"
+              onPress={() => handleBookmark(item)}
+              activeOpacity={0.7}
+            >
+              <Ionicons 
+                name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
+                size={18} 
+                color={item.Bookmarked ? "#f59e0b" : "#64748b"} 
+              />
+            </TouchableOpacity>
+
             <TouchableOpacity 
-              className="p-4 "
+              className="p-1.5 "
               onPress={() => console.log("Share pressed:", item.id)}
               activeOpacity={0.7}
             >
-              <Feather name="share-2" size={22} color="#64748b" />
+              <Feather name="share-2" size={16} color="#64748b" />
             </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
     </View>
-  ), [getTimeAgo, handleFlipCard, isFlipping, renderMediaContent, toggleLike, handleRepost, getCommentsCount, dummyAuthorImage, closeFullScreenCard, openCommentsModal, getPostStatus]);
+  ), [getTimeAgo, handleFlipCard, isFlipping, renderMediaContent, toggleLike, handleRepost, handleBookmark, dummyAuthorImage, closeFullScreenCard, openCommentsModal, getPostStatus]);
 
   const renderFlipCardBack = useCallback((item: PostItem) => (
     <View style={{ 
@@ -1296,25 +1316,25 @@ export default function SentinelFeed(): React.JSX.Element {
       overflow: 'hidden'
     }}>
       <View style={{ 
-        paddingHorizontal: 24, 
-        paddingVertical: 20, 
+        paddingHorizontal: 16, 
+        paddingVertical: 12, 
         backgroundColor: 'rgba(0,0,0,0.2)', 
         borderBottomWidth: 1, 
         borderBottomColor: 'rgba(255,255,255,0.2)' 
       }}>
         <View className="flex-row items-center">
           <View className="flex-1">
-            <Text className="font-bold text-white text-xl">Post Analytics</Text>
-            <Text className="text-white/80 text-base mt-1">Detailed insights</Text>
+            <Text className="font-bold text-white text-base">Post Analytics</Text>
+            <Text className="text-white/80 text-sm mt-0.5">Detailed insights</Text>
           </View>
           <View className="flex-col items-center">
             <TouchableOpacity 
-              className="p-3 rounded-full mb-2" 
+              className="p-1.5 rounded-full mb-1" 
               style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
               onPress={handleFlipCard}
               disabled={isFlipping}
             >
-              <Ionicons name="repeat" size={20} color="white" />
+              <Ionicons name="repeat" size={14} color="white" />
             </TouchableOpacity>
             <Text className="text-xs text-white font-medium">Flip</Text>
           </View>
@@ -1322,68 +1342,68 @@ export default function SentinelFeed(): React.JSX.Element {
       </View>
 
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-        <View style={{ paddingHorizontal: 24, paddingVertical: 24 }}>
-          <View style={{ gap: 16 }}>
+        <View style={{ paddingHorizontal: 16, paddingVertical: 16 }}>
+          <View style={{ gap: 12 }}>
             <View style={{ 
               backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-              borderRadius: 16, 
-              padding: 24 
+              borderRadius: 14, 
+              padding: 16 
             }}>
-              <Text className="text-white font-bold text-lg mb-4">Engagement</Text>
-              <View className="flex-row justify-between items-center mb-3">
+              <Text className="text-white font-bold text-sm mb-3">Engagement</Text>
+              <View className="flex-row justify-between items-center mb-2">
                 <View className="flex-row items-center">
-                  <Ionicons name="heart" size={20} color="#ff6b6b" />
-                  <Text className="text-white ml-2">Likes</Text>
+                  <Ionicons name="heart" size={16} color="#ff6b6b" />
+                  <Text className="text-white ml-2 text-sm">Likes</Text>
                 </View>
-                <Text className="text-white font-bold text-xl">{item.ContentLikeCount}</Text>
+                <Text className="text-white font-bold text-base">{item.ContentLikeCount}</Text>
               </View>
-              <View className="flex-row justify-between items-center mb-3">
+              <View className="flex-row justify-between items-center mb-2">
                 <View className="flex-row items-center">
-                  <Ionicons name="repeat" size={20} color="#4ecdc4" />
-                  <Text className="text-white ml-2">Reposts</Text>
+                  <Ionicons name="repeat" size={16} color="#4ecdc4" />
+                  <Text className="text-white ml-2 text-sm">Reposts</Text>
                 </View>
-                <Text className="text-white font-bold text-xl">{item.ContentRepostCount}</Text>
+                <Text className="text-white font-bold text-base">{item.ContentRepostCount}</Text>
               </View>
               <View className="flex-row justify-between items-center">
                 <View className="flex-row items-center">
-                  <MaterialCommunityIcons name="comment" size={20} color="#45b7d1" />
-                  <Text className="text-white ml-2">Comments</Text>
+                  <MaterialCommunityIcons name="comment" size={16} color="#45b7d1" />
+                  <Text className="text-white ml-2 text-sm">Comments</Text>
                 </View>
-                <Text className="text-white font-bold text-xl">{item.ContentCommentCount}</Text>
+                <Text className="text-white font-bold text-base">{item.ContentCommentCount}</Text>
               </View>
             </View>
 
             <View style={{ 
               backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-              borderRadius: 16, 
-              padding: 24 
+              borderRadius: 14, 
+              padding: 16 
             }}>
-              <Text className="text-white font-bold text-lg mb-4">Post Details</Text>
-              <View style={{ gap: 12 }}>
+              <Text className="text-white font-bold text-sm mb-3">Post Details</Text>
+              <View style={{ gap: 8 }}>
                 <View>
-                  <Text className="text-white/70 text-sm">Post Type</Text>
-                  <Text className="text-white font-semibold">{item.postType}</Text>
+                  <Text className="text-white/70 text-xs">Post Type</Text>
+                  <Text className="text-white font-semibold text-sm">{item.postType}</Text>
                 </View>
                 <View>
-                  <Text className="text-white/70 text-sm">Status</Text>
+                  <Text className="text-white/70 text-xs">Status</Text>
                   <View className="flex-row items-center mt-1">
                     <View 
                       style={{ 
-                        width: 12, 
-                        height: 12, 
-                        borderRadius: 6, 
-                        marginRight: 8,
+                        width: 6, 
+                        height: 6, 
+                        borderRadius: 3, 
+                        marginRight: 6,
                         backgroundColor: getPostStatus(item).color
                       }} 
                     />
-                    <Text className="text-white font-semibold">
+                    <Text className="text-white font-semibold text-sm">
                       {getPostStatus(item).text}
                     </Text>
                   </View>
                 </View>
                 <View>
-                  <Text className="text-white/70 text-sm">Published</Text>
-                  <Text className="text-white font-semibold">{getTimeAgo(item.ContentDate)}</Text>
+                  <Text className="text-white/70 text-xs">Published</Text>
+                  <Text className="text-white font-semibold text-sm">{getTimeAgo(item.ContentDate)}</Text>
                 </View>
               </View>
             </View>
@@ -1391,11 +1411,11 @@ export default function SentinelFeed(): React.JSX.Element {
             {userRole !== "User" && item.postType === "SentinelPosts" && (
               <View style={{ 
                 backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                borderRadius: 16, 
-                padding: 24 
+                borderRadius: 14, 
+                padding: 16 
               }}>
-                <Text className="text-white font-bold text-lg mb-4">Admin Controls</Text>
-                <Text className="text-white/80 text-sm mb-4">
+                <Text className="text-white font-bold text-sm mb-3">Admin Controls</Text>
+                <Text className="text-white/80 text-xs mb-3">
                   Manage post visibility and approval status
                 </Text>
                 <ApprovalToggle
@@ -1410,17 +1430,17 @@ export default function SentinelFeed(): React.JSX.Element {
 
             <View style={{ 
               backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-              borderRadius: 16, 
-              padding: 24 
+              borderRadius: 14, 
+              padding: 16 
             }}>
-              <Text className="text-white font-bold text-lg mb-4">Quick Actions</Text>
-              <View className="flex-row justify-between" style={{ gap: 12 }}>
+              <Text className="text-white font-bold text-sm mb-3">Quick Actions</Text>
+              <View className="flex-row justify-between" style={{ gap: 8 }}>
                 <TouchableOpacity 
                   style={{ 
                     flex: 1, 
                     backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                    borderRadius: 12, 
-                    paddingVertical: 16, 
+                    borderRadius: 8, 
+                    paddingVertical: 10, 
                     alignItems: 'center' 
                   }}
                   onPress={() => {
@@ -1428,34 +1448,34 @@ export default function SentinelFeed(): React.JSX.Element {
                     openCommentsModal(item);
                   }}
                 >
-                  <MaterialCommunityIcons name="comment-plus" size={24} color="white" />
-                  <Text className="text-white text-sm mt-2 font-medium">Comment</Text>
+                  <MaterialCommunityIcons name="comment-plus" size={18} color="white" />
+                  <Text className="text-white text-xs mt-1 font-medium">Comment</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={{ 
                     flex: 1, 
                     backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                    borderRadius: 12, 
-                    paddingVertical: 16, 
+                    borderRadius: 8, 
+                    paddingVertical: 10, 
                     alignItems: 'center' 
                   }}
                   onPress={() => console.log("Edit pressed:", item.id)}
                 >
-                  <Ionicons name="create-outline" size={24} color="white" />
-                  <Text className="text-white text-sm mt-2 font-medium">Edit</Text>
+                  <Ionicons name="create-outline" size={18} color="white" />
+                  <Text className="text-white text-xs mt-1 font-medium">Edit</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={{ 
                     flex: 1, 
                     backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                    borderRadius: 12, 
-                    paddingVertical: 16, 
+                    borderRadius: 8, 
+                    paddingVertical: 10, 
                     alignItems: 'center' 
                   }}
                   onPress={() => console.log("Archive pressed:", item.id)}
                 >
-                  <Ionicons name="archive-outline" size={24} color="white" />
-                  <Text className="text-white text-sm mt-2 font-medium">Archive</Text>
+                  <Ionicons name="archive-outline" size={18} color="white" />
+                  <Text className="text-white text-xs mt-1 font-medium">Archive</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1463,18 +1483,18 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
       </ScrollView>
     </View>
-  ), [handleFlipCard, isFlipping, getTimeAgo, userRole, ApprovalToggle, handleApprovalToggle, getCommentsCount, closeFullScreenCard, openCommentsModal, getPostStatus]);
+  ), [handleFlipCard, isFlipping, getTimeAgo, userRole, ApprovalToggle, handleApprovalToggle, closeFullScreenCard, openCommentsModal, getPostStatus]);
 
-  const renderPostContent = useCallback((item: PostItem) => (
+  const renderPostContent = useCallback((item: PostItem, index: number) => (
     <TouchableOpacity 
       activeOpacity={0.95}
       onPress={() => openFullScreenCard(item)}
     >
       <EnhancedCard postId={item.uniqueId}>
-        <View className="px-6 py-5 bg-gray-50 border-b border-gray-100">
+        <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
           <View className="flex-row items-center">
             <View className="relative">
-              <View className="w-14 h-14 rounded-full mr-4 overflow-hidden border-2 border-white shadow-lg">
+              <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
                 <Image
                   source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
                   className="w-full h-full"
@@ -1483,16 +1503,16 @@ export default function SentinelFeed(): React.JSX.Element {
               </View>
             </View>
             <View className="flex-1">
-              <Text className="font-bold text-gray-900 text-lg">{item.AuthorName}</Text>
-              <View className="flex-row items-center mt-1">
-                <Text className="text-gray-500 text-sm mr-3">{getTimeAgo(item.ContentDate)}</Text>
+              <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text>
+              <View className="flex-row items-center mt-0.5">
+                <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
                 {item.postType === 'X-Data' && (
-                  <View className="bg-blue-100 px-3 py-1 rounded-full mr-2">
+                  <View className="bg-blue-100 px-1.5 py-0.5 rounded-full mr-1.5">
                     <Text className="text-blue-600 text-xs font-semibold">𝕏 POST</Text>
                   </View>
                 )}
                 {item.postType === 'SentinelPosts' && (
-                  <View className={`px-3 py-1 rounded-full ${getPostStatus(item).bgColor}`}>
+                  <View className={`px-1.5 py-0.5 rounded-full ${getPostStatus(item).bgColor}`}>
                     <Text className="text-xs font-semibold" style={{ color: getPostStatus(item).color }}>
                       {getPostStatus(item).text}
                     </Text>
@@ -1500,20 +1520,20 @@ export default function SentinelFeed(): React.JSX.Element {
                 )}
               </View>
             </View>
-            <TouchableOpacity className="p-3 rounded-full bg-gray-100">
-              <Ionicons name="ellipsis-horizontal" size={18} color="#64748b" />
+            <TouchableOpacity className="p-1.5 rounded-full bg-gray-100">
+              <Ionicons name="ellipsis-horizontal" size={12} color="#64748b" />
             </TouchableOpacity>
           </View>
         </View>
 
-        <View className="px-6 py-5">
-          <Text className="text-gray-800 text-base leading-7 mb-5 font-normal">{item.ContentDesc}</Text>
+        <View className="px-3 py-2.5">
+          <Text className="text-gray-800 text-sm leading-5 mb-2 font-normal">{item.ContentDesc}</Text>
 
-          {renderMediaContent(item)}
+          {renderMediaContent(item, index)}
 
-          <View className="flex-row items-center justify-between pt-5">
+          <View className="flex-row items-center justify-between pt-1.5">
             <TouchableOpacity
-              className="flex-row items-center px-4 py-3"
+              className="flex-row items-center px-1.5 py-1"
               onPress={(e) => {
                 e.stopPropagation();
                 toggleLike(item);
@@ -1522,16 +1542,16 @@ export default function SentinelFeed(): React.JSX.Element {
             >
               <Ionicons
                 name={item.Liked ? "heart" : "heart-outline"}
-                size={20}
+                size={14}
                 color={item.Liked ? "#ef4444" : "#64748b"}
               />
-              <Text className={`ml-2 text-sm font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
+              <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
                 {item.ContentLikeCount}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-4 py-3"
+              className="flex-row items-center px-1.5 py-1"
               onPress={(e) => {
                 e.stopPropagation();
                 openCommentsModal(item);
@@ -1540,14 +1560,14 @@ export default function SentinelFeed(): React.JSX.Element {
             >
               <MaterialCommunityIcons
                 name="comment-outline"
-                size={20}
+                size={14}
                 color="#64748b"
               />
-              <Text className="text-gray-600 ml-2 text-sm font-medium">{item.ContentCommentCount}</Text>
+              <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-4 py-3 "
+              className="flex-row items-center px-1.5 py-1 "
               onPress={(e) => {
                 e.stopPropagation();
                 handleRepost(item);
@@ -1556,23 +1576,38 @@ export default function SentinelFeed(): React.JSX.Element {
             >
               <Ionicons 
                 name="repeat-outline" 
-                size={20} 
+                size={14} 
                 color={item.Reposted ? "#0ea5e9" : "#64748b"} 
               />
-              <Text className={`ml-2 text-sm font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
+              <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
                 {item.ContentRepostCount}
               </Text>
             </TouchableOpacity>
 
+            <TouchableOpacity
+              className="flex-row items-center px-1.5 py-1"
+              onPress={(e) => {
+                e.stopPropagation();
+                handleBookmark(item);
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons 
+                name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
+                size={14} 
+                color={item.Bookmarked ? "#f59e0b" : "#64748b"} 
+              />
+            </TouchableOpacity>
+
             <TouchableOpacity 
-              className="p-3"
+              className="p-1"
               onPress={(e) => {
                 e.stopPropagation();
                 console.log("Share pressed:", item.id);
               }}
               activeOpacity={0.7}
             >
-              <Feather name="share-2" size={18} color="#64748b" />
+              <Feather name="share-2" size={12} color="#64748b" />
             </TouchableOpacity>
           </View>
 
@@ -1581,10 +1616,10 @@ export default function SentinelFeed(): React.JSX.Element {
               onPress={(e) => e.stopPropagation()}
               activeOpacity={1}
             >
-              <View className="mt-6 p-5 bg-gray-50 rounded-2xl border border-gray-200">
-                <View className="mb-4">
-                  <Text className="font-bold text-gray-900 text-lg">Post Status</Text>
-                  <Text className="text-gray-500 text-sm mt-1">
+              <View className="mt-2 p-2.5 bg-gray-50 rounded-lg border border-gray-200">
+                <View className="mb-2">
+                  <Text className="font-bold text-gray-900 text-sm">Post Status</Text>
+                  <Text className="text-gray-500 text-xs mt-0.5">
                     {item.isNew 
                       ? 'This post is new and awaiting review' 
                       : item.isApproved
@@ -1599,6 +1634,7 @@ export default function SentinelFeed(): React.JSX.Element {
                   isNew={item.isNew}
                   onToggle={(approved, isNew) => handleApprovalToggle(item.id, approved, isNew)}
                   postId={item.id}
+                  isFullScreen={false}
                 />
               </View>
             </TouchableOpacity>
@@ -1606,18 +1642,18 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
       </EnhancedCard>
     </TouchableOpacity>
-  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, ApprovalToggle, handleApprovalToggle, dummyAuthorImage, userRole, getCommentsCount, openCommentsModal, getPostStatus]);
+  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, ApprovalToggle, handleApprovalToggle, dummyAuthorImage, userRole, openCommentsModal, getPostStatus]);
 
-  const renderPostUserContent = useCallback((item: PostItem) => (
+  const renderPostUserContent = useCallback((item: PostItem, index: number) => (
     <TouchableOpacity 
       activeOpacity={0.95}
       onPress={() => openFullScreenCard(item)}
     >
       <EnhancedCard postId={item.uniqueId}>
-        <View className="px-6 py-5 bg-gray-50 border-b border-gray-100">
+        <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
           <View className="flex-row items-center">
             <View className="relative">
-              <View className="w-12 h-12 rounded-full mr-3 overflow-hidden border-2 border-white shadow-md">
+              <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
                 <Image
                   source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
                   className="w-full h-full"
@@ -1626,30 +1662,30 @@ export default function SentinelFeed(): React.JSX.Element {
               </View>
             </View>
             <View className="flex-1">
-              <Text className="font-bold text-gray-900 text-base">{item.AuthorName}</Text>
-              <View className="flex-row items-center mt-1">
-                <Text className="text-gray-500 text-sm mr-3">{getTimeAgo(item.ContentDate)}</Text>
+              <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text>
+              <View className="flex-row items-center mt-0.5">
+                <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
                 {item.postType === 'X-Data' && (
-                  <View className="bg-blue-100 px-2 py-1 rounded-full">
+                  <View className="bg-blue-100 px-1.5 py-0.5 rounded-full">
                     <Text className="text-blue-600 text-xs font-medium">𝕏 POST</Text>
                   </View>
                 )}
               </View>
             </View>
-            <TouchableOpacity className="p-2 rounded-full bg-gray-100">
-              <Ionicons name="ellipsis-horizontal" size={18} color="#64748b" />
+            <TouchableOpacity className="p-1.5 rounded-full bg-gray-100">
+              <Ionicons name="ellipsis-horizontal" size={12} color="#64748b" />
             </TouchableOpacity>
           </View>
         </View>
 
-        <View className="px-6 py-5">
-          <Text className="text-gray-800 text-base leading-6 mb-5">{item.ContentDesc}</Text>
+        <View className="px-3 py-2.5">
+          <Text className="text-gray-800 text-sm leading-5 mb-2">{item.ContentDesc}</Text>
 
-          {renderMediaContent(item)}
+          {renderMediaContent(item, index)}
 
-          <View className="flex-row items-center justify-between pt-4 ">
+          <View className="flex-row items-center justify-between pt-1.5">
             <TouchableOpacity
-              className="flex-row items-center px-3 py-2"
+              className="flex-row items-center px-1.5 py-1"
               onPress={(e) => {
                 e.stopPropagation();
                 toggleLike(item);
@@ -1658,16 +1694,16 @@ export default function SentinelFeed(): React.JSX.Element {
             >
               <Ionicons
                 name={item.Liked ? "heart" : "heart-outline"}
-                size={20}
+                size={14}
                 color={item.Liked ? "#ef4444" : "#64748b"}
               />
-              <Text className={`ml-2 text-sm font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
+              <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
                 {item.ContentLikeCount}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-3 py-2 "
+              className="flex-row items-center px-1.5 py-1 "
               onPress={(e) => {
                 e.stopPropagation();
                 openCommentsModal(item);
@@ -1676,14 +1712,14 @@ export default function SentinelFeed(): React.JSX.Element {
             >
               <MaterialCommunityIcons
                 name="comment-outline"
-                size={20}
+                size={14}
                 color="#64748b"
               />
-              <Text className="text-gray-600 ml-2 text-sm font-medium">{item.ContentCommentCount}</Text>
+              <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-3 py-2 "
+              className="flex-row items-center px-1.5 py-1 "
               onPress={(e) => {
                 e.stopPropagation();
                 handleRepost(item);
@@ -1692,29 +1728,44 @@ export default function SentinelFeed(): React.JSX.Element {
             >
               <Ionicons 
                 name="repeat-outline" 
-                size={20} 
+                size={14} 
                 color={item.Reposted ? "#0ea5e9" : "#64748b"} 
               />
-              <Text className={`ml-2 text-sm font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
+              <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
                 {item.ContentRepostCount}
               </Text>
             </TouchableOpacity>
 
+            <TouchableOpacity
+              className="flex-row items-center px-1.5 py-1"
+              onPress={(e) => {
+                e.stopPropagation();
+                handleBookmark(item);
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons 
+                name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
+                size={14} 
+                color={item.Bookmarked ? "#f59e0b" : "#64748b"} 
+              />
+            </TouchableOpacity>
+
             <TouchableOpacity 
-              className="p-2 "
+              className="p-1 "
               onPress={(e) => {
                 e.stopPropagation();
                 console.log("Share pressed:", item.id);
               }}
               activeOpacity={0.7}
             >
-              <Feather name="share-2" size={18} color="#64748b" />
+              <Feather name="share-2" size={12} color="#64748b" />
             </TouchableOpacity>
           </View>
         </View>
       </EnhancedCard>
     </TouchableOpacity>
-  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, dummyAuthorImage, getCommentsCount, openCommentsModal]);
+  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, dummyAuthorImage, openCommentsModal]);
 
   const renderFullScreenFlipCard = useCallback((item: PostItem) => (
     <View className="flex-1 bg-gray-900">
@@ -1744,40 +1795,24 @@ export default function SentinelFeed(): React.JSX.Element {
           {renderFlipCardFront(item)}
           {renderFlipCardBack(item)}
         </FlipCard>
-
-        <View className="mt-6 bg-black/50 rounded-2xl p-4">
-          <Text className="text-white text-center text-sm opacity-80">
-            Use the flip button to see more details
-          </Text>
-        </View>
       </View>
     </View>
   ), [closeFullScreenCard, isFlipped, renderFlipCardFront, renderFlipCardBack]);
 
-  const filteredData = useMemo(() => {
-    return fetchedData.filter(item => {
-      if (userRole === "User") {
-        // Users only see approved posts
-        return item.isApproved && !item.isNew;
-      }
-      return true; // Admins see all posts
-    });
-  }, [fetchedData, userRole]);
-
   const listItems = useMemo(() => {
-    return filteredData.map((item) => {
+    return filteredData.map((item, index) => {
       initializeCardAnimation(item.uniqueId);
       
       if (userRole === "User") {
         return (
           <React.Fragment key={item.uniqueId}>
-            {renderPostUserContent(item)}
+            {renderPostUserContent(item, index)}
           </React.Fragment>
         );
       } else {
         return (
           <React.Fragment key={item.uniqueId}>
-            {renderPostContent(item)}
+            {renderPostContent(item, index)}
           </React.Fragment>
         );
       }
@@ -1790,17 +1825,16 @@ export default function SentinelFeed(): React.JSX.Element {
       
       <View className="bg-white border-b border-gray-200 pt-5">
         <View 
-          className="px-6 py-4 flex-row items-center justify-between"
-          style={{ paddingTop: Platform.OS === 'ios' ? 20 : 20 }}
+          className="px-4 py-2 flex-row items-center justify-between"
+          style={{ paddingTop: Platform.OS === 'ios' ? 12 : 12 }}
         >
           <View>
-            <Text className="text-3xl font-bold text-gray-900">Sentinel</Text>
-            <Text className="text-gray-500 text-sm mt-1">Your social feed</Text>
+            <Text className="text-2xl font-bold text-gray-900">Sentinel</Text>
           </View>
-          <TouchableOpacity className="p-3 rounded-full bg-gray-100 shadow-sm">
+          <TouchableOpacity className="p-2 rounded-full bg-gray-100 shadow-sm">
             <Image
               source={require("../../assets/images/Union.png")}
-              className="w-6 h-6"
+              className="w-5 h-5"
               resizeMode="contain"
             />
           </TouchableOpacity>
@@ -1808,12 +1842,15 @@ export default function SentinelFeed(): React.JSX.Element {
       </View>
 
       <ScrollView 
+        ref={scrollViewRef}
         className="flex-1" 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ 
-          paddingTop: 20, 
-          paddingBottom: 30,
+          paddingTop: 6, 
+          paddingBottom: 16,
         }}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -1827,22 +1864,22 @@ export default function SentinelFeed(): React.JSX.Element {
       >
         {loading ? (
           <View className="flex-1 justify-center items-center py-20">
-            <View className="bg-white p-8 rounded-2xl shadow-lg">
+            <View className="bg-white p-6 rounded-2xl shadow-lg">
               <ActivityIndicator size="large" color="#3b82f6" />
-              <Text className="text-gray-600 mt-4 text-base font-medium text-center">Loading posts...</Text>
-              <Text className="text-gray-400 text-sm mt-1 text-center">This won't take long</Text>
+              <Text className="text-gray-600 mt-3 text-sm font-medium text-center">Loading posts...</Text>
+              <Text className="text-gray-400 text-xs mt-1 text-center">This won't take long</Text>
             </View>
           </View>
         ) : listItems.length > 0 ? (
           listItems
         ) : (
           <View className="flex-1 justify-center items-center py-20">
-            <View className="bg-white p-8 rounded-3xl shadow-lg items-center">
-              <View className="w-20 h-20 bg-gray-100 rounded-full items-center justify-center mb-4">
-                <Ionicons name="document-outline" size={32} color="#9ca3af" />
+            <View className="bg-white p-6 rounded-2xl shadow-lg items-center">
+              <View className="w-16 h-16 bg-gray-100 rounded-full items-center justify-center mb-3">
+                <Ionicons name="document-outline" size={28} color="#9ca3af" />
               </View>
-              <Text className="text-gray-700 text-xl font-bold mb-2">No posts yet</Text>
-              <Text className="text-gray-500 text-center text-base px-4 leading-6">
+              <Text className="text-gray-700 text-lg font-bold mb-2">No posts yet</Text>
+              <Text className="text-gray-500 text-center text-sm px-4 leading-5">
                 Be the first to share something amazing with the community!
               </Text>
             </View>
@@ -2147,6 +2184,3 @@ export default function SentinelFeed(): React.JSX.Element {
     </SafeAreaView>
   );
 }
-
-
-//New toggle button added
