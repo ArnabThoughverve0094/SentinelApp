@@ -60,4 +60,3 @@ export default function Index() {
     </View>
   );
 }
-//tab/index.tsx
