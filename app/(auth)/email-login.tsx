@@ -355,4 +355,3 @@ export default function EmailLogin(): React.JSX.Element {
     </SafeAreaView>
   );
 }
-//Email login 
