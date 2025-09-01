@@ -4,21 +4,25 @@ import { Link, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Image, ImageBackground, KeyboardAvoidingView, Platform, SafeAreaView, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-type Data = {
-  token?: {
-    AccessToken?: string;
-    RefreshToken?: string;
-    IdToken?: string;
-    ExpiresIn?: number;
+type LoginResponse = {
+  message: string;
+  tokens: {
+    accessToken: string;
+    idToken: string;
+    refreshToken: string;
   };
-  userAttributes?: {
-    email?: string;
-    name?: string;
-    nickname?: string;
-    birthdate?: string;
-    country?: string;
-    sub?: string;
+  userAttributes: {
+    email: string;
+    name: string;
+    nickname: string;
+    birthdate: string;
+    country: string;
+    sub: string;
+    role: string;
+    termsAccepted: string;
+    profilePic?: string; // **ADDED: Profile picture field**
   };
+  decodedClaims: any;
 };
 
 export default function EmailLogin(): React.JSX.Element {
@@ -31,13 +35,11 @@ export default function EmailLogin(): React.JSX.Element {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
-
   // Email regex validation
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
-
 
   // Validate form fields
   const validateForm = (): boolean => {
@@ -48,7 +50,6 @@ export default function EmailLogin(): React.JSX.Element {
     setPasswordError(null);
     setError(null);
 
-
     // Email validation
     if (!email.trim()) {
       setEmailError('Email is required');
@@ -58,17 +59,14 @@ export default function EmailLogin(): React.JSX.Element {
       isValid = false;
     }
 
-
     // Password validation
     if (!password.trim()) {
       setPasswordError('Password is required');
       isValid = false;
     }
 
-
     return isValid;
   };
-
 
   const handleLogin = async () => {
     // Validate form before proceeding
@@ -76,10 +74,8 @@ export default function EmailLogin(): React.JSX.Element {
       return;
     }
 
-
     setLoading(true);
     setError(null);
-
 
     try {
       const response = await fetch('https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/login', {
@@ -88,81 +84,100 @@ export default function EmailLogin(): React.JSX.Element {
         body: JSON.stringify({ email, password }),
       });
 
-
-      const data = await response.json();
+      const data: LoginResponse = await response.json();
       console.log('Login response:', data);
       
-      if (response.ok && (data.message === "Login successful" || data.token?.AccessToken)) {
-        // Save tokens and user data to AsyncStorage
-        const now = Date.now();
+      if (response.ok && data.message === "Login successful" && data.tokens?.accessToken) {
         const items: [string, string][] = [];
 
-        if (data.token?.AccessToken !== undefined && data.token?.AccessToken != null) {
-          items.push(['userToken', data.token.AccessToken]);
+        // Store access token (main token for API calls)
+        if (data.tokens.accessToken) {
+          items.push(['userToken', data.tokens.accessToken]);
+          items.push(['accessToken', data.tokens.accessToken]);
+          console.log('✅ Access token stored:', data.tokens.accessToken.substring(0, 50) + '...');
         }
-        if (data.token?.RefreshToken !== undefined && data.token?.RefreshToken != null) {
-          items.push(['userRefreshToken', data.token.RefreshToken]);
+
+        // Store other tokens
+        if (data.tokens.refreshToken) {
+          items.push(['userRefreshToken', data.tokens.refreshToken]);
+          items.push(['refreshToken', data.tokens.refreshToken]);
         }
-        if (data.token?.IdToken !== undefined && data.token?.IdToken != null) {
-          items.push(['userIdToken', data.token.IdToken]);
+        if (data.tokens.idToken) {
+          items.push(['userIdToken', data.tokens.idToken]);
+          items.push(['idToken', data.tokens.idToken]);
         }
-        if (data.userAttributes?.email !== undefined && data.userAttributes?.email != null) {
+
+        // Store user attributes
+        if (data.userAttributes.email) {
           items.push(['userEmail', data.userAttributes.email]);
         }
-        if (data.userAttributes?.name !== undefined && data.userAttributes?.name != null) {
+        if (data.userAttributes.name) {
           items.push(['userName', data.userAttributes.name]);
         }
-        if (data.userAttributes?.nickname !== undefined && data.userAttributes?.nickname != null) {
+        if (data.userAttributes.nickname) {
           items.push(['userNickName', data.userAttributes.nickname]);
         }
-        if (data.userAttributes?.sub !== undefined && data.userAttributes?.sub != null) {
+        if (data.userAttributes.sub) {
           items.push(['userId', data.userAttributes.sub]);
         }
-        if (data.userAttributes?.role !== undefined && data.userAttributes?.role != null) {
+        if (data.userAttributes.role) {
           items.push(['userRole', data.userAttributes.role]);
-        } else{
-          items.push(['userRole', "User"]);
+        } else {
+          items.push(['userRole', 'user']);
         }
-        if (data.token?.ExpiresIn !== undefined && data.token?.ExpiresIn != null) {
-          items.push(['tokenExpiry', (now + data.token.ExpiresIn * 1000).toString()]);
+
+        // **FIXED: Store profile picture from login response**
+        const profilePicFromResponse = data.userAttributes.profilePic || 
+                                     data.decodedClaims?.['custom:profilePic'] || 
+                                     null;
+        
+        if (profilePicFromResponse) {
+          // Construct full URL if it's just a filename
+          const profilePicUrl = profilePicFromResponse.startsWith('http') 
+            ? profilePicFromResponse 
+            : `https://sentinal-uploads.s3.us-west-2.amazonaws.com/${profilePicFromResponse}`;
+          
+          items.push(['profilePicUrl', profilePicUrl]);
+          console.log('✅ Profile picture stored from login:', profilePicUrl);
+        } else {
+          console.log('ℹ️ No profile picture found in login response');
         }
-        if (data.userAttributes !== undefined && data.userAttributes != null) {
+
+        // Store additional data
+        if (data.userAttributes) {
           items.push(['userData', JSON.stringify(data.userAttributes)]);
+        }
+
+        // Calculate token expiry from decoded claims
+        if (data.decodedClaims?.exp) {
+          const expiryTime = data.decodedClaims.exp * 1000;
+          items.push(['tokenExpiry', expiryTime.toString()]);
+          console.log('✅ Token expiry set:', new Date(expiryTime));
+        } else {
+          const expiryTime = Date.now() + (60 * 60 * 1000);
+          items.push(['tokenExpiry', expiryTime.toString()]);
         }
 
         try {
           await AsyncStorage.multiSet(items);
-          console.log('Successfully stored', items.map(([k]) => k).join(', '));
+          console.log('✅ Successfully stored all login data:', items.map(([k]) => k).join(', '));
         } catch (error) {
-          console.error('Error during multiSet:', error);
+          console.error('❌ Error during multiSet:', error);
+          throw new Error('Failed to save login data');
         }
 
-        // await AsyncStorage.multiSet([
-        //   ['userToken', data.token?.AccessToken],
-        //   ['userRefreshToken', data.token.RefreshToken],
-        //   ['userIdToken', data.token.IdToken],
-        //   ['userEmail', data.userAttributes.email],
-        //   ['userName', data.userAttributes.name],
-        //   ['tokenExpiry', (Date.now() + (data.token.ExpiresIn * 1000)).toString()], // Calculate expiry time
-        //   ['userData', JSON.stringify(data.userAttributes)], // Store full token data if needed
-        // ]);
-
-
-        console.log('Login successful, tokens saved, redirecting to tabs...');
+        console.log('✅ Login successful, tokens saved, redirecting to tabs...');
         router.replace("/(tabs)");
       } else {
-        // Handle error cases
         setError(data.message || 'Login failed. Please check your credentials.');
       }
     } catch (err) {
-      console.error('Login error:', err);
+      console.error('❌ Login error:', err);
       setError('Network error. Please try again.');
     }
 
-
     setLoading(false);
   };
-
 
   // Clear email error when user starts typing
   const handleEmailChange = (text: string) => {
@@ -172,7 +187,6 @@ export default function EmailLogin(): React.JSX.Element {
     }
   };
 
-
   // Clear password error when user starts typing
   const handlePasswordChange = (text: string) => {
     setPassword(text);
@@ -180,7 +194,6 @@ export default function EmailLogin(): React.JSX.Element {
       setPasswordError(null);
     }
   };
-
 
   return (
     <SafeAreaView className="flex-1">
@@ -205,7 +218,6 @@ export default function EmailLogin(): React.JSX.Element {
             </Link>
           </View>
 
-
           {/* Main content */}
           <View className="flex-1 px-6">
             {/* Title section */}
@@ -217,7 +229,6 @@ export default function EmailLogin(): React.JSX.Element {
                 Your community awaits
               </Text>
             </View>
-
 
             {/* Form section */}
             <View className="mb-8">
@@ -242,7 +253,6 @@ export default function EmailLogin(): React.JSX.Element {
                   <Text className="text-red-500 text-sm mt-1">{emailError}</Text>
                 )}
               </View>
-
 
               {/* Password input */}
               <View className="mb-6">
@@ -278,7 +288,6 @@ export default function EmailLogin(): React.JSX.Element {
                 )}
               </View>
 
-
               {/* Forgot password */}
               <Link href="/(auth)/forgot-password" asChild>
                 <TouchableOpacity className="mb-8">
@@ -287,14 +296,12 @@ export default function EmailLogin(): React.JSX.Element {
               </Link>
             </View>
 
-
             {/* Display error message if any */}
             {error && (
               <View className="mb-4">
                 <Text className="text-red-500 text-center">{error}</Text>
               </View>
             )}
-
 
             {/* Login button with loading state */}
             <TouchableOpacity
@@ -307,14 +314,12 @@ export default function EmailLogin(): React.JSX.Element {
               </Text>
             </TouchableOpacity>
 
-
             {/* Divider */}
             <View className="flex-row items-center mb-6">
               <View className="flex-1 h-px bg-black/20" />
               <Text className="px-4 text-black/70 text-sm">Or</Text>
               <View className="flex-1 h-px bg-black/20" />
             </View>
-
 
             {/* Social login buttons */}
             <View className="gap-3 mb-6">
@@ -328,14 +333,12 @@ export default function EmailLogin(): React.JSX.Element {
                 <Text className="text-base text-gray-700 font-medium ml-3">Continue with Google</Text>
               </TouchableOpacity>
 
-
               {/* Continue with Apple */}
               <TouchableOpacity className="flex-row items-center justify-center bg-white/95 py-4 px-6 rounded-xl border border-white/30 shadow-lg">
                 <Ionicons name="logo-apple" size={20} color="#000" />
                 <Text className="text-base text-gray-700 font-medium ml-3">Continue with Apple</Text>
               </TouchableOpacity>
             </View>
-
 
             {/* Sign up link */}
             <View className="flex-row justify-center">

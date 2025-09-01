@@ -65,17 +65,17 @@ const TabsLayout = () => {
 
       {/* Likes */}
       <Tabs.Screen
-        name="notifications"
-        options={{
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={focused ? "heart" : "heart-outline"}
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      />
+          name="bookmarks"
+          options={{
+            tabBarIcon: ({ color, size, focused }) => (
+              <Ionicons
+                name={focused ? "bookmark" : "bookmark-outline"}
+                size={size}
+                color={color}
+              />
+            ),
+          }}
+        />
 
       {/* Notifications */}
       <Tabs.Screen
