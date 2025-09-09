@@ -180,7 +180,7 @@ export default function SentinelFeed(): React.JSX.Element {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [userId, setUserId] = useState("1");
+  const [userId, setUserId] = useState("");
   const [userRole, setUserRole] = useState("User");
   const [fetchedData, setFetchedData] = useState<PostItem[]>([]);
   const [fetchedXData, setFetchedXData] = useState<any>([]);
