@@ -13,13 +13,9 @@ import {
   StatusBar,
   Text,
   TouchableOpacity,
-  View,
-  Animated,
-  Dimensions
+  View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const { width } = Dimensions.get('window');
 
 interface Comment {
   id: string;
@@ -30,8 +26,8 @@ interface Comment {
   likes?: number;
   isLiked?: boolean;
   replies: Reply[];
-  selectedOptions?: string[];
-  commentType: 'structured' | 'text';
+  selectedOptions?: string[]; // New field for selected response options
+  commentType: 'structured' | 'text'; // New field to distinguish comment types
 }
 
 interface Reply {
@@ -42,9 +38,8 @@ interface Reply {
   CommentDate: any;
   likes?: number;
   isLiked?: boolean;
-  selectedOptions?: string[];
-  commentType: 'structured' | 'text';
-  replyToUser?: string; // New field to track who this reply is addressing
+  selectedOptions?: string[]; // New field for selected response options
+  commentType: 'structured' | 'text'; // New field to distinguish comment types
 }
 
 interface PostData {
@@ -72,17 +67,17 @@ interface CommentScreenProps {
   postData: PostData | undefined;
 }
 
-// Enhanced response options with unique icons and colors
+// Predefined response options
 const RESPONSE_OPTIONS = [
-  { text: 'I agree completely', color: '#34C759', icon: 'thumbs-up', bgColor: '#E8F5E8' },
-  { text: 'I disagree completely', color: '#FF3B30', icon: 'thumbs-down', bgColor: '#FFEAEA' },
-  { text: 'I consider this to be hate speech and it has no place in society', color: '#FF9500', icon: 'warning', bgColor: '#FFF4E6' },
-  { text: 'I consider myself to be an antisemite and I support this conduct/speech', color: '#8E4EC6', icon: 'person-circle', bgColor: '#F3ECFF' },
-  { text: 'I consider myself to be an anti-zionist and I support this conduct/speech', color: '#8E4EC6', icon: 'flag', bgColor: '#F3ECFF' },
-  { text: 'I consider myself to be anti-Israel and I support this conduct/speech', color: '#8E4EC6', icon: 'location', bgColor: '#F3ECFF' },
-  { text: 'I consider myself to be anti-Israel government (current) and I support this conduct/speech', color: '#8E4EC6', icon: 'business', bgColor: '#F3ECFF' },
-  { text: 'I consider myself to be anti-Jewish and I support this conduct/speech', color: '#8E4EC6', icon: 'people', bgColor: '#F3ECFF' },
-  { text: 'None of the above', color: '#8E8E93', icon: 'close-circle', bgColor: '#F5F5F5' }
+  'I agree completely',
+  'I disagree completely',
+  'I consider this to be hate speech and it has no place in society',
+  'I consider myself to be an antisemite and I support this conduct/speech',
+  'I consider myself to be an anti-zionist and I support this conduct/speech',
+  'I consider myself to be anti-Israel and I support this conduct/speech',
+  'I consider myself to be anti-Israel government (current) and I support this conduct/speech',
+  'I consider myself to be anti-Jewish and I support this conduct/speech',
+  'None of the above'
 ];
 
 export default function CommentScreen({ 
@@ -101,22 +96,11 @@ export default function CommentScreen({
   const [loading, setLoading] = useState(false);
   const [postLoading, setPostLoading] = useState(false);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
-  const [replyingToUser, setReplyingToUser] = useState<string | null>(null); // New state for user being replied to
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
-  const [dropdownAnimation] = useState(new Animated.Value(0));
   
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
-
-  // Animate dropdown
-  const animateDropdown = (show: boolean) => {
-    Animated.timing(dropdownAnimation, {
-      toValue: show ? 1 : 0,
-      duration: 300,
-      useNativeDriver: false,
-    }).start();
-  };
 
   // Time calculation utility function
   const getTimeAgo = (timestamp: any): string => {
@@ -305,8 +289,7 @@ export default function CommentScreen({
                 likes: 0,
                 isLiked: false,
                 selectedOptions: postData.selectedOptions || [],
-                commentType: postData.commentType || 'text',
-                replyToUser: postData.replyToUser || null // Get the user being replied to
+                commentType: postData.commentType || 'text'
               });
             }
 
@@ -335,13 +318,13 @@ export default function CommentScreen({
     }
   }
 
-  // Handle option selection with animation
-  const handleOptionSelect = (optionText: string) => {
+  // Handle option selection
+  const handleOptionSelect = (option: string) => {
     setSelectedOptions(prev => {
-      if (prev.includes(optionText)) {
-        return prev.filter(opt => opt !== optionText);
+      if (prev.includes(option)) {
+        return prev.filter(opt => opt !== option);
       } else {
-        return [...prev, optionText];
+        return [...prev, option];
       }
     });
   };
@@ -363,8 +346,7 @@ export default function CommentScreen({
           CommentDate: new Date(),
           Comment: commentText,
           selectedOptions: selectedOptions,
-          commentType: 'structured',
-          replyToUser: replyingToUser // Store who this reply is addressing
+          commentType: 'structured'
         });
         console.log('Structured Reply Post ID: ', postDocRef.id);
       } else {
@@ -382,9 +364,7 @@ export default function CommentScreen({
       
       setSelectedOptions([]);
       setShowDropdown(false);
-      animateDropdown(false);
       setReplyingTo(null);
-      setReplyingToUser(null);
     } catch (error) {
       console.error(error);
     } finally {
@@ -392,12 +372,9 @@ export default function CommentScreen({
     }
   };
 
-  // Updated reply handler to store both comment ID and username
   const handleReplyToComment = (commentId: string, username: string) => {
     setReplyingTo(commentId);
-    setReplyingToUser(username);
     setShowDropdown(true);
-    animateDropdown(true);
   };
 
   const handleLikeComment = (commentId: string, isReply: boolean = false, parentCommentId?: string) => {
@@ -443,15 +420,7 @@ export default function CommentScreen({
 
     if (mediaType === 'image') {
       return (
-        <View style={{ 
-          marginTop: 12, 
-          marginBottom: 16,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 8,
-          elevation: 3
-        }}>
+        <View style={{ marginTop: 12, marginBottom: 16 }}>
           <Image
             source={{ uri: primaryMediaUrl }}
             style={{ 
@@ -466,15 +435,7 @@ export default function CommentScreen({
       );
     } else if (mediaType === 'video') {
       return (
-        <View style={{ 
-          marginTop: 12, 
-          marginBottom: 16,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 8,
-          elevation: 3
-        }}>
+        <View style={{ marginTop: 12, marginBottom: 16 }}>
           <Video
             source={{ uri: primaryMediaUrl }}
             style={{ 
@@ -493,15 +454,7 @@ export default function CommentScreen({
       );
     } else if (mediaType === 'gif') {
       return (
-        <View style={{ 
-          marginTop: 12, 
-          marginBottom: 16,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 8,
-          elevation: 3
-        }}>
+        <View style={{ marginTop: 12, marginBottom: 16 }}>
           <Image
             source={{ uri: primaryMediaUrl }}
             style={{ 
@@ -519,96 +472,38 @@ export default function CommentScreen({
     return null;
   };
 
-  // Enhanced structured comment rendering with beautiful badges
-  const renderStructuredComment = (comment: Comment | Reply, isReply: boolean = false) => {
+  // Render structured comment content
+  const renderStructuredComment = (comment: Comment | Reply) => {
     if (comment.commentType === 'structured' && comment.selectedOptions && comment.selectedOptions.length > 0) {
       return (
-        <View style={{ marginTop: 8, marginBottom: 4 }}>
-          {/* Instagram-style reply indicator for structured comments */}
-          {isReply && 'replyToUser' in comment && comment.replyToUser && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-              {/* <Text style={{ fontSize: 12, color: '#8e8e93', marginRight: 4 }}>Replying to</Text> */}
-              <Text style={{ fontSize: 12, color: '#007aff', fontWeight: '600' }}>
-                @{comment.replyToUser}
+        <View style={{ marginTop: 4 }}>
+          {comment.selectedOptions.map((option, index) => (
+            <View 
+              key={index}
+              style={{
+                backgroundColor: '#f0f8ff',
+                borderRadius: 8,
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                marginBottom: 4,
+                borderLeftWidth: 3,
+                borderLeftColor: '#007aff'
+              }}
+            >
+              <Text style={{ fontSize: 13, color: '#007aff', fontWeight: '500' }}>
+                ✓ {option}
               </Text>
             </View>
-          )}
-          
-          {comment.selectedOptions.map((option, index) => {
-            const optionData = RESPONSE_OPTIONS.find(opt => opt.text === option);
-            return (
-              <View 
-                key={index}
-                style={{
-                  backgroundColor: optionData?.bgColor || '#f0f8ff',
-                  borderRadius: 20,
-                  paddingHorizontal: 14,
-                  paddingVertical: 8,
-                  marginBottom: 6,
-                  marginRight: 8,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  alignSelf: 'flex-start',
-                  shadowColor: optionData?.color || '#007aff',
-                  shadowOffset: { width: 0, height: 1 },
-                  shadowOpacity: 0.1,
-                  shadowRadius: 2,
-                  elevation: 1,
-                  borderWidth: 1,
-                  borderColor: optionData?.color || '#007aff'
-                }}
-              >
-                <View style={{
-                  width: 20,
-                  height: 20,
-                  borderRadius: 10,
-                  backgroundColor: optionData?.color || '#007aff',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginRight: 8
-                }}>
-                  <Ionicons 
-                    name={optionData?.icon as any || 'checkmark'} 
-                    size={12} 
-                    color="white"
-                  />
-                </View>
-                <Text style={{ 
-                  fontSize: 12, 
-                  color: optionData?.color || '#007aff', 
-                  fontWeight: '600',
-                  lineHeight: 16
-                }}>
-                  {option}
-                </Text>
-              </View>
-            );
-          })}
+          ))}
         </View>
       );
     }
     
     return (
-      <View>
-        {isReply && 'replyToUser' in comment && comment.replyToUser && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-            {/* <Text style={{ fontSize: 12, color: '#8e8e93', marginRight: 4 }}>Replying to</Text> */}
-            <Text style={{ fontSize: 12, color: '#007aff', fontWeight: '600' }}>
-              @{comment.replyToUser}
-            </Text>
-          </View>
-        )}
-        <Text style={{ fontSize: 14, color: '#000', lineHeight: 20, marginBottom: 8 }}>
-          {comment.Comment}
-        </Text>
-      </View>
+      <Text style={{ fontSize: 14, color: '#000', lineHeight: 18, marginBottom: 8 }}>
+        {comment.Comment}
+      </Text>
     );
-  };
-
-  const toggleDropdown = () => {
-    const newState = !showDropdown;
-    setShowDropdown(newState);
-    animateDropdown(newState);
   };
 
   useEffect(() => {
@@ -622,8 +517,6 @@ export default function CommentScreen({
       setSelectedOptions([]);
       setShowDropdown(false);
       setReplyingTo(null);
-      setReplyingToUser(null);
-      dropdownAnimation.setValue(0);
     }
   }, [visible, postId, postType, postData]);
 
@@ -635,46 +528,28 @@ export default function CommentScreen({
       onRequestClose={onClose}
       statusBarTranslucent={false}
     >
-      <View style={{ flex: 1, backgroundColor: '#fafafa' }}>
+      <View style={{ flex: 1, backgroundColor: '#fff' }}>
         <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
         
-        {/* Enhanced Header */}
+        {/* Header with close button */}
         <View 
           style={{
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
-            paddingHorizontal: 20,
-            paddingTop: Platform.OS === 'ios' ? insets.top + 16 : insets.top + 24,
-            paddingBottom: 20,
-            backgroundColor: '#fff',
-            borderBottomWidth: 1,
-            borderBottomColor: '#f0f0f0',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.05,
-            shadowRadius: 8,
-            elevation: 2
+            paddingHorizontal: 16,
+            paddingTop: Platform.OS === 'ios' ? insets.top + 12 : insets.top + 20,
+            paddingBottom: 16,
+            borderBottomWidth: 0.5,
+            borderBottomColor: '#e5e5e5'
           }}
         >
-          <TouchableOpacity 
-            onPress={onClose} 
-            style={{ 
-              padding: 8,
-              borderRadius: 20,
-              backgroundColor: '#f8f8f8'
-            }}
-          >
+          <TouchableOpacity onPress={onClose} style={{ padding: 8 }}>
             <Ionicons name="close" size={24} color="#000" />
           </TouchableOpacity>
-          <View style={{ alignItems: 'center' }}>
-            <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#000' }}>
-              Comments
-            </Text>
-            <Text style={{ fontSize: 13, color: '#8e8e93', marginTop: 2 }}>
-              {comments.length} {comments.length === 1 ? 'comment' : 'comments'}
-            </Text>
-          </View>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#000' }}>
+            Comments
+          </Text>
           <View style={{ width: 40 }} />
         </View>
 
@@ -683,77 +558,43 @@ export default function CommentScreen({
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 20 }}
         >
-          {/* Enhanced POST CONTENT SECTION */}
+          {/* POST CONTENT SECTION */}
           {postLoading ? (
-            <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 60 }}>
-              <ActivityIndicator size="large" color="#007aff" />
-              <Text style={{ color: '#8e8e93', fontSize: 16, marginTop: 16 }}>Loading post...</Text>
+            <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 40 }}>
+              <ActivityIndicator size="large" color="#0ea5e9" />
             </View>
           ) : postDataState ? (
-            <View style={{ 
-              backgroundColor: '#fff', 
-              paddingHorizontal: 20, 
-              paddingVertical: 24,
-              marginBottom: 8,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: 0.05,
-              shadowRadius: 4,
-              elevation: 1
-            }}>
-              {/* Enhanced Post Header */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-                <View style={{
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.1,
-                  shadowRadius: 4,
-                  elevation: 2
-                }}>
-                  <Image
-                    source={{ uri: postDataState.AuthorImageURL || dummyAuthorImage }}
-                    style={{ 
-                      width: 52, 
-                      height: 52, 
-                      borderRadius: 26, 
-                      marginRight: 14,
-                      backgroundColor: '#e8e8e8',
-                      borderWidth: 2,
-                      borderColor: '#fff'
-                    }}
-                    resizeMode="cover"
-                  />
-                </View>
+            <View style={{ backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 20 }}>
+              {/* Post Header */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                <Image
+                  source={{ uri: postDataState.AuthorImageURL || dummyAuthorImage }}
+                  style={{ 
+                    width: 48, 
+                    height: 48, 
+                    borderRadius: 24, 
+                    marginRight: 12,
+                    backgroundColor: '#e8e8e8' 
+                  }}
+                  resizeMode="cover"
+                />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: 'bold', fontSize: 17, color: '#000' }}>
+                  <Text style={{ fontWeight: 'bold', fontSize: 16, color: '#000' }}>
                     {postDataState.AuthorName}
                   </Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                    <Text style={{ fontSize: 15, color: '#007aff' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                    <Text style={{ fontSize: 14, color: '#8e8e93' }}>
                       {postDataState.AuthorUsername}
                     </Text>
-                    <View style={{ 
-                      width: 4, 
-                      height: 4, 
-                      borderRadius: 2, 
-                      backgroundColor: '#c7c7cc', 
-                      marginHorizontal: 8 
-                    }} />
-                    <Text style={{ fontSize: 15, color: '#8e8e93' }}>
+                    <Text style={{ fontSize: 14, color: '#8e8e93', marginLeft: 8 }}>
                       {getTimeAgo(postDataState.ContentDate)}
                     </Text>
                   </View>
                 </View>
               </View>
 
-              {/* Enhanced Post Content */}
-              <Text style={{ 
-                fontSize: 16, 
-                color: '#000', 
-                lineHeight: 24, 
-                marginBottom: 12,
-                letterSpacing: 0.3
-              }}>
+              {/* Post Content */}
+              <Text style={{ fontSize: 15, color: '#000', lineHeight: 20, marginBottom: 8 }}>
                 {postDataState.ContentDesc}
               </Text>
               
@@ -762,122 +603,77 @@ export default function CommentScreen({
             </View>
           ) : null}
 
-          {/* Enhanced COMMENTS SECTION */}
+          {/* COMMENTS SECTION */}
           {loading ? (
-            <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 80 }}>
-              <ActivityIndicator size="large" color="#007aff" />
-              <Text style={{ color: '#8e8e93', fontSize: 16, marginTop: 16 }}>Loading comments...</Text>
+            <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 50 }}>
+              <ActivityIndicator size="large" color="#0ea5e9" />
+              <Text style={{ color: '#8e8e93', fontSize: 16, marginTop: 12 }}>Loading comments...</Text>
             </View>
           ) : comments.length === 0 ? (
-            <View style={{ 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              paddingVertical: 120,
-              backgroundColor: '#fff',
-              marginHorizontal: 16,
-              borderRadius: 20,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.05,
-              shadowRadius: 8,
-              elevation: 1
-            }}>
-              <View style={{
-                width: 80,
-                height: 80,
-                borderRadius: 40,
-                backgroundColor: '#f8f8f8',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: 20
-              }}>
-                <Ionicons name="chatbubble-outline" size={40} color="#c7c7cc" />
-              </View>
-              <Text style={{ fontSize: 22, color: '#000', fontWeight: 'bold', marginBottom: 8 }}>
+            <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 100 }}>
+              <Ionicons name="chatbubble-outline" size={60} color="#c7c7cc" />
+              <Text style={{ fontSize: 20, color: '#000', fontWeight: 'bold', marginTop: 16 }}>
                 No comments yet
               </Text>
-              <Text style={{ color: '#8e8e93', fontSize: 16, textAlign: 'center', paddingHorizontal: 40 }}>
-                Be the first to share your response!
+              <Text style={{ color: '#8e8e93', fontSize: 16, marginTop: 8 }}>
+                Be the first to comment!
               </Text>
             </View>
           ) : (
-            <View style={{ backgroundColor: '#fff', marginHorizontal: 8, borderRadius: 16 }}>
-              {comments.map((comment, commentIndex) => (
+            <View style={{ backgroundColor: '#fff' }}>
+              {comments.map((comment) => (
                 <View key={comment.id}>
-                  {/* Enhanced Main Comment */}
+                  {/* Main Comment */}
                   <View style={{
                     flexDirection: 'row',
-                    paddingHorizontal: 20,
-                    paddingVertical: 16,
-                    alignItems: 'flex-start',
-                    borderBottomWidth: commentIndex < comments.length - 1 ? 1 : 0,
-                    borderBottomColor: '#f5f5f5'
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    alignItems: 'flex-start'
                   }}>
-                    <View style={{
-                      shadowColor: '#000',
-                      shadowOffset: { width: 0, height: 1 },
-                      shadowOpacity: 0.1,
-                      shadowRadius: 2,
-                      elevation: 1
-                    }}>
-                      <Image 
-                        source={{ uri: comment.AuthorImageURL || dummyAuthorImage }} 
-                        style={{ 
-                          width: 36, 
-                          height: 36, 
-                          borderRadius: 18, 
-                          marginRight: 14,
-                          backgroundColor: '#e8e8e8',
-                          borderWidth: 2,
-                          borderColor: '#fff'
-                        }}
-                        resizeMode="cover" 
-                      />
-                    </View>
+                    <Image 
+                      source={{ uri: comment.AuthorImageURL || dummyAuthorImage }} 
+                      style={{ 
+                        width: 32, 
+                        height: 32, 
+                        borderRadius: 16, 
+                        marginRight: 12,
+                        backgroundColor: '#e8e8e8' 
+                      }}
+                      resizeMode="cover" 
+                    />
                     
                     <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                        <Text style={{ fontWeight: 'bold', fontSize: 15, color: '#000', marginRight: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginBottom: 2 }}>
+                        <Text style={{ fontWeight: 'bold', fontSize: 14, color: '#000', marginRight: 12 }}>
                           {comment.AuthorName}
                         </Text>
-                        <Text style={{ fontSize: 13, color: '#8e8e93' }}>
+                        <Text style={{ fontSize: 12, color: '#8e8e93' }}>
                           {getTimeAgo(comment.CommentDate)}
                         </Text>
                         <TouchableOpacity 
                           onPress={() => handleLikeComment(comment.id, false)}
-                          style={{ 
-                            marginLeft: 'auto',
-                            padding: 6,
-                            // borderRadius: 16,
-                            // backgroundColor: comment.isLiked ? '#ffe6e6' : 'transparent'
-                          }}
+                          style={{ marginLeft: 'auto' }}
                         >
                           <Ionicons 
                             name={comment.isLiked ? "heart" : "heart-outline"} 
-                            size={18} 
+                            size={16} 
                             color={comment.isLiked ? "#ff3040" : "#8e8e93"} 
                           />
                         </TouchableOpacity>
                       </View>
                       
-                      {renderStructuredComment(comment, false)}
+                      {renderStructuredComment(comment)}
                       
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                         {(comment.likes || 0) > 0 && (
-                          <Text style={{ fontSize: 13, color: '#8e8e93', marginRight: 20 }}>
-                            {comment.likes} {comment.likes === 1 ? 'like' : 'likes'}
+                          <Text style={{ fontSize: 12, color: '#8e8e93', marginRight: 16 }}>
+                            {comment.likes} likes
                           </Text>
                         )}
                         <TouchableOpacity 
-                          onPress={() => handleReplyToComment(comment.id, comment.AuthorName)}
-                          style={{
-                            paddingHorizontal: 12,
-                            paddingVertical: 6,
-                            // borderRadius: 16,
-                            // backgroundColor: '#f8f8f8'
-                          }}
+                          // onPress={() => handleReplyToComment(comment.id, comment.AuthorName)}
                         >
-                          <Text style={{ fontSize: 13, color: '#007aff', fontWeight: '600' }}>
+                          <Text style={{ fontSize: 12, color: '#8e8e93', fontWeight: '500' }}>
                             Reply
                           </Text>
                         </TouchableOpacity>
@@ -885,78 +681,63 @@ export default function CommentScreen({
                     </View>
                   </View>
 
-                  {/* Enhanced Replies with Instagram-style User Tagging */}
+                  {/* Replies */}
                   {comment.replies && comment.replies.length > 0 && (
-                    <View style={{ 
-                      marginLeft: 80
-                    }}>
-                      {comment.replies.map((reply, replyIndex) => (
+                    <View style={{ marginLeft: 60, borderLeftWidth: 1, borderLeftColor: '#f2f2f2' }}>
+                      {comment.replies.map((reply) => (
                         <View 
                           key={reply.id}
                           style={{
                             flexDirection: 'row',
-                            paddingHorizontal: 20,
-                            paddingVertical: 12,
-                            alignItems: 'flex-start',
-                            borderBottomWidth: replyIndex < comment.replies.length - 1 ? 1 : 0,
-                            borderBottomColor: '#f5f5f5'
+                            paddingHorizontal: 16,
+                            paddingVertical: 8,
+                            alignItems: 'flex-start'
                           }}
                         >
                           <Image 
                             source={{ uri: reply.AuthorImageURL || dummyAuthorImage }} 
                             style={{ 
-                              width: 32, 
-                              height: 32, 
-                              borderRadius: 16, 
-                              marginRight: 12,
-                              backgroundColor: '#e8e8e8'
+                              width: 28, 
+                              height: 28, 
+                              borderRadius: 14, 
+                              marginRight: 8,
+                              backgroundColor: '#e8e8e8' 
                             }}
                             resizeMode="cover" 
                           />
                           
                           <View style={{ flex: 1 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                              <Text style={{ fontWeight: 'bold', fontSize: 14, color: '#000', marginRight: 8 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginBottom: 2 }}>
+                              <Text style={{ fontWeight: 'bold', fontSize: 13, color: '#000', marginRight: 8 }}>
                                 {reply.AuthorName}
                               </Text>
-                              <Text style={{ fontSize: 12, color: '#8e8e93' }}>
+                              <Text style={{ fontSize: 11, color: '#8e8e93' }}>
                                 {getTimeAgo(reply.CommentDate)}
                               </Text>
                               <TouchableOpacity 
                                 onPress={() => handleLikeComment(reply.id, true, comment.id)}
-                                style={{ 
-                                  marginLeft: 'auto',
-                                  padding: 4,
-                                  borderRadius: 12,
-                                  backgroundColor: reply.isLiked ? '#ffe6e6' : 'transparent'
-                                }}
+                                style={{ marginLeft: 'auto' }}
                               >
                                 <Ionicons 
                                   name={reply.isLiked ? "heart" : "heart-outline"} 
-                                  size={16} 
+                                  size={14} 
                                   color={reply.isLiked ? "#ff3040" : "#8e8e93"} 
                                 />
                               </TouchableOpacity>
                             </View>
                             
-                            {renderStructuredComment(reply, true)}
+                            {renderStructuredComment(reply)}
                             
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                               {(reply.likes || 0) > 0 && (
-                                <Text style={{ fontSize: 12, color: '#8e8e93', marginRight: 16 }}>
-                                  {reply.likes} {reply.likes === 1 ? 'like' : 'likes'}
+                                <Text style={{ fontSize: 11, color: '#8e8e93', marginRight: 12 }}>
+                                  {reply.likes} likes
                                 </Text>
                               )}
                               <TouchableOpacity 
-                                onPress={() => handleReplyToComment(comment.id, reply.AuthorName)}
-                                style={{
-                                  paddingHorizontal: 10,
-                                  paddingVertical: 4,
-                                  // borderRadius: 12,
-                                  // backgroundColor: '#f8f8f8'
-                                }}
+                                // onPress={() => handleReplyToComment(comment.id, reply.AuthorName)}
                               >
-                                <Text style={{ fontSize: 12, color: '#007aff', fontWeight: '600' }}>
+                                <Text style={{ fontSize: 11, color: '#8e8e93', fontWeight: '500' }}>
                                   Reply
                                 </Text>
                               </TouchableOpacity>
@@ -972,263 +753,165 @@ export default function CommentScreen({
           )}
         </ScrollView>
 
-        {/* Enhanced Comment Input Section */}
+        {/* Comment Input Section */}
         <View style={{ 
-          borderTopWidth: 1, 
-          borderTopColor: '#f0f0f0', 
-          backgroundColor: '#fff',
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.05,
-          shadowRadius: 8,
-          elevation: 3
+          borderTopWidth: 0.5, 
+          borderTopColor: '#e5e5e5', 
+          backgroundColor: '#fff' 
         }}>
           {replyingTo && (
             <View style={{
-              paddingHorizontal: 20,
-              paddingVertical: 12,
-              backgroundColor: '#f8f9fa',
-              borderBottomWidth: 1,
-              borderBottomColor: '#f0f0f0'
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              backgroundColor: '#f8f8f8',
+              borderBottomWidth: 0.5,
+              borderBottomColor: '#e5e5e5'
             }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Ionicons name="return-down-forward" size={16} color="#007aff" style={{ marginRight: 8 }} />
-                  <Text style={{ fontSize: 14, color: '#007aff', fontWeight: '600' }}>
-                    Replying to @{replyingToUser}
-                  </Text>
-                </View>
-                <TouchableOpacity 
-                  onPress={() => {
-                    setReplyingTo(null);
-                    setReplyingToUser(null);
-                    setShowDropdown(false);
-                    animateDropdown(false);
-                    setSelectedOptions([]);
-                  }} 
-                  style={{ 
-                    padding: 6,
-                    borderRadius: 12,
-                    backgroundColor: '#e0e0e0'
-                  }}
-                >
+                <Text style={{ fontSize: 13, color: '#8e8e93', fontWeight: '500' }}>
+                  Replying with structured response
+                </Text>
+                <TouchableOpacity onPress={() => {
+                  setReplyingTo(null);
+                  setShowDropdown(false);
+                  setSelectedOptions([]);
+                }} style={{ padding: 4 }}>
                   <Ionicons name="close" size={16} color="#8e8e93" />
                 </TouchableOpacity>
               </View>
             </View>
           )}
           
-          {/* Enhanced Comment Button */}
+          {/* Comment Button */}
           <View style={{
             flexDirection: 'row',
             alignItems: 'center',
-            paddingHorizontal: 20,
-            paddingTop: 16,
-            paddingBottom: showDropdown ? 16 : insets.bottom + 16
+            paddingHorizontal: 16,
+            paddingTop: 12,
+            paddingBottom: showDropdown ? 12 : insets.bottom + 12
           }}>
-            <View style={{
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 4,
-              elevation: 2
-            }}>
-              <Image 
-                source={{ uri: dummyAuthorImage }} 
-                style={{ 
-                  width: 36, 
-                  height: 36, 
-                  borderRadius: 18, 
-                  marginRight: 14,
-                  backgroundColor: '#e8e8e8',
-                  borderWidth: 2,
-                  borderColor: '#fff'
-                }}
-                resizeMode="cover" 
-              />
-            </View>
+            <Image 
+              source={{ uri: dummyAuthorImage }} 
+              style={{ 
+                width: 32, 
+                height: 32, 
+                borderRadius: 16, 
+                marginRight: 12,
+                backgroundColor: '#e8e8e8' 
+              }}
+              resizeMode="cover" 
+            />
 
             <TouchableOpacity
-              onPress={toggleDropdown}
+              onPress={() => setShowDropdown(!showDropdown)}
               style={{
                 flex: 1,
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                backgroundColor: '#f8f9fa',
-                borderRadius: 24,
-                paddingHorizontal: 20,
-                paddingVertical: 14,
-                minHeight: 48,
-                borderWidth: 1,
-                borderColor: selectedOptions.length > 0 ? '#007aff' : '#e0e0e0',
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: 0.05,
-                shadowRadius: 4,
-                elevation: 1
+                backgroundColor: '#f2f2f2',
+                borderRadius: 20,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                minHeight: 40
               }}
             >
-              <View style={{ flex: 1 }}>
-                <Text style={{ 
-                  fontSize: 16, 
-                  color: selectedOptions.length > 0 ? '#007aff' : '#8e8e93',
-                  fontWeight: selectedOptions.length > 0 ? '600' : 'normal'
-                }}>
-                  {selectedOptions.length > 0 
-                    ? `${selectedOptions.length} response${selectedOptions.length > 1 ? 's' : ''} selected`
-                    : (replyingTo ? `Replying to @${replyingToUser}...` : "Add your response...")
-                  }
-                </Text>
-              </View>
-              <View style={{
-                backgroundColor: showDropdown ? '#007aff' : '#e0e0e0',
-                borderRadius: 16,
-                padding: 6
-              }}>
-                <Ionicons 
-                  name={showDropdown ? "chevron-up" : "chevron-down"} 
-                  size={20} 
-                  color={showDropdown ? '#fff' : '#8e8e93'}
-                />
-              </View>
+              <Text style={{ fontSize: 15, color: '#8e8e93' }}>
+                {replyingTo ? "Choose response options..." : "Add your response..."}
+              </Text>
+              <Ionicons 
+                name={showDropdown ? "chevron-up" : "chevron-down"} 
+                size={20} 
+                color="#8e8e93" 
+              />
             </TouchableOpacity>
           </View>
 
-          {/* Enhanced Animated Dropdown Options - Beautiful Card Design */}
-          <Animated.View style={{
-            maxHeight: dropdownAnimation.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, 400]
-            }),
-            opacity: dropdownAnimation,
-            overflow: 'hidden'
-          }}>
-            {showDropdown && (
-              <View style={{
-                paddingHorizontal: 20,
-                paddingBottom: insets.bottom + 16
-              }}>
-                <ScrollView 
-                  style={{ maxHeight: 300 }}
-                  showsVerticalScrollIndicator={true}
-                  contentContainerStyle={{ paddingBottom: 8 }}
-                >
-                  {RESPONSE_OPTIONS.map((option, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      onPress={() => handleOptionSelect(option.text)}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        paddingVertical: 14,
-                        paddingHorizontal: 16,
-                        backgroundColor: selectedOptions.includes(option.text) ? option.bgColor : '#ffffff',
-                        borderRadius: 16,
-                        marginBottom: 8,
-                        borderWidth: selectedOptions.includes(option.text) ? 2 : 1,
-                        borderColor: selectedOptions.includes(option.text) ? option.color : '#f0f0f0',
-                        shadowColor: selectedOptions.includes(option.text) ? option.color : '#000',
-                        shadowOffset: { width: 0, height: selectedOptions.includes(option.text) ? 3 : 1 },
-                        shadowOpacity: selectedOptions.includes(option.text) ? 0.15 : 0.05,
-                        shadowRadius: selectedOptions.includes(option.text) ? 6 : 2,
-                        elevation: selectedOptions.includes(option.text) ? 4 : 1
-                      }}
-                    >
-                      {/* Icon Circle */}
-                      <View style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: 16,
-                        backgroundColor: selectedOptions.includes(option.text) ? option.color : '#f5f5f5',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        marginRight: 12,
-                        shadowColor: option.color,
-                        shadowOffset: { width: 0, height: 1 },
-                        shadowOpacity: selectedOptions.includes(option.text) ? 0.3 : 0,
-                        shadowRadius: 2,
-                        elevation: selectedOptions.includes(option.text) ? 2 : 0
-                      }}>
-                        <Ionicons 
-                          name={option.icon as any} 
-                          size={18} 
-                          color={selectedOptions.includes(option.text) ? 'white' : option.color}
-                        />
-                      </View>
-                      
-                      {/* Text */}
-                      <Text style={{
-                        fontSize: 14,
-                        color: selectedOptions.includes(option.text) ? option.color : '#333',
-                        fontWeight: selectedOptions.includes(option.text) ? '600' : '500',
-                        flex: 1,
-                        lineHeight: 20
-                      }}>
-                        {option.text}
-                      </Text>
-
-                      {/* Selected Indicator */}
-                      {selectedOptions.includes(option.text) && (
-                        <View style={{
-                          width: 20,
-                          height: 20,
-                          borderRadius: 10,
-                          backgroundColor: option.color,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          marginLeft: 8
-                        }}>
-                          <Ionicons name="checkmark" size={12} color="white" />
-                        </View>
+          {/* Dropdown Options */}
+          {showDropdown && (
+            <View style={{
+              maxHeight: 300,
+              paddingHorizontal: 16,
+              paddingBottom: insets.bottom + 12
+            }}>
+              <ScrollView 
+                style={{ maxHeight: 250 }}
+                showsVerticalScrollIndicator={true}
+              >
+                {RESPONSE_OPTIONS.map((option, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    onPress={() => handleOptionSelect(option)}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      paddingVertical: 12,
+                      paddingHorizontal: 16,
+                      backgroundColor: selectedOptions.includes(option) ? '#e6f3ff' : '#f8f8f8',
+                      borderRadius: 8,
+                      marginBottom: 8,
+                      borderWidth: selectedOptions.includes(option) ? 2 : 1,
+                      borderColor: selectedOptions.includes(option) ? '#007aff' : '#e5e5e5'
+                    }}
+                  >
+                    <View style={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: 4,
+                      backgroundColor: selectedOptions.includes(option) ? '#007aff' : 'transparent',
+                      borderWidth: 2,
+                      borderColor: selectedOptions.includes(option) ? '#007aff' : '#c7c7cc',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginRight: 12
+                    }}>
+                      {selectedOptions.includes(option) && (
+                        <Ionicons name="checkmark" size={12} color="#fff" />
                       )}
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+                    </View>
+                    <Text style={{
+                      fontSize: 14,
+                      color: selectedOptions.includes(option) ? '#007aff' : '#000',
+                      fontWeight: selectedOptions.includes(option) ? '600' : 'normal',
+                      flex: 1
+                    }}>
+                      {option}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
 
-                {/* Enhanced Submit Button */}
-                <TouchableOpacity
-                  onPress={handleSubmitStructuredComment}
-                  disabled={isSubmitting || selectedOptions.length === 0}
-                  style={{
-                    backgroundColor: selectedOptions.length > 0 ? '#007aff' : '#d0d0d0',
-                    borderRadius: 16,
-                    paddingVertical: 16,
-                    alignItems: 'center',
-                    marginTop: 16,
-                    shadowColor: selectedOptions.length > 0 ? '#007aff' : '#000',
-                    shadowOffset: { width: 0, height: 3 },
-                    shadowOpacity: selectedOptions.length > 0 ? 0.3 : 0.1,
-                    shadowRadius: 6,
-                    elevation: selectedOptions.length > 0 ? 4 : 1,
-                    opacity: (isSubmitting || selectedOptions.length === 0) ? 0.6 : 1
-                  }}
-                >
-                  {isSubmitting ? (
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <ActivityIndicator size="small" color="#fff" />
-                      <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600', marginLeft: 8 }}>
-                        {replyingTo ? 'Posting Reply...' : 'Submitting...'}
-                      </Text>
-                    </View>
-                  ) : (
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Ionicons name="send" size={18} color="#fff" style={{ marginRight: 8 }} />
-                      <Text style={{
-                        color: '#fff',
-                        fontSize: 16,
-                        fontWeight: '600'
-                      }}>
-                        {replyingTo ? `Reply to @${replyingToUser} (${selectedOptions.length})` : `Submit Response (${selectedOptions.length})`}
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </View>
-            )}
-          </Animated.View>
+              {/* Submit Button */}
+              <TouchableOpacity
+                onPress={handleSubmitStructuredComment}
+                disabled={isSubmitting || selectedOptions.length === 0}
+                style={{
+                  backgroundColor: selectedOptions.length > 0 ? '#007aff' : '#c7c7cc',
+                  borderRadius: 8,
+                  paddingVertical: 12,
+                  alignItems: 'center',
+                  marginTop: 12,
+                  opacity: (isSubmitting || selectedOptions.length === 0) ? 0.6 : 1
+                }}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={{
+                    color: '#fff',
+                    fontSize: 16,
+                    fontWeight: '600'
+                  }}>
+                    Submit Response ({selectedOptions.length} selected)
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </View>
     </Modal>
   );
 }
+
+//Comment code With dropdown features
