@@ -24,6 +24,7 @@ interface PostItem {
   postType: string;
   Liked: boolean;
   Reposted: boolean;
+  Bookmarked?: boolean; // ✅ Added bookmark property
   createdAt?: any;
 }
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -109,6 +110,28 @@ export default function Index(): React.JSX.Element {
     }
   }, []);
 
+  // ✅ ADDED: Bookmark function
+  const handleBookmark = useCallback(async (postItem: PostItem) => {
+    console.log("Bookmark pressed:", postItem.id);
+    
+    setFetchedData(prevData => 
+      prevData.map(item => 
+        item.uniqueId === postItem.uniqueId 
+          ? { ...item, Bookmarked: !item.Bookmarked } 
+          : item
+      )
+    );
+
+    if (fullScreenCard && fullScreenCard.uniqueId === postItem.uniqueId) {
+      setFullScreenCard((prev: PostItem | null) => prev ? ({
+        ...prev,
+        Bookmarked: !prev.Bookmarked
+      }) : null);
+    }
+
+    await new Promise(r => setTimeout(r, 200));
+  }, [fullScreenCard]);
+
   // OPTIMIZED DATA FETCHING
   const handleFetchAllData = useCallback(async (forceRefresh: boolean = false) => {
     const currentTime = Date.now();
@@ -151,6 +174,7 @@ export default function Index(): React.JSX.Element {
             postType: "X-Data",
             Liked: false,
             Reposted: false,
+            Bookmarked: false, // ✅ Added bookmark property
             createdAt: postData.createdAt || postData.ContentDate,
           });
         }
@@ -194,6 +218,7 @@ export default function Index(): React.JSX.Element {
             postType: "SentinelPosts",
             Liked: false,
             Reposted: false,
+            Bookmarked: false, // ✅ Added bookmark property
             createdAt: postData.createdAt || postData.ContentDate,
           });
 
@@ -217,7 +242,6 @@ export default function Index(): React.JSX.Element {
             }
           )
         );
-
       });
       
       setLastFetchTime(currentTime);
@@ -681,11 +705,28 @@ export default function Index(): React.JSX.Element {
               </Text>
             </TouchableOpacity>
 
+            {/* ✅ ADDED: Bookmark button */}
+            <TouchableOpacity
+              className="flex-row items-center px-1.5 py-1"
+              onPress={(e) => {
+                e.stopPropagation();
+                loginScreen(); // Redirect to login
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons 
+                name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
+                size={14} 
+                color={item.Bookmarked ? "#f59e0b" : "#64748b"} 
+              />
+            </TouchableOpacity>
+
+            {/* ✅ UPDATED: Share button now redirects to login */}
             <TouchableOpacity 
               className="p-1"
               onPress={(e) => {
                 e.stopPropagation();
-                console.log("Share pressed:", item.id);
+                loginScreen(); // Redirect to login instead of just logging
               }}
               activeOpacity={0.7}
             >
@@ -695,7 +736,7 @@ export default function Index(): React.JSX.Element {
         </View>
       </EnhancedCard>
     </TouchableOpacity>
-  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, dummyAuthorImage]);
+  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, dummyAuthorImage, loginScreen]);
 
   const initializeCardAnimation = useCallback((postId: string) => {
     if (!cardAnimations[postId]) {
@@ -843,9 +884,23 @@ export default function Index(): React.JSX.Element {
               </Text>
             </TouchableOpacity>
 
+            {/* ✅ ADDED: Bookmark button in flip card */}
+            <TouchableOpacity
+              className="flex-row items-center px-2 py-1.5"
+              onPress={() => loginScreen()}
+              activeOpacity={0.7}
+            >
+              <Ionicons 
+                name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
+                size={18} 
+                color={item.Bookmarked ? "#f59e0b" : "#64748b"} 
+              />
+            </TouchableOpacity>
+
+            {/* ✅ UPDATED: Share button redirects to login */}
             <TouchableOpacity 
               className="p-1.5"
-              onPress={() => console.log("Share pressed:", item.id)}
+              onPress={() => loginScreen()}
               activeOpacity={0.7}
             >
               <Feather name="share-2" size={16} color="#64748b" />
@@ -854,7 +909,7 @@ export default function Index(): React.JSX.Element {
         </View>
       </ScrollView>
     </View>
-  ), [getTimeAgo, handleFlipCard, isFlipping, renderMediaContent, getCommentsCount, dummyAuthorImage]);
+  ), [getTimeAgo, handleFlipCard, isFlipping, renderMediaContent, getCommentsCount, dummyAuthorImage, loginScreen, closeFullScreenCard]);
 
   const renderFlipCardBack = useCallback((item: PostItem) => (
     <View style={{ 
@@ -1011,7 +1066,7 @@ export default function Index(): React.JSX.Element {
         </View>
       </ScrollView>
     </View>
-  ), [handleFlipCard, isFlipping, getTimeAgo, userRole, getCommentsCount]);
+  ), [handleFlipCard, isFlipping, getTimeAgo, userRole, getCommentsCount, closeFullScreenCard, loginScreen]);
 
   const renderFullScreenFlipCard = useCallback((item: PostItem) => (
     <View className="flex-1 bg-gray-900">
