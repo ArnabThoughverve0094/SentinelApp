@@ -2,7 +2,7 @@ import { db } from '@/FirebaseConfig';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { collection, doc, getCountFromServer, getDocs, onSnapshot, orderBy, query, updateDoc, where } from 'firebase/firestore';
+import { arrayRemove, arrayUnion, collection, doc, getDocs, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ResizeMode, Video } from 'expo-av';
@@ -30,7 +30,6 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 interface PostItem {
   id: string;
   uniqueId: string;
-  liked: boolean;
   AuthorImageURL: string;
   AuthorName: string;
   ContentDate: string;
@@ -181,7 +180,7 @@ export default function SentinelFeed(): React.JSX.Element {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [userId, setUserId] = useState("1");
+  const [userId, setUserId] = useState("");
   const [userRole, setUserRole] = useState("User");
   const [fetchedData, setFetchedData] = useState<PostItem[]>([]);
   const [fetchedXData, setFetchedXData] = useState<any>([]);
@@ -420,10 +419,16 @@ export default function SentinelFeed(): React.JSX.Element {
     const currentTime = Date.now();
     const cacheValidTime = 5 * 60 * 1000;
     
-    if (!forceRefresh && isInitialized && fetchedData.length > 0 && 
-        (currentTime - lastFetchTime) < cacheValidTime) {
-      console.log('Using cached data, skipping fetch');
-      return;
+    // if (!forceRefresh && isInitialized && fetchedData.length > 0 && 
+    //     (currentTime - lastFetchTime) < cacheValidTime) {
+    //   console.log('Using cached data, skipping fetch');
+    //   return;
+    // }
+
+    let fetchuserID = userId;
+    if(fetchuserID == ""){
+      fetchuserID = await AsyncStorage.getItem('userId') || "";
+      setUserId(fetchuserID);
     }
 
     setLoading(true);
@@ -448,7 +453,6 @@ export default function SentinelFeed(): React.JSX.Element {
           postsXData.push({
             uniqueId: `xdata-${postId}`,
             id: postId,
-            liked: false,
             AuthorImageURL: postData.AuthorImageURL,
             AuthorName: postData.AuthorName,
             ContentDate: postData.ContentDate,
@@ -461,9 +465,9 @@ export default function SentinelFeed(): React.JSX.Element {
             isApproved: true,
             isNew: false,
             postType: "X-Data",
-            Liked: false,
+            Liked: (postData.LikedBy?.includes(fetchuserID) || false),
             Reposted: false,
-            Bookmarked: false,
+            Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
             createdAt: postData.createdAt || postData.ContentDate,
           });
         }
@@ -489,10 +493,17 @@ export default function SentinelFeed(): React.JSX.Element {
           const postData = doc.data;
           const postId = doc.id;
 
+          try {
+            console.log("Liked By List: ", postData.LikedBy);
+            console.log("UserID: ", fetchuserID);
+            console.log("Liked By: ", (postData.LikedBy?.includes(fetchuserID) || false));
+          } catch (error) {
+            console.log(error);
+          }
+
           postsData.push({
             uniqueId: `sentinel-${postId}`,
             id: postId,
-            liked: false,
             AuthorImageURL: postData.AuthorImageURL,
             AuthorName: postData.AuthorName,
             ContentDate: postData.ContentDate,
@@ -505,9 +516,9 @@ export default function SentinelFeed(): React.JSX.Element {
             isApproved: postData.isApproved || false,
             isNew: postData.isNew !== undefined ? postData.isNew : true,
             postType: "SentinelPosts",
-            Liked: false,
+            Liked: (postData.LikedBy?.includes(fetchuserID) || false),
             Reposted: false,
-            Bookmarked: false,
+            Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
             createdAt: postData.createdAt || postData.ContentDate,
           });
         }
@@ -516,20 +527,34 @@ export default function SentinelFeed(): React.JSX.Element {
         setFetchedData(allData);
         console.log('OnSnapshot Fetched and Sorted', `Total: ${allData.length} documents`);
 
-        allData.forEach(post =>
+        allData.forEach(post => {
+          //Fetching Comment and Reply Count
           onSnapshot(
             collection(doc(db, post.postType, post.id), 'Comments'),
             commentsSnap => {
-              setFetchedData(prev =>
-                prev.map(p =>
-                  p.id === post.id
-                    ? { ...p, ContentCommentCount: commentsSnap.size }
-                    : p
+              let totalComments = 0;
+              totalComments = commentsSnap.size;
+              
+              commentsSnap.forEach(comment =>
+                onSnapshot(
+                  collection(doc(db, post.postType, post.id, 'Comments', comment.id), 'Replies'),
+                  repliesSnap => {
+                    totalComments += repliesSnap.size;
+                    setFetchedData(prev =>
+                      prev.map(p =>
+                        p.id === post.id
+                        ? { ...p, ContentCommentCount: totalComments }
+                        : p
+                      )
+                    );
+                  }
                 )
               );
             }
           )
-        );
+
+        });
+        
       });
       
       setLastFetchTime(currentTime);
@@ -768,19 +793,28 @@ export default function SentinelFeed(): React.JSX.Element {
   }, [fullScreenCard]);
 
   const toggleLike = useCallback(async (postItem: PostItem) => {
-    setFetchedData(prevData => 
-      prevData.map(item => 
-        item.uniqueId === postItem.uniqueId 
-          ? { 
-              ...item, 
-              Liked: !item.Liked, 
-              ContentLikeCount: item.Liked 
-                ? item.ContentLikeCount - 1 
-                : item.ContentLikeCount + 1
-            } 
-          : item
-      )
-    );
+    let fetchuserID = userId;
+    if(fetchuserID == ""){
+      fetchuserID = await AsyncStorage.getItem('userId') || "";
+      setUserId(fetchuserID);
+    }
+
+    const postRef = doc(db, postItem.postType, postItem.id);
+    if(postItem.Liked) {
+      console.log("itemID: ", postItem.id);
+      console.log("item Liked: ", postItem.Liked);
+      await updateDoc(postRef, {
+        ContentLikeCount: postItem.ContentLikeCount - 1,
+        LikedBy: arrayRemove(fetchuserID),
+      });
+    } else {
+      console.log("itemID: ", postItem.id);
+      console.log("item Liked: ", postItem.Liked);
+      await updateDoc(postRef, {
+        ContentLikeCount: postItem.ContentLikeCount + 1,
+        LikedBy: arrayUnion(fetchuserID),
+      });
+    }
 
     if (fullScreenCard && fullScreenCard.uniqueId === postItem.uniqueId) {
       setFullScreenCard((prev: PostItem | null) => prev ? ({
@@ -828,13 +862,26 @@ export default function SentinelFeed(): React.JSX.Element {
   const handleBookmark = useCallback(async (postItem: PostItem) => {
     console.log("Bookmark pressed:", postItem.id);
     
-    setFetchedData(prevData => 
-      prevData.map(item => 
-        item.uniqueId === postItem.uniqueId 
-          ? { ...item, Bookmarked: !item.Bookmarked } 
-          : item
-      )
-    );
+    let fetchuserID = userId;
+    if(fetchuserID == ""){
+      fetchuserID = await AsyncStorage.getItem('userId') || "";
+      setUserId(fetchuserID);
+    }
+
+    const postRef = doc(db, postItem.postType, postItem.id);
+    if(postItem.Bookmarked) {
+      console.log("itemID: ", postItem.id);
+      console.log("item Bookmarked: ", postItem.Bookmarked);
+      await updateDoc(postRef, {
+        BookmarkedBy: arrayRemove(fetchuserID),
+      });
+    } else {
+      console.log("itemID: ", postItem.id);
+      console.log("item Bookmarked: ", postItem.Bookmarked);
+      await updateDoc(postRef, {
+        BookmarkedBy: arrayUnion(fetchuserID),
+      });
+    }
 
     if (fullScreenCard && fullScreenCard.uniqueId === postItem.uniqueId) {
       setFullScreenCard((prev: PostItem | null) => prev ? ({

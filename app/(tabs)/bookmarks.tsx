@@ -1,9 +1,10 @@
-import { db } from '@/FirebaseConfig';;
+import { db } from '@/FirebaseConfig';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { collection, doc, onSnapshot, orderBy, query, where, getDocs } from 'firebase/firestore';
+import { useRouter } from 'expo-router';
+import { arrayRemove, arrayUnion, collection, doc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+;
 
 import { ResizeMode, Video } from 'expo-av';
 import {
@@ -29,7 +30,6 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 interface PostItem {
   id: string;
   uniqueId: string;
-  liked: boolean;
   AuthorImageURL: string;
   AuthorName: string;
   ContentDate: string;
@@ -207,7 +207,7 @@ export default function BookmarksPage(): React.JSX.Element {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [userId, setUserId] = useState("1");
+  const [userId, setUserId] = useState("");
   const [userRole, setUserRole] = useState("User");
   const [bookmarkedPosts, setBookmarkedPosts] = useState<PostItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -222,6 +222,7 @@ export default function BookmarksPage(): React.JSX.Element {
   const [currentVideoIndex, setCurrentVideoIndex] = useState(-1);
   const scrollViewRef = useRef<ScrollView>(null);
   const videoRefs = useRef<{ [key: string]: any }>({});
+  const [fetchedXData, setFetchedXData] = useState<any>([]);
 
   // ------- COMMENT MODAL STATE -------
   const [isCommentModalVisible, setIsCommentModalVisible] = useState(false);
@@ -393,117 +394,262 @@ export default function BookmarksPage(): React.JSX.Element {
   // FIXED: Fetch bookmarked posts without problematic queries
   const handleFetchBookmarkedPosts = useCallback(async (forceRefresh: boolean = false) => {
     setLoading(true);
+    // try {
+    //   const bookmarkedData: PostItem[] = [];
+      
+    //   // Method 1: Simple query without where + orderBy combination
+    //   // First, get all approved posts
+    //   const collSentinelRefPost = collection(db, 'SentinelPosts');
+      
+    //   // Use getDocs instead of onSnapshot to avoid index issues
+    //   const approvedQuery = query(
+    //     collSentinelRefPost,
+    //     where('isApproved', '==', true)
+    //   );
+
+    //   const querySnapshot = await getDocs(approvedQuery);
+      
+    //   querySnapshot.forEach(doc => {
+    //     const postData = doc.data();
+    //     const postId = doc.id;
+
+    //     // Simulate some posts being bookmarked (you'd check actual bookmark status)
+    //     // In a real app, you'd have a bookmarks collection or user field
+    //     const isBookmarked = Math.random() > 0.6; // Random for demo purposes
+        
+    //     if (isBookmarked) {
+    //       bookmarkedData.push({
+    //         uniqueId: `sentinel-${postId}`,
+    //         id: postId,
+    //         AuthorImageURL: postData.AuthorImageURL || dummyAuthorImage,
+    //         AuthorName: postData.AuthorName || 'Anonymous',
+    //         ContentDate: postData.ContentDate,
+    //         ContentDesc: postData.ContentDesc || '',
+    //         ContentURL: postData.ContentURL || '',
+    //         ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+    //         ContentLikeCount: postData.ContentLikeCount || 0,
+    //         ContentRepostCount: postData.ContentRepostCount || 0,
+    //         ContentCommentCount: postData.ContentCommentCount || 0,
+    //         isApproved: postData.isApproved || false,
+    //         isNew: postData.isNew !== undefined ? postData.isNew : false,
+    //         postType: "SentinelPosts",
+    //         Liked: false,
+    //         Reposted: false,
+    //         Bookmarked: true,
+    //         createdAt: postData.createdAt || postData.ContentDate,
+    //         bookmarkedAt: new Date(),
+    //       });
+    //     }
+    //   });
+
+    //   // Sort locally instead of using Firestore orderBy
+    //   bookmarkedData.sort((a, b) => {
+    //     const dateA = new Date(a.ContentDate);
+    //     const dateB = new Date(b.ContentDate);
+    //     return dateB.getTime() - dateA.getTime();
+    //   });
+
+    //   setBookmarkedPosts(bookmarkedData);
+    //   console.log('Bookmarked posts fetched:', bookmarkedData.length);
+      
+    // } catch (error) {
+    //   console.error('Error fetching bookmarked posts:', error);
+      
+    //   // Fallback: Create some dummy data to show UI
+    //   const dummyData: PostItem[] = [
+    //     {
+    //       uniqueId: 'dummy-1',
+    //       id: 'dummy-1',
+    //       AuthorImageURL: dummyAuthorImage,
+    //       AuthorName: 'John Doe',
+    //       ContentDate: new Date().toISOString(),
+    //       ContentDesc: 'This is a sample bookmarked post. Your actual bookmarks will appear here once you start saving posts.',
+    //       ContentURL: 'https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=800',
+    //       ContentURLs: ['https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=800'],
+    //       ContentLikeCount: 42,
+    //       ContentRepostCount: 5,
+    //       ContentCommentCount: 8,
+    //       isApproved: true,
+    //       isNew: false,
+    //       postType: "SentinelPosts",
+    //       Liked: false,
+    //       Reposted: false,
+    //       Bookmarked: true,
+    //       createdAt: new Date(),
+    //       bookmarkedAt: new Date(),
+    //     },
+    //     {
+    //       uniqueId: 'dummy-2',
+    //       id: 'dummy-2',
+    //       AuthorImageURL: dummyAuthorImage,
+    //       AuthorName: 'Jane Smith',
+    //       ContentDate: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
+    //       ContentDesc: 'Another sample bookmarked post with different content to show variety in your bookmark collection.',
+    //       ContentURL: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800',
+    //       ContentURLs: ['https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800'],
+    //       ContentLikeCount: 128,
+    //       ContentRepostCount: 15,
+    //       ContentCommentCount: 23,
+    //       isApproved: true,
+    //       isNew: false,
+    //       postType: "SentinelPosts",
+    //       Liked: true,
+    //       Reposted: false,
+    //       Bookmarked: true,
+    //       createdAt: new Date(Date.now() - 86400000),
+    //       bookmarkedAt: new Date(Date.now() - 86400000),
+    //     }
+    //   ];
+      
+    //   setBookmarkedPosts(dummyData);
+    // } finally {
+    //   setLoading(false);
+    // }
+    
+    let fetchuserID = userId;
+    if(fetchuserID == ""){
+      fetchuserID = await AsyncStorage.getItem('userId') || "";
+      setUserId(fetchuserID);
+    }
+
+    setLoading(true);
     try {
-      const bookmarkedData: PostItem[] = [];
+      const postsXData: any = [];
       
-      // Method 1: Simple query without where + orderBy combination
-      // First, get all approved posts
+      const collXDataRefPost = collection(db, 'X-Data');
+      const queryXData = query(
+        collXDataRefPost,
+        orderBy('ContentDate', 'desc')
+      );
+      const unsubscribeXData = onSnapshot(queryXData, async xDataSnapshot => {
+        const xdataDataArr = xDataSnapshot.docs.map(doc => ({
+          id: doc.id,
+          data: doc.data(),
+        }))
+
+        for (const doc of xdataDataArr) {
+          const postData = doc.data;
+          const postId = doc.id;
+
+          if(postData.BookmarkedBy?.includes(fetchuserID)) {
+            postsXData.push({
+              uniqueId: `xdata-${postId}`,
+              id: postId,
+              AuthorImageURL: postData.AuthorImageURL,
+              AuthorName: postData.AuthorName,
+              ContentDate: postData.ContentDate,
+              ContentDesc: postData.ContentDesc,
+              ContentURL: postData.ContentURL,
+              ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+              ContentLikeCount: postData.ContentLikeCount || 0,
+              ContentRepostCount: postData.ContentRepostCount || 0,
+              ContentCommentCount: postData.ContentCommentCount || 0,
+              isApproved: true,
+              isNew: false,
+              postType: "X-Data",
+              Liked: (postData.LikedBy?.includes(fetchuserID) || false),
+              Reposted: false,
+              Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
+              createdAt: postData.createdAt || postData.ContentDate,
+            });
+          }
+        }
+
+        setFetchedXData(postsXData);
+      });
+
       const collSentinelRefPost = collection(db, 'SentinelPosts');
-      
-      // Use getDocs instead of onSnapshot to avoid index issues
-      const approvedQuery = query(
+      const querySentinel = query(
         collSentinelRefPost,
-        where('isApproved', '==', true)
+        orderBy('ContentDate', 'desc')
       );
 
-      const querySnapshot = await getDocs(approvedQuery);
-      
-      querySnapshot.forEach(doc => {
-        const postData = doc.data();
-        const postId = doc.id;
+      console.log("Sentinel OnSnapshot");
+      const unsubscribeSentinel = onSnapshot(querySentinel, async sentinelSnapshot => {
+        const sentineldataArr = sentinelSnapshot.docs.map(doc => ({
+          id: doc.id,
+          data: doc.data(),
+        }))
 
-        // Simulate some posts being bookmarked (you'd check actual bookmark status)
-        // In a real app, you'd have a bookmarks collection or user field
-        const isBookmarked = Math.random() > 0.6; // Random for demo purposes
-        
-        if (isBookmarked) {
-          bookmarkedData.push({
-            uniqueId: `sentinel-${postId}`,
-            id: postId,
-            liked: false,
-            AuthorImageURL: postData.AuthorImageURL || dummyAuthorImage,
-            AuthorName: postData.AuthorName || 'Anonymous',
-            ContentDate: postData.ContentDate,
-            ContentDesc: postData.ContentDesc || '',
-            ContentURL: postData.ContentURL || '',
-            ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
-            ContentLikeCount: postData.ContentLikeCount || 0,
-            ContentRepostCount: postData.ContentRepostCount || 0,
-            ContentCommentCount: postData.ContentCommentCount || 0,
-            isApproved: postData.isApproved || false,
-            isNew: postData.isNew !== undefined ? postData.isNew : false,
-            postType: "SentinelPosts",
-            Liked: false,
-            Reposted: false,
-            Bookmarked: true,
-            createdAt: postData.createdAt || postData.ContentDate,
-            bookmarkedAt: new Date(),
-          });
+        const postsData = [];
+        for (const doc of sentineldataArr) {
+          const postData = doc.data;
+          const postId = doc.id;
+
+          try {
+            console.log("Liked By List: ", postData.LikedBy);
+            console.log("UserID: ", fetchuserID);
+            console.log("Liked By: ", (postData.LikedBy?.includes(fetchuserID) || false));
+          } catch (error) {
+            console.log(error);
+          }
+
+          if(postData.BookmarkedBy?.includes(fetchuserID)) {
+            postsData.push({
+              uniqueId: `sentinel-${postId}`,
+              id: postId,
+              AuthorImageURL: postData.AuthorImageURL,
+              AuthorName: postData.AuthorName,
+              ContentDate: postData.ContentDate,
+              ContentDesc: postData.ContentDesc,
+              ContentURL: postData.ContentURL,
+              ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+              ContentLikeCount: postData.ContentLikeCount || 0,
+              ContentRepostCount: postData.ContentRepostCount || 0,
+              ContentCommentCount: postData.ContentCommentCount || 0,
+              isApproved: postData.isApproved || false,
+              isNew: postData.isNew !== undefined ? postData.isNew : true,
+              postType: "SentinelPosts",
+              Liked: (postData.LikedBy?.includes(fetchuserID) || false),
+              Reposted: false,
+              Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
+              createdAt: postData.createdAt || postData.ContentDate,
+            });
+          }
+
         }
-      });
 
-      // Sort locally instead of using Firestore orderBy
-      bookmarkedData.sort((a, b) => {
-        const dateA = new Date(a.ContentDate);
-        const dateB = new Date(b.ContentDate);
-        return dateB.getTime() - dateA.getTime();
-      });
+        const allData = postsData.concat(postsXData);
+        setBookmarkedPosts(allData);
+        console.log('OnSnapshot Fetched and Sorted', `Total: ${allData.length} documents`);
 
-      setBookmarkedPosts(bookmarkedData);
-      console.log('Bookmarked posts fetched:', bookmarkedData.length);
+        allData.forEach(post => {
+          //Fetching Comment and Reply Count
+          onSnapshot(
+            collection(doc(db, post.postType, post.id), 'Comments'),
+            commentsSnap => {
+              let totalComments = 0;
+              totalComments = commentsSnap.size;
+              
+              commentsSnap.forEach(comment =>
+                onSnapshot(
+                  collection(doc(db, post.postType, post.id, 'Comments', comment.id), 'Replies'),
+                  repliesSnap => {
+                    totalComments += repliesSnap.size;
+                    setBookmarkedPosts(prev =>
+                      prev.map(p =>
+                        p.id === post.id
+                        ? { ...p, ContentCommentCount: totalComments }
+                        : p
+                      )
+                    );
+                  }
+                )
+              );
+            }
+          )
+
+        });
+        
+      });
+      
+      return () => {
+        unsubscribeSentinel();
+        unsubscribeXData();
+      };
       
     } catch (error) {
-      console.error('Error fetching bookmarked posts:', error);
-      
-      // Fallback: Create some dummy data to show UI
-      const dummyData: PostItem[] = [
-        {
-          uniqueId: 'dummy-1',
-          id: 'dummy-1',
-          liked: false,
-          AuthorImageURL: dummyAuthorImage,
-          AuthorName: 'John Doe',
-          ContentDate: new Date().toISOString(),
-          ContentDesc: 'This is a sample bookmarked post. Your actual bookmarks will appear here once you start saving posts.',
-          ContentURL: 'https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=800',
-          ContentURLs: ['https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=800'],
-          ContentLikeCount: 42,
-          ContentRepostCount: 5,
-          ContentCommentCount: 8,
-          isApproved: true,
-          isNew: false,
-          postType: "SentinelPosts",
-          Liked: false,
-          Reposted: false,
-          Bookmarked: true,
-          createdAt: new Date(),
-          bookmarkedAt: new Date(),
-        },
-        {
-          uniqueId: 'dummy-2',
-          id: 'dummy-2',
-          liked: false,
-          AuthorImageURL: dummyAuthorImage,
-          AuthorName: 'Jane Smith',
-          ContentDate: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-          ContentDesc: 'Another sample bookmarked post with different content to show variety in your bookmark collection.',
-          ContentURL: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800',
-          ContentURLs: ['https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800'],
-          ContentLikeCount: 128,
-          ContentRepostCount: 15,
-          ContentCommentCount: 23,
-          isApproved: true,
-          isNew: false,
-          postType: "SentinelPosts",
-          Liked: true,
-          Reposted: false,
-          Bookmarked: true,
-          createdAt: new Date(Date.now() - 86400000),
-          bookmarkedAt: new Date(Date.now() - 86400000),
-        }
-      ];
-      
-      setBookmarkedPosts(dummyData);
+      console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
@@ -560,19 +706,28 @@ export default function BookmarksPage(): React.JSX.Element {
   }, []);
 
   const toggleLike = useCallback(async (postItem: PostItem) => {
-    setBookmarkedPosts(prevData => 
-      prevData.map(item => 
-        item.uniqueId === postItem.uniqueId 
-          ? { 
-              ...item, 
-              Liked: !item.Liked, 
-              ContentLikeCount: item.Liked 
-                ? item.ContentLikeCount - 1 
-                : item.ContentLikeCount + 1
-            } 
-          : item
-      )
-    );
+    let fetchuserID = userId;
+    if(fetchuserID == ""){
+      fetchuserID = await AsyncStorage.getItem('userId') || "";
+      setUserId(fetchuserID);
+    }
+
+    const postRef = doc(db, postItem.postType, postItem.id);
+    if(postItem.Liked) {
+      console.log("itemID: ", postItem.id);
+      console.log("item Liked: ", postItem.Liked);
+      await updateDoc(postRef, {
+        ContentLikeCount: postItem.ContentLikeCount - 1,
+        LikedBy: arrayRemove(fetchuserID),
+      });
+    } else {
+      console.log("itemID: ", postItem.id);
+      console.log("item Liked: ", postItem.Liked);
+      await updateDoc(postRef, {
+        ContentLikeCount: postItem.ContentLikeCount + 1,
+        LikedBy: arrayUnion(fetchuserID),
+      });
+    }
 
     await new Promise(r => setTimeout(r, 200));
   }, []);
@@ -610,10 +765,30 @@ export default function BookmarksPage(): React.JSX.Element {
         },
         {
           text: 'Remove',
-          onPress: () => {
-            setBookmarkedPosts(prevData => 
-              prevData.filter(item => item.uniqueId !== postItem.uniqueId)
-            );
+          onPress: async () => {
+            let fetchuserID = userId;
+            if(fetchuserID == ""){
+              fetchuserID = await AsyncStorage.getItem('userId') || "";
+              setUserId(fetchuserID);
+            }
+
+            const postRef = doc(db, postItem.postType, postItem.id);
+            if(postItem.Bookmarked) {
+              console.log("itemID: ", postItem.id);
+              console.log("item Bookmarked: ", postItem.Bookmarked);
+              await updateDoc(postRef, {
+                BookmarkedBy: arrayRemove(fetchuserID),
+              });
+            } else {
+              console.log("itemID: ", postItem.id);
+              console.log("item Bookmarked: ", postItem.Bookmarked);
+              await updateDoc(postRef, {
+                BookmarkedBy: arrayUnion(fetchuserID),
+              });
+            }
+            // setBookmarkedPosts(prevData => 
+            //   prevData.filter(item => item.uniqueId !== postItem.uniqueId)
+            // );
             hideModal();
             showCustomAlert(
               'success',
