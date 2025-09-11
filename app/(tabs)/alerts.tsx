@@ -185,7 +185,7 @@ const NotificationItem = ({ notification }: { notification: Notification }) => (
       {/* Status icon overlay for post notifications */}
       {(notification.type === 'post_approved' || notification.type === 'post_rejected') && (
         <View className="absolute -bottom-1 -right-1 w-6 h-6 bg-white rounded-full items-center justify-center shadow-sm">
-          {getNotificationIcon(notification.type, notification.status)}
+          {/* {getNotificationIcon(notification.type, notification.status)} */}
         </View>
       )}
     </View>
@@ -203,7 +203,7 @@ const NotificationItem = ({ notification }: { notification: Notification }) => (
         {/* Notification type icon */}
         {notification.type !== 'post_approved' && notification.type !== 'post_rejected' && (
           <View className="ml-2 mt-1">
-            {getNotificationIcon(notification.type)}
+            {/* {getNotificationIcon(notification.type)} */}
           </View>
         )}
       </View>
@@ -231,10 +231,10 @@ const NotificationItem = ({ notification }: { notification: Notification }) => (
       {/* Follow/Decline Buttons */}
       {notification.showButtons && (
         <View className="flex-row">
-          <TouchableOpacity className="bg-blue-500 px-4 py-2 rounded-md mr-2">
+          <TouchableOpacity className="bg-black px-4 py-2 rounded-md mr-2">
             <Text className="text-white text-sm font-medium">Follow</Text>
           </TouchableOpacity>
-          <TouchableOpacity className="bg-gray-200 px-4 py-2 rounded-md">
+          <TouchableOpacity className="px-4 py-2 rounded-md">
             <Text className="text-gray-700 text-sm font-medium">Decline</Text>
           </TouchableOpacity>
         </View>

@@ -467,7 +467,7 @@ export default function SentinelFeed(): React.JSX.Element {
             postType: "X-Data",
             Liked: (postData.LikedBy?.includes(fetchuserID) || false),
             Reposted: false,
-            Bookmarked: false,
+            Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
             createdAt: postData.createdAt || postData.ContentDate,
           });
         }
@@ -518,7 +518,7 @@ export default function SentinelFeed(): React.JSX.Element {
             postType: "SentinelPosts",
             Liked: (postData.LikedBy?.includes(fetchuserID) || false),
             Reposted: false,
-            Bookmarked: false,
+            Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
             createdAt: postData.createdAt || postData.ContentDate,
           });
         }
@@ -862,13 +862,26 @@ export default function SentinelFeed(): React.JSX.Element {
   const handleBookmark = useCallback(async (postItem: PostItem) => {
     console.log("Bookmark pressed:", postItem.id);
     
-    setFetchedData(prevData => 
-      prevData.map(item => 
-        item.uniqueId === postItem.uniqueId 
-          ? { ...item, Bookmarked: !item.Bookmarked } 
-          : item
-      )
-    );
+    let fetchuserID = userId;
+    if(fetchuserID == ""){
+      fetchuserID = await AsyncStorage.getItem('userId') || "";
+      setUserId(fetchuserID);
+    }
+
+    const postRef = doc(db, postItem.postType, postItem.id);
+    if(postItem.Bookmarked) {
+      console.log("itemID: ", postItem.id);
+      console.log("item Bookmarked: ", postItem.Bookmarked);
+      await updateDoc(postRef, {
+        BookmarkedBy: arrayRemove(fetchuserID),
+      });
+    } else {
+      console.log("itemID: ", postItem.id);
+      console.log("item Bookmarked: ", postItem.Bookmarked);
+      await updateDoc(postRef, {
+        BookmarkedBy: arrayUnion(fetchuserID),
+      });
+    }
 
     if (fullScreenCard && fullScreenCard.uniqueId === postItem.uniqueId) {
       setFullScreenCard((prev: PostItem | null) => prev ? ({
@@ -1316,6 +1329,13 @@ export default function SentinelFeed(): React.JSX.Element {
                 {item.ContentRepostCount}
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity 
+              className="p-1.5"
+              onPress={() => console.log("Graph pressed:", item.id)}
+              activeOpacity={0.7}
+            >
+              <Feather name="bar-chart-2" size={16} color="#64748b" />
+            </TouchableOpacity>
 
             <TouchableOpacity
               className="flex-row items-center px-2 py-1.5"
@@ -1328,15 +1348,6 @@ export default function SentinelFeed(): React.JSX.Element {
                 color={item.Bookmarked ? "#f59e0b" : "#64748b"} 
               />
             </TouchableOpacity>
-
-            <TouchableOpacity 
-              className="p-1.5"
-              onPress={() => console.log("Graph pressed:", item.id)}
-              activeOpacity={0.7}
-            >
-              <Feather name="bar-chart-2" size={16} color="#64748b" />
-            </TouchableOpacity>
-
 
             <TouchableOpacity 
               className="p-1.5 "
@@ -1626,6 +1637,13 @@ export default function SentinelFeed(): React.JSX.Element {
                 {item.ContentRepostCount}
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity 
+              className="p-1.5"
+              onPress={() => console.log("Graph pressed:", item.id)}
+              activeOpacity={0.7}
+            >
+              <Feather name="bar-chart-2" size={16} color="#64748b" />
+            </TouchableOpacity>
 
             <TouchableOpacity
               className="flex-row items-center px-1.5 py-1"
@@ -1641,17 +1659,6 @@ export default function SentinelFeed(): React.JSX.Element {
                 color={item.Bookmarked ? "#f59e0b" : "#64748b"} 
               />
             </TouchableOpacity>
-            <TouchableOpacity 
-              className="p-1.5"
-              onPress={(e) => {
-                e.stopPropagation();
-                console.log("Graph pressed:", item.id);
-              }}
-              activeOpacity={0.7}
-            >
-              <Feather name="bar-chart-2" size={16} color="#64748b" />
-            </TouchableOpacity>
-
 
             <TouchableOpacity 
               className="p-1"
@@ -1789,6 +1796,13 @@ export default function SentinelFeed(): React.JSX.Element {
                 {item.ContentRepostCount}
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity 
+              className="p-1.5"
+              onPress={() => console.log("Graph pressed:", item.id)}
+              activeOpacity={0.7}
+            >
+              <Feather name="bar-chart-2" size={16} color="#64748b" />
+            </TouchableOpacity>
 
             <TouchableOpacity
               className="flex-row items-center px-1.5 py-1"
@@ -1804,17 +1818,6 @@ export default function SentinelFeed(): React.JSX.Element {
                 color={item.Bookmarked ? "#f59e0b" : "#64748b"} 
               />
             </TouchableOpacity>
-            <TouchableOpacity 
-                className="p-1.5"
-                onPress={(e) => {
-                e.stopPropagation();
-                console.log("Graph pressed:", item.id);
-              }}
-                activeOpacity={0.7}
-              >
-                <Feather name="bar-chart-2" size={16} color="#64748b" />
-              </TouchableOpacity>
-
 
             <TouchableOpacity 
               className="p-1 "
