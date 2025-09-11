@@ -89,7 +89,7 @@ const SearchItem: React.FC<SearchItemProps> = ({ search }) => (
     </View>
 
     {/* Right side - Follow Button */}
-    <TouchableOpacity className="bg-blue-500 px-4 py-2 rounded-md">
+    <TouchableOpacity className="bg-black px-4 py-2 rounded-md">
       <Text className="text-white text-sm font-medium">Follow</Text>
     </TouchableOpacity>
   </View>

@@ -187,7 +187,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
               <>
                 {/* Camera Button */}
                 <TouchableOpacity
-                  className="flex-row items-center justify-center bg-violet-500 py-4 px-6 rounded-xl shadow-sm mb-5"
+                  className="flex-row items-center justify-center bg-red-700 py-4 px-6 rounded-xl shadow-sm mb-5"
                   onPress={buttons.find(b => b.text === 'Camera')?.onPress}
                   activeOpacity={0.8}
                 >
@@ -197,7 +197,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
 
                 {/* Gallery Button */}
                 <TouchableOpacity
-                  className="flex-row items-center justify-center bg-violet-500 py-4 px-6 rounded-xl shadow-sm mb-5"
+                  className="flex-row items-center justify-center bg-red-700 py-4 px-6 rounded-xl shadow-sm mb-5"
                   onPress={buttons.find(b => b.text === 'Gallery')?.onPress}
                   activeOpacity={0.8}
                 >
@@ -223,7 +223,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
                       ? 'bg-gray-200' 
                       : buttons[0].style === 'destructive'
                       ? 'bg-red-500'
-                      : 'bg-violet-500'
+                      : 'bg-red-700'
                   }`}
                   onPress={buttons[0].onPress}
                   activeOpacity={0.8}
@@ -246,7 +246,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
                           ? 'bg-gray-200' 
                           : button.style === 'destructive'
                           ? 'bg-red-500'
-                          : 'bg-violet-500'
+                          : 'bg-red-700'
                       }`}
                       onPress={button.onPress}
                       activeOpacity={0.8}
@@ -951,7 +951,7 @@ export default function ProfilePage(): React.JSX.Element {
               disabled={isUploading}
               className="relative"
             >
-              <View className="w-24 h-24 rounded-full overflow-hidden bg-violet-500 items-center justify-center">
+              <View className="w-24 h-24 rounded-full overflow-hidden bg-red-700 items-center justify-center">
                 {profilePicUrl ? (
                   <Image 
                     source={{ uri: getFullImageUrl(profilePicUrl) }}
@@ -971,7 +971,7 @@ export default function ProfilePage(): React.JSX.Element {
               </View>
               
               {/* Edit icon */}
-              <View className="absolute -bottom-1 -right-1 w-8 h-8 bg-violet-500 rounded-full items-center justify-center border-2 border-white">
+              <View className="absolute -bottom-1 -right-1 w-8 h-8 bg-red-700 rounded-full items-center justify-center border-2 border-white">
                 {isUploading ? (
                   <ActivityIndicator size={16} color="white" />
                 ) : (
@@ -1011,7 +1011,7 @@ export default function ProfilePage(): React.JSX.Element {
           {/* Action Buttons */}
           <View className="px-2">
             <TouchableOpacity 
-              className="bg-violet-500 py-4 px-6 rounded-2xl mb-4 shadow-sm"
+              className="bg-red-700 py-4 px-6 rounded-2xl mb-4 shadow-sm"
               onPress={handleEditProfile}
             >
               <Text className="text-white font-semibold text-center text-base">Edit Profile</Text>
@@ -1058,7 +1058,7 @@ export default function ProfilePage(): React.JSX.Element {
             <View className="px-6 pb-6">
               {/* User Info Section */}
               <View className="flex-row items-center mb-6 p-4 bg-gray-50 rounded-xl">
-                <View className="w-12 h-12 rounded-full overflow-hidden bg-violet-500 items-center justify-center mr-4">
+                <View className="w-12 h-12 rounded-full overflow-hidden bg-red-700 items-center justify-center mr-4">
                   {profilePicUrl ? (
                     <Image 
                       source={{ uri: getFullImageUrl(profilePicUrl) }}
@@ -1169,7 +1169,7 @@ export default function ProfilePage(): React.JSX.Element {
                 Can't find what you're looking for? Our support team is ready to assist you with any questions or concerns.
               </Text>
               <TouchableOpacity 
-                className="bg-violet-500 py-3 px-6 rounded-lg items-center mb-8"
+                className="bg-red-700 py-3 px-6 rounded-lg items-center mb-8"
                 onPress={() => {
                   showCustomAlert(
                     'info',
