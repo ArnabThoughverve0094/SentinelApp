@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Link, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Image, ImageBackground, KeyboardAvoidingView, Platform, SafeAreaView, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, SafeAreaView, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 type LoginResponse = {
   message: string;
@@ -200,11 +200,11 @@ export default function EmailLogin(): React.JSX.Element {
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       
       {/* Background Image */}
-      <ImageBackground 
+      {/* <ImageBackground 
         source={require('../../assets/images/page-bg.jpg')}
         className="flex-1"
         resizeMode="cover"
-      >
+      > */}
         <KeyboardAvoidingView
           className="flex-1"
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -291,7 +291,7 @@ export default function EmailLogin(): React.JSX.Element {
               {/* Forgot password */}
               <Link href="/(auth)/forgot-password" asChild>
                 <TouchableOpacity className="mb-8">
-                  <Text className="text-violet-500 font-medium text-right">Forgot Password ?</Text>
+                  <Text className="text-red-700 font-medium text-right">Forgot Password ?</Text>
                 </TouchableOpacity>
               </Link>
             </View>
@@ -305,7 +305,7 @@ export default function EmailLogin(): React.JSX.Element {
 
             {/* Login button with loading state */}
             <TouchableOpacity
-              className={`bg-violet-500 py-4 px-6 rounded-xl items-center shadow-lg mb-6 ${loading ? 'opacity-50' : ''}`}
+              className={`bg-red-700 py-4 px-6 rounded-xl items-center shadow-lg mb-6 ${loading ? 'opacity-50' : ''}`}
               disabled={loading}
               onPress={handleLogin}
             >
@@ -345,13 +345,13 @@ export default function EmailLogin(): React.JSX.Element {
               <Text className="text-black/70">Don't have an account? </Text>
               <Link href={"/(auth)/register" as any} asChild>
                 <TouchableOpacity>
-                  <Text className="text-violet-500 font-medium">Sign Up</Text>
+                  <Text className="text-red-700 font-medium">Sign Up</Text>
                 </TouchableOpacity>
               </Link>
             </View>
           </View>
         </KeyboardAvoidingView>
-      </ImageBackground>
+      {/* </ImageBackground> */}
     </SafeAreaView>
   );
 }
