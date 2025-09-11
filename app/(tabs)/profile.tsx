@@ -1,22 +1,21 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useEffect, useState, useRef } from "react";
+import { useRouter } from 'expo-router';
+import React, { useEffect, useRef, useState } from "react";
 import {
-  Alert,
+  ActivityIndicator,
+  Animated,
+  Image,
   Modal,
+  Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-  Animated,
-  Image,
-  Platform,
-  ActivityIndicator
+  View
 } from "react-native";
 import SentinelFAQ from '../../components/SentinelFAQ';
 
@@ -814,6 +813,7 @@ export default function ProfilePage(): React.JSX.Element {
   };
 
   const confirmLogout = () => {
+    setShowAccountModal(false);
     showCustomAlert(
       'warning',
       'Logout Confirmation',

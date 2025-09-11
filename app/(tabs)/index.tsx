@@ -24,6 +24,7 @@ import {
 } from 'react-native';
 import FlipCard from 'react-native-flip-card';
 import CommentsModal from '../../components/CommentsModal';
+import TotalSentiment from '../../components/TotalSentiment';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -207,6 +208,11 @@ export default function SentinelFeed(): React.JSX.Element {
   const [isCommentModalVisible, setIsCommentModalVisible] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedPostType, setSelectedPostType] = useState<string | null>(null);
+
+    // ------- GRAPH MODAL STATE -------
+    const [isGraphModalVisible, setIsGraphModalVisible] = useState(false);
+    const [selectedGraphPostId, setSelectedGraphPostId] = useState<string | null>(null);
+    const [selectedGraphPostType, setSelectedGraphPostType] = useState<string | null>(null);
 
   // ------- REJECTION MODAL STATE -------
   const [isRejectionModalVisible, setIsRejectionModalVisible] = useState(false);
@@ -614,6 +620,20 @@ export default function SentinelFeed(): React.JSX.Element {
     setIsCommentModalVisible(false);
     setSelectedPostId(null);
     setSelectedPostType(null);
+  }, []);
+
+  // TO OPEN GRAPH MODAL
+  const openGraphModal = useCallback((item: PostItem) => {
+    setSelectedGraphPostId(item.id);
+    setSelectedGraphPostType(item.postType);
+    setIsGraphModalVisible(true);
+  }, []);
+
+  // TO CLOSE GRAPH MODAL
+  const closeGraphModal = useCallback(() => {
+    setIsGraphModalVisible(false);
+    setSelectedGraphPostId(null);
+    setSelectedGraphPostType(null);
   }, []);
 
   // ENHANCED REJECTION MODAL FUNCTIONS
@@ -1331,7 +1351,10 @@ export default function SentinelFeed(): React.JSX.Element {
             </TouchableOpacity>
             <TouchableOpacity 
               className="p-1.5"
-              onPress={() => console.log("Graph pressed:", item.id)}
+              onPress={() => {
+                closeFullScreenCard();
+                openGraphModal(item);
+              }}
               activeOpacity={0.7}
             >
               <Feather name="bar-chart-2" size={16} color="#64748b" />
@@ -1639,7 +1662,10 @@ export default function SentinelFeed(): React.JSX.Element {
             </TouchableOpacity>
             <TouchableOpacity 
               className="p-1.5"
-              onPress={() => console.log("Graph pressed:", item.id)}
+              onPress={(e) => {
+                e.stopPropagation();
+                openGraphModal(item);
+              }}
               activeOpacity={0.7}
             >
               <Feather name="bar-chart-2" size={16} color="#64748b" />
@@ -1798,7 +1824,10 @@ export default function SentinelFeed(): React.JSX.Element {
             </TouchableOpacity>
             <TouchableOpacity 
               className="p-1.5"
-              onPress={() => console.log("Graph pressed:", item.id)}
+              onPress={(e) => {
+                e.stopPropagation();
+                openGraphModal(item);
+              }}
               activeOpacity={0.7}
             >
               <Feather name="bar-chart-2" size={16} color="#64748b" />
@@ -2239,6 +2268,15 @@ export default function SentinelFeed(): React.JSX.Element {
         postType={selectedPostType}
         postData={fetchedData.find(item => item.id === selectedPostId)}
       />
+
+      {/* GRAPH MODAL */}
+      <TotalSentiment
+        visible={isGraphModalVisible}
+        onClose={closeGraphModal}
+        postId={selectedGraphPostId}
+        postType={selectedGraphPostType}
+        postData={fetchedData.find(item => item.id === selectedGraphPostId)} 
+        onAddResponse={closeGraphModal}      />
 
       {/* CUSTOM ALERT MODAL */}
       <CustomModal

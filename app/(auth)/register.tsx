@@ -2,12 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Link, useRouter } from 'expo-router';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   FlatList,
-  ImageBackground,
   KeyboardAvoidingView,
-  Linking,
   Modal,
   Platform,
   SafeAreaView,
@@ -16,8 +15,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
-  Animated,
+  View
 } from 'react-native';
 
 // Custom Modal Component
