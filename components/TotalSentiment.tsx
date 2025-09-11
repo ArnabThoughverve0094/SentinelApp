@@ -1,7 +1,6 @@
 import { db } from '@/FirebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
-import { addDoc, collection, getDocs } from 'firebase/firestore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { collection, onSnapshot } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -60,10 +59,10 @@ export default function TotalSentiment({
 }: TotalSentimentProps) {
   const insets = useSafeAreaInsets();
   const [sentimentData, setSentimentData] = useState({
-    agree: 67,
-    disagree: 15,
-    support: 21,
-    hate: 3
+    agree: 0,
+    disagree: 0,
+    support: 0,
+    hate: 0
   });
   const [loading, setLoading] = useState(false);
 
@@ -74,31 +73,40 @@ export default function TotalSentiment({
     setLoading(true);
     try {
       const commentsRef = collection(db, postType, postId, 'Comments');
-      const commentsSnapshot = await getDocs(commentsRef);
       
       const counts = { agree: 0, disagree: 0, support: 0, hate: 0 };
       let total = 0;
 
-      commentsSnapshot.docs.forEach(doc => {
-        const data = doc.data();
-        if (data.selectedOptions && data.selectedOptions.length > 0) {
-          const option = data.selectedOptions[0] as keyof typeof counts;
-          if (counts.hasOwnProperty(option)) {
-            counts[option]++;
-            total++;
+      const unsubscribeCommentData = onSnapshot(commentsRef, commentsSnapshot => {
+        const commentDataArr = commentsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          data: doc.data(),
+        }))
+        for (const doc of commentDataArr) {
+          const postData = doc.data;
+          if (postData.selectedOptions && postData.selectedOptions.length > 0) {
+            const option = postData.selectedOptions[0] as keyof typeof counts;
+            if (counts.hasOwnProperty(option)) {
+              counts[option]++;
+              total++;
+            }
           }
         }
-      });
+        if (total > 0) {
+          const percentages = {
+            agree: Math.round((counts.agree / total) * 100),
+            disagree: Math.round((counts.disagree / total) * 100),
+            support: Math.round((counts.support / total) * 100),
+            hate: Math.round((counts.hate / total) * 100)
+          };
+          setSentimentData(percentages);
+        }
+      })
 
-      if (total > 0) {
-        const percentages = {
-          agree: Math.round((counts.agree / total) * 100),
-          disagree: Math.round((counts.disagree / total) * 100),
-          support: Math.round((counts.support / total) * 100),
-          hate: Math.round((counts.hate / total) * 100)
-        };
-        setSentimentData(percentages);
-      }
+      return () => {
+        unsubscribeCommentData();
+      };
+
     } catch (error) {
       console.error('Error fetching sentiment data:', error);
     } finally {
