@@ -1,21 +1,20 @@
-import React, { useState, useRef, useEffect } from "react";
-import {
-  Text,
-  View,
-  TouchableOpacity,
-  SafeAreaView,
-  StatusBar,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  ImageBackground,
-  Modal,
-  Animated,
-} from "react-native";
-import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from "expo-router";
+import React, { useEffect, useRef, useState } from "react";
+import {
+  Animated,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from "react-native";
 
 // Custom Modal Component
 interface CustomModalProps {
@@ -124,7 +123,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
                     ? 'bg-gray-200' 
                     : button.style === 'destructive'
                     ? 'bg-red-500'
-                    : 'bg-violet-500'
+                    : 'bg-red-700'
                 }`}
                 onPress={button.onPress}
                 activeOpacity={0.8}
@@ -507,11 +506,11 @@ export default function VerifyEmail(): React.JSX.Element {
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       
       {/* Background Image */}
-      <ImageBackground 
+      {/* <ImageBackground 
         source={require('../../assets/images/page-bg.jpg')}
         className="flex-1"
         resizeMode="cover"
-      >
+      > */}
         <KeyboardAvoidingView
           className="flex-1"
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -553,7 +552,7 @@ export default function VerifyEmail(): React.JSX.Element {
                         key={index}
                         ref={ref => { otpRefs.current[index] = ref; }}
                         className={`w-12 h-14 bg-white/95 border-2 rounded-lg text-center text-xl font-bold text-gray-900 shadow-lg ${
-                          digit ? 'border-violet-500 bg-violet-50/95' : 'border-white/50'
+                          digit ? 'border-red-700 bg-violet-50/95' : 'border-white/50'
                         }`}
                         value={digit}
                         onChangeText={(value) => handleOtpChange(value, index)}
@@ -577,7 +576,7 @@ export default function VerifyEmail(): React.JSX.Element {
                     className={`${resendLoading ? 'opacity-50' : ''} bg-white/95 px-4 py-2 rounded-lg shadow-lg border border-white/30`}
                   >
                     <Text className={`font-semibold text-base ${
-                      resendLoading ? 'text-gray-400' : 'text-violet-500'
+                      resendLoading ? 'text-gray-400' : 'text-red-700'
                     }`}>
                       {resendLoading ? 'Sending...' : 'Resend'}
                     </Text>
@@ -593,7 +592,7 @@ export default function VerifyEmail(): React.JSX.Element {
                   loading ? "opacity-50" : ""
                 }`}
                 style={{ 
-                  backgroundColor: isOtpComplete ? '#8B5CF6' : '#D1D5DB90' 
+                  backgroundColor: isOtpComplete ? '#E6161A' : '#D1D5DB90' 
                 }}
                 disabled={loading || !isOtpComplete}
                 onPress={handleContinue}
@@ -607,7 +606,7 @@ export default function VerifyEmail(): React.JSX.Element {
             </View>
           </View>
         </KeyboardAvoidingView>
-      </ImageBackground>
+      {/* </ImageBackground> */}
 
       {/* Custom Modal */}
       <CustomModal

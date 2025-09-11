@@ -820,7 +820,7 @@ export default function CreatePost() {
                     paddingTop: 0,
                     paddingBottom: 10,
                   }}
-                  placeholder="What's on your mind?"
+                  placeholder="Type your message here..."
                   placeholderTextColor="#9CA3AF"
                   value={postText}
                   onChangeText={setPostText}
@@ -1037,7 +1037,7 @@ export default function CreatePost() {
             <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
               <TouchableOpacity
                 style={{
-                  backgroundColor: "#8B5CF6",
+                  backgroundColor: "#FF3B30",
                   borderRadius: 16,
                   paddingVertical: 16,
                   alignItems: "center",
