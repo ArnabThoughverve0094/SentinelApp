@@ -95,7 +95,7 @@ const SearchItem: React.FC<SearchItemProps> = ({ search }) => (
   </View>
 );
 
-export default function NotificationPage() {
+export default function SearchPage() {
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
@@ -128,7 +128,7 @@ export default function NotificationPage() {
                 color="#D1D5DB"
               />
               <Text className="text-lg text-gray-400 mt-4">
-                No notifications yet
+                No users found
               </Text>
             </View>
           }
