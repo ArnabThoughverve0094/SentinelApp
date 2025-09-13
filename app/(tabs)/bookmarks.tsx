@@ -922,17 +922,17 @@ export default function BookmarksPage(): React.JSX.Element {
               <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text>
               <View className="flex-row items-center mt-0.5">
                 <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
-                <View className="bg-amber-100 px-1.5 py-0.5 rounded-full mr-1.5">
-                  <Text className="text-amber-600 text-xs font-semibold">BOOKMARKED</Text>
-                </View>
+                {/* <View className="bg-red-100 px-1.5 py-0.5 rounded-full mr-1.5">
+                  <Text className="text-red-600 text-xs font-semibold">BOOKMARKED</Text>
+                </View> */}
               </View>
             </View>
           </View>
           <TouchableOpacity 
-            className="p-1.5 rounded-full bg-red-100"
+            className="p-1.5"
             onPress={() => handleRemoveBookmark(item)}
           >
-            <Ionicons name="bookmark" size={12} color="#f59e0b" />
+            <Ionicons name="bookmark" size={14} color="#000" />
           </TouchableOpacity>
         </View>
       </View>
@@ -1013,7 +1013,7 @@ export default function BookmarksPage(): React.JSX.Element {
             <Ionicons 
               name="bookmark" 
               size={14} 
-              color="#f59e0b" 
+              color="#000" 
             />
           </TouchableOpacity>
 
@@ -1062,14 +1062,14 @@ export default function BookmarksPage(): React.JSX.Element {
               <Ionicons name="arrow-back" size={20} color="#374151" />
             </TouchableOpacity> */}
             <View>
-              <Text className="text-2xl font-bold text-gray-900">Bookmarks</Text>
+              <Text className="text-2xl font-bold text-gray-900 pt-3">Bookmarks</Text>
               <Text className="text-sm text-gray-500 mt-1">
                 {bookmarkedPosts.length} saved post{bookmarkedPosts.length !== 1 ? 's' : ''}
               </Text>
             </View>
           </View>
-          <TouchableOpacity className="p-2 rounded-full bg-amber-100 shadow-sm">
-            <Ionicons name="bookmark" size={20} color="#f59e0b" />
+          <TouchableOpacity className="p-2">
+            <Ionicons name="bookmark" size={20} color="#000" />
           </TouchableOpacity>
         </View>
 
@@ -1077,17 +1077,27 @@ export default function BookmarksPage(): React.JSX.Element {
         <View className="px-4 pb-4 mt-3">
           {/* Search Bar */}
           <View className="flex-row items-center bg-gray-100 rounded-xl px-4 py-3 mb-3">
-            <Ionicons name="search" size={20} color="#9ca3af" />
-            <Text 
-              className="flex-1 ml-3 text-gray-700 text-base"
-              onPress={() => {
-                // You can implement a proper search input here
-                console.log("Search functionality to be implemented");
-              }}
-            >
-              Search bookmarks...
-            </Text>
-          </View>
+              <Ionicons name="search" size={20} color="#9ca3af" />
+              <Text 
+                className="flex-1 ml-3 text-gray-700 text-base"
+                onPress={() => {
+                  // You can implement a proper search input here
+                  console.log("Search functionality to be implemented");
+                }}
+              >
+                Search bookmarks...
+              </Text>
+              <Ionicons 
+                name="filter" 
+                size={20} 
+                color="#9ca3af"
+                onPress={() => {
+                  // Implement sorting/filtering functionality here
+                  console.log("Sort/filter functionality to be implemented");
+                }}
+              />
+            </View>
+
 
           {/* Filter Buttons */}
           <ScrollView 
@@ -1095,7 +1105,7 @@ export default function BookmarksPage(): React.JSX.Element {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: 2 }}
           >
-            <View className="flex-row" style={{ gap: 8 }}>
+            {/* <View className="flex-row" style={{ gap: 8 }}>
               {[
                 { key: 'recent', label: 'Recent', icon: 'time-outline' },
                 { key: 'oldest', label: 'Oldest', icon: 'calendar-outline' },
@@ -1123,7 +1133,7 @@ export default function BookmarksPage(): React.JSX.Element {
                   </Text>
                 </TouchableOpacity>
               ))}
-            </View>
+            </View> */}
           </ScrollView>
         </View>
       </View>
@@ -1162,7 +1172,7 @@ export default function BookmarksPage(): React.JSX.Element {
           <View className="flex-1 justify-center items-center py-20">
             <View className="bg-white p-8 rounded-2xl shadow-lg items-center max-w-sm mx-4">
               <View className="w-20 h-20 bg-amber-100 rounded-full items-center justify-center mb-6">
-                <Ionicons name="bookmark-outline" size={36} color="#f59e0b" />
+                <Ionicons name="bookmark-outline" size={36} color="#000" />
               </View>
               <Text className="text-gray-700 text-xl font-bold mb-3 text-center">No Bookmarks Yet</Text>
               <Text className="text-gray-500 text-center text-sm px-2 leading-6 mb-6">
