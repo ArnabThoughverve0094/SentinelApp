@@ -82,7 +82,7 @@ const Toast: React.FC<ToastProps> = ({ visible, message, type, onHide }) => {
   );
 };
 
-// **IMPROVED: Custom Modal Component with better UI**
+// Custom Modal Component with better UI
 interface CustomModalProps {
   visible: boolean;
   type: 'success' | 'error' | 'info' | 'warning';
@@ -179,14 +179,14 @@ const CustomModal: React.FC<CustomModalProps> = ({
             {message}
           </Text>
 
-          {/* **IMPROVED: Better Button Layout** */}
+          {/* Better Button Layout */}
           <View className="w-full space-y-3">
             {/* For image picker modal, show vertical button layout */}
             {title === 'Update Profile Picture' ? (
               <>
                 {/* Camera Button */}
                 <TouchableOpacity
-                  className="flex-row items-center justify-center bg-red-700 py-4 px-6 rounded-xl shadow-sm mb-5"
+                  className="flex-row items-center justify-center bg-black py-4 px-6 rounded-xl shadow-sm mb-5"
                   onPress={buttons.find(b => b.text === 'Camera')?.onPress}
                   activeOpacity={0.8}
                 >
@@ -196,7 +196,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
 
                 {/* Gallery Button */}
                 <TouchableOpacity
-                  className="flex-row items-center justify-center bg-red-700 py-4 px-6 rounded-xl shadow-sm mb-5"
+                  className="flex-row items-center justify-center bg-black py-4 px-6 rounded-xl shadow-sm mb-5"
                   onPress={buttons.find(b => b.text === 'Gallery')?.onPress}
                   activeOpacity={0.8}
                 >
@@ -222,7 +222,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
                       ? 'bg-gray-200' 
                       : buttons[0].style === 'destructive'
                       ? 'bg-red-500'
-                      : 'bg-red-700'
+                      : 'bg-black'
                   }`}
                   onPress={buttons[0].onPress}
                   activeOpacity={0.8}
@@ -245,7 +245,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
                           ? 'bg-gray-200' 
                           : button.style === 'destructive'
                           ? 'bg-red-500'
-                          : 'bg-red-700'
+                          : 'bg-black'
                       }`}
                       onPress={button.onPress}
                       activeOpacity={0.8}
@@ -315,7 +315,7 @@ export default function ProfilePage(): React.JSX.Element {
     loadUserData();
   }, []);
 
-  // **HELPER: Convert path to full URL for display**
+  // Helper: Convert path to full URL for display
   const getFullImageUrl = (profilePath: string): string => {
     if (!profilePath) return '';
     
@@ -585,7 +585,7 @@ export default function ProfilePage(): React.JSX.Element {
     }
   };
 
-  // **IMPROVED: Handle profile picture selection and upload**
+  // Handle profile picture selection and upload
   const handleProfilePictureUpload = async () => {
     try {
       console.log('🔐 Pre-flight access token check...');
@@ -636,7 +636,7 @@ export default function ProfilePage(): React.JSX.Element {
         return;
       }
 
-      // **IMPROVED: Show better image picker options**
+      // Show better image picker options
       showCustomAlert(
         'info',
         'Update Profile Picture',
@@ -924,115 +924,201 @@ export default function ProfilePage(): React.JSX.Element {
     );
   };
 
-  return (
-    <SafeAreaView className="flex-1 bg-white">
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+  const handleThreeDots = () => {
+    showCustomAlert(
+      'info',
+      'Profile Options',
+      'Additional profile options will be available here soon.',
+      [
+        {
+          text: 'OK',
+          onPress: hideModal
+        }
+      ]
+    );
+  };
 
-      <View style={styles.results} />
-      {/* Header with Account Button */}
-      <View className="flex-row items-center justify-between px-5 py-4 pt-10 border-b border-gray-100">
-        <Text className="text-2xl font-bold text-black">Profile</Text>
+  return (
+    <SafeAreaView className="flex-1 bg-gray-50">
+      <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
+
+      {/* Header with improved styling */}
+      <View className="bg-white px-6 py-4 flex-row items-center justify-between shadow-sm border-b border-gray-100 pt-10">
+        <View>
+          <Text className="text-2xl font-bold text-gray-900">Profile</Text>
+        </View>
         <TouchableOpacity
           onPress={() => setShowAccountModal(true)}
           className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center"
         >
-          <Ionicons name="settings-outline" size={20} color="#374151" />
+          <Ionicons name="settings-outline" size={22} color="#4B5563" />
         </TouchableOpacity>
       </View>
 
-      {/* Profile content */}
-      <ScrollView className="flex-1">
-        {/* Profile Info Section */}
-        <View className="px-5 py-6">
-          {/* Profile Picture */}
-          <View className="items-center mb-6">
-            <TouchableOpacity
-              onPress={handleProfilePictureUpload}
-              disabled={isUploading}
-              className="relative"
-            >
-              <View className="w-24 h-24 rounded-full overflow-hidden bg-red-700 items-center justify-center">
-                {profilePicUrl ? (
-                  <Image 
-                    source={{ uri: getFullImageUrl(profilePicUrl) }}
-                    className="w-full h-full"
-                    style={{ resizeMode: 'cover' }}
-                  />
-                ) : (
-                  <Ionicons name="person" size={40} color="white" />
-                )}
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        {/* Profile Section - NEW HORIZONTAL LAYOUT */}
+        <View className="bg-white mx-4 mt-4 rounded-2xl shadow-sm border border-gray-100">
+          <View className="px-6 py-8">
+            {/* Profile Header - Horizontal Layout with Image on Left */}
+            <View className="flex-row items-center mb-6">
+              {/* Profile Picture - Left Side */}
+              <TouchableOpacity
+                onPress={handleProfilePictureUpload}
+                disabled={isUploading}
+                className="relative mr-4"
+              >
+                <View className="w-20 h-20 rounded-full overflow-hidden bg-black items-center justify-center shadow-lg">
+                  {profilePicUrl ? (
+                    <Image 
+                      source={{ uri: getFullImageUrl(profilePicUrl) }}
+                      className="w-full h-full"
+                      style={{ resizeMode: 'cover' }}
+                    />
+                  ) : (
+                    <Ionicons name="person" size={32} color="white" />
+                  )}
+                  
+                  {/* Loading overlay */}
+                  {isUploading && (
+                    <View className="absolute inset-0 bg-black/50 items-center justify-center">
+                      <ActivityIndicator size="small" color="white" />
+                    </View>
+                  )}
+                </View>
                 
-                {/* Loading overlay */}
-                {isUploading && (
-                  <View className="absolute inset-0 bg-black/50 items-center justify-center">
-                    <ActivityIndicator size="small" color="white" />
-                  </View>
-                )}
+                {/* Edit icon - smaller for horizontal layout */}
+                <View className="absolute -bottom-1 -right-1 w-7 h-7 bg-black rounded-full items-center justify-center border-2 border-white shadow-md">
+                  {isUploading ? (
+                    <ActivityIndicator size={14} color="white" />
+                  ) : (
+                    <Ionicons name="pencil" size={14} color="white" />
+                  )}
+                </View>
+              </TouchableOpacity>
+
+              {/* Name and Username - Next to Image */}
+              <View className="flex-1">
+                <Text className="text-xl font-bold text-gray-900 mb-1">
+                  {userName || 'Rajesh Francis'}
+                </Text>
+                <Text className="text-gray-500 text-base">
+                  @{userNickName || 'rajesh.francis'}
+                </Text>
+              </View>
+
+              {/* Three Dots Menu - Right Side */}
+              {/* <TouchableOpacity
+                onPress={handleThreeDots}
+                className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center ml-2"
+              >
+                <Ionicons name="ellipsis-horizontal" size={20} color="#6B7280" />
+              </TouchableOpacity> */}
+            </View>
+
+            {/* Stats Section - Below Profile Header */}
+            <View className="flex-row justify-around py-4 border-t border-b border-gray-100 mb-6">
+              <View className="items-center">
+                <Text className="text-2xl font-bold text-gray-900">212</Text>
+                <Text className="text-gray-500 text-sm mt-1">Posts</Text>
+              </View>
+              <View className="items-center">
+                <Text className="text-2xl font-bold text-gray-900">453</Text>
+                <Text className="text-gray-500 text-sm mt-1">Followers</Text>
+              </View>
+              <View className="items-center">
+                <Text className="text-2xl font-bold text-gray-900">245</Text>
+                <Text className="text-gray-500 text-sm mt-1">Following</Text>
+              </View>
+            </View>
+
+            {/* Bio Section - Below Stats */}
+            <View className="mb-6">
+              <Text className="text-gray-700 leading-6 text-justify">
+                Welcome to my profile! I love sharing moments and connecting with amazing people. 
+              Let's create something beautiful together! ✨
+              </Text>
+            </View>
+
+            {/* Action Buttons - Below Bio */}
+            <View className="flex-row space-x-4 mb-4">
+              <TouchableOpacity 
+                className="flex-1 bg-gray-900 py-4 px-6 rounded-xl mr-4"
+                onPress={handleEditProfile}
+              >
+                <Text className="text-white font-semibold text-center text-base ">Edit Profile</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                className="flex-1 border-2 border-gray-200 py-4 px-6 rounded-xl bg-white"
+                onPress={handleShareProfile}
+              >
+                <Text className="text-gray-900 font-semibold text-center text-base">Share Profile</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        {/* My Posts Section - Below Profile Section */}
+        <View className="bg-white mx-4 mt-4 rounded-2xl shadow-sm border border-gray-100">
+          <View className="px-6 py-6">
+            <Text className="text-lg font-bold text-gray-900 mb-4">My Posts</Text>
+            
+            {/* Sample Post */}
+            <View className="border border-gray-200 rounded-xl p-4 bg-gray-50">
+              <View className="flex-row items-center mb-3">
+                <View className="w-10 h-10 rounded-full overflow-hidden bg-black items-center justify-center mr-3">
+                  {profilePicUrl ? (
+                    <Image 
+                      source={{ uri: getFullImageUrl(profilePicUrl) }}
+                      className="w-full h-full"
+                      style={{ resizeMode: 'cover' }}
+                    />
+                  ) : (
+                    <Ionicons name="person" size={20} color="white" />
+                  )}
+                </View>
+                <View className="flex-1">
+                  <Text className="font-semibold text-gray-900">@{userNickName || 'rajesh.francis'}</Text>
+                  <Text className="text-gray-500 text-sm">2m</Text>
+                </View>
+                <Ionicons name="ellipsis-horizontal" size={20} color="#6B7280" />
               </View>
               
-              {/* Edit icon */}
-              <View className="absolute -bottom-1 -right-1 w-8 h-8 bg-red-700 rounded-full items-center justify-center border-2 border-white">
-                {isUploading ? (
-                  <ActivityIndicator size={16} color="white" />
-                ) : (
-                  <Ionicons name="pencil" size={16} color="white" />
-                )}
+              <Text className="text-gray-900 mb-3">
+                Some text will come here some text will come here some text will come here
+              </Text>
+              
+              {/* Sample Image */}
+              <View className="bg-gray-300 rounded-xl h-48 mb-4 items-center justify-center">
+                <Ionicons name="image" size={40} color="#9CA3AF" />
               </View>
-            </TouchableOpacity>
-            
-            <Text className="text-xl font-bold text-gray-900 mb-2 mt-4">{userName || 'User Name'}</Text>
-            <Text className="text-gray-500">@{userNickName || 'username'}</Text>
-          </View>
-
-          {/* Profile Stats */}
-          <View className="flex-row justify-around py-6 border-t border-b border-gray-100">
-            <View className="items-center">
-              <Text className="text-2xl font-bold text-gray-900">123</Text>
-              <Text className="text-gray-500 text-sm">Posts</Text>
+              
+              {/* Post Actions */}
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center space-x-6">
+                  <View className="flex-row items-center">
+                    <Ionicons name="heart-outline" size={20} color="#6B7280" />
+                    <Text className="text-gray-500 text-sm ml-1">23</Text>
+                  </View>
+                  <View className="flex-row items-center">
+                    <Ionicons name="chatbubble-outline" size={18} color="#6B7280" />
+                    <Text className="text-gray-500 text-sm ml-1">12</Text>
+                  </View>
+                  <View className="flex-row items-center">
+                    <Ionicons name="repeat-outline" size={20} color="#6B7280" />
+                    <Text className="text-gray-500 text-sm ml-1">31</Text>
+                  </View>
+                </View>
+                <Ionicons name="bookmark-outline" size={18} color="#6B7280" />
+              </View>
             </View>
-            <View className="items-center">
-              <Text className="text-2xl font-bold text-gray-900">456</Text>
-              <Text className="text-gray-500 text-sm">Followers</Text>
-            </View>
-            <View className="items-center">
-              <Text className="text-2xl font-bold text-gray-900">789</Text>
-              <Text className="text-gray-500 text-sm">Following</Text>
-            </View>
-          </View>
-
-          {/* Bio Section */}
-          <View className="py-6">
-            <Text className="text-gray-900 leading-6">
-              Welcome to my profile! I love sharing moments and connecting with amazing people. 
-              Let's create something beautiful together! ✨
-            </Text>
-          </View>
-
-          {/* Action Buttons */}
-          <View className="px-2">
-            <TouchableOpacity 
-              className="bg-red-700 py-4 px-6 rounded-2xl mb-4 shadow-sm"
-              onPress={handleEditProfile}
-            >
-              <Text className="text-white font-semibold text-center text-base">Edit Profile</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              className="border-2 border-gray-200 py-4 px-6 rounded-2xl bg-white"
-              onPress={handleShareProfile}
-            >
-              <Text className="text-gray-900 font-semibold text-center text-base">Share Profile</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
-        {/* Posts Grid or List can go here */}
-        <View className="px-5 py-6">
-          <Text className="text-lg font-bold text-gray-900 mb-4">My Posts</Text>
-          {/* Your posts grid/list component */}
-        </View>
+        {/* Bottom spacing */}
+        <View style={{ height: 80 }} />
       </ScrollView>
 
-      {/* Account Modal */}
+      {/* Account Modal - same as before */}
       <Modal
         visible={showAccountModal}
         transparent={true}
@@ -1058,7 +1144,7 @@ export default function ProfilePage(): React.JSX.Element {
             <View className="px-6 pb-6">
               {/* User Info Section */}
               <View className="flex-row items-center mb-6 p-4 bg-gray-50 rounded-xl">
-                <View className="w-12 h-12 rounded-full overflow-hidden bg-red-700 items-center justify-center mr-4">
+                <View className="w-12 h-12 rounded-full overflow-hidden bg-black items-center justify-center mr-4">
                   {profilePicUrl ? (
                     <Image 
                       source={{ uri: getFullImageUrl(profilePicUrl) }}
@@ -1169,7 +1255,7 @@ export default function ProfilePage(): React.JSX.Element {
                 Can't find what you're looking for? Our support team is ready to assist you with any questions or concerns.
               </Text>
               <TouchableOpacity 
-                className="bg-red-700 py-3 px-6 rounded-lg items-center mb-8"
+                className="bg-black py-3 px-6 rounded-lg items-center mb-8"
                 onPress={() => {
                   showCustomAlert(
                     'info',
@@ -1219,4 +1305,3 @@ const styles = StyleSheet.create({
     width: '100%' 
   },
 });
-//profile

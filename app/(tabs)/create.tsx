@@ -780,7 +780,7 @@ export default function CreatePost() {
             borderBottomWidth: 1, 
             borderColor: "#eee" 
           }}>
-            <Text style={{ fontWeight: "bold", fontSize: 18, color: "#000" }}>Create post</Text>
+            <Text className="text-2xl font-bold text-gray-900 pt-3">Create post</Text>
             <TouchableOpacity onPress={() => router.back()} style={{ 
               width: 32, 
               height: 32, 
