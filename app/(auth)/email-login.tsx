@@ -225,7 +225,7 @@ export default function EmailLogin(): React.JSX.Element {
               <Text className="text-3xl font-bold text-black mb-3 leading-tight">
                 Log In to Your{'\n'}Account
               </Text>
-              <Text className="text-base text-black">
+              <Text className="text-base text-black font-sans">
                 Your community awaits
               </Text>
             </View>
