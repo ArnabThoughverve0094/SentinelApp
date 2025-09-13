@@ -637,7 +637,7 @@ export default function Register(): React.JSX.Element {
               <Text className="text-3xl font-bold text-black mb-3 leading-tight">
                 Create New Account
               </Text>
-              <Text className="text-base text-black/80">
+              <Text className="text-base text-black/80 font-sans">
                 Start sharing your moments with the world.
               </Text>
             </View>
@@ -650,7 +650,7 @@ export default function Register(): React.JSX.Element {
                 <TextInput
                   className={`w-full px-4 py-3 bg-white/95 border rounded-xl text-base text-gray-900 shadow-lg ${
                     errors.name ? 'border-red-500' : 'border-white/30'
-                  }`}
+                  } font-sans`}
                   placeholder="Enter your full name"
                   placeholderTextColor="#9CA3AF"
                   value={name}
@@ -674,7 +674,7 @@ export default function Register(): React.JSX.Element {
                 <TextInput
                   className={`w-full px-4 py-3 bg-white/95 border rounded-xl text-base text-gray-900 shadow-lg ${
                     errors.email ? 'border-red-500' : 'border-white/30'
-                  }`}
+                  } font-sans`}
                   placeholder="username@gmail.com"
                   placeholderTextColor="#9CA3AF"
                   value={email}
@@ -695,7 +695,7 @@ export default function Register(): React.JSX.Element {
                   <TextInput
                     className={`w-full px-4 py-3 bg-white/95 border rounded-xl text-base text-gray-900 pr-12 shadow-lg ${
                       errors.password ? 'border-red-500' : 'border-white/30'
-                    }`}
+                    } font-sans`}
                     placeholder="••••••••••"
                     placeholderTextColor="#9CA3AF"
                     value={password}
@@ -737,7 +737,7 @@ export default function Register(): React.JSX.Element {
                   <TextInput
                     className={`w-full px-4 py-3 bg-white/95 border rounded-xl text-base text-gray-900 pr-12 shadow-lg ${
                       errors.confirmPassword ? 'border-red-500' : 'border-white/30'
-                    }`}
+                    } font-sans`}
                     placeholder="••••••••••"
                     placeholderTextColor="#9CA3AF"
                     value={confirmPassword}
@@ -771,7 +771,7 @@ export default function Register(): React.JSX.Element {
                 <TextInput
                   className={`w-full px-4 py-3 bg-white/95 border rounded-xl text-base text-gray-900 shadow-lg ${
                     errors.username ? 'border-red-500' : 'border-white/30'
-                  }`}
+                  } font-sans`}
                   placeholder="Choose a nickname"
                   placeholderTextColor="#9CA3AF"
                   value={username}
@@ -793,7 +793,7 @@ export default function Register(): React.JSX.Element {
                 <TouchableOpacity
                   className={`w-full px-4 py-3 bg-white/95 border rounded-xl flex-row items-center justify-between shadow-lg ${
                     errors.dob ? 'border-red-500' : 'border-white/30'
-                  }`}
+                  } font-sans`}
                   onPress={() => setShowDatePicker(true)}
                 >
                   <Text className={`text-base ${dob ? 'text-gray-900' : 'text-gray-400'}`}>
@@ -823,7 +823,7 @@ export default function Register(): React.JSX.Element {
                 <TouchableOpacity
                   className={`w-full px-4 py-3 bg-white/95 border rounded-xl flex-row items-center justify-between shadow-lg ${
                     errors.country ? 'border-red-500' : 'border-white/30'
-                  }`}
+                  } font-sans`}
                   onPress={() => setShowCountryDropdown(true)}
                 >
                   <Text className={`text-base ${country ? 'text-gray-900' : 'text-gray-400'}`}>
@@ -847,7 +847,7 @@ export default function Register(): React.JSX.Element {
                 >
                   <View className={`w-5 h-5 rounded border-2 mr-3 mt-0.5 items-center justify-center ${
                     agreeToTerms ? 'bg-red-700 border-red-700' : 'border-gray-300 bg-white'
-                  }`}>
+                  } font-sans`}>
                     {agreeToTerms && (
                       <Ionicons name="checkmark" size={14} color="white" />
                     )}
