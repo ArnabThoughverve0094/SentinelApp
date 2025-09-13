@@ -36,7 +36,8 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "react-native-compressor"
+      "react-native-compressor",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true
