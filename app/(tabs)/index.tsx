@@ -1368,7 +1368,7 @@ export default function SentinelFeed(): React.JSX.Element {
               <Ionicons 
                 name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
                 size={18} 
-                color={item.Bookmarked ? "#f59e0b" : "#64748b"} 
+                color={item.Bookmarked ? "#000000" : "#64748b"} 
               />
             </TouchableOpacity>
 
@@ -1682,7 +1682,7 @@ export default function SentinelFeed(): React.JSX.Element {
               <Ionicons 
                 name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
                 size={14} 
-                color={item.Bookmarked ? "#f59e0b" : "#64748b"} 
+                color={item.Bookmarked ? "#000000" : "#64748b"} 
               />
             </TouchableOpacity>
 
@@ -1844,7 +1844,7 @@ export default function SentinelFeed(): React.JSX.Element {
               <Ionicons 
                 name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
                 size={14} 
-                color={item.Bookmarked ? "#f59e0b" : "#64748b"} 
+                color={item.Bookmarked ? "#000000" : "#64748b"} 
               />
             </TouchableOpacity>
 
@@ -1928,13 +1928,23 @@ export default function SentinelFeed(): React.JSX.Element {
           <View>
             <Text className="text-2xl font-bold text-gray-900">Sentinel</Text>
           </View>
-          <TouchableOpacity className="p-2 rounded-full bg-gray-100 shadow-sm">
+          {/* <TouchableOpacity className="p-2 rounded-full bg-gray-100 shadow-sm">
             <Image
               source={require("../../assets/images/Union.png")}
               className="w-5 h-5"
               resizeMode="contain"
             />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
+          <TouchableOpacity 
+              className="p-2 "
+              onPress={() =>router.push('/search')} // Navigate to search page
+            >
+              <MaterialCommunityIcons 
+                name="magnify" 
+                size={30} 
+                color="#374151" 
+              />
+            </TouchableOpacity>
         </View>
       </View>
 
@@ -2119,15 +2129,15 @@ export default function SentinelFeed(): React.JSX.Element {
                }}
           >
             {/* Header */}
-            <View className="bg-red-50 px-6 py-5 border-b border-red-100">
+            <View className=" px-6 py-5 border-b border-gray-100">
               <View className="flex-row items-center justify-between">
                 <View className="flex-row items-center">
-                  <View className="w-12 h-12 bg-red-100 rounded-full items-center justify-center mr-4">
-                    <Ionicons name="close-circle" size={28} color="#ef4444" />
+                  <View className="w-12 h-12 rounded-full items-center justify-center mr-4">
+                    <Ionicons name="close-circle" size={28} color="#000" />
                   </View>
                   <View>
                     <Text className="font-bold text-gray-900 text-xl">Reject Post</Text>
-                    <Text className="text-red-600 text-sm mt-1">Select rejection reasons</Text>
+                    <Text className="text-black text-sm mt-1">Select rejection reasons</Text>
                   </View>
                 </View>
                 <TouchableOpacity 
@@ -2155,13 +2165,13 @@ export default function SentinelFeed(): React.JSX.Element {
                         key={index}
                         className={`flex-row items-center py-4 px-5 rounded-2xl border-2 ${
                           isSelected 
-                            ? 'bg-red-50 border-red-300' 
+                            ? 'bg-white border-black' 
                             : 'bg-gray-50 border-gray-200'
                         }`}
                         onPress={() => toggleRejectionReason(reason)}
                         activeOpacity={0.7}
                         style={{
-                          shadowColor: isSelected ? '#ef4444' : 'transparent',
+                          shadowColor: isSelected ? '#000' : 'transparent',
                           shadowOffset: { width: 0, height: 2 },
                           shadowOpacity: isSelected ? 0.1 : 0,
                           shadowRadius: 4,
@@ -2172,26 +2182,19 @@ export default function SentinelFeed(): React.JSX.Element {
                         <View 
                           className={`w-6 h-6 rounded-lg border-2 items-center justify-center mr-4 ${
                             isSelected 
-                              ? 'bg-red-500 border-red-500' 
+                              ? ' border-black' 
                               : 'bg-white border-gray-300'
                           }`}
-                          style={{
-                            shadowColor: isSelected ? '#ef4444' : 'transparent',
-                            shadowOffset: { width: 0, height: 1 },
-                            shadowOpacity: 0.2,
-                            shadowRadius: 2,
-                            elevation: isSelected ? 1 : 0,
-                          }}
                         >
                           {isSelected && (
-                            <Ionicons name="checkmark" size={16} color="white" />
+                            <Ionicons name="checkmark" size={16} color="black" />
                           )}
                         </View>
                         
                         {/* Enhanced Text */}
                         <Text 
                           className={`flex-1 text-base leading-6 font-medium ${
-                            isSelected ? 'text-red-700' : 'text-gray-700'
+                            isSelected ? 'text-black' : 'text-gray-700'
                           }`}
                         >
                           {reason}
@@ -2200,7 +2203,7 @@ export default function SentinelFeed(): React.JSX.Element {
                         {/* Selection Indicator */}
                         {isSelected && (
                           <View className="ml-2">
-                            <Ionicons name="checkmark-circle" size={20} color="#ef4444" />
+                            <Ionicons name="checkmark-circle" size={20} color="#000" />
                           </View>
                         )}
                       </TouchableOpacity>
@@ -2210,11 +2213,11 @@ export default function SentinelFeed(): React.JSX.Element {
 
                 {/* Selection Summary */}
                 {selectedRejectionReasons.length > 0 && (
-                  <View className="mt-6 p-4 bg-red-50 rounded-2xl border border-red-200">
-                    <Text className="text-red-700 font-semibold text-sm">
+                  <View className="mt-6 p-4  rounded-2xl ">
+                    <Text className="text-black font-semibold text-sm">
                       {selectedRejectionReasons.length} reason{selectedRejectionReasons.length > 1 ? 's' : ''} selected
                     </Text>
-                    <Text className="text-red-600 text-xs mt-1">
+                    <Text className="text-black text-xs mt-1">
                       The user will receive notification about these specific issues
                     </Text>
                   </View>
@@ -2233,7 +2236,7 @@ export default function SentinelFeed(): React.JSX.Element {
                   <TouchableOpacity
                     className={`flex-1 py-4 px-6 rounded-2xl ${
                       selectedRejectionReasons.length > 0 
-                        ? 'bg-red-500' 
+                        ? 'bg-black' 
                         : 'bg-gray-300'
                     }`}
                     onPress={handleRejectionSubmit}

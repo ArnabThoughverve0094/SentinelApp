@@ -255,12 +255,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
                   alignItems: 'center',
                   width: '100%',
                   marginBottom: index < buttons.length - 1 ? 10 : 0,
-                  backgroundColor: 
-                    button.style === 'cancel' 
-                      ? '#F3F4F6' 
-                      : button.style === 'destructive'
-                      ? '#EF4444'
-                      : '#8B5CF6',
+                  backgroundColor: '#000000', // All buttons now have black background
                   shadowColor: '#000',
                   shadowOffset: { width: 0, height: 2 },
                   shadowOpacity: 0.1,

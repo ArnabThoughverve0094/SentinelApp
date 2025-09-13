@@ -34,18 +34,24 @@ const TabsLayout = () => {
           ),
         }}
       />
-
-      {/* Search */}
+      {/* Bookmarks */}
       <Tabs.Screen
-        name="search"
+        name="bookmarks"
         options={{
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
-              name={focused ? "search" : "search-outline"}
+              name={focused ? "bookmark" : "bookmark-outline"}
               size={size}
               color={color}
             />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="search"
+        options={{
+          href: null, // This hides it from the tab bar navigation
+          // Remove tabBarStyle: { display: 'none' } to keep tab bar visible
         }}
       />
 
@@ -63,19 +69,6 @@ const TabsLayout = () => {
         }}
       />
 
-      {/* Likes */}
-      <Tabs.Screen
-          name="bookmarks"
-          options={{
-            tabBarIcon: ({ color, size, focused }) => (
-              <Ionicons
-                name={focused ? "bookmark" : "bookmark-outline"}
-                size={size}
-                color={color}
-              />
-            ),
-          }}
-        />
 
       {/* Notifications */}
       <Tabs.Screen

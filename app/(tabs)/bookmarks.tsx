@@ -1171,7 +1171,7 @@ export default function BookmarksPage(): React.JSX.Element {
         ) : (
           <View className="flex-1 justify-center items-center py-20">
             <View className="bg-white p-8 rounded-2xl shadow-lg items-center max-w-sm mx-4">
-              <View className="w-20 h-20 bg-amber-100 rounded-full items-center justify-center mb-6">
+              <View className="w-20 h-20 bg-black rounded-full items-center justify-center mb-6">
                 <Ionicons name="bookmark-outline" size={36} color="#000" />
               </View>
               <Text className="text-gray-700 text-xl font-bold mb-3 text-center">No Bookmarks Yet</Text>
@@ -1179,7 +1179,7 @@ export default function BookmarksPage(): React.JSX.Element {
                 Start saving posts you love by tapping the bookmark icon on any post. They'll appear here for easy access later.
               </Text>
               <TouchableOpacity 
-                className="bg-amber-500 px-6 py-3 rounded-xl flex-row items-center"
+                className="bg-black px-6 py-3 rounded-xl flex-row items-center"
                 onPress={() => router.push('/')}
                 activeOpacity={0.8}
               >
@@ -1284,7 +1284,7 @@ export default function BookmarksPage(): React.JSX.Element {
                 <Text className="text-white text-xl mt-6 text-center font-bold">
                   Open Document
                 </Text>
-                <Text className="text-amber-400 text-base mt-4 text-center underline">
+                <Text className="text-black text-base mt-4 text-center underline">
                   {fullScreenDoc.split('/').pop() || 'Document'}
                 </Text>
                 <Text className="text-gray-400 text-sm mt-4 text-center">
