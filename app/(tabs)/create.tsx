@@ -286,6 +286,7 @@ type SelectedMedia = { uri: string; name: string; type: string; size?: number };
 export default function CreatePost() {
   const router = useRouter();
   const [postText, setPostText] = useState("");
+  const [userImage, setUserImage] = useState("");
   const [userName, setUserName] = useState("");
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia[]>([]);
   const [loading, setLoading] = useState(false);
@@ -365,10 +366,16 @@ export default function CreatePost() {
   const getItem = async () => {
     try {
       const fetchuserName = await AsyncStorage.getItem('userName');
-      
+      const fetchUserImage = await AsyncStorage.getItem('profilePicUrl');
+
       if(fetchuserName !== null) {
         console.log("userName: ", fetchuserName);
         setUserName(fetchuserName);
+      }
+
+      if(fetchUserImage !== null) {
+        console.log("userImage: ", fetchUserImage);
+        setUserImage(fetchUserImage);
       }
       
     } catch (error) {
@@ -701,7 +708,7 @@ export default function CreatePost() {
   const createPost = async (uploadedUrls: string[], failedUploads: string[]) => {
     try {
       await addDoc(collection(db, 'SentinelPosts'), {
-        AuthorImageURL: "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+        AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
         AuthorName: userName,
         ContentDate: new Date(),
         ContentDesc: postText,
