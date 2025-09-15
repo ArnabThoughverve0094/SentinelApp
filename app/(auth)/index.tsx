@@ -6,6 +6,7 @@ import { collection, doc, getDocs, onSnapshot, orderBy, query } from 'firebase/f
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Dimensions, Image, Linking, Modal, Platform, RefreshControl, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import FlipCard from 'react-native-flip-card';
+import LoadingComponent from '@/components/LoadingComponent';
 
 interface PostItem {
   id: string;
@@ -547,6 +548,13 @@ export default function Index(): React.JSX.Element {
       return null;
     }
   }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, currentVideoIndex]);
+  // ✅ ADDED: Graph/Analytics modal function
+  const openGraphModal = useCallback((item: PostItem) => {
+    console.log("Graph/Analytics pressed:", item.id);
+    // For now, redirect to login. Later you can implement actual graph modal
+    loginScreen();
+  }, [loginScreen]);
+
 
   // AUTO PLAY VIDEO ON SCROLL - Now filteredData is available
   const handleScroll = useCallback((event: any) => {
@@ -703,6 +711,16 @@ export default function Index(): React.JSX.Element {
               <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
                 {item.ContentRepostCount}
               </Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              className="p-1.5"
+              onPress={() => {
+                closeFullScreenCard();
+                loginScreen();
+              }}
+              activeOpacity={0.7}
+            >
+              <Feather name="bar-chart-2" size={16} color="#64748b" />
             </TouchableOpacity>
 
             {/* ✅ ADDED: Bookmark button */}
@@ -882,6 +900,16 @@ export default function Index(): React.JSX.Element {
               <Text className={`ml-2 text-sm font-semibold ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
                 {item.ContentRepostCount}
               </Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              className="p-1.5"
+              onPress={() => {
+                closeFullScreenCard();
+                loginScreen();
+              }}
+              activeOpacity={0.7}
+            >
+              <Feather name="bar-chart-2" size={16} color="#64748b" />
             </TouchableOpacity>
 
             {/* ✅ ADDED: Bookmark button in flip card */}
