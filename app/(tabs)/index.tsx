@@ -1943,15 +1943,13 @@ export default function SentinelFeed(): React.JSX.Element {
           style={{ paddingTop: Platform.OS === 'ios' ? 12 : 12 }}
         >
           <View>
-            <Text className="text-2xl font-bold text-gray-900">Sentinel</Text>
-          </View>
-          {/* <TouchableOpacity className="p-2 rounded-full bg-gray-100 shadow-sm">
-            <Image
-              source={require("../../assets/images/Union.png")}
-              className="w-5 h-5"
+          <Image
+              source={require("../../assets/images/sentinel_text.png")}
+              className="w-40 h-6"
               resizeMode="contain"
             />
-          </TouchableOpacity> */}
+          </View>
+          
           <TouchableOpacity 
               className="p-2 "
               onPress={() =>router.push('/search')} // Navigate to search page
