@@ -540,22 +540,30 @@ export default function SentinelFeed(): React.JSX.Element {
             commentsSnap => {
               let totalComments = 0;
               totalComments = commentsSnap.size;
-              
-              commentsSnap.forEach(comment =>
-                onSnapshot(
-                  collection(doc(db, post.postType, post.id, 'Comments', comment.id), 'Replies'),
-                  repliesSnap => {
-                    totalComments += repliesSnap.size;
-                    setFetchedData(prev =>
-                      prev.map(p =>
-                        p.id === post.id
-                        ? { ...p, ContentCommentCount: totalComments }
-                        : p
-                      )
-                    );
-                  }
+
+              setFetchedData(prev =>
+                prev.map(p =>
+                  p.id === post.id
+                  ? { ...p, ContentCommentCount: totalComments }
+                  : p
                 )
               );
+              
+              // commentsSnap.forEach(comment =>
+              //   onSnapshot(
+              //     collection(doc(db, post.postType, post.id, 'Comments', comment.id), 'Replies'),
+              //     repliesSnap => {
+              //       totalComments += repliesSnap.size;
+              //       setFetchedData(prev =>
+              //         prev.map(p =>
+              //           p.id === post.id
+              //           ? { ...p, ContentCommentCount: totalComments }
+              //           : p
+              //         )
+              //       );
+              //     }
+              //   )
+              // );
             }
           )
 
@@ -624,9 +632,13 @@ export default function SentinelFeed(): React.JSX.Element {
 
   // TO OPEN GRAPH MODAL
   const openGraphModal = useCallback((item: PostItem) => {
+    console.log("Graph ID: ", item.id);
     setSelectedGraphPostId(item.id);
     setSelectedGraphPostType(item.postType);
     setIsGraphModalVisible(true);
+    setSelectedPostId(item.id);
+    setSelectedPostType(item.postType);
+    setIsCommentModalVisible(false);
   }, []);
 
   // TO CLOSE GRAPH MODAL
@@ -634,6 +646,11 @@ export default function SentinelFeed(): React.JSX.Element {
     setIsGraphModalVisible(false);
     setSelectedGraphPostId(null);
     setSelectedGraphPostType(null);
+  }, []);
+
+  const addResponseGraphModal = useCallback(() => {
+    setIsGraphModalVisible(false);
+    setIsCommentModalVisible(true);
   }, []);
 
   // ENHANCED REJECTION MODAL FUNCTIONS
@@ -2279,7 +2296,8 @@ export default function SentinelFeed(): React.JSX.Element {
         postId={selectedGraphPostId}
         postType={selectedGraphPostType}
         postData={fetchedData.find(item => item.id === selectedGraphPostId)} 
-        onAddResponse={closeGraphModal}      />
+        onAddResponse={addResponseGraphModal}      
+        />
 
       {/* CUSTOM ALERT MODAL */}
       <CustomModal
