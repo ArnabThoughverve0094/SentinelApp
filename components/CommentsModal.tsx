@@ -2,7 +2,7 @@ import { db } from '@/FirebaseConfig';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ResizeMode, Video } from 'expo-av';
-import { addDoc, collection, doc, getDoc, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, onSnapshot, orderBy, query } from 'firebase/firestore';
 import React, { useEffect, useReducer, useState } from 'react';
 import {
   ActivityIndicator,
@@ -87,6 +87,7 @@ export default function CommentScreen({
   const [, forceRerender] = useReducer(x => x + 1, 0);
   const [userId, setUserId] = useState("1");
   const [userName, setUserName] = useState("");
+  const [userImage, setUserImage] = useState("");
   const [comments, setComments] = useState<Comment[]>([]);
   const [postDataState, setPostDataState] = useState<PostData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -195,6 +196,7 @@ export default function CommentScreen({
     try {
       const fetchuserID = await AsyncStorage.getItem('userId');
       const fetchuserName = await AsyncStorage.getItem('userName');
+      const fetchUserImage = await AsyncStorage.getItem('profilePicUrl');
       
       if(fetchuserID !== null && fetchuserName !== null) {
         console.log("userID: ", fetchuserID);
@@ -215,6 +217,12 @@ export default function CommentScreen({
         
         fetchCommentFirestore(postId, postType);
       }
+
+      if(fetchUserImage !== null) {
+        console.log("userImage: ", fetchUserImage);
+        setUserImage(fetchUserImage);
+      }
+
     } catch (error) {
       console.log("Error retrieving item", error);
     }
@@ -257,49 +265,49 @@ export default function CommentScreen({
         setComments(commentData);
 
         // Set up listeners for replies per comment
-        commentData.forEach((comment) => {
-          const collReplyRefPost = collection(db, type, item, 'Comments', comment.id, 'Replies');
-          const queryReply = query(
-            collReplyRefPost,
-            orderBy('CommentDate', 'desc')
-          );
-          console.log("Replies OnSnapshot");
+        // commentData.forEach((comment) => {
+        //   const collReplyRefPost = collection(db, type, item, 'Comments', comment.id, 'Replies');
+        //   const queryReply = query(
+        //     collReplyRefPost,
+        //     orderBy('CommentDate', 'desc')
+        //   );
+        //   console.log("Replies OnSnapshot");
           
-          onSnapshot(queryReply, replySnapshot => {
-            const replydataArr = replySnapshot.docs.map(doc => ({
-              id: doc.id,
-              data: doc.data(),
-            }));
+        //   onSnapshot(queryReply, replySnapshot => {
+        //     const replydataArr = replySnapshot.docs.map(doc => ({
+        //       id: doc.id,
+        //       data: doc.data(),
+        //     }));
     
-            const replyData: Reply[] = [];
-            for (const doc of replydataArr) {
-              const postData = doc.data;
-              const postId = doc.id;
-              replyData.push({
-                id: postId,
-                AuthorName: postData.AuthorName ?? "",
-                AuthorImageURL: postData.AuthorImageURL ?? "",
-                Comment: postData.Comment ?? "",
-                CommentDate: postData.CommentDate ?? new Date(),
-                likes: 0,
-                isLiked: false,
-                selectedOptions: postData.selectedOptions || [],
-                commentType: postData.commentType || 'text'
-              });
-            }
+        //     const replyData: Reply[] = [];
+        //     for (const doc of replydataArr) {
+        //       const postData = doc.data;
+        //       const postId = doc.id;
+        //       replyData.push({
+        //         id: postId,
+        //         AuthorName: postData.AuthorName ?? "",
+        //         AuthorImageURL: postData.AuthorImageURL ?? "",
+        //         Comment: postData.Comment ?? "",
+        //         CommentDate: postData.CommentDate ?? new Date(),
+        //         likes: 0,
+        //         isLiked: false,
+        //         selectedOptions: postData.selectedOptions || [],
+        //         commentType: postData.commentType || 'text'
+        //       });
+        //     }
 
-            setComments(prevComments =>
-              prevComments.map(c =>
-                c.id === comment.id
-                  ? {
-                      ...c,
-                      replies: replyData,
-                    }
-                  : c
-              )
-            );
-          })
-        })
+        //     setComments(prevComments =>
+        //       prevComments.map(c =>
+        //         c.id === comment.id
+        //           ? {
+        //               ...c,
+        //               replies: replyData,
+        //             }
+        //           : c
+        //       )
+        //     );
+        //   })
+        // })
       })
 
       return () => {
@@ -330,7 +338,7 @@ export default function CommentScreen({
       if (replyingTo) {
         const repliesRef = collection(db, postType, postId, 'Comments', replyingTo, 'Replies');
         const postDocRef = await addDoc(repliesRef, {
-          AuthorImageURL: "",
+          AuthorImageURL: userImage || "",
           AuthorName: userName,
           CommentDate: new Date(),
           Comment: commentText,
@@ -670,7 +678,7 @@ export default function CommentScreen({
                           <Text style={{ fontSize: 12, color: '#8e8e93' }}>
                             {getTimeAgo(comment.CommentDate)}
                           </Text>
-                          <TouchableOpacity 
+                          {/* <TouchableOpacity 
                             onPress={() => handleLikeComment(comment.id, false)}
                             style={{ marginLeft: 'auto' }}
                           >
@@ -679,7 +687,7 @@ export default function CommentScreen({
                               size={16} 
                               color={comment.isLiked ? "#ff3040" : "#8e8e93"} 
                             />
-                          </TouchableOpacity>
+                          </TouchableOpacity> */}
                         </View>
                         
                         {renderStructuredComment(comment)}
@@ -690,13 +698,13 @@ export default function CommentScreen({
                               {comment.likes} likes
                             </Text>
                           )}
-                          <TouchableOpacity 
+                          {/* <TouchableOpacity 
                             // onPress={() => handleReplyToComment(comment.id, comment.AuthorName)}
                           >
                             <Text style={{ fontSize: 12, color: '#8e8e93', fontWeight: '500' }}>
                               Reply
                             </Text>
-                          </TouchableOpacity>
+                          </TouchableOpacity> */}
                         </View>
                       </View>
                     </View>
