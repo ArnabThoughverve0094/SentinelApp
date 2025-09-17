@@ -11,9 +11,24 @@ import {
   StatusBar,
   Text,
   TouchableOpacity,
-  View
+  View,
+  Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+interface Comment {
+  id: string;
+  AuthorName: string;
+  AuthorImageURL?: string;
+  Comment: string;
+  CommentDate: any;
+  likes?: number;
+  isLiked?: boolean;
+  replies: any[];
+  selectedOptions?: string[];
+  commentType: 'structured' | 'text';
+  userId?: string;
+}
 
 interface PostData {
   id: string;
@@ -39,6 +54,8 @@ interface TotalSentimentProps {
   postType: string | null;
   postData: PostData | undefined;
   onAddResponse: () => void;
+  userExistingComment: Comment | null;
+  onEditComment: (comment: Comment) => void;
 }
 
 // Response options matching the design
@@ -55,7 +72,9 @@ export default function TotalSentiment({
   postId, 
   postType, 
   postData,
-  onAddResponse
+  onAddResponse,
+  userExistingComment,
+  onEditComment
 }: TotalSentimentProps) {
   const insets = useSafeAreaInsets();
   const [sentimentData, setSentimentData] = useState({
@@ -116,7 +135,25 @@ export default function TotalSentiment({
 
   const handleAddResponse = () => {
     onClose(); // Close sentiment page
-    onAddResponse(); // Open response selection
+    
+    // Check if user already has a comment
+    if (userExistingComment) {
+      Alert.alert(
+        "Edit Your Response",
+        "You have already responded to this post. Would you like to edit your existing response?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { 
+            text: "Edit", 
+            onPress: () => {
+              onEditComment(userExistingComment);
+            }
+          }
+        ]
+      );
+    } else {
+      onAddResponse(); // Open response selection
+    }
   };
 
   useEffect(() => {
@@ -267,18 +304,26 @@ export default function TotalSentiment({
           <TouchableOpacity
             onPress={handleAddResponse}
             style={{
-              backgroundColor: '#FF3B30',
+              backgroundColor: userExistingComment ? '#34C759' : '#FF3B30',
               borderRadius: 12,
               paddingVertical: 16,
               alignItems: 'center',
+              flexDirection: 'row',
+              justifyContent: 'center'
             }}
           >
+            <Ionicons 
+              name={userExistingComment ? "pencil" : "add"} 
+              size={20} 
+              color="#fff" 
+              style={{ marginRight: 8 }} 
+            />
             <Text style={{
               color: '#fff',
               fontSize: 18,
               fontWeight: '600'
             }}>
-              Add Response
+              {userExistingComment ? 'Edit Response' : 'Add Response'}
             </Text>
           </TouchableOpacity>
         </View>
