@@ -1,11 +1,24 @@
 import { db } from '@/FirebaseConfig';
-import { Feather, Ionicons } from '@expo/vector-icons';
+import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ResizeMode, Video } from 'expo-av';
-import { addDoc, collection, doc, getDoc, onSnapshot, orderBy, query } from 'firebase/firestore';
-import React, { useEffect, useReducer, useState } from 'react';
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  onSnapshot,
+  orderBy,
+  query,
+  updateDoc,
+  where
+} from 'firebase/firestore';
+import { useEffect, useReducer, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Modal,
   Platform,
@@ -29,6 +42,7 @@ interface Comment {
   replies: Reply[];
   selectedOptions?: string[];
   commentType: 'structured' | 'text';
+  userId?: string;
 }
 
 interface Reply {
@@ -41,6 +55,7 @@ interface Reply {
   isLiked?: boolean;
   selectedOptions?: string[];
   commentType: 'structured' | 'text';
+  userId?: string;
 }
 
 interface PostData {
@@ -87,7 +102,6 @@ export default function CommentScreen({
   const [, forceRerender] = useReducer(x => x + 1, 0);
   const [userId, setUserId] = useState("1");
   const [userName, setUserName] = useState("");
-  const [userImage, setUserImage] = useState("");
   const [comments, setComments] = useState<Comment[]>([]);
   const [postDataState, setPostDataState] = useState<PostData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -97,6 +111,13 @@ export default function CommentScreen({
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [showResponseModal, setShowResponseModal] = useState(false);
   const [showSentimentPage, setShowSentimentPage] = useState(false);
+  
+  // New states for user comment management
+  const [userExistingComment, setUserExistingComment] = useState<Comment | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [showMenuModal, setShowMenuModal] = useState(false);
+  const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
   
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
 
@@ -139,6 +160,46 @@ export default function CommentScreen({
     }
     
     return urlPath.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt)$/) ? 'doc' : 'image';
+  };
+
+  // Check if user already has a comment on this post
+  const checkUserExistingComment = async (itemId: string, itemType: string, currentUserId: string) => {
+    try {
+      const commentsRef = collection(db, itemType, itemId, 'Comments');
+      const userCommentQuery = query(
+        commentsRef,
+        where('userId', '==', currentUserId)
+      );
+      
+      const snapshot = await getDocs(userCommentQuery);
+      if (!snapshot.empty) {
+        const commentDoc = snapshot.docs[0];
+        const commentData = commentDoc.data();
+        
+        const existingComment: Comment = {
+          id: commentDoc.id,
+          AuthorName: commentData.AuthorName ?? "",
+          AuthorImageURL: commentData.AuthorImageURL ?? "",
+          Comment: commentData.Comment ?? "",
+          CommentDate: commentData.CommentDate ?? new Date(),
+          replies: [],
+          likes: 0,
+          isLiked: false,
+          selectedOptions: commentData.selectedOptions || [],
+          commentType: commentData.commentType || 'text',
+          userId: commentData.userId
+        };
+        
+        setUserExistingComment(existingComment);
+        return existingComment;
+      }
+      
+      setUserExistingComment(null);
+      return null;
+    } catch (error) {
+      console.error('Error checking user existing comment:', error);
+      return null;
+    }
   };
 
   // Fetch post data (only used as fallback if postData is not provided)
@@ -196,7 +257,6 @@ export default function CommentScreen({
     try {
       const fetchuserID = await AsyncStorage.getItem('userId');
       const fetchuserName = await AsyncStorage.getItem('userName');
-      const fetchUserImage = await AsyncStorage.getItem('profilePicUrl');
       
       if(fetchuserID !== null && fetchuserName !== null) {
         console.log("userID: ", fetchuserID);
@@ -215,14 +275,13 @@ export default function CommentScreen({
           await fetchPostData(postId, postType);
         }
         
+        // Check if user already has a comment
+        if (fetchuserID) {
+          await checkUserExistingComment(postId, postType, fetchuserID);
+        }
+        
         fetchCommentFirestore(postId, postType);
       }
-
-      if(fetchUserImage !== null) {
-        console.log("userImage: ", fetchUserImage);
-        setUserImage(fetchUserImage);
-      }
-
     } catch (error) {
       console.log("Error retrieving item", error);
     }
@@ -258,56 +317,58 @@ export default function CommentScreen({
             likes: 0,
             isLiked: false,
             selectedOptions: postData.selectedOptions || [],
-            commentType: postData.commentType || 'text'
+            commentType: postData.commentType || 'text',
+            userId: postData.userId
           });
         }
 
         setComments(commentData);
 
         // Set up listeners for replies per comment
-        // commentData.forEach((comment) => {
-        //   const collReplyRefPost = collection(db, type, item, 'Comments', comment.id, 'Replies');
-        //   const queryReply = query(
-        //     collReplyRefPost,
-        //     orderBy('CommentDate', 'desc')
-        //   );
-        //   console.log("Replies OnSnapshot");
+        commentData.forEach((comment) => {
+          const collReplyRefPost = collection(db, type, item, 'Comments', comment.id, 'Replies');
+          const queryReply = query(
+            collReplyRefPost,
+            orderBy('CommentDate', 'desc')
+          );
+          console.log("Replies OnSnapshot");
           
-        //   onSnapshot(queryReply, replySnapshot => {
-        //     const replydataArr = replySnapshot.docs.map(doc => ({
-        //       id: doc.id,
-        //       data: doc.data(),
-        //     }));
+          onSnapshot(queryReply, replySnapshot => {
+            const replydataArr = replySnapshot.docs.map(doc => ({
+              id: doc.id,
+              data: doc.data(),
+            }));
     
-        //     const replyData: Reply[] = [];
-        //     for (const doc of replydataArr) {
-        //       const postData = doc.data;
-        //       const postId = doc.id;
-        //       replyData.push({
-        //         id: postId,
-        //         AuthorName: postData.AuthorName ?? "",
-        //         AuthorImageURL: postData.AuthorImageURL ?? "",
-        //         Comment: postData.Comment ?? "",
-        //         CommentDate: postData.CommentDate ?? new Date(),
-        //         likes: 0,
-        //         isLiked: false,
-        //         selectedOptions: postData.selectedOptions || [],
-        //         commentType: postData.commentType || 'text'
-        //       });
-        //     }
+            const replyData: Reply[] = [];
+            for (const doc of replydataArr) {
+              const postData = doc.data;
+              const postId = doc.id;
+              replyData.push({
+                id: postId,
+                AuthorName: postData.AuthorName ?? "",
+                AuthorImageURL: postData.AuthorImageURL ?? "",
+                Comment: postData.Comment ?? "",
+                CommentDate: postData.CommentDate ?? new Date(),
+                likes: 0,
+                isLiked: false,
+                selectedOptions: postData.selectedOptions || [],
+                commentType: postData.commentType || 'text',
+                userId: postData.userId
+              });
+            }
 
-        //     setComments(prevComments =>
-        //       prevComments.map(c =>
-        //         c.id === comment.id
-        //           ? {
-        //               ...c,
-        //               replies: replyData,
-        //             }
-        //           : c
-        //       )
-        //     );
-        //   })
-        // })
+            setComments(prevComments =>
+              prevComments.map(c =>
+                c.id === comment.id
+                  ? {
+                      ...c,
+                      replies: replyData,
+                    }
+                  : c
+              )
+            );
+          })
+        })
       })
 
       return () => {
@@ -325,7 +386,7 @@ export default function CommentScreen({
     setSelectedOption(selectedOption === optionId ? null : optionId);
   };
 
-  // Handle structured comment submission
+  // Handle structured comment submission (new or edit)
   const handleSubmitResponse = async () => {
     if (!selectedOption || !postId || !postType) return;
 
@@ -335,18 +396,31 @@ export default function CommentScreen({
       const selectedOptionData = RESPONSE_OPTIONS.find(opt => opt.id === selectedOption);
       const commentText = selectedOptionData?.label || '';
       
-      if (replyingTo) {
-        const repliesRef = collection(db, postType, postId, 'Comments', replyingTo, 'Replies');
-        const postDocRef = await addDoc(repliesRef, {
-          AuthorImageURL: userImage || "",
-          AuthorName: userName,
-          CommentDate: new Date(),
+      if (isEditMode && userExistingComment) {
+        // Edit existing comment
+        const commentRef = doc(db, postType, postId, 'Comments', userExistingComment.id);
+        await updateDoc(commentRef, {
           Comment: commentText,
           selectedOptions: [selectedOption],
           commentType: 'structured'
         });
+        console.log('Comment updated successfully');
+        setIsEditMode(false);
+      } else if (replyingTo) {
+        // Add reply
+        const repliesRef = collection(db, postType, postId, 'Comments', replyingTo, 'Replies');
+        const postDocRef = await addDoc(repliesRef, {
+          AuthorImageURL: "",
+          AuthorName: userName,
+          CommentDate: new Date(),
+          Comment: commentText,
+          selectedOptions: [selectedOption],
+          commentType: 'structured',
+          userId: userId
+        });
         console.log('Structured Reply Post ID: ', postDocRef.id);
       } else {
+        // Add new comment
         const commentRef = collection(db, postType, postId, 'Comments');
         const postDocRef = await addDoc(commentRef, {
           AuthorImageURL: "",
@@ -354,7 +428,8 @@ export default function CommentScreen({
           CommentDate: new Date(),
           Comment: commentText,
           selectedOptions: [selectedOption],
-          commentType: 'structured'
+          commentType: 'structured',
+          userId: userId
         });
         console.log('Response submitted with ID: ', postDocRef.id);
       }
@@ -363,11 +438,67 @@ export default function CommentScreen({
       setSelectedOption(null);
       setShowResponseModal(false);
       setReplyingTo(null);
+      
+      // Refresh user existing comment check
+      if (postId && postType) {
+        await checkUserExistingComment(postId, postType, userId);
+      }
     } catch (error) {
       console.error('Error submitting response:', error);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Handle delete comment
+  const handleDeleteComment = async (commentId: string) => {
+    if (!postId || !postType) return;
+
+    Alert.alert(
+      "Delete Response",
+      "Are you sure you want to delete your response? This action cannot be undone.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const commentRef = doc(db, postType, postId, 'Comments', commentId);
+              await deleteDoc(commentRef);
+              console.log('Comment deleted successfully');
+              
+              // Reset user existing comment
+              setUserExistingComment(null);
+              setShowMenuModal(false);
+              setSelectedCommentId(null);
+            } catch (error) {
+              console.error('Error deleting comment:', error);
+              Alert.alert("Error", "Failed to delete response. Please try again.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  // Handle edit comment
+  const handleEditComment = (comment: Comment) => {
+    setSelectedOption(comment.selectedOptions?.[0] || null);
+    setIsEditMode(true);
+    setShowMenuModal(false);
+    setShowResponseModal(true);
+  };
+
+  // Handle three dots menu press with position
+  const handleThreeDotsPress = (commentId: string, event: any) => {
+    const { pageX, pageY } = event.nativeEvent;
+    setSelectedCommentId(commentId);
+    setMenuPosition({ x: pageX - 120, y: pageY + 10 }); // Adjust position
+    setShowMenuModal(true);
   };
 
   const handleReplyToComment = (commentId: string, username: string) => {
@@ -416,7 +547,23 @@ export default function CommentScreen({
 
   const handleAddResponseFromSentiment = () => {
     setShowSentimentPage(false);
-    setShowResponseModal(true);
+    
+    // Check if user already has a comment
+    if (userExistingComment) {
+      Alert.alert(
+        "Edit Your Response",
+        "You have already responded to this post. Would you like to edit your existing response?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { 
+            text: "Edit", 
+            onPress: () => handleEditComment(userExistingComment)
+          }
+        ]
+      );
+    } else {
+      setShowResponseModal(true);
+    }
   };
 
   // Render media content for the post
@@ -537,6 +684,10 @@ export default function CommentScreen({
       setShowResponseModal(false);
       setReplyingTo(null);
       setShowSentimentPage(false);
+      setUserExistingComment(null);
+      setIsEditMode(false);
+      setShowMenuModal(false);
+      setSelectedCommentId(null);
     }
   }, [visible, postId, postType, postData]);
 
@@ -678,16 +829,27 @@ export default function CommentScreen({
                           <Text style={{ fontSize: 12, color: '#8e8e93' }}>
                             {getTimeAgo(comment.CommentDate)}
                           </Text>
-                          {/* <TouchableOpacity 
-                            onPress={() => handleLikeComment(comment.id, false)}
-                            style={{ marginLeft: 'auto' }}
-                          >
-                            <Ionicons 
-                              name={comment.isLiked ? "heart" : "heart-outline"} 
-                              size={16} 
-                              color={comment.isLiked ? "#ff3040" : "#8e8e93"} 
-                            />
-                          </TouchableOpacity> */}
+                          
+                          {/* Three dots menu for user's own comments */}
+                          {comment.userId === userId ? (
+                            <TouchableOpacity 
+                              onPress={(event) => handleThreeDotsPress(comment.id, event)}
+                              style={{ marginLeft: 'auto', padding: 4 }}
+                            >
+                              <MaterialIcons name="more-vert" size={16} color="#8e8e93" />
+                            </TouchableOpacity>
+                          ) : (
+                            <TouchableOpacity 
+                              onPress={() => handleLikeComment(comment.id, false)}
+                              style={{ marginLeft: 'auto' }}
+                            >
+                              <Ionicons 
+                                name={comment.isLiked ? "heart" : "heart-outline"} 
+                                size={16} 
+                                color={comment.isLiked ? "#ff3040" : "#8e8e93"} 
+                              />
+                            </TouchableOpacity>
+                          )}
                         </View>
                         
                         {renderStructuredComment(comment)}
@@ -698,13 +860,13 @@ export default function CommentScreen({
                               {comment.likes} likes
                             </Text>
                           )}
-                          {/* <TouchableOpacity 
-                            // onPress={() => handleReplyToComment(comment.id, comment.AuthorName)}
+                          <TouchableOpacity 
+                            onPress={() => handleReplyToComment(comment.id, comment.AuthorName)}
                           >
                             <Text style={{ fontSize: 12, color: '#8e8e93', fontWeight: '500' }}>
                               Reply
                             </Text>
-                          </TouchableOpacity> */}
+                          </TouchableOpacity>
                         </View>
                       </View>
                     </View>
@@ -763,7 +925,7 @@ export default function CommentScreen({
                                   </Text>
                                 )}
                                 <TouchableOpacity 
-                                  // onPress={() => handleReplyToComment(comment.id, reply.AuthorName)}
+                                  onPress={() => handleReplyToComment(comment.id, reply.AuthorName)}
                                 >
                                   <Text style={{ fontSize: 11, color: '#8e8e93', fontWeight: '500' }}>
                                     Reply
@@ -795,9 +957,25 @@ export default function CommentScreen({
             paddingBottom: insets.bottom + 12
           }}>
             <TouchableOpacity
-              onPress={() => setShowResponseModal(true)}
+              onPress={() => {
+                if (userExistingComment) {
+                  Alert.alert(
+                    "Edit Your Response",
+                    "You have already responded to this post. Would you like to edit your existing response?",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      { 
+                        text: "Edit", 
+                        onPress: () => handleEditComment(userExistingComment)
+                      }
+                    ]
+                  );
+                } else {
+                  setShowResponseModal(true);
+                }
+              }}
               style={{
-                backgroundColor: '#FF3B30',
+                backgroundColor: userExistingComment ? '#000000' : '#FF3B30',
                 borderRadius: 12,
                 paddingVertical: 16,
                 alignItems: 'center',
@@ -805,16 +983,92 @@ export default function CommentScreen({
                 justifyContent: 'center'
               }}
             >
-              <Ionicons name="add" size={20} color="#fff" style={{ marginRight: 8 }} />
+              <Ionicons 
+                name={userExistingComment ? "pencil" : "add"} 
+                size={20} 
+                color="#fff" 
+                style={{ marginRight: 8 }} 
+              />
               <Text style={{
                 color: '#fff',
                 fontSize: 18,
                 fontWeight: '600'
               }}>
-                Add Response
+                {userExistingComment ? 'Edit Response' : 'Add Response'}
               </Text>
             </TouchableOpacity>
           </View>
+
+          {/* Compact Three Dots Menu Modal - positioned on comment */}
+          {showMenuModal && (
+            <Modal
+              visible={showMenuModal}
+              transparent={true}
+              animationType="fade"
+              onRequestClose={() => setShowMenuModal(false)}
+            >
+              <TouchableOpacity 
+                style={{ 
+                  flex: 1, 
+                  backgroundColor: 'rgba(0, 0, 0, 0.3)'
+                }}
+                activeOpacity={1}
+                onPress={() => setShowMenuModal(false)}
+              >
+                <View style={{
+                  position: 'absolute',
+                  top: menuPosition.y,
+                  left: menuPosition.x,
+                  backgroundColor: '#fff',
+                  borderRadius: 8,
+                  paddingVertical: 4,
+                  minWidth: 140,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 8,
+                  elevation: 8,
+                }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      const comment = comments.find(c => c.id === selectedCommentId);
+                      if (comment) handleEditComment(comment);
+                    }}
+                    style={{
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      flexDirection: 'row',
+                      alignItems: 'center'
+                    }}
+                  >
+                    <Ionicons name="pencil" size={16} color="#007AFF" />
+                    <Text style={{ marginLeft: 10, fontSize: 14, color: '#007AFF' }}>
+                      Edit
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <View style={{ height: 0.5, backgroundColor: '#e5e5e5', marginHorizontal: 8 }} />
+                  
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (selectedCommentId) handleDeleteComment(selectedCommentId);
+                    }}
+                    style={{
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      flexDirection: 'row',
+                      alignItems: 'center'
+                    }}
+                  >
+                    <Ionicons name="trash" size={16} color="#FF3B30" />
+                    <Text style={{ marginLeft: 10, fontSize: 14, color: '#FF3B30' }}>
+                      Delete
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </TouchableOpacity>
+            </Modal>
+          )}
         </View>
       </Modal>
 
@@ -827,6 +1081,7 @@ export default function CommentScreen({
           setShowResponseModal(false);
           setSelectedOption(null);
           setReplyingTo(null);
+          setIsEditMode(false);
         }}
         statusBarTranslucent={true}
       >
@@ -856,7 +1111,7 @@ export default function CommentScreen({
                 color: '#000',
                 textAlign: 'center'
               }}>
-                {replyingTo ? 'Reply with Response' : 'Select Your Response'}
+                {isEditMode ? 'Edit Your Response' : (replyingTo ? 'Reply with Response' : 'Select Your Response')}
               </Text>
               
               {/* Graph Icon */}
@@ -877,6 +1132,7 @@ export default function CommentScreen({
                   setShowResponseModal(false);
                   setSelectedOption(null);
                   setReplyingTo(null);
+                  setIsEditMode(false);
                 }} 
                 style={{ padding: 4 }}
               >
@@ -949,7 +1205,7 @@ export default function CommentScreen({
                   fontWeight: '600'
                 }}>
                   {selectedOption 
-                    ? `Submit "${RESPONSE_OPTIONS.find(opt => opt.id === selectedOption)?.label}"` 
+                    ? `${isEditMode ? 'Update' : 'Submit'} "${RESPONSE_OPTIONS.find(opt => opt.id === selectedOption)?.label}"` 
                     : 'Select Your Response'
                   }
                 </Text>
@@ -967,6 +1223,8 @@ export default function CommentScreen({
         postType={postType}
         postData={postDataState ?? undefined}
         onAddResponse={handleAddResponseFromSentiment}
+        userExistingComment={userExistingComment}
+        onEditComment={handleEditComment}
       />
     </>
   );
