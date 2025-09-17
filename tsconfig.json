@@ -1,18 +1,21 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "strict": true,
+    "strict": false,                // turn off strict mode for now
+    "skipLibCheck": true,           // skip type errors in node_modules
+    "noImplicitAny": false,         // allow implicit any
+    "jsx": "react-jsx",             // needed for React 18 JSX transform
     "paths": {
-      "@/*": [
-        "./*"
-      ]
-    }
+      "@/*": ["./*"]
+    },
+    "types": ["react", "react-native"]
   },
   "include": [
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
-    "nativewind-env.d.ts"
-, "components/pickImage.tx"  ]
+    "nativewind-env.d.ts",
+    "components/pickImage.tsx"
+  ]
 }

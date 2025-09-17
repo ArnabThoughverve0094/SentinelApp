@@ -6,6 +6,7 @@ import { arrayRemove, arrayUnion, collection, doc, getDocs, onSnapshot, orderBy,
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ResizeMode, Video } from 'expo-av';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
   Animated,
@@ -15,7 +16,6 @@ import {
   Modal,
   Platform,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   Text,
@@ -1128,7 +1128,7 @@ export default function SentinelFeed(): React.JSX.Element {
     return (
       <View className="flex-row items-center justify-center" style={{ gap: isFullScreen ? 8 : 4 }}>
         {/* New Button - Compact */}
-        <TouchableOpacity
+        {/* <TouchableOpacity
           onPress={handleNewClick}
           className={`px-1.5 py-1 rounded-full border flex-row items-center ${
             isNew 
@@ -1154,7 +1154,7 @@ export default function SentinelFeed(): React.JSX.Element {
           }`}>
             New
           </Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
 
         {/* Approve Button - Compact */}
         <TouchableOpacity
@@ -1937,7 +1937,7 @@ export default function SentinelFeed(): React.JSX.Element {
     <SafeAreaView className="flex-1 bg-gray-50">
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
       
-      <View className="bg-white border-b border-gray-200 pt-5">
+      <View className="bg-white border-b border-gray-200 pt-3">
         <View 
           className="px-4 py-2 flex-row items-center justify-between"
           style={{ paddingTop: Platform.OS === 'ios' ? 12 : 12 }}
