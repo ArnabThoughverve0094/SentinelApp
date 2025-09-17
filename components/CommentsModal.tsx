@@ -325,50 +325,50 @@ export default function CommentScreen({
         setComments(commentData);
 
         // Set up listeners for replies per comment
-        commentData.forEach((comment) => {
-          const collReplyRefPost = collection(db, type, item, 'Comments', comment.id, 'Replies');
-          const queryReply = query(
-            collReplyRefPost,
-            orderBy('CommentDate', 'desc')
-          );
-          console.log("Replies OnSnapshot");
+        // commentData.forEach((comment) => {
+        //   const collReplyRefPost = collection(db, type, item, 'Comments', comment.id, 'Replies');
+        //   const queryReply = query(
+        //     collReplyRefPost,
+        //     orderBy('CommentDate', 'desc')
+        //   );
+        //   console.log("Replies OnSnapshot");
           
-          onSnapshot(queryReply, replySnapshot => {
-            const replydataArr = replySnapshot.docs.map(doc => ({
-              id: doc.id,
-              data: doc.data(),
-            }));
+        //   onSnapshot(queryReply, replySnapshot => {
+        //     const replydataArr = replySnapshot.docs.map(doc => ({
+        //       id: doc.id,
+        //       data: doc.data(),
+        //     }));
     
-            const replyData: Reply[] = [];
-            for (const doc of replydataArr) {
-              const postData = doc.data;
-              const postId = doc.id;
-              replyData.push({
-                id: postId,
-                AuthorName: postData.AuthorName ?? "",
-                AuthorImageURL: postData.AuthorImageURL ?? "",
-                Comment: postData.Comment ?? "",
-                CommentDate: postData.CommentDate ?? new Date(),
-                likes: 0,
-                isLiked: false,
-                selectedOptions: postData.selectedOptions || [],
-                commentType: postData.commentType || 'text',
-                userId: postData.userId
-              });
-            }
+        //     const replyData: Reply[] = [];
+        //     for (const doc of replydataArr) {
+        //       const postData = doc.data;
+        //       const postId = doc.id;
+        //       replyData.push({
+        //         id: postId,
+        //         AuthorName: postData.AuthorName ?? "",
+        //         AuthorImageURL: postData.AuthorImageURL ?? "",
+        //         Comment: postData.Comment ?? "",
+        //         CommentDate: postData.CommentDate ?? new Date(),
+        //         likes: 0,
+        //         isLiked: false,
+        //         selectedOptions: postData.selectedOptions || [],
+        //         commentType: postData.commentType || 'text',
+        //         userId: postData.userId
+        //       });
+        //     }
 
-            setComments(prevComments =>
-              prevComments.map(c =>
-                c.id === comment.id
-                  ? {
-                      ...c,
-                      replies: replyData,
-                    }
-                  : c
-              )
-            );
-          })
-        })
+        //     setComments(prevComments =>
+        //       prevComments.map(c =>
+        //         c.id === comment.id
+        //           ? {
+        //               ...c,
+        //               replies: replyData,
+        //             }
+        //           : c
+        //       )
+        //     );
+        //   })
+        // })
       })
 
       return () => {
@@ -840,21 +840,21 @@ export default function CommentScreen({
                             </TouchableOpacity>
                           ) : (
                             <TouchableOpacity 
-                              onPress={() => handleLikeComment(comment.id, false)}
+                              // onPress={() => handleLikeComment(comment.id, false)}
                               style={{ marginLeft: 'auto' }}
                             >
-                              <Ionicons 
+                              {/* <Ionicons 
                                 name={comment.isLiked ? "heart" : "heart-outline"} 
                                 size={16} 
                                 color={comment.isLiked ? "#ff3040" : "#8e8e93"} 
-                              />
+                              /> */}
                             </TouchableOpacity>
                           )}
                         </View>
                         
                         {renderStructuredComment(comment)}
                         
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        {/* <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                           {(comment.likes || 0) > 0 && (
                             <Text style={{ fontSize: 12, color: '#8e8e93', marginRight: 16 }}>
                               {comment.likes} likes
@@ -867,7 +867,7 @@ export default function CommentScreen({
                               Reply
                             </Text>
                           </TouchableOpacity>
-                        </View>
+                        </View> */}
                       </View>
                     </View>
 

@@ -1,9 +1,10 @@
 import { db } from '@/FirebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { collection, onSnapshot } from 'firebase/firestore';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Modal,
   Platform,
@@ -11,8 +12,7 @@ import {
   StatusBar,
   Text,
   TouchableOpacity,
-  View,
-  Alert
+  View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -92,15 +92,16 @@ export default function TotalSentiment({
     setLoading(true);
     try {
       const commentsRef = collection(db, postType, postId, 'Comments');
-      
-      const counts = { agree: 0, disagree: 0, support: 0, hate: 0 };
-      let total = 0;
 
       const unsubscribeCommentData = onSnapshot(commentsRef, commentsSnapshot => {
         const commentDataArr = commentsSnapshot.docs.map(doc => ({
           id: doc.id,
           data: doc.data(),
         }))
+
+        const counts = { agree: 0, disagree: 0, support: 0, hate: 0 };
+        let total = 0;
+        
         for (const doc of commentDataArr) {
           const postData = doc.data;
           if (postData.selectedOptions && postData.selectedOptions.length > 0) {
