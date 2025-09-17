@@ -6,7 +6,6 @@ import { arrayRemove, arrayUnion, collection, doc, getDocs, onSnapshot, orderBy,
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ResizeMode, Video } from 'expo-av';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
   Animated,
@@ -23,6 +22,7 @@ import {
   View,
 } from 'react-native';
 import FlipCard from 'react-native-flip-card';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import CommentsModal from '../../components/CommentsModal';
 import TotalSentiment from '../../components/TotalSentiment';
 
@@ -213,6 +213,7 @@ export default function SentinelFeed(): React.JSX.Element {
     const [isGraphModalVisible, setIsGraphModalVisible] = useState(false);
     const [selectedGraphPostId, setSelectedGraphPostId] = useState<string | null>(null);
     const [selectedGraphPostType, setSelectedGraphPostType] = useState<string | null>(null);
+    const [userExistingComment, setUserExistingComment] = useState<Comment | null>(null);
 
   // ------- REJECTION MODAL STATE -------
   const [isRejectionModalVisible, setIsRejectionModalVisible] = useState(false);
@@ -2293,8 +2294,10 @@ export default function SentinelFeed(): React.JSX.Element {
         onClose={closeGraphModal}
         postId={selectedGraphPostId}
         postType={selectedGraphPostType}
-        postData={fetchedData.find(item => item.id === selectedGraphPostId)} 
-        onAddResponse={addResponseGraphModal}      
+        postData={fetchedData.find(item => item.id === selectedGraphPostId)}
+        onAddResponse={addResponseGraphModal} 
+        userExistingComment={undefined} 
+        onEditComment={undefined}
         />
 
       {/* CUSTOM ALERT MODAL */}
