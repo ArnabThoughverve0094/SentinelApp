@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Text, View, TouchableOpacity, SafeAreaView, StatusBar, TextInput, KeyboardAvoidingView, Platform, ImageBackground, Modal, Animated } from 'react-native';
-import { Link, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Link, router } from 'expo-router';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, KeyboardAvoidingView, Modal, Platform, SafeAreaView, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 // Custom Modal Component
 interface CustomModalProps {
@@ -110,7 +110,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
                     ? 'bg-gray-200' 
                     : button.style === 'destructive'
                     ? 'bg-red-500'
-                    : 'bg-violet-500'
+                    : 'bg-red-700'
                 }`}
                 onPress={button.onPress}
                 activeOpacity={0.8}
@@ -297,11 +297,11 @@ export default function ForgotPassword(): React.JSX.Element {
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       
       {/* Background Image */}
-      <ImageBackground 
+      {/* <ImageBackground 
         source={require('../../assets/images/page-bg.jpg')}
         className="flex-1"
         resizeMode="cover"
-      >
+      > */}
         <KeyboardAvoidingView
           className="flex-1"
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -353,7 +353,7 @@ export default function ForgotPassword(): React.JSX.Element {
             {/* Send Code Button */}
             <TouchableOpacity
               className={`py-4 px-6 rounded-xl items-center shadow-lg mb-8 ${
-                email.trim() && !emailError && !isLoading ? 'bg-violet-500' : 'bg-gray-300/90'
+                email.trim() && !emailError && !isLoading ? 'bg-red-700' : 'bg-gray-300/90'
               }`}
               disabled={!email.trim() || !!emailError || isLoading}
               onPress={onSendLink}
@@ -368,12 +368,12 @@ export default function ForgotPassword(): React.JSX.Element {
             {/* Back to Login link */}
             <Link href="/(auth)/email-login" asChild>
               <TouchableOpacity className="mt-2 items-center">
-                <Text className="text-violet-500 font-medium">Back to Login</Text>
+                <Text className="text-red-700 font-medium">Back to Login</Text>
               </TouchableOpacity>
             </Link>
           </View>
         </KeyboardAvoidingView>
-      </ImageBackground>
+      {/* </ImageBackground> */}
 
       {/* Custom Modal - Only for success and network errors */}
       <CustomModal

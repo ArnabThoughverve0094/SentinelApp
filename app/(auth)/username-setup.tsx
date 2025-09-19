@@ -1,17 +1,17 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-  Text,
-  View,
-  TouchableOpacity,
-  SafeAreaView,
-  StatusBar,
-  TextInput,
   KeyboardAvoidingView,
   Platform,
+  SafeAreaView,
   ScrollView,
+  StatusBar,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 
 export default function UserDetails(): React.JSX.Element {
   const router = useRouter();
