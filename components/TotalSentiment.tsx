@@ -305,7 +305,7 @@ export default function TotalSentiment({
           <TouchableOpacity
             onPress={handleAddResponse}
             style={{
-              backgroundColor: userExistingComment ? '#34C759' : '#FF3B30',
+              backgroundColor: userExistingComment ? '#000000' : '#FF3B30',
               borderRadius: 12,
               paddingVertical: 16,
               alignItems: 'center',
