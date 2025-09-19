@@ -2,12 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Link, useRouter } from 'expo-router';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   FlatList,
-  ImageBackground,
   KeyboardAvoidingView,
-  Linking,
   Modal,
   Platform,
   SafeAreaView,
@@ -16,8 +15,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
-  Animated,
+  View
 } from 'react-native';
 
 // Custom Modal Component
@@ -127,7 +125,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
                     ? 'bg-gray-200' 
                     : button.style === 'destructive'
                     ? 'bg-red-500'
-                    : 'bg-violet-500'
+                    : 'bg-red-700'
                 }`}
                 onPress={button.onPress}
                 activeOpacity={0.8}
@@ -565,50 +563,58 @@ export default function Register(): React.JSX.Element {
   };
 
   // Handle Terms and Privacy Policy links
+  // const handleTermsPress = () => {
+  //   const termsUrl = 'https://docs.google.com/document/d/1S64mjGx4R0gcq3OHkJ08xGsEno0FVvd9QZi8nisbRI0/edit?usp=sharing';
+  //   Linking.openURL(termsUrl).catch(err => {
+  //     console.error('Failed to open terms URL:', err);
+  //     showCustomAlert(
+  //       'error',
+  //       'Error',
+  //       'Unable to open Terms & Conditions',
+  //       [
+  //         {
+  //           text: 'OK',
+  //           onPress: hideModal
+  //         }
+  //       ]
+  //     );
+  //   });
+  // };
+
+  // const handlePrivacyPress = () => {
+  //   const privacyUrl = 'https://docs.google.com/document/d/1S64mjGx4R0gcq3OHkJ08xGsEno0FVvd9QZi8nisbRI0/edit?usp=sharing';
+  //   Linking.openURL(privacyUrl).catch(err => {
+  //     console.error('Failed to open privacy URL:', err);
+  //     showCustomAlert(
+  //       'error',
+  //       'Error',
+  //       'Unable to open Privacy Policy',
+  //       [
+  //         {
+  //           text: 'OK',
+  //           onPress: hideModal
+  //         }
+  //       ]
+  //     );
+  //   });
+  // };
   const handleTermsPress = () => {
-    const termsUrl = 'https://docs.google.com/document/d/1S64mjGx4R0gcq3OHkJ08xGsEno0FVvd9QZi8nisbRI0/edit?usp=sharing';
-    Linking.openURL(termsUrl).catch(err => {
-      console.error('Failed to open terms URL:', err);
-      showCustomAlert(
-        'error',
-        'Error',
-        'Unable to open Terms & Conditions',
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
-      );
-    });
+    router.push('/(auth)/termsandconditions');
   };
 
+  // Navigate to Privacy Policy page  
   const handlePrivacyPress = () => {
-    const privacyUrl = 'https://docs.google.com/document/d/1S64mjGx4R0gcq3OHkJ08xGsEno0FVvd9QZi8nisbRI0/edit?usp=sharing';
-    Linking.openURL(privacyUrl).catch(err => {
-      console.error('Failed to open privacy URL:', err);
-      showCustomAlert(
-        'error',
-        'Error',
-        'Unable to open Privacy Policy',
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
-      );
-    });
+    router.push('/(auth)/termsandconditions');
   };
 
   return (
     <SafeAreaView className="flex-1">
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-      <ImageBackground 
+      {/* <ImageBackground 
         source={require('../../assets/images/page-bg.jpg')}
         className="flex-1"
         resizeMode="cover"
-      >
+      > */}
       
       <KeyboardAvoidingView 
         className="flex-1" 
@@ -631,7 +637,7 @@ export default function Register(): React.JSX.Element {
               <Text className="text-3xl font-bold text-black mb-3 leading-tight">
                 Create New Account
               </Text>
-              <Text className="text-base text-black/80">
+              <Text className="text-base text-black/80 font-sans">
                 Start sharing your moments with the world.
               </Text>
             </View>
@@ -644,7 +650,7 @@ export default function Register(): React.JSX.Element {
                 <TextInput
                   className={`w-full px-4 py-3 bg-white/95 border rounded-xl text-base text-gray-900 shadow-lg ${
                     errors.name ? 'border-red-500' : 'border-white/30'
-                  }`}
+                  } font-sans`}
                   placeholder="Enter your full name"
                   placeholderTextColor="#9CA3AF"
                   value={name}
@@ -668,7 +674,7 @@ export default function Register(): React.JSX.Element {
                 <TextInput
                   className={`w-full px-4 py-3 bg-white/95 border rounded-xl text-base text-gray-900 shadow-lg ${
                     errors.email ? 'border-red-500' : 'border-white/30'
-                  }`}
+                  } font-sans`}
                   placeholder="username@gmail.com"
                   placeholderTextColor="#9CA3AF"
                   value={email}
@@ -689,7 +695,7 @@ export default function Register(): React.JSX.Element {
                   <TextInput
                     className={`w-full px-4 py-3 bg-white/95 border rounded-xl text-base text-gray-900 pr-12 shadow-lg ${
                       errors.password ? 'border-red-500' : 'border-white/30'
-                    }`}
+                    } font-sans`}
                     placeholder="••••••••••"
                     placeholderTextColor="#9CA3AF"
                     value={password}
@@ -731,7 +737,7 @@ export default function Register(): React.JSX.Element {
                   <TextInput
                     className={`w-full px-4 py-3 bg-white/95 border rounded-xl text-base text-gray-900 pr-12 shadow-lg ${
                       errors.confirmPassword ? 'border-red-500' : 'border-white/30'
-                    }`}
+                    } font-sans`}
                     placeholder="••••••••••"
                     placeholderTextColor="#9CA3AF"
                     value={confirmPassword}
@@ -765,7 +771,7 @@ export default function Register(): React.JSX.Element {
                 <TextInput
                   className={`w-full px-4 py-3 bg-white/95 border rounded-xl text-base text-gray-900 shadow-lg ${
                     errors.username ? 'border-red-500' : 'border-white/30'
-                  }`}
+                  } font-sans`}
                   placeholder="Choose a nickname"
                   placeholderTextColor="#9CA3AF"
                   value={username}
@@ -787,7 +793,7 @@ export default function Register(): React.JSX.Element {
                 <TouchableOpacity
                   className={`w-full px-4 py-3 bg-white/95 border rounded-xl flex-row items-center justify-between shadow-lg ${
                     errors.dob ? 'border-red-500' : 'border-white/30'
-                  }`}
+                  } font-sans`}
                   onPress={() => setShowDatePicker(true)}
                 >
                   <Text className={`text-base ${dob ? 'text-gray-900' : 'text-gray-400'}`}>
@@ -817,7 +823,7 @@ export default function Register(): React.JSX.Element {
                 <TouchableOpacity
                   className={`w-full px-4 py-3 bg-white/95 border rounded-xl flex-row items-center justify-between shadow-lg ${
                     errors.country ? 'border-red-500' : 'border-white/30'
-                  }`}
+                  } font-sans`}
                   onPress={() => setShowCountryDropdown(true)}
                 >
                   <Text className={`text-base ${country ? 'text-gray-900' : 'text-gray-400'}`}>
@@ -840,24 +846,24 @@ export default function Register(): React.JSX.Element {
                   }}
                 >
                   <View className={`w-5 h-5 rounded border-2 mr-3 mt-0.5 items-center justify-center ${
-                    agreeToTerms ? 'bg-violet-500 border-violet-500' : 'border-gray-300 bg-white'
-                  }`}>
+                    agreeToTerms ? 'bg-red-700 border-red-700' : 'border-gray-300 bg-white'
+                  } font-sans`}>
                     {agreeToTerms && (
                       <Ionicons name="checkmark" size={14} color="white" />
                     )}
                   </View>
                   <View className="flex-1">
                     <Text className="text-sm text-black/70 leading-5">
-                      I agree to the{' '}
+                      By creating an account, you agree to our{' '}
                       <Text 
-                        className="text-violet-500 font-medium underline" 
+                        className="text-red-700 font-medium underline" 
                         onPress={handleTermsPress}
                       >
                         Terms & Conditions
                       </Text>
                       {' '}and{' '}
                       <Text 
-                        className="text-violet-500 font-medium underline" 
+                        className="text-red-700 font-medium underline" 
                         onPress={handlePrivacyPress}
                       >
                         Privacy Policy
@@ -876,7 +882,7 @@ export default function Register(): React.JSX.Element {
               className={`py-4 px-6 rounded-xl items-center shadow-lg mb-6 ${
                 loading ? "opacity-50" : ""
               }`}
-              style={{ backgroundColor: '#8B5CF6' }}
+              style={{ backgroundColor: '#E6161A' }}
               disabled={loading}
               onPress={handleSignUp}
             >
@@ -890,7 +896,7 @@ export default function Register(): React.JSX.Element {
               <Text className="text-black/70">Already have an account? </Text>
               <Link href="/(auth)/email-login" asChild>
                 <TouchableOpacity>
-                  <Text className="text-violet-500 font-medium">Login</Text>
+                  <Text className="text-red-700 font-medium">Login</Text>
                 </TouchableOpacity>
               </Link>
             </View>
@@ -940,7 +946,7 @@ export default function Register(): React.JSX.Element {
           onClose={hideModal}
         />
       </KeyboardAvoidingView>
-      </ImageBackground>
+      {/* </ImageBackground> */}
     </SafeAreaView>
   );
 }

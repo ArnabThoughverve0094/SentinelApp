@@ -255,12 +255,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
                   alignItems: 'center',
                   width: '100%',
                   marginBottom: index < buttons.length - 1 ? 10 : 0,
-                  backgroundColor: 
-                    button.style === 'cancel' 
-                      ? '#F3F4F6' 
-                      : button.style === 'destructive'
-                      ? '#EF4444'
-                      : '#8B5CF6',
+                  backgroundColor: '#000000', // All buttons now have black background
                   shadowColor: '#000',
                   shadowOffset: { width: 0, height: 2 },
                   shadowOpacity: 0.1,
@@ -291,6 +286,7 @@ type SelectedMedia = { uri: string; name: string; type: string; size?: number };
 export default function CreatePost() {
   const router = useRouter();
   const [postText, setPostText] = useState("");
+  const [userImage, setUserImage] = useState("");
   const [userName, setUserName] = useState("");
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia[]>([]);
   const [loading, setLoading] = useState(false);
@@ -370,10 +366,16 @@ export default function CreatePost() {
   const getItem = async () => {
     try {
       const fetchuserName = await AsyncStorage.getItem('userName');
-      
+      const fetchUserImage = await AsyncStorage.getItem('profilePicUrl');
+
       if(fetchuserName !== null) {
         console.log("userName: ", fetchuserName);
         setUserName(fetchuserName);
+      }
+
+      if(fetchUserImage !== null) {
+        console.log("userImage: ", fetchUserImage);
+        setUserImage(fetchUserImage);
       }
       
     } catch (error) {
@@ -706,7 +708,7 @@ export default function CreatePost() {
   const createPost = async (uploadedUrls: string[], failedUploads: string[]) => {
     try {
       await addDoc(collection(db, 'SentinelPosts'), {
-        AuthorImageURL: "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+        AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
         AuthorName: userName,
         ContentDate: new Date(),
         ContentDesc: postText,
@@ -780,7 +782,7 @@ export default function CreatePost() {
             borderBottomWidth: 1, 
             borderColor: "#eee" 
           }}>
-            <Text style={{ fontWeight: "bold", fontSize: 18, color: "#000" }}>Create post</Text>
+            <Text className="text-2xl font-bold text-gray-900 pt-3">Create post</Text>
             <TouchableOpacity onPress={() => router.back()} style={{ 
               width: 32, 
               height: 32, 
@@ -820,7 +822,7 @@ export default function CreatePost() {
                     paddingTop: 0,
                     paddingBottom: 10,
                   }}
-                  placeholder="What's on your mind?"
+                  placeholder="Type your message here..."
                   placeholderTextColor="#9CA3AF"
                   value={postText}
                   onChangeText={setPostText}
@@ -1037,7 +1039,7 @@ export default function CreatePost() {
             <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
               <TouchableOpacity
                 style={{
-                  backgroundColor: "#8B5CF6",
+                  backgroundColor: "#FF3B30",
                   borderRadius: 16,
                   paddingVertical: 16,
                   alignItems: "center",

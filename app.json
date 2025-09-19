@@ -4,7 +4,7 @@
     "slug": "frontend",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "assets/images/sentinel_logo.png",
     "scheme": "frontend",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -36,7 +36,8 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "react-native-compressor"
+      "react-native-compressor",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

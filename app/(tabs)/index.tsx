@@ -15,7 +15,6 @@ import {
   Modal,
   Platform,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   Text,
@@ -23,7 +22,9 @@ import {
   View,
 } from 'react-native';
 import FlipCard from 'react-native-flip-card';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import CommentsModal from '../../components/CommentsModal';
+import TotalSentiment from '../../components/TotalSentiment';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -207,6 +208,12 @@ export default function SentinelFeed(): React.JSX.Element {
   const [isCommentModalVisible, setIsCommentModalVisible] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedPostType, setSelectedPostType] = useState<string | null>(null);
+
+    // ------- GRAPH MODAL STATE -------
+    const [isGraphModalVisible, setIsGraphModalVisible] = useState(false);
+    const [selectedGraphPostId, setSelectedGraphPostId] = useState<string | null>(null);
+    const [selectedGraphPostType, setSelectedGraphPostType] = useState<string | null>(null);
+    const [userExistingComment, setUserExistingComment] = useState<Comment | null>(null);
 
   // ------- REJECTION MODAL STATE -------
   const [isRejectionModalVisible, setIsRejectionModalVisible] = useState(false);
@@ -534,22 +541,30 @@ export default function SentinelFeed(): React.JSX.Element {
             commentsSnap => {
               let totalComments = 0;
               totalComments = commentsSnap.size;
-              
-              commentsSnap.forEach(comment =>
-                onSnapshot(
-                  collection(doc(db, post.postType, post.id, 'Comments', comment.id), 'Replies'),
-                  repliesSnap => {
-                    totalComments += repliesSnap.size;
-                    setFetchedData(prev =>
-                      prev.map(p =>
-                        p.id === post.id
-                        ? { ...p, ContentCommentCount: totalComments }
-                        : p
-                      )
-                    );
-                  }
+
+              setFetchedData(prev =>
+                prev.map(p =>
+                  p.id === post.id
+                  ? { ...p, ContentCommentCount: totalComments }
+                  : p
                 )
               );
+              
+              // commentsSnap.forEach(comment =>
+              //   onSnapshot(
+              //     collection(doc(db, post.postType, post.id, 'Comments', comment.id), 'Replies'),
+              //     repliesSnap => {
+              //       totalComments += repliesSnap.size;
+              //       setFetchedData(prev =>
+              //         prev.map(p =>
+              //           p.id === post.id
+              //           ? { ...p, ContentCommentCount: totalComments }
+              //           : p
+              //         )
+              //       );
+              //     }
+              //   )
+              // );
             }
           )
 
@@ -614,6 +629,29 @@ export default function SentinelFeed(): React.JSX.Element {
     setIsCommentModalVisible(false);
     setSelectedPostId(null);
     setSelectedPostType(null);
+  }, []);
+
+  // TO OPEN GRAPH MODAL
+  const openGraphModal = useCallback((item: PostItem) => {
+    console.log("Graph ID: ", item.id);
+    setSelectedGraphPostId(item.id);
+    setSelectedGraphPostType(item.postType);
+    setIsGraphModalVisible(true);
+    setSelectedPostId(item.id);
+    setSelectedPostType(item.postType);
+    setIsCommentModalVisible(false);
+  }, []);
+
+  // TO CLOSE GRAPH MODAL
+  const closeGraphModal = useCallback(() => {
+    setIsGraphModalVisible(false);
+    setSelectedGraphPostId(null);
+    setSelectedGraphPostType(null);
+  }, []);
+
+  const addResponseGraphModal = useCallback(() => {
+    setIsGraphModalVisible(false);
+    setIsCommentModalVisible(true);
   }, []);
 
   // ENHANCED REJECTION MODAL FUNCTIONS
@@ -1091,7 +1129,7 @@ export default function SentinelFeed(): React.JSX.Element {
     return (
       <View className="flex-row items-center justify-center" style={{ gap: isFullScreen ? 8 : 4 }}>
         {/* New Button - Compact */}
-        <TouchableOpacity
+        {/* <TouchableOpacity
           onPress={handleNewClick}
           className={`px-1.5 py-1 rounded-full border flex-row items-center ${
             isNew 
@@ -1117,7 +1155,7 @@ export default function SentinelFeed(): React.JSX.Element {
           }`}>
             New
           </Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
 
         {/* Approve Button - Compact */}
         <TouchableOpacity
@@ -1329,6 +1367,16 @@ export default function SentinelFeed(): React.JSX.Element {
                 {item.ContentRepostCount}
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity 
+              className="p-1.5"
+              onPress={() => {
+                closeFullScreenCard();
+                openGraphModal(item);
+              }}
+              activeOpacity={0.7}
+            >
+              <Feather name="bar-chart-2" size={16} color="#64748b" />
+            </TouchableOpacity>
 
             <TouchableOpacity
               className="flex-row items-center px-2 py-1.5"
@@ -1338,7 +1386,7 @@ export default function SentinelFeed(): React.JSX.Element {
               <Ionicons 
                 name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
                 size={18} 
-                color={item.Bookmarked ? "#f59e0b" : "#64748b"} 
+                color={item.Bookmarked ? "#000000" : "#64748b"} 
               />
             </TouchableOpacity>
 
@@ -1630,6 +1678,16 @@ export default function SentinelFeed(): React.JSX.Element {
                 {item.ContentRepostCount}
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity 
+              className="p-1.5"
+              onPress={(e) => {
+                e.stopPropagation();
+                openGraphModal(item);
+              }}
+              activeOpacity={0.7}
+            >
+              <Feather name="bar-chart-2" size={16} color="#64748b" />
+            </TouchableOpacity>
 
             <TouchableOpacity
               className="flex-row items-center px-1.5 py-1"
@@ -1642,7 +1700,7 @@ export default function SentinelFeed(): React.JSX.Element {
               <Ionicons 
                 name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
                 size={14} 
-                color={item.Bookmarked ? "#f59e0b" : "#64748b"} 
+                color={item.Bookmarked ? "#000000" : "#64748b"} 
               />
             </TouchableOpacity>
 
@@ -1782,6 +1840,16 @@ export default function SentinelFeed(): React.JSX.Element {
                 {item.ContentRepostCount}
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity 
+              className="p-1.5"
+              onPress={(e) => {
+                e.stopPropagation();
+                openGraphModal(item);
+              }}
+              activeOpacity={0.7}
+            >
+              <Feather name="bar-chart-2" size={16} color="#64748b" />
+            </TouchableOpacity>
 
             <TouchableOpacity
               className="flex-row items-center px-1.5 py-1"
@@ -1794,7 +1862,7 @@ export default function SentinelFeed(): React.JSX.Element {
               <Ionicons 
                 name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
                 size={14} 
-                color={item.Bookmarked ? "#f59e0b" : "#64748b"} 
+                color={item.Bookmarked ? "#000000" : "#64748b"} 
               />
             </TouchableOpacity>
 
@@ -1870,21 +1938,29 @@ export default function SentinelFeed(): React.JSX.Element {
     <SafeAreaView className="flex-1 bg-gray-50">
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
       
-      <View className="bg-white border-b border-gray-200 pt-5">
+      <View className="bg-white border-b border-gray-200 pt-3">
         <View 
           className="px-4 py-2 flex-row items-center justify-between"
           style={{ paddingTop: Platform.OS === 'ios' ? 12 : 12 }}
         >
           <View>
-            <Text className="text-2xl font-bold text-gray-900">Sentinel</Text>
-          </View>
-          <TouchableOpacity className="p-2 rounded-full bg-gray-100 shadow-sm">
-            <Image
-              source={require("../../assets/images/Union.png")}
-              className="w-5 h-5"
+          <Image
+              source={require("../../assets/images/sentinel_text.png")}
+              className="w-40 h-6"
               resizeMode="contain"
             />
-          </TouchableOpacity>
+          </View>
+          
+          <TouchableOpacity 
+              className="p-2 "
+              onPress={() =>router.push('/search')} // Navigate to search page
+            >
+              <MaterialCommunityIcons 
+                name="magnify" 
+                size={30} 
+                color="#374151" 
+              />
+            </TouchableOpacity>
         </View>
       </View>
 
@@ -2069,15 +2145,15 @@ export default function SentinelFeed(): React.JSX.Element {
                }}
           >
             {/* Header */}
-            <View className="bg-red-50 px-6 py-5 border-b border-red-100">
+            <View className=" px-6 py-5 border-b border-gray-100">
               <View className="flex-row items-center justify-between">
                 <View className="flex-row items-center">
-                  <View className="w-12 h-12 bg-red-100 rounded-full items-center justify-center mr-4">
-                    <Ionicons name="close-circle" size={28} color="#ef4444" />
+                  <View className="w-12 h-12 rounded-full items-center justify-center mr-4">
+                    <Ionicons name="close-circle" size={28} color="#000" />
                   </View>
                   <View>
                     <Text className="font-bold text-gray-900 text-xl">Reject Post</Text>
-                    <Text className="text-red-600 text-sm mt-1">Select rejection reasons</Text>
+                    <Text className="text-black text-sm mt-1">Select rejection reasons</Text>
                   </View>
                 </View>
                 <TouchableOpacity 
@@ -2105,13 +2181,13 @@ export default function SentinelFeed(): React.JSX.Element {
                         key={index}
                         className={`flex-row items-center py-4 px-5 rounded-2xl border-2 ${
                           isSelected 
-                            ? 'bg-red-50 border-red-300' 
+                            ? 'bg-white border-black' 
                             : 'bg-gray-50 border-gray-200'
                         }`}
                         onPress={() => toggleRejectionReason(reason)}
                         activeOpacity={0.7}
                         style={{
-                          shadowColor: isSelected ? '#ef4444' : 'transparent',
+                          shadowColor: isSelected ? '#000' : 'transparent',
                           shadowOffset: { width: 0, height: 2 },
                           shadowOpacity: isSelected ? 0.1 : 0,
                           shadowRadius: 4,
@@ -2122,26 +2198,19 @@ export default function SentinelFeed(): React.JSX.Element {
                         <View 
                           className={`w-6 h-6 rounded-lg border-2 items-center justify-center mr-4 ${
                             isSelected 
-                              ? 'bg-red-500 border-red-500' 
+                              ? ' border-black' 
                               : 'bg-white border-gray-300'
                           }`}
-                          style={{
-                            shadowColor: isSelected ? '#ef4444' : 'transparent',
-                            shadowOffset: { width: 0, height: 1 },
-                            shadowOpacity: 0.2,
-                            shadowRadius: 2,
-                            elevation: isSelected ? 1 : 0,
-                          }}
                         >
                           {isSelected && (
-                            <Ionicons name="checkmark" size={16} color="white" />
+                            <Ionicons name="checkmark" size={16} color="black" />
                           )}
                         </View>
                         
                         {/* Enhanced Text */}
                         <Text 
                           className={`flex-1 text-base leading-6 font-medium ${
-                            isSelected ? 'text-red-700' : 'text-gray-700'
+                            isSelected ? 'text-black' : 'text-gray-700'
                           }`}
                         >
                           {reason}
@@ -2150,7 +2219,7 @@ export default function SentinelFeed(): React.JSX.Element {
                         {/* Selection Indicator */}
                         {isSelected && (
                           <View className="ml-2">
-                            <Ionicons name="checkmark-circle" size={20} color="#ef4444" />
+                            <Ionicons name="checkmark-circle" size={20} color="#000" />
                           </View>
                         )}
                       </TouchableOpacity>
@@ -2160,11 +2229,11 @@ export default function SentinelFeed(): React.JSX.Element {
 
                 {/* Selection Summary */}
                 {selectedRejectionReasons.length > 0 && (
-                  <View className="mt-6 p-4 bg-red-50 rounded-2xl border border-red-200">
-                    <Text className="text-red-700 font-semibold text-sm">
+                  <View className="mt-6 p-4  rounded-2xl ">
+                    <Text className="text-black font-semibold text-sm">
                       {selectedRejectionReasons.length} reason{selectedRejectionReasons.length > 1 ? 's' : ''} selected
                     </Text>
-                    <Text className="text-red-600 text-xs mt-1">
+                    <Text className="text-black text-xs mt-1">
                       The user will receive notification about these specific issues
                     </Text>
                   </View>
@@ -2183,7 +2252,7 @@ export default function SentinelFeed(): React.JSX.Element {
                   <TouchableOpacity
                     className={`flex-1 py-4 px-6 rounded-2xl ${
                       selectedRejectionReasons.length > 0 
-                        ? 'bg-red-500' 
+                        ? 'bg-black' 
                         : 'bg-gray-300'
                     }`}
                     onPress={handleRejectionSubmit}
@@ -2218,6 +2287,18 @@ export default function SentinelFeed(): React.JSX.Element {
         postType={selectedPostType}
         postData={fetchedData.find(item => item.id === selectedPostId)}
       />
+
+      {/* GRAPH MODAL */}
+      <TotalSentiment
+        visible={isGraphModalVisible}
+        onClose={closeGraphModal}
+        postId={selectedGraphPostId}
+        postType={selectedGraphPostType}
+        postData={fetchedData.find(item => item.id === selectedGraphPostId)}
+        onAddResponse={addResponseGraphModal} 
+        userExistingComment={undefined} 
+        onEditComment={undefined}
+        />
 
       {/* CUSTOM ALERT MODAL */}
       <CustomModal
