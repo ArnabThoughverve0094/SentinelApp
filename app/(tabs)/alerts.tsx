@@ -1,6 +1,14 @@
-import React from 'react';
-import { Text, View, SafeAreaView, StatusBar, FlatList, Image, TouchableOpacity } from 'react-native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from "@expo/vector-icons";
+import React from "react";
+import {
+  FlatList,
+  Image,
+  SafeAreaView,
+  StatusBar,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 type Notification = {
   id: string;
@@ -12,161 +20,164 @@ type Notification = {
   time: string;
   message: string;
   showButtons: boolean;
-  status?: 'approved' | 'rejected';
+  status?: "approved" | "rejected";
 };
 
 // ✅ Fixed: Explicitly type the array and cast status literals
 const notifications: Notification[] = [
   {
-    id: '1',
-    type: 'follow',
+    id: "1",
+    type: "follow",
     user: {
-      name: 'Kellan Arbor',
+      name: "Kellan Arbor",
       avatar: "https://randomuser.me/api/portraits/men/45.jpg",
     },
-    time: '2 m',
-    message: 'sent you a follow request.',
+    time: "2 m",
+    message: "sent you a follow request.",
     showButtons: true,
   },
   {
-    id: '2',
-    type: 'post_approved',
+    id: "2",
+    type: "post_approved",
     user: {
-      name: 'Sentinel Admin',
+      name: "Sentinel Admin",
       avatar: "https://randomuser.me/api/portraits/men/75.jpg",
     },
-    time: '5 m',
-    message: 'Your post has been approved and is now visible to all users.',
+    time: "5 m",
+    message: "Your post has been approved and is now visible to all users.",
     showButtons: false,
-    status: 'approved' as 'approved', // ✅ Cast as literal type
+    status: "approved" as "approved", // ✅ Cast as literal type
   },
   {
-    id: '3',
-    type: 'like',
+    id: "3",
+    type: "like",
     user: {
-      name: 'Elowen Farris',
+      name: "Elowen Farris",
       avatar: "https://randomuser.me/api/portraits/women/68.jpg",
     },
-    time: '8 m',
-    message: 'liked your post.',
+    time: "8 m",
+    message: "liked your post.",
     showButtons: false,
   },
   {
-    id: '4',
-    type: 'post_rejected',
+    id: "4",
+    type: "post_rejected",
     user: {
-      name: 'Sentinel Moderator',
+      name: "Sentinel Moderator",
       avatar: "https://randomuser.me/api/portraits/women/55.jpg",
     },
-    time: '12 m',
-    message: 'Your post was rejected due to: Inappropriate content or language.',
+    time: "12 m",
+    message:
+      "Your post was rejected due to: Inappropriate content or language.",
     showButtons: false,
-    status: 'rejected' as 'rejected', // ✅ Cast as literal type
+    status: "rejected" as "rejected", // ✅ Cast as literal type
   },
   {
-    id: '5',
-    type: 'follow',
+    id: "5",
+    type: "follow",
     user: {
-      name: 'Laurie Kittel',
+      name: "Laurie Kittel",
       avatar: "https://randomuser.me/api/portraits/women/32.jpg",
     },
-    time: '15 m',
-    message: 'sent you a follow request.',
+    time: "15 m",
+    message: "sent you a follow request.",
     showButtons: true,
   },
   {
-    id: '6',
-    type: 'post_approved',
+    id: "6",
+    type: "post_approved",
     user: {
-      name: 'Sentinel Admin',
+      name: "Sentinel Admin",
       avatar: "https://randomuser.me/api/portraits/men/75.jpg",
     },
-    time: '18 m',
-    message: 'Your video post about community events has been approved.',
+    time: "18 m",
+    message: "Your video post about community events has been approved.",
     showButtons: false,
-    status: 'approved' as 'approved',
+    status: "approved" as "approved",
   },
   {
-    id: '7',
-    type: 'follow',
+    id: "7",
+    type: "follow",
     user: {
-      name: 'Larkin Veum',
+      name: "Larkin Veum",
       avatar: "https://randomuser.me/api/portraits/men/25.jpg",
     },
-    time: '21 m',
-    message: 'sent you a follow request.',
+    time: "21 m",
+    message: "sent you a follow request.",
     showButtons: true,
   },
   {
-    id: '8',
-    type: 'post_rejected',
+    id: "8",
+    type: "post_rejected",
     user: {
-      name: 'Sentinel Moderator',
+      name: "Sentinel Moderator",
       avatar: "https://randomuser.me/api/portraits/women/55.jpg",
     },
-    time: '35 m',
-    message: 'Your post was rejected due to: Spam or repetitive content, Misleading or false information.',
+    time: "35 m",
+    message:
+      "Your post was rejected due to: Spam or repetitive content, Misleading or false information.",
     showButtons: false,
-    status: 'rejected' as 'rejected',
+    status: "rejected" as "rejected",
   },
   {
-    id: '9',
-    type: 'like',
+    id: "9",
+    type: "like",
     user: {
-      name: 'Rigel Quitzon',
+      name: "Rigel Quitzon",
       avatar: "https://randomuser.me/api/portraits/men/18.jpg",
     },
-    time: '1h ago',
-    message: 'liked your post.',
+    time: "1h ago",
+    message: "liked your post.",
     showButtons: false,
   },
   {
-    id: '10',
-    type: 'post_approved',
+    id: "10",
+    type: "post_approved",
     user: {
-      name: 'Sentinel Admin',
+      name: "Sentinel Admin",
       avatar: "https://randomuser.me/api/portraits/men/75.jpg",
     },
-    time: '2h ago',
-    message: 'Your image post has been reviewed and approved successfully.',
+    time: "2h ago",
+    message: "Your image post has been reviewed and approved successfully.",
     showButtons: false,
-    status: 'approved' as 'approved',
+    status: "approved" as "approved",
   },
   {
-    id: '11',
-    type: 'post_rejected',
+    id: "11",
+    type: "post_rejected",
     user: {
-      name: 'Sentinel Moderator',
+      name: "Sentinel Moderator",
       avatar: "https://randomuser.me/api/portraits/women/55.jpg",
     },
-    time: '3h ago',
-    message: 'Your post was rejected due to: Violates community guidelines.',
+    time: "3h ago",
+    message: "Your post was rejected due to: Violates community guidelines.",
     showButtons: false,
-    status: 'rejected' as 'rejected',
+    status: "rejected" as "rejected",
   },
   {
-    id: '12',
-    type: 'post_approved',
+    id: "12",
+    type: "post_approved",
     user: {
-      name: 'Sentinel Admin',
+      name: "Sentinel Admin",
       avatar: "https://randomuser.me/api/portraits/men/75.jpg",
     },
-    time: '5h ago',
-    message: 'Great job! Your post about local news has been approved and published.',
+    time: "5h ago",
+    message:
+      "Great job! Your post about local news has been approved and published.",
     showButtons: false,
-    status: 'approved' as 'approved',
+    status: "approved" as "approved",
   },
 ];
 
 const getNotificationIcon = (type: string, status?: string) => {
   switch (type) {
-    case 'follow':
+    case "follow":
       return <Ionicons name="person-add" size={16} color="#3B82F6" />;
-    case 'like':
+    case "like":
       return <Ionicons name="heart" size={16} color="#EF4444" />;
-    case 'post_approved':
+    case "post_approved":
       return <Ionicons name="checkmark-circle" size={16} color="#22C55E" />;
-    case 'post_rejected':
+    case "post_rejected":
       return <Ionicons name="close-circle" size={16} color="#EF4444" />;
     default:
       return <Ionicons name="notifications" size={16} color="#6B7280" />;
@@ -183,58 +194,65 @@ const NotificationItem = ({ notification }: { notification: Notification }) => (
         resizeMode="cover"
       />
       {/* Status icon overlay for post notifications */}
-      {(notification.type === 'post_approved' || notification.type === 'post_rejected') && (
+      {(notification.type === "post_approved" ||
+        notification.type === "post_rejected") && (
         <View className="absolute -bottom-1 -right-1 w-6 h-6 bg-white rounded-full items-center justify-center shadow-sm">
-          {getNotificationIcon(notification.type, notification.status)}
+          {/* {getNotificationIcon(notification.type, notification.status)} */}
         </View>
       )}
     </View>
-    
+
     {/* Content */}
     <View className="flex-1">
       {/* User name and message */}
       <View className="flex-row items-start mb-1">
         <View className="flex-1">
           <Text className="text-sm text-gray-900 leading-5">
-            <Text className="font-semibold">{notification.user.name}</Text>
-            {' '}{notification.message}
+            <Text className="font-semibold">{notification.user.name}</Text>{" "}
+            {notification.message}
           </Text>
         </View>
         {/* Notification type icon */}
-        {notification.type !== 'post_approved' && notification.type !== 'post_rejected' && (
-          <View className="ml-2 mt-1">
-            {getNotificationIcon(notification.type)}
-          </View>
-        )}
+        {notification.type !== "post_approved" &&
+          notification.type !== "post_rejected" && (
+            <View className="ml-2 mt-1">
+              {/* {getNotificationIcon(notification.type)} */}
+            </View>
+          )}
       </View>
-      
+
       {/* Time */}
       <Text className="text-xs text-gray-500 mb-2">{notification.time}</Text>
-      
+
       {/* Status badge for post notifications */}
-      {(notification.type === 'post_approved' || notification.type === 'post_rejected') && (
-        <View className={`self-start px-2 py-1 rounded-full mb-2 ${
-          notification.status === 'approved' 
-            ? 'bg-green-100' 
-            : 'bg-red-100'
-        }`}>
-          <Text className={`text-xs font-medium ${
-            notification.status === 'approved' 
-              ? 'text-green-700' 
-              : 'text-red-700'
-          }`}>
-            {notification.status === 'approved' ? 'Post Approved' : 'Post Rejected'}
+      {(notification.type === "post_approved" ||
+        notification.type === "post_rejected") && (
+        <View
+          className={`self-start px-2 py-1 rounded-full mb-2 ${
+            notification.status === "approved" ? "bg-green-100" : "bg-red-100"
+          }`}
+        >
+          <Text
+            className={`text-xs font-medium ${
+              notification.status === "approved"
+                ? "text-green-700"
+                : "text-red-700"
+            }`}
+          >
+            {notification.status === "approved"
+              ? "Post Approved"
+              : "Post Rejected"}
           </Text>
         </View>
       )}
-      
+
       {/* Follow/Decline Buttons */}
       {notification.showButtons && (
         <View className="flex-row">
-          <TouchableOpacity className="bg-blue-500 px-4 py-2 rounded-md mr-2">
+          <TouchableOpacity className="bg-black px-4 py-2 rounded-md mr-2">
             <Text className="text-white text-sm font-medium">Follow</Text>
           </TouchableOpacity>
-          <TouchableOpacity className="bg-gray-200 px-4 py-2 rounded-md">
+          <TouchableOpacity className="px-4 py-2 rounded-md">
             <Text className="text-gray-700 text-sm font-medium">Decline</Text>
           </TouchableOpacity>
         </View>
@@ -247,10 +265,33 @@ export default function NotificationPage() {
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
-      
+
       {/* Header */}
       <View className="px-4 pt-10 pb-3 bg-gray-50">
-        <Text className="text-xl font-semibold text-gray-900">Notifications</Text>
+        <Text className="text-2xl font-bold text-gray-900 pt-3">
+          Notifications
+        </Text>
+      </View>
+      <View className="flex-row items-center bg-gray-100 rounded-xl px-4 py-3 mb-3">
+        <Ionicons name="search" size={20} color="#9ca3af" />
+        <Text
+          className="flex-1 ml-3 text-gray-700 text-base"
+          onPress={() => {
+            // You can implement a proper search input here
+            console.log("Search functionality to be implemented");
+          }}
+        >
+          Search notifications...
+        </Text>
+        <Ionicons
+          name="filter"
+          size={20}
+          color="#9ca3af"
+          onPress={() => {
+            // Implement sorting/filtering functionality here
+            console.log("Sort/filter functionality to be implemented");
+          }}
+        />
       </View>
 
       {/* Notifications List */}
@@ -265,8 +306,14 @@ export default function NotificationPage() {
           )}
           ListEmptyComponent={
             <View className="items-center mt-32">
-              <Ionicons name="notifications-off-outline" size={60} color="#D1D5DB" />
-              <Text className="text-lg text-gray-400 mt-4">No notifications yet</Text>
+              <Ionicons
+                name="notifications-off-outline"
+                size={60}
+                color="#D1D5DB"
+              />
+              <Text className="text-lg text-gray-400 mt-4">
+                No notifications yet
+              </Text>
             </View>
           }
         />

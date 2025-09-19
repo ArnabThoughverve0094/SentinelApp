@@ -89,13 +89,13 @@ const SearchItem: React.FC<SearchItemProps> = ({ search }) => (
     </View>
 
     {/* Right side - Follow Button */}
-    <TouchableOpacity className="bg-blue-500 px-4 py-2 rounded-md">
+    <TouchableOpacity className="bg-black px-4 py-2 rounded-md">
       <Text className="text-white text-sm font-medium">Follow</Text>
     </TouchableOpacity>
   </View>
 );
 
-export default function NotificationPage() {
+export default function SearchPage() {
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
@@ -128,7 +128,7 @@ export default function NotificationPage() {
                 color="#D1D5DB"
               />
               <Text className="text-lg text-gray-400 mt-4">
-                No notifications yet
+                No users found
               </Text>
             </View>
           }
