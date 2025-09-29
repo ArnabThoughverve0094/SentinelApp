@@ -1,23 +1,309 @@
-import { Ionicons } from "@expo/vector-icons";
+import { db } from '@/FirebaseConfig';
+import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ResizeMode, Video } from 'expo-av';
 import * as ImagePicker from 'expo-image-picker';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from "react";
+import { useFocusEffect, useRouter } from 'expo-router';
+import { arrayRemove, arrayUnion, collection, doc, getDocs, updateDoc } from 'firebase/firestore';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
+  Dimensions,
   Image,
   Modal,
   Platform,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
+  Share,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from "react-native";
+import CommentsModal from '../../components/CommentsModal';
 import SentinelFAQ from '../../components/SentinelFAQ';
+import TotalSentiment from '../../components/TotalSentiment';
+
+const { width: screenWidth } = Dimensions.get('window');
+
+// PostItem interface from landing page
+interface PostItem {
+  id: string;
+  uniqueId: string;
+  AuthorImageURL: string;
+  AuthorName: string;
+  ContentDate: string;
+  ContentDesc: string;
+  ContentURL: string;
+  ContentURLs?: string[];
+  ContentLikeCount: number;
+  ContentRepostCount: number;
+  ContentCommentCount?: number;
+  isApproved: boolean;
+  isNew: boolean;
+  postType: string;
+  Liked: boolean;
+  Reposted: boolean;
+  Bookmarked?: boolean;
+  createdAt?: any;
+}
+
+// Your Custom LoadingComponent with Sentinel Logo (Smaller Size)
+const LoadingComponent: React.FC<{ visible?: boolean; size?: 'small' | 'medium' | 'large' }> = ({
+  visible = true,
+  size = 'medium'
+}) => {
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (visible) {
+      // Enhanced entrance animation
+      Animated.parallel([
+        Animated.timing(opacityAnim, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 50,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Continuous rotation animation
+      const rotateAnimation = Animated.loop(
+        Animated.timing(rotateAnim, {
+          toValue: 1,
+          duration: 2500,
+          useNativeDriver: true,
+        })
+      );
+
+      // Pulse animation for the logo
+      const pulseAnimation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.1,
+            duration: 1800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1800,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+
+      rotateAnimation.start();
+      pulseAnimation.start();
+
+      return () => {
+        rotateAnimation.stop();
+        pulseAnimation.stop();
+      };
+    } else {
+      // Exit animation
+      Animated.parallel([
+        Animated.timing(opacityAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 0.8,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [visible, rotateAnim, scaleAnim, opacityAnim, pulseAnim]);
+
+  const getSizeStyles = () => {
+    switch (size) {
+      case 'small':
+        return {
+          logo: { width: 40, height: 40 },
+        };
+      case 'medium':
+        return {
+          logo: { width: 50, height: 50 },
+        };
+      default: // large
+        return {
+          logo: { width: 60, height: 60 },
+        };
+    }
+  };
+
+  const sizeStyles = getSizeStyles();
+
+  const rotateInterpolate = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
+  if (!visible) return null;
+
+  return (
+    <Animated.View
+      style={{
+        opacity: opacityAnim,
+        transform: [{ scale: scaleAnim }],
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'transparent',
+        paddingVertical: 20,
+      }}
+    >
+      {/* Animated Logo Container */}
+      <Animated.View
+        style={{
+          transform: [
+            { rotate: rotateInterpolate },
+            { scale: pulseAnim }
+          ],
+          zIndex: 10,
+        }}
+      >
+        <View
+          style={{
+            width: sizeStyles.logo.width,
+            height: sizeStyles.logo.height,
+            borderRadius: sizeStyles.logo.width / 2,
+            overflow: 'hidden',
+            borderWidth: 4,
+            borderColor: '#ffffff',
+            backgroundColor: '#ffffff',
+            shadowColor: '#000000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 8,
+          }}
+        >
+          <Image
+            source={require('../../assets/images/sentinel_logo.png')}
+            style={{
+              width: '100%',
+              height: '100%',
+            }}
+            resizeMode="cover"
+          />
+        </View>
+      </Animated.View>
+    </Animated.View>
+  );
+};
+
+// Enhanced Full Screen Loading Overlay Component
+const LoadingOverlay: React.FC<{ visible?: boolean; size?: 'small' | 'medium' | 'large' }> = (props) => {
+  const backdropAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (props.visible) {
+      Animated.timing(backdropAnim, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(backdropAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [props.visible, backdropAnim]);
+
+  if (!props.visible) return null;
+
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: backdropAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: ['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.3)'],
+        }),
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1000,
+        opacity: backdropAnim,
+      }}
+    >
+      <LoadingComponent {...props} />
+    </Animated.View>
+  );
+};
+
+// Skeleton Loading Component for List Items
+const SkeletonLoader: React.FC<{ count?: number }> = ({ count = 3 }) => {
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const shimmerAnimation = Animated.loop(
+      Animated.timing(shimmerAnim, {
+        toValue: 1,
+        duration: 1500,
+        useNativeDriver: true,
+      })
+    );
+    shimmerAnimation.start();
+
+    return () => shimmerAnimation.stop();
+  }, [shimmerAnim]);
+
+  const shimmerOpacity = shimmerAnim.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0.3, 0.7, 0.3],
+  });
+
+  return (
+    <View style={{ paddingHorizontal: 16 }}>
+      {Array.from({ length: count }).map((_, index) => (
+        <Animated.View
+          key={`skeleton-${index}`}
+          style={{ 
+            opacity: shimmerOpacity,
+            marginBottom: 16,
+            backgroundColor: 'white',
+            borderRadius: 12,
+            padding: 16,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 2,
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#e5e7eb' }} />
+            <View style={{ marginLeft: 12, flex: 1 }}>
+              <View style={{ width: 96, height: 16, backgroundColor: '#e5e7eb', borderRadius: 4, marginBottom: 4 }} />
+              <View style={{ width: 64, height: 12, backgroundColor: '#e5e7eb', borderRadius: 4 }} />
+            </View>
+          </View>
+          <View style={{ width: '100%', height: 12, backgroundColor: '#e5e7eb', borderRadius: 4, marginBottom: 8 }} />
+          <View style={{ width: '75%', height: 12, backgroundColor: '#e5e7eb', borderRadius: 4, marginBottom: 12 }} />
+          <View style={{ width: '100%', height: 160, backgroundColor: '#e5e7eb', borderRadius: 8 }} />
+        </Animated.View>
+      ))}
+    </View>
+  );
+};
 
 // Toast Notification Component
 interface ToastProps {
@@ -280,6 +566,27 @@ export default function ProfilePage(): React.JSX.Element {
   const [profilePicUrl, setProfilePicUrl] = useState<string>("");
   const [isUploading, setIsUploading] = useState<boolean>(false);
 
+  // Posts related states
+  const [userPosts, setUserPosts] = useState<PostItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(-1);
+  const videoRefs = useRef<{ [key: string]: any }>({});
+
+  // Loading states for pagination
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMorePosts, setHasMorePosts] = useState(true);
+
+  // Comment modal states
+  const [isCommentModalVisible, setIsCommentModalVisible] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [selectedPostType, setSelectedPostType] = useState<string | null>(null);
+
+  // Graph modal states
+  const [isGraphModalVisible, setIsGraphModalVisible] = useState(false);
+  const [selectedGraphPostId, setSelectedGraphPostId] = useState<string | null>(null);
+  const [selectedGraphPostType, setSelectedGraphPostType] = useState<string | null>(null);
+
   // Toast state
   const [toast, setToast] = useState<{
     visible: boolean;
@@ -310,10 +617,253 @@ export default function ProfilePage(): React.JSX.Element {
     buttons: []
   });
 
+  const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
+
+  // Helper function to check if interactions should be disabled
+  const areInteractionsDisabled = useCallback((item: PostItem) => {
+    // Disable interactions for rejected posts (not approved and not new)
+    return !item.isApproved && !item.isNew;
+  }, []);
+
   // Load user data from stored tokens
   useEffect(() => {
     loadUserData();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (userName || userNickName) {
+        fetchUserPosts();
+      }
+    }, [userName, userNickName])
+  );
+
+  // IMPROVED TIME AGO FUNCTION
+  const getTimeAgo = useCallback((dateString: any) => {
+    if (!dateString) return 'Just now';
+    
+    try {
+      let postDate: Date;
+      
+      if (dateString && typeof dateString === 'object' && dateString.toDate) {
+        postDate = dateString.toDate();
+      }
+      else if (typeof dateString === 'string') {
+        postDate = new Date(dateString);
+      }
+      else if (dateString instanceof Date) {
+        postDate = dateString;
+      }
+      else if (typeof dateString === 'number') {
+        postDate = new Date(dateString);
+      }
+      else {
+        return 'Just now';
+      }
+
+      const now = new Date();
+      const diffInMs = now.getTime() - postDate.getTime();
+      const diffInSeconds = Math.floor(diffInMs / 1000);
+      const diffInMinutes = Math.floor(diffInSeconds / 60);
+      const diffInHours = Math.floor(diffInMinutes / 60);
+      const diffInDays = Math.floor(diffInHours / 24);
+      const diffInWeeks = Math.floor(diffInDays / 7);
+      const diffInMonths = Math.floor(diffInDays / 30);
+      const diffInYears = Math.floor(diffInDays / 365);
+
+      if (diffInSeconds < 60) {
+        return diffInSeconds <= 0 ? 'Just now' : `${diffInSeconds}s ago`;
+      } else if (diffInMinutes < 60) {
+        return `${diffInMinutes}m ago`;
+      } else if (diffInHours < 24) {
+        return `${diffInHours}h ago`;
+      } else if (diffInDays < 7) {
+        return `${diffInDays}d ago`;
+      } else if (diffInWeeks < 4) {
+        return `${diffInWeeks}w ago`;
+      } else if (diffInMonths < 12) {
+        return `${diffInMonths}mo ago`;
+      } else {
+        return `${diffInYears}y ago`;
+      }
+    } catch (error) {
+      console.error('Error parsing date:', error);
+      return 'Just now';
+    }
+  }, []);
+
+  const getMediaType = useCallback((url: string) => {
+    if (!url) return 'unknown';
+    
+    const lower = url.toLowerCase();
+    const urlPath = lower.split(/[?#]/)[0];
+    if (urlPath.match(/\.(mp4|mov|avi|mkv|webm|m4v)$/)) return 'video';
+    if (urlPath.match(/\.(jpg|jpeg|png|bmp|webp)$/)) return 'image';
+    if (urlPath.match(/\.(gif)$/)) return 'gif';
+    if (urlPath.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt)$/)) return 'doc';
+    
+    if (lower.includes('unsplash.com') || 
+        lower.includes('images.') || 
+        lower.includes('photo') ||
+        lower.includes('img.') ||
+        lower.includes('picture')) {
+      return 'image';
+    }
+    
+    if (lower.includes('video') || lower.includes('youtube') || lower.includes('vimeo')) {
+      return 'video';
+    }
+    
+    if (lower.startsWith('http') && !urlPath.includes('.')) {
+      return 'image';
+    }
+    
+    return urlPath.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt)$/) ? 'doc' : 'image';
+  }, []);
+
+  // FIXED: Fetch ONLY the current user's posts WITHOUT complex Firebase queries
+  const fetchUserPosts = useCallback(async (loadMore = false) => {
+    if (!userName && !userNickName) {
+      console.log('No user name available for filtering posts');
+      return;
+    }
+
+    // Set loading states
+    if (loadMore) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
+
+    try {
+      console.log('🔍 Fetching posts for current user:', userName || userNickName);
+      
+      const allUserPosts: PostItem[] = [];
+
+      // FIXED: Use simple getDocs without complex queries to avoid Firebase index requirements
+      try {
+        const sentinelSnapshot = await getDocs(collection(db, 'SentinelPosts'));
+        const sentinelPosts = sentinelSnapshot.docs
+          .map(doc => {
+            const postData = doc.data();
+            return {
+              uniqueId: `sentinel-${doc.id}`,
+              id: doc.id,
+              AuthorImageURL: postData.AuthorImageURL || profilePicUrl,
+              AuthorName: postData.AuthorName,
+              ContentDate: postData.ContentDate,
+              ContentDesc: postData.ContentDesc,
+              ContentURL: postData.ContentURL,
+              ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+              ContentLikeCount: postData.ContentLikeCount || 0,
+              ContentRepostCount: postData.ContentRepostCount || 0,
+              ContentCommentCount: postData.ContentCommentCount || 0,
+              isApproved: postData.isApproved || false,
+              isNew: postData.isNew !== undefined ? postData.isNew : true,
+              postType: "SentinelPosts",
+              Liked: (postData.LikedBy?.includes(userId) || false),
+              Reposted: false,
+              Bookmarked: (postData.BookmarkedBy?.includes(userId) || false),
+              createdAt: postData.createdAt || postData.ContentDate,
+            } as PostItem;
+          })
+          .filter(post => {
+            // Client-side filtering to avoid Firebase index requirements
+            const isCurrentUser = post.AuthorName === userName || post.AuthorName === userNickName;
+            return isCurrentUser;
+          })
+          .sort((a, b) => {
+            // Client-side sorting by date
+            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+            return dateB.getTime() - dateA.getTime();
+          });
+
+        allUserPosts.push(...sentinelPosts);
+        console.log(`✅ Found ${sentinelPosts.length} SentinelPosts for current user`);
+      } catch (sentinelError) {
+        console.warn('⚠️ Error fetching SentinelPosts:', sentinelError);
+      }
+
+      // Fetch from X-Data
+      try {
+        const xDataSnapshot = await getDocs(collection(db, 'X-Data'));
+        const xDataPosts = xDataSnapshot.docs
+          .map(doc => {
+            const postData = doc.data();
+            return {
+              uniqueId: `xdata-${doc.id}`,
+              id: doc.id,
+              AuthorImageURL: postData.AuthorImageURL || profilePicUrl,
+              AuthorName: postData.AuthorName,
+              ContentDate: postData.ContentDate,
+              ContentDesc: postData.ContentDesc,
+              ContentURL: postData.ContentURL,
+              ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+              ContentLikeCount: postData.ContentLikeCount || 0,
+              ContentRepostCount: postData.ContentRepostCount || 0,
+              ContentCommentCount: postData.ContentCommentCount || 0,
+              isApproved: true,
+              isNew: false,
+              postType: "X-Data",
+              Liked: (postData.LikedBy?.includes(userId) || false),
+              Reposted: false,
+              Bookmarked: (postData.BookmarkedBy?.includes(userId) || false),
+              createdAt: postData.createdAt || postData.ContentDate,
+            } as PostItem;
+          })
+          .filter(post => {
+            // Client-side filtering to avoid Firebase index requirements
+            const isCurrentUser = post.AuthorName === userName || post.AuthorName === userNickName;
+            return isCurrentUser;
+          })
+          .sort((a, b) => {
+            // Client-side sorting by date
+            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+            return dateB.getTime() - dateA.getTime();
+          });
+
+        allUserPosts.push(...xDataPosts);
+        console.log(`✅ Found ${xDataPosts.length} X-Data posts for current user`);
+      } catch (xDataError) {
+        console.warn('⚠️ Error fetching X-Data:', xDataError);
+      }
+
+      // Final sort of all combined posts
+      const sortedPosts = allUserPosts.sort((a, b) => {
+        const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+        const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+        return dateB.getTime() - dateA.getTime();
+      });
+
+      if (loadMore) {
+        setUserPosts(prev => [...prev, ...sortedPosts]);
+      } else {
+        setUserPosts(sortedPosts);
+      }
+      
+      console.log(`🎉 Total posts found for "${userName || userNickName}": ${sortedPosts.length}`);
+
+      // Check if there are more posts (simplified logic)
+      setHasMorePosts(sortedPosts.length > 0);
+
+    } catch (error) {
+      console.error('❌ Error fetching user posts:', error);
+      showToast('Failed to load posts', 'error');
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, [userId, userName, userNickName, profilePicUrl]);
+
+  // Load more posts when scrolling
+  const handleLoadMore = useCallback(() => {
+    if (!loadingMore && hasMorePosts && userPosts.length > 0) {
+      // For now, just prevent infinite loading
+      console.log('Load more requested');
+    }
+  }, [loadingMore, hasMorePosts, userPosts.length]);
 
   // Helper: Convert path to full URL for display
   const getFullImageUrl = (profilePath: string): string => {
@@ -387,15 +937,6 @@ export default function ProfilePage(): React.JSX.Element {
         'userToken'
       ]);
       
-      // Log what we found
-      console.log('📊 AsyncStorage data loaded:');
-      console.log('- userId:', fetchuserID[1] ? '✅' : '❌');
-      console.log('- userEmail:', fetchuserEmail[1] ? '✅' : '❌');
-      console.log('- userName:', fetchuserName[1] ? '✅' : '❌');
-      console.log('- userNickName:', fetchuserNickName[1] ? '✅' : '❌');
-      console.log('- profilePicUrl:', fetchProfilePic[1] ? `✅ ${fetchProfilePic[1]}` : '❌');
-      console.log('- accessToken:', fetchAccessToken[1] ? '✅ Found' : '❌ Missing');
-      
       if (fetchuserID[1]) {
         setUserId(fetchuserID[1]);
         console.log("✅ userId loaded:", fetchuserID[1]);
@@ -415,12 +956,6 @@ export default function ProfilePage(): React.JSX.Element {
       if (fetchProfilePic[1]) {
         setProfilePicUrl(fetchProfilePic[1]);
         console.log("✅ profilePicUrl loaded and set:", fetchProfilePic[1]);
-      }
-
-      if (!fetchAccessToken[1]) {
-        console.error('❌ No access token found before upload');
-      } else {
-        console.log('✅ Access token exists for API calls');
       }
 
     } catch (error) {
@@ -759,9 +1294,570 @@ export default function ProfilePage(): React.JSX.Element {
     }
   };
 
+  // TO OPEN COMMENTS MODAL
+  const openCommentsModal = useCallback((item: PostItem) => {
+    // Check if interactions are disabled for rejected posts
+    if (areInteractionsDisabled(item)) {
+      showCustomAlert(
+        'warning',
+        'Post Not Available',
+        'This post has been rejected and interactions are disabled.',
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
+      return;
+    }
+
+    setSelectedPostId(item.id);
+    setSelectedPostType(item.postType);
+    setIsCommentModalVisible(true);
+  }, [areInteractionsDisabled]);
+
+  // TO CLOSE COMMENTS MODAL
+  const closeCommentsModal = useCallback(() => {
+    setIsCommentModalVisible(false);
+    setSelectedPostId(null);
+    setSelectedPostType(null);
+    // Refresh posts to get updated comment counts
+    fetchUserPosts();
+  }, [fetchUserPosts]);
+
+  // TO OPEN GRAPH MODAL
+  const openGraphModal = useCallback((item: PostItem) => {
+    // Check if interactions are disabled for rejected posts
+    if (areInteractionsDisabled(item)) {
+      showCustomAlert(
+        'warning',
+        'Post Not Available',
+        'This post has been rejected and interactions are disabled.',
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
+      return;
+    }
+
+    console.log("Graph ID: ", item.id);
+    setSelectedGraphPostId(item.id);
+    setSelectedGraphPostType(item.postType);
+    setIsGraphModalVisible(true);
+    setSelectedPostId(item.id);
+    setSelectedPostType(item.postType);
+    setIsCommentModalVisible(false);
+  }, [areInteractionsDisabled]);
+
+  // TO CLOSE GRAPH MODAL
+  const closeGraphModal = useCallback(() => {
+    setIsGraphModalVisible(false);
+    setSelectedGraphPostId(null);
+    setSelectedGraphPostType(null);
+  }, []);
+
+  const addResponseGraphModal = useCallback(() => {
+    setIsGraphModalVisible(false);
+    setIsCommentModalVisible(true);
+  }, []);
+
+  const toggleLike = useCallback(async (postItem: PostItem) => {
+    // Check if interactions are disabled for rejected posts
+    if (areInteractionsDisabled(postItem)) {
+      showCustomAlert(
+        'warning',
+        'Action Not Available',
+        'This post has been rejected and interactions are disabled.',
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
+      return;
+    }
+
+    try {
+      let fetchuserID = userId;
+      if(fetchuserID == ""){
+        fetchuserID = await AsyncStorage.getItem('userId') || "";
+        setUserId(fetchuserID);
+      }
+
+      const postRef = doc(db, postItem.postType, postItem.id);
+      if(postItem.Liked) {
+        console.log("Unliking post:", postItem.id);
+        await updateDoc(postRef, {
+          ContentLikeCount: Math.max(0, postItem.ContentLikeCount - 1),
+          LikedBy: arrayRemove(fetchuserID),
+        });
+      } else {
+        console.log("Liking post:", postItem.id);
+        await updateDoc(postRef, {
+          ContentLikeCount: postItem.ContentLikeCount + 1,
+          LikedBy: arrayUnion(fetchuserID),
+        });
+      }
+
+      // Update local state immediately for better UX
+      setUserPosts(prevPosts => prevPosts.map(post => 
+        post.uniqueId === postItem.uniqueId 
+          ? { 
+              ...post, 
+              Liked: !post.Liked,
+              ContentLikeCount: post.Liked 
+                ? Math.max(0, post.ContentLikeCount - 1)
+                : post.ContentLikeCount + 1
+            }
+          : post
+      ));
+
+      await new Promise(r => setTimeout(r, 200));
+    } catch (error) {
+      console.error('Error toggling like:', error);
+      showToast('Failed to update like', 'error');
+    }
+  }, [userId, areInteractionsDisabled]);
+
+  const handleRepost = useCallback(async (postItem: PostItem) => {
+    // Check if interactions are disabled for rejected posts
+    if (areInteractionsDisabled(postItem)) {
+      showCustomAlert(
+        'warning',
+        'Action Not Available',
+        'This post has been rejected and interactions are disabled.',
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
+      return;
+    }
+
+    console.log("Repost pressed:", postItem.id);
+    
+    setUserPosts(prevData => 
+      prevData.map(item => 
+        item.uniqueId === postItem.uniqueId 
+          ? { 
+              ...item, 
+              Reposted: !item.Reposted, 
+              ContentRepostCount: item.Reposted 
+                ? Math.max(0, item.ContentRepostCount - 1)
+                : item.ContentRepostCount + 1
+            } 
+          : item
+      )
+    );
+
+    await new Promise(r => setTimeout(r, 200));
+  }, [areInteractionsDisabled]);
+
+  const handleBookmark = useCallback(async (postItem: PostItem) => {
+    // Check if interactions are disabled for rejected posts
+    if (areInteractionsDisabled(postItem)) {
+      showCustomAlert(
+        'warning',
+        'Action Not Available',
+        'This post has been rejected and interactions are disabled.',
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
+      return;
+    }
+
+    try {
+      console.log("Bookmark pressed:", postItem.id);
+      
+      let fetchuserID = userId;
+      if(fetchuserID == ""){
+        fetchuserID = await AsyncStorage.getItem('userId') || "";
+        setUserId(fetchuserID);
+      }
+
+      const postRef = doc(db, postItem.postType, postItem.id);
+      if(postItem.Bookmarked) {
+        console.log("Removing bookmark:", postItem.id);
+        await updateDoc(postRef, {
+          BookmarkedBy: arrayRemove(fetchuserID),
+        });
+      } else {
+        console.log("Adding bookmark:", postItem.id);
+        await updateDoc(postRef, {
+          BookmarkedBy: arrayUnion(fetchuserID),
+        });
+      }
+
+      // Update local state immediately for better UX
+      setUserPosts(prevPosts => prevPosts.map(post => 
+        post.uniqueId === postItem.uniqueId 
+          ? { ...post, Bookmarked: !post.Bookmarked }
+          : post
+      ));
+
+      await new Promise(r => setTimeout(r, 200));
+    } catch (error) {
+      console.error('Error toggling bookmark:', error);
+      showToast('Failed to update bookmark', 'error');
+    }
+  }, [userId, areInteractionsDisabled]);
+
+  // NEW: Handle Share Post
+  const handleSharePost = useCallback(async (postItem: PostItem) => {
+    // Check if interactions are disabled for rejected posts
+    if (areInteractionsDisabled(postItem)) {
+      showCustomAlert(
+        'warning',
+        'Action Not Available',
+        'This post has been rejected and interactions are disabled.',
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
+      return;
+    }
+
+    try {
+      const shareContent = {
+        title: `Post by ${postItem.AuthorName}`,
+        message: `Check out this post: "${postItem.ContentDesc.substring(0, 100)}${postItem.ContentDesc.length > 100 ? '...' : ''}"`,
+        url: postItem.ContentURL || undefined,
+      };
+
+      await Share.share(shareContent);
+      showToast('Post shared successfully!', 'success');
+    } catch (error) {
+      console.error('Error sharing post:', error);
+      showToast('Failed to share post', 'error');
+    }
+  }, [areInteractionsDisabled]);
+
+  // OPTIMIZED MEDIA CONTENT - REDUCED SIZES
+  const renderMediaContent = useCallback((item: PostItem, index?: number) => {
+    const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
+                     (item.ContentURL ? [item.ContentURL] : []);
+    
+    if (!mediaUrls || mediaUrls.length === 0) return null;
+
+    const primaryMediaUrl = mediaUrls[0];
+    const mediaType = getMediaType(primaryMediaUrl);
+
+    if (mediaType === 'image') {
+      return (
+        <View className="mb-2">
+          <TouchableOpacity 
+            activeOpacity={0.95}
+          >
+            <View className="relative rounded-xl overflow-hidden">
+              <Image
+                source={{ uri: primaryMediaUrl }}
+                style={{ width: '100%', height: 200 }}
+                className="bg-gray-100"
+                resizeMode="cover"
+                onError={(error) => {
+                  console.log("Image load error:", error.nativeEvent.error);
+                }}
+              />
+            </View>
+          </TouchableOpacity>
+        </View>
+      );
+    } else if (mediaType === 'video') {
+      return (
+        <View className="mb-2">
+          <TouchableOpacity 
+            activeOpacity={0.95}
+          >
+            <View className="relative rounded-xl overflow-hidden bg-black">
+              <Video
+                ref={(ref) => {
+                  if (ref && index !== undefined) {
+                    videoRefs.current[`video-${index}`] = ref;
+                  }
+                }}
+                source={{ uri: primaryMediaUrl }}
+                style={{ width: '100%', height: 200 }}
+                resizeMode={ResizeMode.CONTAIN}
+                useNativeControls={false}
+                shouldPlay={currentVideoIndex === index}
+                isMuted={true}
+                isLooping={true}
+              />
+              <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+                <Ionicons name="play-outline" size={14} color="white" />
+              </View>
+              {currentVideoIndex !== index && (
+                <View className="absolute inset-0 bg-black/20 items-center justify-center">
+                  <View className="w-10 h-10 bg-black/60 rounded-full items-center justify-center">
+                    <Ionicons name="play" size={20} color="white" />
+                  </View>
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
+        </View>
+      );
+    } else if (mediaType === 'gif') {
+      return (
+        <View className="mb-2">
+          <TouchableOpacity 
+            activeOpacity={0.95}
+          >
+            <View className="relative rounded-xl overflow-hidden">
+              <Image
+                source={{ uri: primaryMediaUrl }}
+                style={{ width: '100%', height: 200 }}
+                className="bg-gray-100"
+                resizeMode="cover"
+              />
+              <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+                 <MaterialIcons name="gif" size={20} color="white" />
+              </View>
+            </View>
+          </TouchableOpacity>
+        </View>
+      );
+    } else if (mediaType === 'doc') {
+      return (
+        <View className="mb-2">
+          <TouchableOpacity 
+            activeOpacity={0.95}
+          >
+            <View
+              style={{
+                borderRadius: 12,
+                overflow: 'hidden',
+                backgroundColor: '#EEF2F6',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: 80,
+              }}>
+              <Ionicons name="document-text-outline" size={32} color="#8B5CF6" />
+              <Text numberOfLines={1} style={{ color: '#333', marginTop: 4, textAlign: 'center', paddingHorizontal: 12, fontSize: 11 }}>
+                {primaryMediaUrl.split('/').pop() || 'Document'}
+              </Text>
+              <Text style={{ color: '#aaa', fontSize: 9, marginTop: 1 }}>Tap to open</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      );
+    } else {
+      return null;
+    }
+  }, [getMediaType, currentVideoIndex]);
+
+  // UPDATED: Get post status for display - FIXED to show REJECTED instead of PENDING
+  const getPostStatus = (item: PostItem) => {
+    if (item.postType === 'X-Data') {
+      return {
+        text: '𝕏 POST',
+        color: '#1DA1F2',
+        bgColor: 'bg-blue-100'
+      };
+    }
+    
+    if (item.isNew) {
+      return {
+        text: 'NEW',
+        color: '#F59E0B',
+        bgColor: 'bg-yellow-100'
+      };
+    } else if (item.isApproved) {
+      return {
+        text: 'APPROVED',
+        color: '#10B981',
+        bgColor: 'bg-green-100'
+      };
+    } else {
+      // FIXED: Changed from 'PENDING' to 'REJECTED'
+      return {
+        text: 'REJECTED',
+        color: '#EF4444',
+        bgColor: 'bg-red-100'
+      };
+    }
+  };
+
+  // UPDATED: Render post content with DISABLED BUTTONS for rejected posts
+  const renderPostContent = useCallback((item: PostItem, index: number) => (
+    <TouchableOpacity 
+      key={`post-${item.uniqueId}-${index}`}
+      activeOpacity={0.95}
+      onPress={() => openCommentsModal(item)}
+      className="bg-white mx-4 mb-3 rounded-2xl shadow-sm border border-gray-100"
+    >
+      <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
+        <View className="flex-row items-center">
+          <View className="relative">
+            <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
+              <Image
+                source={{ uri: item?.AuthorImageURL || profilePicUrl || dummyAuthorImage }}
+                className="w-full h-full"
+                resizeMode="cover"
+              />
+            </View>
+          </View>
+          <View className="flex-1">
+            <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text>
+            <View className="flex-row items-center mt-0.5">
+              <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
+              {item.postType === 'X-Data' && (
+                <View className="bg-blue-100 px-1.5 py-0.5 rounded-full mr-1.5">
+                  <Text className="text-blue-600 text-xs font-semibold">𝕏 POST</Text>
+                </View>
+              )}
+              {item.postType === 'SentinelPosts' && (
+                <View className={`px-1.5 py-0.5 rounded-full ${getPostStatus(item).bgColor}`}>
+                  <Text className="text-xs font-semibold" style={{ color: getPostStatus(item).color }}>
+                    {getPostStatus(item).text}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+          <TouchableOpacity className="p-1.5 rounded-full bg-gray-100">
+            <Ionicons name="ellipsis-horizontal" size={12} color="#64748b" />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View className="px-3 py-2.5">
+        <Text className="text-gray-800 text-sm leading-5 mb-2 font-normal">{item.ContentDesc}</Text>
+
+        {renderMediaContent(item, index)}
+
+        {/* UPDATED: Post Actions with DISABLED STATE for rejected posts */}
+        <View className="flex-row items-center justify-between pt-1.5">
+          {/* Like Button */}
+          <TouchableOpacity
+            className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+            onPress={(e) => {
+              e.stopPropagation();
+              toggleLike(item);
+            }}
+            activeOpacity={0.7}
+            disabled={areInteractionsDisabled(item)}
+          >
+            <Ionicons
+              name={item.Liked ? "heart" : "heart-outline"}
+              size={14}
+              color={item.Liked ? "#ef4444" : "#64748b"}
+            />
+            <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
+              {item.ContentLikeCount || 0}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Comment Button */}
+          <TouchableOpacity
+            className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+            onPress={(e) => {
+              e.stopPropagation();
+              openCommentsModal(item);
+            }}
+            activeOpacity={0.7}
+            disabled={areInteractionsDisabled(item)}
+          >
+            <MaterialCommunityIcons
+              name="comment-outline"
+              size={14}
+              color="#64748b"
+            />
+            <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount || 0}</Text>
+          </TouchableOpacity>
+
+          {/* Repost Button */}
+          <TouchableOpacity
+            className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleRepost(item);
+            }}
+            activeOpacity={0.7}
+            disabled={areInteractionsDisabled(item)}
+          >
+            <Ionicons 
+              name="repeat-outline" 
+              size={14} 
+              color={item.Reposted ? "#0ea5e9" : "#64748b"} 
+            />
+            <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
+              {item.ContentRepostCount || 0}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Analytics/Graph Button */}
+          <TouchableOpacity 
+            className={`p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+            onPress={(e) => {
+              e.stopPropagation();
+              openGraphModal(item);
+            }}
+            activeOpacity={0.7}
+            disabled={areInteractionsDisabled(item)}
+          >
+            <Feather name="bar-chart-2" size={14} color="#64748b" />
+          </TouchableOpacity>
+
+          {/* Bookmark Button */}
+          <TouchableOpacity
+            className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleBookmark(item);
+            }}
+            activeOpacity={0.7}
+            disabled={areInteractionsDisabled(item)}
+          >
+            <Ionicons 
+              name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
+              size={14} 
+              color={item.Bookmarked ? "#000000" : "#64748b"} 
+            />
+          </TouchableOpacity>
+
+          {/* Share Button */}
+          <TouchableOpacity
+            className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleSharePost(item);
+            }}
+            activeOpacity={0.7}
+            disabled={areInteractionsDisabled(item)}
+          >
+            <Feather name="share-2" size={16} color="#64748b" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </TouchableOpacity>
+  ), [openCommentsModal, toggleLike, handleRepost, handleBookmark, handleSharePost, openGraphModal, renderMediaContent, getTimeAgo, getPostStatus, profilePicUrl, dummyAuthorImage, areInteractionsDisabled]);
+
+  // Refresh function
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchUserPosts();
+    setRefreshing(false);
+  }, [fetchUserPosts]);
+
   const handleLogout = async () => {
     try {
       console.log('🔄 Logging out user...');
+      
       await AsyncStorage.multiRemove([
         'userToken',
         'accessToken',
@@ -938,6 +2034,15 @@ export default function ProfilePage(): React.JSX.Element {
     );
   };
 
+  // Get selected post data for modals
+  const selectedPostData = useMemo(() => {
+    return userPosts.find(post => post.id === selectedPostId && post.postType === selectedPostType);
+  }, [userPosts, selectedPostId, selectedPostType]);
+
+  const selectedGraphPostData = useMemo(() => {
+    return userPosts.find(post => post.id === selectedGraphPostId && post.postType === selectedGraphPostType);
+  }, [userPosts, selectedGraphPostId, selectedGraphPostType]);
+
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
@@ -955,7 +2060,26 @@ export default function ProfilePage(): React.JSX.Element {
         </TouchableOpacity>
       </View>
 
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        className="flex-1" 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#8B5CF6']}
+            tintColor="#8B5CF6"
+          />
+        }
+        onScroll={({ nativeEvent }) => {
+          const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+          const paddingToBottom = 20;
+          if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
+            handleLoadMore();
+          }
+        }}
+        scrollEventThrottle={400}
+      >
         {/* Profile Section - NEW HORIZONTAL LAYOUT */}
         <View className="bg-white mx-4 mt-4 rounded-2xl shadow-sm border border-gray-100">
           <View className="px-6 py-8">
@@ -999,26 +2123,18 @@ export default function ProfilePage(): React.JSX.Element {
               {/* Name and Username - Next to Image */}
               <View className="flex-1">
                 <Text className="text-xl font-bold text-gray-900 mb-1">
-                  {userName || 'Rajesh Francis'}
+                  {userName || userNickName || 'User'}
                 </Text>
                 <Text className="text-gray-500 text-base">
-                  @{userNickName || 'rajesh.francis'}
+                  @{userNickName || userName || 'username'}
                 </Text>
               </View>
-
-              {/* Three Dots Menu - Right Side */}
-              {/* <TouchableOpacity
-                onPress={handleThreeDots}
-                className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center ml-2"
-              >
-                <Ionicons name="ellipsis-horizontal" size={20} color="#6B7280" />
-              </TouchableOpacity> */}
             </View>
 
             {/* Stats Section - Below Profile Header */}
-            <View className="flex-row justify-around py-4 border-t border-b border-gray-100 mb-6">
+            {/* <View className="flex-row justify-around py-4 border-t border-b border-gray-100 mb-6">
               <View className="items-center">
-                <Text className="text-2xl font-bold text-gray-900">212</Text>
+                <Text className="text-2xl font-bold text-gray-900">{userPosts.length}</Text>
                 <Text className="text-gray-500 text-sm mt-1">Posts</Text>
               </View>
               <View className="items-center">
@@ -1029,13 +2145,13 @@ export default function ProfilePage(): React.JSX.Element {
                 <Text className="text-2xl font-bold text-gray-900">245</Text>
                 <Text className="text-gray-500 text-sm mt-1">Following</Text>
               </View>
-            </View>
+            </View> */}
 
             {/* Bio Section - Below Stats */}
             <View className="mb-6">
               <Text className="text-gray-700 leading-6 text-justify">
                 Welcome to my profile! I love sharing moments and connecting with amazing people. 
-              Let's create something beautiful together! ✨
+                Let's create something beautiful together! ✨
               </Text>
             </View>
 
@@ -1045,7 +2161,7 @@ export default function ProfilePage(): React.JSX.Element {
                 className="flex-1 bg-gray-900 py-4 px-6 rounded-xl mr-4"
                 onPress={handleEditProfile}
               >
-                <Text className="text-white font-semibold text-center text-base ">Edit Profile</Text>
+                <Text className="text-white font-semibold text-center text-base">Edit Profile</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 className="flex-1 border-2 border-gray-200 py-4 px-6 rounded-xl bg-white"
@@ -1057,66 +2173,72 @@ export default function ProfilePage(): React.JSX.Element {
           </View>
         </View>
 
-        {/* My Posts Section - Below Profile Section */}
-        <View className="bg-white mx-4 mt-4 rounded-2xl shadow-sm border border-gray-100">
-          <View className="px-6 py-6">
-            <Text className="text-lg font-bold text-gray-900 mb-4">My Posts</Text>
-            
-            {/* Sample Post */}
-            <View className="border border-gray-200 rounded-xl p-4 bg-gray-50">
-              <View className="flex-row items-center mb-3">
-                <View className="w-10 h-10 rounded-full overflow-hidden bg-black items-center justify-center mr-3">
-                  {profilePicUrl ? (
-                    <Image 
-                      source={{ uri: getFullImageUrl(profilePicUrl) }}
-                      className="w-full h-full"
-                      style={{ resizeMode: 'cover' }}
-                    />
-                  ) : (
-                    <Ionicons name="person" size={20} color="white" />
-                  )}
-                </View>
-                <View className="flex-1">
-                  <Text className="font-semibold text-gray-900">@{userNickName || 'rajesh.francis'}</Text>
-                  <Text className="text-gray-500 text-sm">2m</Text>
-                </View>
-                <Ionicons name="ellipsis-horizontal" size={20} color="#6B7280" />
-              </View>
-              
-              <Text className="text-gray-900 mb-3">
-                Some text will come here some text will come here some text will come here
-              </Text>
-              
-              {/* Sample Image */}
-              <View className="bg-gray-300 rounded-xl h-48 mb-4 items-center justify-center">
-                <Ionicons name="image" size={40} color="#9CA3AF" />
-              </View>
-              
-              {/* Post Actions */}
-              <View className="flex-row items-center justify-between">
-                <View className="flex-row items-center space-x-6">
-                  <View className="flex-row items-center">
-                    <Ionicons name="heart-outline" size={20} color="#6B7280" />
-                    <Text className="text-gray-500 text-sm ml-1">23</Text>
-                  </View>
-                  <View className="flex-row items-center">
-                    <Ionicons name="chatbubble-outline" size={18} color="#6B7280" />
-                    <Text className="text-gray-500 text-sm ml-1">12</Text>
-                  </View>
-                  <View className="flex-row items-center">
-                    <Ionicons name="repeat-outline" size={20} color="#6B7280" />
-                    <Text className="text-gray-500 text-sm ml-1">31</Text>
-                  </View>
-                </View>
-                <Ionicons name="bookmark-outline" size={18} color="#6B7280" />
+        {/* My Posts Section */}
+        <View className="mt-4">
+          <View className="px-4 mb-3">
+            <Text className="text-lg font-bold text-gray-900">My Posts</Text>
+            {userPosts.length > 0 && (
+              <Text className="text-gray-500 text-sm mt-1">{userPosts.length} posts</Text>
+            )}
+          </View>
+          
+          {/* Loading at Top */}
+          {loading && !refreshing && (
+            <LoadingComponent visible={true} size="medium" />
+          )}
+          
+          {loading && !refreshing ? (
+            <SkeletonLoader count={3} />
+          ) : userPosts.length === 0 && !loading ? (
+            <View className="bg-white mx-4 rounded-2xl shadow-sm border border-gray-100 py-12">
+              <View className="items-center">
+                <Ionicons name="create-outline" size={48} color="#9CA3AF" />
+                <Text className="text-gray-500 text-lg font-semibold mt-4">No posts yet</Text>
+                <Text className="text-gray-400 text-sm mt-2 text-center px-6">
+                  Start sharing your thoughts and moments with your followers!
+                </Text>
               </View>
             </View>
-          </View>
+          ) : (
+            <>
+              {userPosts.map((item, index) => renderPostContent(item, index))}
+              
+              {/* Loading at Bottom */}
+              {loadingMore && (
+                <LoadingComponent visible={true} size="small" />
+              )}
+            </>
+          )}
         </View>
 
         {/* Bottom spacing */}
         <View style={{ height: 80 }} />
       </ScrollView>
+
+      {/* Comments Modal */}
+      {selectedPostId && selectedPostType && selectedPostData && (
+        <CommentsModal
+          visible={isCommentModalVisible}
+          onClose={closeCommentsModal}
+          postId={selectedPostId}
+          postType={selectedPostType}
+          postData={selectedPostData}
+        />
+      )}
+
+      {/* Graph Modal */}
+      {selectedGraphPostId && selectedGraphPostType && selectedGraphPostData && (
+        <TotalSentiment
+          visible={isGraphModalVisible}
+          onClose={closeGraphModal}
+          postId={selectedGraphPostId}
+          postType={selectedGraphPostType}
+          postData={selectedGraphPostData}
+          userExistingComment={null}
+          onEditComment={() => {}}
+          onAddResponse={addResponseGraphModal}
+        />
+      )}
 
       {/* Account Modal - same as before */}
       <Modal

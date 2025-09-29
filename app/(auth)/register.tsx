@@ -604,9 +604,9 @@ export default function Register(): React.JSX.Element {
 
   // Navigate to Privacy Policy page  
   const handlePrivacyPress = () => {
-    router.push('/(auth)/termsandconditions');
+    router.push('/(auth)/privacypolicy');
   };
-
+  
   return (
     <SafeAreaView className="flex-1">
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />

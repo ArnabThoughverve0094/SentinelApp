@@ -2,13 +2,13 @@ import { db } from '@/FirebaseConfig';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
+import * as Sharing from "expo-sharing";
 import { arrayRemove, arrayUnion, collection, doc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Share } from "react-native";
 
 import { ResizeMode, Video } from 'expo-av';
 import {
-  ActivityIndicator,
   Animated,
   Dimensions,
   Image,
@@ -16,15 +16,15 @@ import {
   Modal,
   Platform,
   RefreshControl,
+  SafeAreaView,
   ScrollView,
   StatusBar,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
-import FlipCard from 'react-native-flip-card';
 import CommentsModal from '../../components/CommentsModal';
-import TotalSentiment from '../../components/TotalSentiment';
+import { LoadingComponent } from '../../components/LoadingComponent';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -213,37 +213,22 @@ export default function BookmarksPage(): React.JSX.Element {
   const [bookmarkedPosts, setBookmarkedPosts] = useState<PostItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<'recent' | 'oldest' | 'likes'>('recent');
-  
-  // Full screen modals from landing page
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
   const [isImageModalVisible, setIsImageModalVisible] = useState(false);
   const [fullScreenVideo, setFullScreenVideo] = useState<string | null>(null);
   const [isVideoModalVisible, setIsVideoModalVisible] = useState(false);
   const [fullScreenDoc, setFullScreenDoc] = useState<string | null>(null);
   const [isDocModalVisible, setIsDocModalVisible] = useState(false);
-  
-  // Full screen card and flip features from landing page
-  const [fullScreenCard, setFullScreenCard] = useState<PostItem | null>(null);
-  const [isCardModalVisible, setIsCardModalVisible] = useState(false);
-  const [isFlipped, setIsFlipped] = useState(false);
-  const [isFlipping, setIsFlipping] = useState(false);
-  
   const [cardAnimations, setCardAnimations] = useState<{ [key: string]: Animated.Value }>({});
   const [currentVideoIndex, setCurrentVideoIndex] = useState(-1);
   const scrollViewRef = useRef<ScrollView>(null);
   const videoRefs = useRef<{ [key: string]: any }>({});
-  const flipCardRef = useRef<any>(null);
   const [fetchedXData, setFetchedXData] = useState<any>([]);
 
   // ------- COMMENT MODAL STATE -------
   const [isCommentModalVisible, setIsCommentModalVisible] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedPostType, setSelectedPostType] = useState<string | null>(null);
-
-  // ------- GRAPH MODAL STATE -------
-  const [isGraphModalVisible, setIsGraphModalVisible] = useState(false);
-  const [selectedGraphPostId, setSelectedGraphPostId] = useState<string | null>(null);
-  const [selectedGraphPostType, setSelectedGraphPostType] = useState<string | null>(null);
 
   // ------- CUSTOM ALERT STATE -------
   const [modalConfig, setModalConfig] = useState<{
@@ -407,15 +392,201 @@ export default function BookmarksPage(): React.JSX.Element {
     }
   }, []);
 
-  // Helper function to get post status text and color
-  const getPostStatus = useCallback((item: PostItem) => {
-    if (item.isNew) {
-      return { text: 'New', color: '#f97316', bgColor: 'bg-orange-100' };
-    } else if (item.isApproved) {
-      return { text: 'Approved', color: '#22c55e', bgColor: 'bg-green-100' };
-    } else {
-      return { text: 'Rejected', color: '#ef4444', bgColor: 'bg-red-100' };
+  const handleShare = useCallback(async (postItem: PostItem) => {
+    console.log("Share pressed:", postItem.id);
+    
+    // first check if sharing is available
+    const available = await Sharing.isAvailableAsync();
+    if (!available) {
+      alert("Sharing is not available on this device");
+      return;
     }
+
+    try {
+      // no image, just share text / link
+      // you might use React Native's Share API
+      
+      await Share.share({
+        message: `SENTINEL POST\n\nShared by ${postItem.AuthorName}\n${postItem.ContentDesc}\n${postItem.ContentURL}\n\nPlease take a look.`,
+    });
+      
+    } catch (error) {
+      console.log("Error sharing ", error);
+    }
+
+    await new Promise(r => setTimeout(r, 200));
+  }, []);
+
+  // FIXED: Fetch bookmarked posts without problematic queries
+  const handleFetchBookmarkedPosts = useCallback(async (forceRefresh: boolean = false) => {
+    setLoading(true);
+    
+    let fetchuserID = userId;
+    if(fetchuserID == ""){
+      fetchuserID = await AsyncStorage.getItem('userId') || "";
+      setUserId(fetchuserID);
+    }
+
+    setLoading(true);
+    try {
+      const postsXData: any = [];
+      
+      const collXDataRefPost = collection(db, 'X-Data');
+      const queryXData = query(
+        collXDataRefPost,
+        orderBy('ContentDate', 'desc')
+      );
+      const unsubscribeXData = onSnapshot(queryXData, async xDataSnapshot => {
+        const xdataDataArr = xDataSnapshot.docs.map(doc => ({
+          id: doc.id,
+          data: doc.data(),
+        }))
+
+        for (const doc of xdataDataArr) {
+          const postData = doc.data;
+          const postId = doc.id;
+
+          if(postData.BookmarkedBy?.includes(fetchuserID)) {
+            postsXData.push({
+              uniqueId: `xdata-${postId}`,
+              id: postId,
+              AuthorImageURL: postData.AuthorImageURL,
+              AuthorName: postData.AuthorName,
+              ContentDate: postData.ContentDate,
+              ContentDesc: postData.ContentDesc,
+              ContentURL: postData.ContentURL,
+              ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+              ContentLikeCount: postData.ContentLikeCount || 0,
+              ContentRepostCount: postData.ContentRepostCount || 0,
+              ContentCommentCount: postData.ContentCommentCount || 0,
+              isApproved: true,
+              isNew: false,
+              postType: "X-Data",
+              Liked: (postData.LikedBy?.includes(fetchuserID) || false),
+              Reposted: false,
+              Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
+              createdAt: postData.createdAt || postData.ContentDate,
+            });
+          }
+        }
+
+        setFetchedXData(postsXData);
+      });
+
+      const collSentinelRefPost = collection(db, 'SentinelPosts');
+      const querySentinel = query(
+        collSentinelRefPost,
+        orderBy('ContentDate', 'desc')
+      );
+
+      console.log("Sentinel OnSnapshot");
+      const unsubscribeSentinel = onSnapshot(querySentinel, async sentinelSnapshot => {
+        const sentineldataArr = sentinelSnapshot.docs.map(doc => ({
+          id: doc.id,
+          data: doc.data(),
+        }))
+
+        const postsData = [];
+        for (const doc of sentineldataArr) {
+          const postData = doc.data;
+          const postId = doc.id;
+
+          try {
+            console.log("Liked By List: ", postData.LikedBy);
+            console.log("UserID: ", fetchuserID);
+            console.log("Liked By: ", (postData.LikedBy?.includes(fetchuserID) || false));
+          } catch (error) {
+            console.log(error);
+          }
+
+          if(postData.BookmarkedBy?.includes(fetchuserID)) {
+            postsData.push({
+              uniqueId: `sentinel-${postId}`,
+              id: postId,
+              AuthorImageURL: postData.AuthorImageURL,
+              AuthorName: postData.AuthorName,
+              ContentDate: postData.ContentDate,
+              ContentDesc: postData.ContentDesc,
+              ContentURL: postData.ContentURL,
+              ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+              ContentLikeCount: postData.ContentLikeCount || 0,
+              ContentRepostCount: postData.ContentRepostCount || 0,
+              ContentCommentCount: postData.ContentCommentCount || 0,
+              isApproved: postData.isApproved || false,
+              isNew: postData.isNew !== undefined ? postData.isNew : true,
+              postType: "SentinelPosts",
+              Liked: (postData.LikedBy?.includes(fetchuserID) || false),
+              Reposted: false,
+              Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
+              createdAt: postData.createdAt || postData.ContentDate,
+            });
+          }
+
+        }
+
+        const allData = postsData.concat(postsXData);
+        setBookmarkedPosts(allData);
+        console.log('OnSnapshot Fetched and Sorted', `Total: ${allData.length} documents`);
+
+        allData.forEach(post => {
+          //Fetching Comment and Reply Count
+          onSnapshot(
+            collection(doc(db, post.postType, post.id), 'Comments'),
+            commentsSnap => {
+              let totalComments = 0;
+              totalComments = commentsSnap.size;
+              
+              commentsSnap.forEach(comment =>
+                onSnapshot(
+                  collection(doc(db, post.postType, post.id, 'Comments', comment.id), 'Replies'),
+                  repliesSnap => {
+                    totalComments += repliesSnap.size;
+                    setBookmarkedPosts(prev =>
+                      prev.map(p =>
+                        p.id === post.id
+                        ? { ...p, ContentCommentCount: totalComments }
+                        : p
+                      )
+                    );
+                  }
+                )
+              );
+            }
+          )
+
+        });
+        
+      });
+      
+      return () => {
+        unsubscribeSentinel();
+        unsubscribeXData();
+      };
+      
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [dummyAuthorImage]);
+
+  useEffect(() => {
+    getItem();
+    handleFetchBookmarkedPosts();
+  }, []);
+
+  // TO OPEN COMMENTS MODAL
+  const openCommentsModal = useCallback((item: PostItem) => {
+    setSelectedPostId(item.id);
+    setSelectedPostType(item.postType);
+    setIsCommentModalVisible(true);
+  }, []);
+
+  // TO CLOSE COMMENTS MODAL
+  const closeCommentsModal = useCallback(() => {
+    setIsCommentModalVisible(false);
+    setSelectedPostId(null);
+    setSelectedPostType(null);
   }, []);
 
   // MEDIA MODAL CONTROLS
@@ -449,69 +620,6 @@ export default function BookmarksPage(): React.JSX.Element {
     setFullScreenDoc(null);
   }, []);
 
-  // FULL SCREEN CARD CONTROLS (New from landing page)
-  const openFullScreenCard = useCallback((item: PostItem) => {
-    setFullScreenCard(item);
-    setIsCardModalVisible(true);
-    setIsFlipped(false);
-    setIsFlipping(false);
-  }, []);
-
-  const closeFullScreenCard = useCallback(() => {
-    setIsCardModalVisible(false);
-    setFullScreenCard(null);
-    setIsFlipped(false);
-    setIsFlipping(false);
-  }, []);
-
-  const handleFlipCard = useCallback(() => {
-    if (isFlipping) return;
-    
-    setIsFlipping(true);
-    setIsFlipped(!isFlipped);
-    
-    setTimeout(() => {
-      setIsFlipping(false);
-    }, 800);
-  }, [isFlipped, isFlipping]);
-
-  // TO OPEN COMMENTS MODAL
-  const openCommentsModal = useCallback((item: PostItem) => {
-    setSelectedPostId(item.id);
-    setSelectedPostType(item.postType);
-    setIsCommentModalVisible(true);
-  }, []);
-
-  // TO CLOSE COMMENTS MODAL
-  const closeCommentsModal = useCallback(() => {
-    setIsCommentModalVisible(false);
-    setSelectedPostId(null);
-    setSelectedPostType(null);
-  }, []);
-
-  // TO OPEN GRAPH MODAL
-  const openGraphModal = useCallback((item: PostItem) => {
-    console.log("Graph ID: ", item.id);
-    setSelectedGraphPostId(item.id);
-    setSelectedGraphPostType(item.postType);
-    setIsGraphModalVisible(true);
-    setSelectedPostId(item.id);
-    setSelectedPostType(item.postType);
-    setIsCommentModalVisible(false);
-  }, []);
-
-  // TO CLOSE GRAPH MODAL
-  const closeGraphModal = useCallback(() => {
-    setIsGraphModalVisible(false);
-    setSelectedGraphPostId(null);
-    setSelectedGraphPostType(null);
-  }, []);
-
-  const addResponseGraphModal = useCallback(() => {
-    setIsGraphModalVisible(false);
-    setIsCommentModalVisible(true);
-  }, []);
-
   const toggleLike = useCallback(async (postItem: PostItem) => {
     let fetchuserID = userId;
     if(fetchuserID == ""){
@@ -536,19 +644,8 @@ export default function BookmarksPage(): React.JSX.Element {
       });
     }
 
-    // Update fullScreenCard if it's the same item
-    if (fullScreenCard && fullScreenCard.uniqueId === postItem.uniqueId) {
-      setFullScreenCard((prev: PostItem | null) => prev ? ({
-        ...prev,
-        Liked: !prev.Liked,
-        ContentLikeCount: prev.Liked 
-          ? prev.ContentLikeCount - 1 
-          : prev.ContentLikeCount + 1
-      }) : null);
-    }
-
     await new Promise(r => setTimeout(r, 200));
-  }, [userId, fullScreenCard]);
+  }, []);
 
   const handleRepost = useCallback(async (postItem: PostItem) => {
     console.log("Repost pressed:", postItem.id);
@@ -567,19 +664,8 @@ export default function BookmarksPage(): React.JSX.Element {
       )
     );
 
-    // Update fullScreenCard if it's the same item
-    if (fullScreenCard && fullScreenCard.uniqueId === postItem.uniqueId) {
-      setFullScreenCard((prev: PostItem | null) => prev ? ({
-        ...prev,
-        Reposted: !prev.Reposted,
-        ContentRepostCount: prev.Reposted 
-          ? prev.ContentRepostCount - 1 
-          : prev.ContentRepostCount + 1
-      }) : null);
-    }
-
     await new Promise(r => setTimeout(r, 200));
-  }, [fullScreenCard]);
+  }, []);
 
   const handleRemoveBookmark = useCallback(async (postItem: PostItem) => {
     showCustomAlert(
@@ -615,15 +701,6 @@ export default function BookmarksPage(): React.JSX.Element {
                 BookmarkedBy: arrayUnion(fetchuserID),
               });
             }
-
-            // Update fullScreenCard if it's the same item
-            if (fullScreenCard && fullScreenCard.uniqueId === postItem.uniqueId) {
-              setFullScreenCard((prev: PostItem | null) => prev ? ({
-                ...prev,
-                Bookmarked: !prev.Bookmarked
-              }) : null);
-            }
-
             hideModal();
             showCustomAlert(
               'success',
@@ -641,9 +718,9 @@ export default function BookmarksPage(): React.JSX.Element {
         }
       ]
     );
-  }, [userId, showCustomAlert, hideModal, fullScreenCard]);
+  }, [showCustomAlert, hideModal]);
 
-  // OPTIMIZED MEDIA CONTENT - MOVED BEFORE renderFlipCardFront
+  // OPTIMIZED MEDIA CONTENT
   const renderMediaContent = useCallback((item: PostItem, index?: number) => {
     const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
                      (item.ContentURL ? [item.ContentURL] : []);
@@ -776,492 +853,6 @@ export default function BookmarksPage(): React.JSX.Element {
     }
   }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, currentVideoIndex]);
 
-  // FLIP CARD FRONT CONTENT (now renderMediaContent is declared above)
-  const renderFlipCardFront = useCallback((item: PostItem) => (
-    <View style={{ 
-      flex: 1, 
-      backgroundColor: 'white', 
-      borderRadius: 24, 
-      overflow: 'hidden' 
-    }}>
-      <View className="px-4 py-3 bg-gray-50 border-b border-gray-100">
-        <View className="flex-row items-center">
-          <View className="relative">
-            <View className="w-10 h-10 rounded-full mr-2.5 overflow-hidden border-2 border-white shadow-lg">
-              <Image
-                source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
-                className="w-full h-full"
-                resizeMode="cover"
-              />
-            </View>
-          </View>
-          <View className="flex-1">
-            <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text>
-            <View className="flex-row items-center mt-0.5">
-              <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
-              {item.postType === 'X-Data' && (
-                <View className="bg-blue-100 px-2 py-0.5 rounded-full mr-2">
-                  <Text className="text-blue-600 text-xs font-semibold">𝕏 POST</Text>
-                </View>
-              )}
-              {item.postType === 'SentinelPosts' && (
-                <View className={`px-2 py-0.5 rounded-full ${getPostStatus(item).bgColor}`}>
-                  <Text className="text-xs font-semibold" style={{ color: getPostStatus(item).color }}>
-                    {getPostStatus(item).text}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
-          <View className="flex-col items-center">
-            <TouchableOpacity 
-              className="p-1.5 rounded-full bg-blue-100 mb-1"
-              onPress={handleFlipCard}
-              disabled={isFlipping}
-              style={{ opacity: isFlipping ? 0.6 : 1 }}
-            >
-              <Ionicons name="repeat" size={14} color="#3b82f6" />
-            </TouchableOpacity>
-            <Text className="text-xs text-blue-600 font-medium">Flip</Text>
-          </View>
-        </View>
-      </View>
-
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-        <View className="px-4 py-3">
-          <Text className="text-gray-800 text-sm leading-5 mb-3 font-normal">{item.ContentDesc}</Text>
-          
-          {renderMediaContent(item)}
-
-          <View className="flex-row items-center justify-between pt-3 mb-3">
-            <TouchableOpacity
-                className="flex-row items-center px-2 py-1.5"
-                onPress={() => toggleLike(item)}
-                activeOpacity={0.7}
-              >
-              <Ionicons
-                name={item.Liked ? "heart" : "heart-outline"}
-                size={18}
-                color={item.Liked ? "#ef4444" : "#64748b"}
-              />
-              <Text className={`ml-2 text-sm font-semibold ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
-                {item.ContentLikeCount}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className="flex-row items-center px-2 py-1.5"
-              onPress={() => {
-                closeFullScreenCard();
-                openCommentsModal(item);
-              }}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name="comment-outline"
-                size={18}
-                color="#64748b"
-              />
-              <Text className="text-gray-600 ml-2 text-sm font-semibold">{item.ContentCommentCount}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className="flex-row items-center px-2 py-1.5 "
-              onPress={() => handleRepost(item)}
-              activeOpacity={0.7}
-            >
-              <Ionicons 
-                name="repeat-outline" 
-                size={18} 
-                color={item.Reposted ? "#0ea5e9" : "#64748b"} 
-              />
-              <Text className={`ml-2 text-sm font-semibold ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
-                {item.ContentRepostCount}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              className="p-1.5"
-              onPress={() => {
-                closeFullScreenCard();
-                openGraphModal(item);
-              }}
-              activeOpacity={0.7}
-            >
-              <Feather name="bar-chart-2" size={16} color="#64748b" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className="flex-row items-center px-2 py-1.5"
-              onPress={() => handleRemoveBookmark(item)}
-              activeOpacity={0.7}
-            >
-              <Ionicons 
-                name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
-                size={18} 
-                color={item.Bookmarked ? "#000000" : "#64748b"} 
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              className="p-1.5 "
-              onPress={() => console.log("Share pressed:", item.id)}
-              activeOpacity={0.7}
-            >
-              <Feather name="share-2" size={16} color="#64748b" />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </ScrollView>
-    </View>
-  ), [getTimeAgo, handleFlipCard, isFlipping, renderMediaContent, toggleLike, handleRepost, handleRemoveBookmark, dummyAuthorImage, closeFullScreenCard, openCommentsModal, openGraphModal, getPostStatus]);
-
-  // FLIP CARD BACK CONTENT
-  const renderFlipCardBack = useCallback((item: PostItem) => (
-    <View style={{ 
-      flex: 1, 
-      backgroundColor: '#667eea', 
-      borderRadius: 24, 
-      overflow: 'hidden'
-    }}>
-      <View style={{ 
-        paddingHorizontal: 16, 
-        paddingVertical: 12, 
-        backgroundColor: 'rgba(0,0,0,0.2)', 
-        borderBottomWidth: 1, 
-        borderBottomColor: 'rgba(255,255,255,0.2)' 
-      }}>
-        <View className="flex-row items-center">
-          <View className="flex-1">
-            <Text className="font-bold text-white text-base">Post Analytics</Text>
-            <Text className="text-white/80 text-sm mt-0.5">Detailed insights</Text>
-          </View>
-          <View className="flex-col items-center">
-            <TouchableOpacity 
-              className="p-1.5 rounded-full mb-1" 
-              style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
-              onPress={handleFlipCard}
-              disabled={isFlipping}
-            >
-              <Ionicons name="repeat" size={14} color="white" />
-            </TouchableOpacity>
-            <Text className="text-xs text-white font-medium">Flip</Text>
-          </View>
-        </View>
-      </View>
-
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-        <View style={{ paddingHorizontal: 16, paddingVertical: 16 }}>
-          <View style={{ gap: 12 }}>
-            <View style={{ 
-              backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-              borderRadius: 14, 
-              padding: 16 
-            }}>
-              <Text className="text-white font-bold text-sm mb-3">Engagement</Text>
-              <View className="flex-row justify-between items-center mb-2">
-                <View className="flex-row items-center">
-                  <Ionicons name="heart" size={16} color="#ff6b6b" />
-                  <Text className="text-white ml-2 text-sm">Likes</Text>
-                </View>
-                <Text className="text-white font-bold text-base">{item.ContentLikeCount}</Text>
-              </View>
-              <View className="flex-row justify-between items-center mb-2">
-                <View className="flex-row items-center">
-                  <Ionicons name="repeat" size={16} color="#4ecdc4" />
-                  <Text className="text-white ml-2 text-sm">Reposts</Text>
-                </View>
-                <Text className="text-white font-bold text-base">{item.ContentRepostCount}</Text>
-              </View>
-              <View className="flex-row justify-between items-center">
-                <View className="flex-row items-center">
-                  <MaterialCommunityIcons name="comment" size={16} color="#45b7d1" />
-                  <Text className="text-white ml-2 text-sm">Comments</Text>
-                </View>
-                <Text className="text-white font-bold text-base">{item.ContentCommentCount}</Text>
-              </View>
-            </View>
-
-            <View style={{ 
-              backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-              borderRadius: 14, 
-              padding: 16 
-            }}>
-              <Text className="text-white font-bold text-sm mb-3">Post Details</Text>
-              <View style={{ gap: 8 }}>
-                <View>
-                  <Text className="text-white/70 text-xs">Post Type</Text>
-                  <Text className="text-white font-semibold text-sm">{item.postType}</Text>
-                </View>
-                <View>
-                  <Text className="text-white/70 text-xs">Status</Text>
-                  <View className="flex-row items-center mt-1">
-                    <View 
-                      style={{ 
-                        width: 6, 
-                        height: 6, 
-                        borderRadius: 3, 
-                        marginRight: 6,
-                        backgroundColor: getPostStatus(item).color
-                      }} 
-                    />
-                    <Text className="text-white font-semibold text-sm">
-                      {getPostStatus(item).text}
-                    </Text>
-                  </View>
-                </View>
-                <View>
-                  <Text className="text-white/70 text-xs">Published</Text>
-                  <Text className="text-white font-semibold text-sm">{getTimeAgo(item.ContentDate)}</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={{ 
-              backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-              borderRadius: 14, 
-              padding: 16 
-            }}>
-              <Text className="text-white font-bold text-sm mb-3">Quick Actions</Text>
-              <View className="flex-row justify-between" style={{ gap: 8 }}>
-                <TouchableOpacity 
-                  style={{ 
-                    flex: 1, 
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                    borderRadius: 8, 
-                    paddingVertical: 10, 
-                    alignItems: 'center' 
-                  }}
-                  onPress={() => {
-                    closeFullScreenCard();
-                    openCommentsModal(item);
-                  }}
-                >
-                  <MaterialCommunityIcons name="comment-plus" size={18} color="white" />
-                  <Text className="text-white text-xs mt-1 font-medium">Comment</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={{ 
-                    flex: 1, 
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                    borderRadius: 8, 
-                    paddingVertical: 10, 
-                    alignItems: 'center' 
-                  }}
-                  onPress={() => console.log("Share pressed:", item.id)}
-                >
-                  <Feather name="share-2" size={18} color="white" />
-                  <Text className="text-white text-xs mt-1 font-medium">Share</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={{ 
-                    flex: 1, 
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                    borderRadius: 8, 
-                    paddingVertical: 10, 
-                    alignItems: 'center' 
-                  }}
-                  onPress={() => handleRemoveBookmark(item)}
-                >
-                  <Ionicons name="bookmark-outline" size={18} color="white" />
-                  <Text className="text-white text-xs mt-1 font-medium">Remove</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </View>
-      </ScrollView>
-    </View>
-  ), [handleFlipCard, isFlipping, getTimeAgo, getPostStatus, closeFullScreenCard, openCommentsModal, handleRemoveBookmark]);
-
-  // FULL SCREEN FLIP CARD MODAL
-  const renderFullScreenFlipCard = useCallback((item: PostItem) => (
-    <View className="flex-1 bg-gray-900">
-      <View style={{ paddingTop: Platform.OS === 'ios' ? 50 : 30 }} className="px-6 py-4 bg-gray-900/95 border-b border-gray-700">
-        <View className="flex-row items-center justify-between">
-          <Text className="text-white font-bold text-xl">Post Details</Text>
-          <TouchableOpacity 
-            className="p-3 rounded-full bg-red-500"
-            onPress={closeFullScreenCard}
-          >
-            <Ionicons name="close" size={24} color="white" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View className="flex-1 justify-center px-4">
-        <FlipCard
-          ref={flipCardRef}
-          style={{ width: screenWidth - 32, height: screenHeight * 0.75 }}
-          friction={6}
-          perspective={1000}
-          flipHorizontal={true}
-          flipVertical={false}
-          flip={isFlipped}
-          clickable={false}
-        >
-          {renderFlipCardFront(item)}
-          {renderFlipCardBack(item)}
-        </FlipCard>
-      </View>
-    </View>
-  ), [closeFullScreenCard, isFlipped, renderFlipCardFront, renderFlipCardBack]);
-
-  // FIXED: Fetch bookmarked posts without problematic queries
-  const handleFetchBookmarkedPosts = useCallback(async (forceRefresh: boolean = false) => {
-    setLoading(true);
-    
-    let fetchuserID = userId;
-    if(fetchuserID == ""){
-      fetchuserID = await AsyncStorage.getItem('userId') || "";
-      setUserId(fetchuserID);
-    }
-
-    setLoading(true);
-    try {
-      const postsXData: any = [];
-      
-      const collXDataRefPost = collection(db, 'X-Data');
-      const queryXData = query(
-        collXDataRefPost,
-        orderBy('ContentDate', 'desc')
-      );
-      const unsubscribeXData = onSnapshot(queryXData, async xDataSnapshot => {
-        const xdataDataArr = xDataSnapshot.docs.map(doc => ({
-          id: doc.id,
-          data: doc.data(),
-        }))
-
-        for (const doc of xdataDataArr) {
-          const postData = doc.data;
-          const postId = doc.id;
-
-          if(postData.BookmarkedBy?.includes(fetchuserID)) {
-            postsXData.push({
-              uniqueId: `xdata-${postId}`,
-              id: postId,
-              AuthorImageURL: postData.AuthorImageURL,
-              AuthorName: postData.AuthorName,
-              ContentDate: postData.ContentDate,
-              ContentDesc: postData.ContentDesc,
-              ContentURL: postData.ContentURL,
-              ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
-              ContentLikeCount: postData.ContentLikeCount || 0,
-              ContentRepostCount: postData.ContentRepostCount || 0,
-              ContentCommentCount: postData.ContentCommentCount || 0,
-              isApproved: true,
-              isNew: false,
-              postType: "X-Data",
-              Liked: (postData.LikedBy?.includes(fetchuserID) || false),
-              Reposted: false,
-              Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
-              createdAt: postData.createdAt || postData.ContentDate,
-            });
-          }
-        }
-
-        setFetchedXData(postsXData);
-      });
-
-      const collSentinelRefPost = collection(db, 'SentinelPosts');
-      const querySentinel = query(
-        collSentinelRefPost,
-        orderBy('ContentDate', 'desc')
-      );
-
-      console.log("Sentinel OnSnapshot");
-      const unsubscribeSentinel = onSnapshot(querySentinel, async sentinelSnapshot => {
-        const sentineldataArr = sentinelSnapshot.docs.map(doc => ({
-          id: doc.id,
-          data: doc.data(),
-        }))
-
-        const postsData = [];
-        for (const doc of sentineldataArr) {
-          const postData = doc.data;
-          const postId = doc.id;
-
-          try {
-            console.log("Liked By List: ", postData.LikedBy);
-            console.log("UserID: ", fetchuserID);
-            console.log("Liked By: ", (postData.LikedBy?.includes(fetchuserID) || false));
-          } catch (error) {
-            console.log(error);
-          }
-
-          if(postData.BookmarkedBy?.includes(fetchuserID)) {
-            postsData.push({
-              uniqueId: `sentinel-${postId}`,
-              id: postId,
-              AuthorImageURL: postData.AuthorImageURL,
-              AuthorName: postData.AuthorName,
-              ContentDate: postData.ContentDate,
-              ContentDesc: postData.ContentDesc,
-              ContentURL: postData.ContentURL,
-              ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
-              ContentLikeCount: postData.ContentLikeCount || 0,
-              ContentRepostCount: postData.ContentRepostCount || 0,
-              ContentCommentCount: postData.ContentCommentCount || 0,
-              isApproved: postData.isApproved || false,
-              isNew: postData.isNew !== undefined ? postData.isNew : true,
-              postType: "SentinelPosts",
-              Liked: (postData.LikedBy?.includes(fetchuserID) || false),
-              Reposted: false,
-              Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
-              createdAt: postData.createdAt || postData.ContentDate,
-            });
-          }
-        }
-
-        const allData = postsData.concat(postsXData);
-        setBookmarkedPosts(allData);
-        console.log('OnSnapshot Fetched and Sorted', `Total: ${allData.length} documents`);
-
-        allData.forEach(post => {
-          //Fetching Comment and Reply Count
-          onSnapshot(
-            collection(doc(db, post.postType, post.id), 'Comments'),
-            commentsSnap => {
-              let totalComments = 0;
-              totalComments = commentsSnap.size;
-              
-              commentsSnap.forEach(comment =>
-                onSnapshot(
-                  collection(doc(db, post.postType, post.id, 'Comments', comment.id), 'Replies'),
-                  repliesSnap => {
-                    totalComments += repliesSnap.size;
-                    setBookmarkedPosts(prev =>
-                      prev.map(p =>
-                        p.id === post.id
-                        ? { ...p, ContentCommentCount: totalComments }
-                        : p
-                      )
-                    );
-                  }
-                )
-              );
-            }
-          )
-        });
-      });
-      
-      return () => {
-        unsubscribeSentinel();
-        unsubscribeXData();
-      };
-      
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    getItem();
-    handleFetchBookmarkedPosts();
-  }, []);
-
   // OPTIMIZED REFRESH
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -1339,138 +930,133 @@ export default function BookmarksPage(): React.JSX.Element {
   const renderBookmarkedPost = useCallback((item: PostItem, index: number) => (
     <TouchableOpacity 
       activeOpacity={0.95}
-      onPress={() => openFullScreenCard(item)}
+      onPress={() => openCommentsModal(item)}
     >
-      <EnhancedCard postId={item.uniqueId}>
-        <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center flex-1">
-              <View className="relative">
-                <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
-                  <Image
-                    source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
-                    className="w-full h-full"
-                    resizeMode="cover"
-                  />
-                </View>
-              </View>
-              <View className="flex-1">
-                <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text>
-                <View className="flex-row items-center mt-0.5">
-                  <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
-                  {item.postType === 'X-Data' && (
-                    <View className="bg-blue-100 px-1.5 py-0.5 rounded-full mr-1.5">
-                      <Text className="text-blue-600 text-xs font-semibold">𝕏 POST</Text>
-                    </View>
-                  )}
-                </View>
+        <EnhancedCard postId={item.uniqueId}>
+      <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center flex-1">
+            <View className="relative">
+              <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
+                <Image
+                  source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
+                  className="w-full h-full"
+                  resizeMode="cover"
+                />
               </View>
             </View>
-            <TouchableOpacity className="p-1.5 rounded-full bg-gray-100">
-              <Ionicons name="ellipsis-horizontal" size={12} color="#64748b" />
-            </TouchableOpacity>
+            <View className="flex-1">
+              <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text>
+              <View className="flex-row items-center mt-0.5">
+                <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
+              </View>
+            </View>
           </View>
+          <TouchableOpacity 
+            className="p-1.5"
+            onPress={() => handleRemoveBookmark(item)}
+          >
+            <Ionicons name="bookmark" size={14} color="#000" />
+          </TouchableOpacity>
         </View>
+      </View>
 
-        <View className="px-3 py-2.5">
-          <Text className="text-gray-800 text-sm leading-5 mb-2 font-normal">{item.ContentDesc}</Text>
+      <View className="px-3 py-2.5">
+        <Text className="text-gray-800 text-sm leading-5 mb-2 font-normal">{item.ContentDesc}</Text>
 
-          {renderMediaContent(item, index)}
+        {renderMediaContent(item, index)}
 
-          <View className="flex-row items-center justify-between pt-1.5">
-            <TouchableOpacity
-              className="flex-row items-center px-1.5 py-1"
-              onPress={(e) => {
-                e.stopPropagation();
-                toggleLike(item);
-              }}
+        <View className="flex-row items-center justify-between pt-1.5">
+          <TouchableOpacity
+            className="flex-row items-center px-1.5 py-1"
+            onPress={(e) => {
+              e.stopPropagation();
+              toggleLike(item);
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={item.Liked ? "heart" : "heart-outline"}
+              size={14}
+              color={item.Liked ? "#ef4444" : "#64748b"}
+            />
+            <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
+              {item.ContentLikeCount}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            className="flex-row items-center px-1.5 py-1"
+            onPress={(e) => {
+              e.stopPropagation();
+              openCommentsModal(item);
+            }}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons
+              name="comment-outline"
+              size={14}
+              color="#64748b"
+            />
+            <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            className="flex-row items-center px-1.5 py-1 "
+            onPress={(e) => {
+              e.stopPropagation();
+              handleRepost(item);
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons 
+              name="repeat-outline" 
+              size={14} 
+              color={item.Reposted ? "#0ea5e9" : "#64748b"} 
+            />
+            <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
+              {item.ContentRepostCount}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+              className="p-1.5"
+              onPress={() => console.log("Graph pressed:", item.id)}
               activeOpacity={0.7}
             >
-              <Ionicons
-                name={item.Liked ? "heart" : "heart-outline"}
-                size={14}
-                color={item.Liked ? "#ef4444" : "#64748b"}
-              />
-              <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
-                {item.ContentLikeCount}
-              </Text>
+              <Feather name="bar-chart-2" size={16} color="#64748b" />
             </TouchableOpacity>
 
-            <TouchableOpacity
-              className="flex-row items-center px-1.5 py-1"
-              onPress={(e) => {
-                e.stopPropagation();
-                openCommentsModal(item);
-              }}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name="comment-outline"
-                size={14}
-                color="#64748b"
-              />
-              <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
-            </TouchableOpacity>
+          <TouchableOpacity
+            className="flex-row items-center px-1.5 py-1"
+            onPress={(e) => {
+              e.stopPropagation();
+              handleRemoveBookmark(item);
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons 
+              name="bookmark" 
+              size={14} 
+              color="#000" 
+            />
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              className="flex-row items-center px-1.5 py-1 "
-              onPress={(e) => {
-                e.stopPropagation();
-                handleRepost(item);
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons 
-                name="repeat-outline" 
-                size={14} 
-                color={item.Reposted ? "#0ea5e9" : "#64748b"} 
-              />
-              <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
-                {item.ContentRepostCount}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-                className="p-1.5"
-                onPress={(e) => {
-                  e.stopPropagation();
-                  openGraphModal(item);
-                }}
-                activeOpacity={0.7}
-              >
-                <Feather name="bar-chart-2" size={16} color="#64748b" />
-              </TouchableOpacity>
-
-            <TouchableOpacity
-              className="flex-row items-center px-1.5 py-1"
-              onPress={(e) => {
-                e.stopPropagation();
-                handleRemoveBookmark(item);
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons 
-                name="bookmark" 
-                size={14} 
-                color="#000" 
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              className="p-1"
-              onPress={(e) => {
-                e.stopPropagation();
-                console.log("Share pressed:", item.id);
-              }}
-              activeOpacity={0.7}
-            >
-              <Feather name="share-2" size={12} color="#64748b" />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity 
+            className="p-1"
+            onPress={(e) => {
+              e.stopPropagation();
+              handleShare(item);
+            }}
+            activeOpacity={0.7}
+          >
+            <Feather name="share-2" size={12} color="#64748b" />
+          </TouchableOpacity>
         </View>
-      </EnhancedCard>
+      </View>
+    </EnhancedCard>
     </TouchableOpacity>
-  ), [EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleRemoveBookmark, dummyAuthorImage, openCommentsModal, openFullScreenCard, openGraphModal]);
+    
+  ), [EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleRemoveBookmark, dummyAuthorImage, openCommentsModal]);
 
   const listItems = useMemo(() => {
     return filteredAndSortedPosts.map((item, index) => {
@@ -1564,11 +1150,7 @@ export default function BookmarksPage(): React.JSX.Element {
       >
         {loading ? (
           <View className="flex-1 justify-center items-center py-20">
-            <View className="bg-white p-6 rounded-2xl shadow-lg">
-              <ActivityIndicator size="large" color="#f59e0b" />
-              <Text className="text-gray-600 mt-3 text-sm font-medium text-center">Loading bookmarks...</Text>
-              <Text className="text-gray-400 text-xs mt-1 text-center">This won't take long</Text>
-            </View>
+            <LoadingComponent visible={true} size="large" />
           </View>
         ) : listItems.length > 0 ? (
           listItems
@@ -1700,17 +1282,6 @@ export default function BookmarksPage(): React.JSX.Element {
         </View>
       </Modal>
 
-      {/* CARD MODAL - NEW FULL SCREEN FLIP CARD FEATURE */}
-      <Modal
-        visible={isCardModalVisible}
-        transparent={false}
-        animationType="slide"
-        onRequestClose={closeFullScreenCard}
-        statusBarTranslucent
-      >
-        {fullScreenCard && renderFullScreenFlipCard(fullScreenCard)}
-      </Modal>
-
       {/* COMMENTS MODAL */}
       <CommentsModal
         visible={isCommentModalVisible}
@@ -1719,18 +1290,6 @@ export default function BookmarksPage(): React.JSX.Element {
         postType={selectedPostType}
         postData={bookmarkedPosts.find(item => item.id === selectedPostId)}
       />
-
-      {/* GRAPH MODAL */}
-      <TotalSentiment
-        visible={isGraphModalVisible}
-        onClose={closeGraphModal}
-        postId={selectedGraphPostId}
-        postType={selectedGraphPostType}
-        postData={bookmarkedPosts.find(item => item.id === selectedGraphPostId)}
-        onAddResponse={addResponseGraphModal} 
-        userExistingComment={undefined} 
-        onEditComment={undefined}
-        />
 
       {/* CUSTOM ALERT MODAL */}
       <CustomModal
@@ -1744,4 +1303,3 @@ export default function BookmarksPage(): React.JSX.Element {
     </SafeAreaView>
   );
 }
-//Final bookmark code 18/09
