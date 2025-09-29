@@ -1,12 +1,13 @@
 import { db } from '@/FirebaseConfig';
+import { LoadingComponent } from '@/components/LoadingComponent';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ResizeMode, Video } from 'expo-av';
 import { router } from 'expo-router';
 import { collection, doc, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Dimensions, Image, Linking, Modal, Platform, RefreshControl, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, Image, Linking, Modal, Platform, RefreshControl, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import FlipCard from 'react-native-flip-card';
-import LoadingComponent from '@/components/LoadingComponent';
 
 interface PostItem {
   id: string;
@@ -25,9 +26,10 @@ interface PostItem {
   postType: string;
   Liked: boolean;
   Reposted: boolean;
-  Bookmarked?: boolean; // ✅ Added bookmark property
+  Bookmarked?: boolean;
   createdAt?: any;
 }
+
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 export default function Index(): React.JSX.Element {
@@ -175,7 +177,7 @@ export default function Index(): React.JSX.Element {
             postType: "X-Data",
             Liked: false,
             Reposted: false,
-            Bookmarked: false, // ✅ Added bookmark property
+            Bookmarked: false,
             createdAt: postData.createdAt || postData.ContentDate,
           });
         }
@@ -219,7 +221,7 @@ export default function Index(): React.JSX.Element {
             postType: "SentinelPosts",
             Liked: false,
             Reposted: false,
-            Bookmarked: false, // ✅ Added bookmark property
+            Bookmarked: false,
             createdAt: postData.createdAt || postData.ContentDate,
           });
 
@@ -278,6 +280,15 @@ export default function Index(): React.JSX.Element {
 
   useEffect(() => {
     handleFetchAllData();
+    try {
+      const fetchuserID = AsyncStorage.getItem('userId');
+      if(fetchuserID !== null) {
+        router.push("/(tabs)");
+      }
+      
+    } catch (error) {
+      console.error("error, ", error);
+    }
   }, []);
 
   // MEDIA MODAL CONTROLS
@@ -548,13 +559,13 @@ export default function Index(): React.JSX.Element {
       return null;
     }
   }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, currentVideoIndex]);
+
   // ✅ ADDED: Graph/Analytics modal function
   const openGraphModal = useCallback((item: PostItem) => {
     console.log("Graph/Analytics pressed:", item.id);
     // For now, redirect to login. Later you can implement actual graph modal
     loginScreen();
   }, [loginScreen]);
-
 
   // AUTO PLAY VIDEO ON SCROLL - Now filteredData is available
   const handleScroll = useCallback((event: any) => {
@@ -1070,7 +1081,10 @@ export default function Index(): React.JSX.Element {
                     paddingVertical: 10, 
                     alignItems: 'center' 
                   }}
-                  onPress={() => console.log("Edit pressed:", item.id)}
+                  onPress={() => {
+                    closeFullScreenCard();
+                    loginScreen();
+                  }}
                 >
                   <Ionicons name="create-outline" size={18} color="white" />
                   <Text className="text-white text-xs mt-1 font-medium">Edit</Text>
@@ -1083,10 +1097,13 @@ export default function Index(): React.JSX.Element {
                     paddingVertical: 10, 
                     alignItems: 'center' 
                   }}
-                  onPress={() => console.log("Archive pressed:", item.id)}
+                  onPress={() => {
+                    closeFullScreenCard();
+                    loginScreen();
+                  }}
                 >
-                  <Ionicons name="archive-outline" size={18} color="white" />
-                  <Text className="text-white text-xs mt-1 font-medium">Archive</Text>
+                  <Ionicons name="share-outline" size={18} color="white" />
+                  <Text className="text-white text-xs mt-1 font-medium">Share</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1144,10 +1161,9 @@ export default function Index(): React.JSX.Element {
           style={{ paddingTop: Platform.OS === 'ios' ? 12 : 12 }}
         >
           <View>
-            {/* <Text className="text-2xl font-bold text-gray-900">Sentinel</Text> */}
             <Image
-              source={require("../../assets/images/sentinel_text.png")}
-              className="w-40 h-6"
+              source={require("../../assets/images/sentinel_logo.png")}
+              className="w-16 h-10"
               resizeMode="contain"
             />
           </View>
@@ -1188,25 +1204,13 @@ export default function Index(): React.JSX.Element {
       >
         {loading ? (
           <View className="flex-1 justify-center items-center py-20">
-            <View className="bg-white p-6 rounded-2xl shadow-lg">
-              <ActivityIndicator size="large" color="#3b82f6" />
-              <Text className="text-gray-600 mt-3 text-sm font-medium text-center">Loading posts...</Text>
-              <Text className="text-gray-400 text-xs mt-1 text-center">This won't take long</Text>
-            </View>
+            <LoadingComponent visible={true} size="large" />
           </View>
         ) : listItems.length > 0 ? (
           listItems
         ) : (
           <View className="flex-1 justify-center items-center py-20">
-            <View className="bg-white p-6 rounded-2xl shadow-lg items-center">
-              <View className="w-16 h-16 bg-gray-100 rounded-full items-center justify-center mb-3">
-                <Ionicons name="document-outline" size={28} color="#9ca3af" />
-              </View>
-              <Text className="text-gray-700 text-lg font-bold mb-2">No posts yet</Text>
-              <Text className="text-gray-500 text-center text-sm px-4 leading-5">
-                Be the first to share something amazing with the community!
-              </Text>
-            </View>
+            <LoadingComponent visible={true} size="large" />
           </View>
         )}
       </ScrollView>

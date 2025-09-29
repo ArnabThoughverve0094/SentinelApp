@@ -2,12 +2,13 @@ import { db } from '@/FirebaseConfig';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
+import * as Sharing from "expo-sharing";
 import { arrayRemove, arrayUnion, collection, doc, getDocs, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Share } from "react-native";
 
 import { ResizeMode, Video } from 'expo-av';
 import {
-  ActivityIndicator,
   Animated,
   Dimensions,
   Image,
@@ -19,11 +20,12 @@ import {
   StatusBar,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import FlipCard from 'react-native-flip-card';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CommentsModal from '../../components/CommentsModal';
+import { LoadingComponent } from '../../components/LoadingComponent';
 import TotalSentiment from '../../components/TotalSentiment';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -156,7 +158,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
                     ? 'bg-gray-200' 
                     : button.style === 'destructive'
                     ? 'bg-red-500'
-                    : 'bg-violet-500'
+                    : 'bg-black'
                 }`}
                 onPress={button.onPress}
                 activeOpacity={0.8}
@@ -250,6 +252,11 @@ export default function SentinelFeed(): React.JSX.Element {
     'Copyright infringement',
     'Offensive or discriminatory content'
   ];
+
+  // Helper function to check if interaction buttons should be disabled
+  const areInteractionsDisabled = useCallback((item: PostItem) => {
+    return !item.isApproved && !item.isNew;
+  }, []);
 
   // Custom Alert function
   const showCustomAlert = (
@@ -426,12 +433,6 @@ export default function SentinelFeed(): React.JSX.Element {
     const currentTime = Date.now();
     const cacheValidTime = 5 * 60 * 1000;
     
-    // if (!forceRefresh && isInitialized && fetchedData.length > 0 && 
-    //     (currentTime - lastFetchTime) < cacheValidTime) {
-    //   console.log('Using cached data, skipping fetch');
-    //   return;
-    // }
-
     let fetchuserID = userId;
     if(fetchuserID == ""){
       fetchuserID = await AsyncStorage.getItem('userId') || "";
@@ -549,25 +550,8 @@ export default function SentinelFeed(): React.JSX.Element {
                   : p
                 )
               );
-              
-              // commentsSnap.forEach(comment =>
-              //   onSnapshot(
-              //     collection(doc(db, post.postType, post.id, 'Comments', comment.id), 'Replies'),
-              //     repliesSnap => {
-              //       totalComments += repliesSnap.size;
-              //       setFetchedData(prev =>
-              //         prev.map(p =>
-              //           p.id === post.id
-              //           ? { ...p, ContentCommentCount: totalComments }
-              //           : p
-              //         )
-              //       );
-              //     }
-              //   )
-              // );
             }
           )
-
         });
         
       });
@@ -619,10 +603,26 @@ export default function SentinelFeed(): React.JSX.Element {
 
   // TO OPEN COMMENTS MODAL
   const openCommentsModal = useCallback((item: PostItem) => {
+    // Check if interactions are disabled for rejected posts
+    if (areInteractionsDisabled(item)) {
+      showCustomAlert(
+        'warning',
+        'Post Not Available',
+        'This post has been rejected and interactions are disabled.',
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
+      return;
+    }
+
     setSelectedPostId(item.id);
     setSelectedPostType(item.postType);
     setIsCommentModalVisible(true);
-  }, []);
+  }, [areInteractionsDisabled, showCustomAlert, hideModal]);
 
   // TO CLOSE COMMENTS MODAL
   const closeCommentsModal = useCallback(() => {
@@ -633,6 +633,22 @@ export default function SentinelFeed(): React.JSX.Element {
 
   // TO OPEN GRAPH MODAL
   const openGraphModal = useCallback((item: PostItem) => {
+    // Check if interactions are disabled for rejected posts
+    if (areInteractionsDisabled(item)) {
+      showCustomAlert(
+        'warning',
+        'Post Not Available',
+        'This post has been rejected and interactions are disabled.',
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
+      return;
+    }
+
     console.log("Graph ID: ", item.id);
     setSelectedGraphPostId(item.id);
     setSelectedGraphPostType(item.postType);
@@ -640,7 +656,7 @@ export default function SentinelFeed(): React.JSX.Element {
     setSelectedPostId(item.id);
     setSelectedPostType(item.postType);
     setIsCommentModalVisible(false);
-  }, []);
+  }, [areInteractionsDisabled, showCustomAlert, hideModal]);
 
   // TO CLOSE GRAPH MODAL
   const closeGraphModal = useCallback(() => {
@@ -831,6 +847,22 @@ export default function SentinelFeed(): React.JSX.Element {
   }, [fullScreenCard]);
 
   const toggleLike = useCallback(async (postItem: PostItem) => {
+    // Check if interactions are disabled for rejected posts
+    if (areInteractionsDisabled(postItem)) {
+      showCustomAlert(
+        'warning',
+        'Action Not Available',
+        'This post has been rejected and interactions are disabled.',
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
+      return;
+    }
+
     let fetchuserID = userId;
     if(fetchuserID == ""){
       fetchuserID = await AsyncStorage.getItem('userId') || "";
@@ -865,9 +897,25 @@ export default function SentinelFeed(): React.JSX.Element {
     }
 
     await new Promise(r => setTimeout(r, 200));
-  }, [fullScreenCard]);
+  }, [fullScreenCard, areInteractionsDisabled, showCustomAlert, hideModal]);
 
   const handleRepost = useCallback(async (postItem: PostItem) => {
+    // Check if interactions are disabled for rejected posts
+    if (areInteractionsDisabled(postItem)) {
+      showCustomAlert(
+        'warning',
+        'Action Not Available',
+        'This post has been rejected and interactions are disabled.',
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
+      return;
+    }
+
     console.log("Repost pressed:", postItem.id);
     
     setFetchedData(prevData => 
@@ -895,9 +943,25 @@ export default function SentinelFeed(): React.JSX.Element {
     }
 
     await new Promise(r => setTimeout(r, 200));
-  }, [fullScreenCard]);
+  }, [fullScreenCard, areInteractionsDisabled, showCustomAlert, hideModal]);
 
   const handleBookmark = useCallback(async (postItem: PostItem) => {
+    // Check if interactions are disabled for rejected posts
+    if (areInteractionsDisabled(postItem)) {
+      showCustomAlert(
+        'warning',
+        'Action Not Available',
+        'This post has been rejected and interactions are disabled.',
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
+      return;
+    }
+
     console.log("Bookmark pressed:", postItem.id);
     
     let fetchuserID = userId;
@@ -926,6 +990,31 @@ export default function SentinelFeed(): React.JSX.Element {
         ...prev,
         Bookmarked: !prev.Bookmarked
       }) : null);
+    }
+
+    await new Promise(r => setTimeout(r, 200));
+  }, [fullScreenCard, areInteractionsDisabled, showCustomAlert, hideModal]);
+
+  const handleShare = useCallback(async (postItem: PostItem) => {
+    console.log("Share pressed:", postItem.id);
+    
+    // first check if sharing is available
+    const available = await Sharing.isAvailableAsync();
+    if (!available) {
+      alert("Sharing is not available on this device");
+      return;
+    }
+
+    try {
+      // no image, just share text / link
+      // you might use React Native's Share API
+      
+      await Share.share({
+        message: `SENTINEL POST\n\nShared by ${postItem.AuthorName}\n${postItem.ContentDesc}\n${postItem.ContentURL}\n\nPlease take a look.`,
+    });
+      
+    } catch (error) {
+      console.log("Error sharing ", error);
     }
 
     await new Promise(r => setTimeout(r, 200));
@@ -1050,7 +1139,7 @@ export default function SentinelFeed(): React.JSX.Element {
                 justifyContent: 'center',
                 height: 80,
               }}>
-              <Ionicons name="document-text-outline" size={32} color="#8B5CF6" />
+              <Ionicons name="document-text-outline" size={32} color="#000000" />
               <Text numberOfLines={1} style={{ color: '#333', marginTop: 4, textAlign: 'center', paddingHorizontal: 12, fontSize: 11 }}>
                 {primaryMediaUrl.split('/').pop() || 'Document'}
               </Text>
@@ -1128,35 +1217,6 @@ export default function SentinelFeed(): React.JSX.Element {
 
     return (
       <View className="flex-row items-center justify-center" style={{ gap: isFullScreen ? 8 : 4 }}>
-        {/* New Button - Compact */}
-        {/* <TouchableOpacity
-          onPress={handleNewClick}
-          className={`px-1.5 py-1 rounded-full border flex-row items-center ${
-            isNew 
-              ? 'bg-orange-500 border-orange-500' 
-              : 'bg-white border-orange-300'
-          }`}
-          activeOpacity={0.8}
-          style={{
-            shadowColor: isNew ? '#f97316' : '#000',
-            shadowOffset: { width: 0, height: 1 },
-            shadowOpacity: isNew ? 0.3 : 0.1,
-            shadowRadius: 2,
-            elevation: isNew ? 2 : 1,
-          }}
-        >
-          <Ionicons 
-            name="star" 
-            size={isFullScreen ? 14 : 10} 
-            color={isNew ? "white" : "#f97316"} 
-          />
-          <Text className={`ml-1 font-semibold ${isFullScreen ? 'text-xs' : 'text-xs'} ${
-            isNew ? 'text-white' : 'text-orange-600'
-          }`}>
-            New
-          </Text>
-        </TouchableOpacity> */}
-
         {/* Approve Button - Compact */}
         <TouchableOpacity
           onPress={handleApproveClick}
@@ -1323,9 +1383,10 @@ export default function SentinelFeed(): React.JSX.Element {
 
           <View className="flex-row items-center justify-between pt-3 mb-3">
             <TouchableOpacity
-                className="flex-row items-center px-2 py-1.5"
+                className={`flex-row items-center px-2 py-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
                 onPress={() => toggleLike(item)}
                 activeOpacity={0.7}
+                disabled={areInteractionsDisabled(item)}
               >
               <Ionicons
                 name={item.Liked ? "heart" : "heart-outline"}
@@ -1338,12 +1399,13 @@ export default function SentinelFeed(): React.JSX.Element {
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-2 py-1.5"
+              className={`flex-row items-center px-2 py-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
               onPress={() => {
                 closeFullScreenCard();
                 openCommentsModal(item);
               }}
               activeOpacity={0.7}
+              disabled={areInteractionsDisabled(item)}
             >
               <MaterialCommunityIcons
                 name="comment-outline"
@@ -1354,9 +1416,10 @@ export default function SentinelFeed(): React.JSX.Element {
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-2 py-1.5 "
+              className={`flex-row items-center px-2 py-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
               onPress={() => handleRepost(item)}
               activeOpacity={0.7}
+              disabled={areInteractionsDisabled(item)}
             >
               <Ionicons 
                 name="repeat-outline" 
@@ -1368,20 +1431,22 @@ export default function SentinelFeed(): React.JSX.Element {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              className="p-1.5"
+              className={`p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
               onPress={() => {
                 closeFullScreenCard();
                 openGraphModal(item);
               }}
               activeOpacity={0.7}
+              disabled={areInteractionsDisabled(item)}
             >
               <Feather name="bar-chart-2" size={16} color="#64748b" />
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-2 py-1.5"
+              className={`flex-row items-center px-2 py-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
               onPress={() => handleBookmark(item)}
               activeOpacity={0.7}
+              disabled={areInteractionsDisabled(item)}
             >
               <Ionicons 
                 name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
@@ -1391,9 +1456,10 @@ export default function SentinelFeed(): React.JSX.Element {
             </TouchableOpacity>
 
             <TouchableOpacity 
-              className="p-1.5 "
-              onPress={() => console.log("Share pressed:", item.id)}
+              className={`p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+              onPress={() => handleShare(item)}
               activeOpacity={0.7}
+              disabled={areInteractionsDisabled(item)}
             >
               <Feather name="share-2" size={16} color="#64748b" />
             </TouchableOpacity>
@@ -1401,7 +1467,7 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
       </ScrollView>
     </View>
-  ), [getTimeAgo, handleFlipCard, isFlipping, renderMediaContent, toggleLike, handleRepost, handleBookmark, dummyAuthorImage, closeFullScreenCard, openCommentsModal, getPostStatus]);
+  ), [getTimeAgo, handleFlipCard, isFlipping, renderMediaContent, toggleLike, handleRepost, handleBookmark, dummyAuthorImage, closeFullScreenCard, openCommentsModal, getPostStatus, areInteractionsDisabled, openGraphModal]);
 
   const renderFlipCardBack = useCallback((item: PostItem) => (
     <View style={{ 
@@ -1536,12 +1602,14 @@ export default function SentinelFeed(): React.JSX.Element {
                     backgroundColor: 'rgba(255, 255, 255, 0.2)', 
                     borderRadius: 8, 
                     paddingVertical: 10, 
-                    alignItems: 'center' 
+                    alignItems: 'center',
+                    opacity: areInteractionsDisabled(item) ? 0.5 : 1
                   }}
                   onPress={() => {
                     closeFullScreenCard();
                     openCommentsModal(item);
                   }}
+                  disabled={areInteractionsDisabled(item)}
                 >
                   <MaterialCommunityIcons name="comment-plus" size={18} color="white" />
                   <Text className="text-white text-xs mt-1 font-medium">Comment</Text>
@@ -1552,9 +1620,11 @@ export default function SentinelFeed(): React.JSX.Element {
                     backgroundColor: 'rgba(255, 255, 255, 0.2)', 
                     borderRadius: 8, 
                     paddingVertical: 10, 
-                    alignItems: 'center' 
+                    alignItems: 'center',
+                    opacity: areInteractionsDisabled(item) ? 0.5 : 1
                   }}
                   onPress={() => console.log("Edit pressed:", item.id)}
+                  disabled={areInteractionsDisabled(item)}
                 >
                   <Ionicons name="create-outline" size={18} color="white" />
                   <Text className="text-white text-xs mt-1 font-medium">Edit</Text>
@@ -1565,12 +1635,14 @@ export default function SentinelFeed(): React.JSX.Element {
                     backgroundColor: 'rgba(255, 255, 255, 0.2)', 
                     borderRadius: 8, 
                     paddingVertical: 10, 
-                    alignItems: 'center' 
+                    alignItems: 'center',
+                    opacity: areInteractionsDisabled(item) ? 0.5 : 1
                   }}
-                  onPress={() => console.log("Archive pressed:", item.id)}
+                  onPress={() => handleShare(item)}
+                  disabled={areInteractionsDisabled(item)}
                 >
-                  <Ionicons name="archive-outline" size={18} color="white" />
-                  <Text className="text-white text-xs mt-1 font-medium">Archive</Text>
+                  <Ionicons name="share-outline" size={18} color="white" />
+                  <Text className="text-white text-xs mt-1 font-medium">Share</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1578,12 +1650,12 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
       </ScrollView>
     </View>
-  ), [handleFlipCard, isFlipping, getTimeAgo, userRole, ApprovalToggle, handleApprovalToggle, closeFullScreenCard, openCommentsModal, getPostStatus]);
+  ), [handleFlipCard, isFlipping, getTimeAgo, userRole, ApprovalToggle, handleApprovalToggle, closeFullScreenCard, openCommentsModal, getPostStatus, areInteractionsDisabled]);
 
   const renderPostContent = useCallback((item: PostItem, index: number) => (
     <TouchableOpacity 
       activeOpacity={0.95}
-      onPress={() => openFullScreenCard(item)}
+      onPress={() => openCommentsModal(item)}
     >
       <EnhancedCard postId={item.uniqueId}>
         <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
@@ -1628,12 +1700,13 @@ export default function SentinelFeed(): React.JSX.Element {
 
           <View className="flex-row items-center justify-between pt-1.5">
             <TouchableOpacity
-              className="flex-row items-center px-1.5 py-1"
+              className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
               onPress={(e) => {
                 e.stopPropagation();
                 toggleLike(item);
               }}
               activeOpacity={0.7}
+              disabled={areInteractionsDisabled(item)}
             >
               <Ionicons
                 name={item.Liked ? "heart" : "heart-outline"}
@@ -1646,12 +1719,13 @@ export default function SentinelFeed(): React.JSX.Element {
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-1.5 py-1"
+              className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
               onPress={(e) => {
                 e.stopPropagation();
                 openCommentsModal(item);
               }}
               activeOpacity={0.7}
+              disabled={areInteractionsDisabled(item)}
             >
               <MaterialCommunityIcons
                 name="comment-outline"
@@ -1662,12 +1736,13 @@ export default function SentinelFeed(): React.JSX.Element {
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-1.5 py-1 "
+              className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
               onPress={(e) => {
                 e.stopPropagation();
                 handleRepost(item);
               }}
               activeOpacity={0.7}
+              disabled={areInteractionsDisabled(item)}
             >
               <Ionicons 
                 name="repeat-outline" 
@@ -1679,23 +1754,25 @@ export default function SentinelFeed(): React.JSX.Element {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              className="p-1.5"
+              className={`p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
               onPress={(e) => {
                 e.stopPropagation();
                 openGraphModal(item);
               }}
               activeOpacity={0.7}
+              disabled={areInteractionsDisabled(item)}
             >
               <Feather name="bar-chart-2" size={16} color="#64748b" />
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-1.5 py-1"
+              className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
               onPress={(e) => {
                 e.stopPropagation();
                 handleBookmark(item);
               }}
               activeOpacity={0.7}
+              disabled={areInteractionsDisabled(item)}
             >
               <Ionicons 
                 name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
@@ -1705,12 +1782,13 @@ export default function SentinelFeed(): React.JSX.Element {
             </TouchableOpacity>
 
             <TouchableOpacity 
-              className="p-1"
+              className={`p-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
               onPress={(e) => {
                 e.stopPropagation();
-                console.log("Share pressed:", item.id);
+                handleShare(item);
               }}
               activeOpacity={0.7}
+              disabled={areInteractionsDisabled(item)}
             >
               <Feather name="share-2" size={12} color="#64748b" />
             </TouchableOpacity>
@@ -1747,12 +1825,12 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
       </EnhancedCard>
     </TouchableOpacity>
-  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, ApprovalToggle, handleApprovalToggle, dummyAuthorImage, userRole, openCommentsModal, getPostStatus]);
+  ), [openCommentsModal, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, ApprovalToggle, handleApprovalToggle, dummyAuthorImage, userRole, openCommentsModal, getPostStatus, areInteractionsDisabled, openGraphModal]);
 
   const renderPostUserContent = useCallback((item: PostItem, index: number) => (
     <TouchableOpacity 
       activeOpacity={0.95}
-      onPress={() => openFullScreenCard(item)}
+      onPress={() => openCommentsModal(item)}
     >
       <EnhancedCard postId={item.uniqueId}>
         <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
@@ -1790,12 +1868,13 @@ export default function SentinelFeed(): React.JSX.Element {
 
           <View className="flex-row items-center justify-between pt-1.5">
             <TouchableOpacity
-              className="flex-row items-center px-1.5 py-1"
+              className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
               onPress={(e) => {
                 e.stopPropagation();
                 toggleLike(item);
               }}
               activeOpacity={0.7}
+              disabled={areInteractionsDisabled(item)}
             >
               <Ionicons
                 name={item.Liked ? "heart" : "heart-outline"}
@@ -1808,12 +1887,13 @@ export default function SentinelFeed(): React.JSX.Element {
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-1.5 py-1 "
+              className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
               onPress={(e) => {
                 e.stopPropagation();
                 openCommentsModal(item);
               }}
               activeOpacity={0.7}
+              disabled={areInteractionsDisabled(item)}
             >
               <MaterialCommunityIcons
                 name="comment-outline"
@@ -1824,12 +1904,13 @@ export default function SentinelFeed(): React.JSX.Element {
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-1.5 py-1 "
+              className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
               onPress={(e) => {
                 e.stopPropagation();
                 handleRepost(item);
               }}
               activeOpacity={0.7}
+              disabled={areInteractionsDisabled(item)}
             >
               <Ionicons 
                 name="repeat-outline" 
@@ -1841,23 +1922,25 @@ export default function SentinelFeed(): React.JSX.Element {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              className="p-1.5"
+              className={`p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
               onPress={(e) => {
                 e.stopPropagation();
                 openGraphModal(item);
               }}
               activeOpacity={0.7}
+              disabled={areInteractionsDisabled(item)}
             >
               <Feather name="bar-chart-2" size={16} color="#64748b" />
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="flex-row items-center px-1.5 py-1"
+              className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
               onPress={(e) => {
                 e.stopPropagation();
                 handleBookmark(item);
               }}
               activeOpacity={0.7}
+              disabled={areInteractionsDisabled(item)}
             >
               <Ionicons 
                 name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
@@ -1867,12 +1950,13 @@ export default function SentinelFeed(): React.JSX.Element {
             </TouchableOpacity>
 
             <TouchableOpacity 
-              className="p-1 "
+              className={`p-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
               onPress={(e) => {
                 e.stopPropagation();
-                console.log("Share pressed:", item.id);
+                handleShare(item);
               }}
               activeOpacity={0.7}
+              disabled={areInteractionsDisabled(item)}
             >
               <Feather name="share-2" size={12} color="#64748b" />
             </TouchableOpacity>
@@ -1880,7 +1964,7 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
       </EnhancedCard>
     </TouchableOpacity>
-  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, dummyAuthorImage, openCommentsModal]);
+  ), [openCommentsModal, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, dummyAuthorImage, openCommentsModal, areInteractionsDisabled, openGraphModal]);
 
   const renderFullScreenFlipCard = useCallback((item: PostItem) => (
     <View className="flex-1 bg-gray-900">
@@ -1944,9 +2028,9 @@ export default function SentinelFeed(): React.JSX.Element {
           style={{ paddingTop: Platform.OS === 'ios' ? 12 : 12 }}
         >
           <View>
-          <Image
-              source={require("../../assets/images/sentinel_text.png")}
-              className="w-40 h-6"
+            <Image
+              source={require("../../assets/images/sentinel_logo.png")}
+              className="w-16 h-10"
               resizeMode="contain"
             />
           </View>
@@ -1987,25 +2071,13 @@ export default function SentinelFeed(): React.JSX.Element {
       >
         {loading ? (
           <View className="flex-1 justify-center items-center py-20">
-            <View className="bg-white p-6 rounded-2xl shadow-lg">
-              <ActivityIndicator size="large" color="#3b82f6" />
-              <Text className="text-gray-600 mt-3 text-sm font-medium text-center">Loading posts...</Text>
-              <Text className="text-gray-400 text-xs mt-1 text-center">This won't take long</Text>
-            </View>
+            <LoadingComponent visible={true} size="large" />
           </View>
         ) : listItems.length > 0 ? (
           listItems
         ) : (
           <View className="flex-1 justify-center items-center py-20">
-            <View className="bg-white p-6 rounded-2xl shadow-lg items-center">
-              <View className="w-16 h-16 bg-gray-100 rounded-full items-center justify-center mb-3">
-                <Ionicons name="document-outline" size={28} color="#9ca3af" />
-              </View>
-              <Text className="text-gray-700 text-lg font-bold mb-2">No posts yet</Text>
-              <Text className="text-gray-500 text-center text-sm px-4 leading-5">
-                Be the first to share something amazing with the community!
-              </Text>
-            </View>
+            <LoadingComponent visible={true} size="large" />
           </View>
         )}
       </ScrollView>
