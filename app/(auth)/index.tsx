@@ -1,7 +1,6 @@
 import { db } from '@/FirebaseConfig';
 import { LoadingComponent } from '@/components/LoadingComponent';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ResizeMode, Video } from 'expo-av';
 import { router } from 'expo-router';
 import { collection, doc, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore';
@@ -280,15 +279,15 @@ export default function Index(): React.JSX.Element {
 
   useEffect(() => {
     handleFetchAllData();
-    try {
-      const fetchuserID = AsyncStorage.getItem('userId');
-      if(fetchuserID !== null) {
-        router.push("/(tabs)");
-      }
+    // try {
+    //   const fetchuserID = AsyncStorage.getItem('userId');
+    //   if(fetchuserID != null) {
+    //     router.push("/(tabs)");
+    //   }
       
-    } catch (error) {
-      console.error("error, ", error);
-    }
+    // } catch (error) {
+    //   console.error("error, ", error);
+    // }
   }, []);
 
   // MEDIA MODAL CONTROLS
