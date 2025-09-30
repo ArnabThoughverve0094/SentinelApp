@@ -3,7 +3,7 @@ import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from "expo-sharing";
-import { arrayRemove, arrayUnion, collection, doc, getDocs, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
+import { arrayRemove, arrayUnion, collection, doc, getDocs, onSnapshot, orderBy, query, updateDoc, addDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Share } from "react-native";
 
@@ -19,6 +19,7 @@ import {
   ScrollView,
   StatusBar,
   Text,
+  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
@@ -49,6 +50,12 @@ interface PostItem {
   Reposted: boolean;
   Bookmarked?: boolean;
   createdAt?: any;
+  // New repost fields
+  isRepost?: boolean;
+  originalPost?: PostItem;
+  repostComment?: string;
+  repostedBy?: string;
+  repostedAt?: any;
 }
 
 // Custom Modal Component for Alerts
@@ -133,22 +140,15 @@ const CustomModal: React.FC<CustomModalProps> = ({
           style={[{ transform: [{ scale: scaleAnim }] }]}
           className="bg-white rounded-3xl p-8 items-center w-full max-w-sm shadow-2xl"
         >
-          {/* Icon */}
           <View className={`w-20 h-20 ${modalStyle.iconBg} rounded-full items-center justify-center mb-6`}>
             <Ionicons name={modalStyle.iconName} size={48} color={modalStyle.iconColor} />
           </View>
-
-          {/* Title */}
           <Text className="text-2xl font-bold text-gray-900 text-center mb-3">
             {title}
           </Text>
-
-          {/* Message */}
           <Text className="text-base text-gray-600 text-center mb-8 leading-6">
             {message}
           </Text>
-
-          {/* Buttons */}
           <View className="w-full space-y-3">
             {buttons.map((button, index) => (
               <TouchableOpacity
@@ -172,6 +172,180 @@ const CustomModal: React.FC<CustomModalProps> = ({
                 </Text>
               </TouchableOpacity>
             ))}
+          </View>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+};
+
+// Repost Modal Component
+interface RepostModalProps {
+  visible: boolean;
+  onClose: () => void;
+  post: PostItem | null;
+  onSimpleRepost: () => void;
+  onQuoteRepost: (comment: string) => void;
+}
+
+const RepostModal: React.FC<RepostModalProps> = ({
+  visible,
+  onClose,
+  post,
+  onSimpleRepost,
+  onQuoteRepost
+}) => {
+  const [repostComment, setRepostComment] = useState('');
+  const [isQuoteMode, setIsQuoteMode] = useState(false);
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      scaleAnim.setValue(0);
+      setRepostComment('');
+      setIsQuoteMode(false);
+    }
+  }, [visible, scaleAnim]);
+
+  const handleQuoteRepost = () => {
+    if (repostComment.trim()) {
+      onQuoteRepost(repostComment.trim());
+    }
+    onClose();
+  };
+
+  const handleSimpleRepost = () => {
+    onSimpleRepost();
+    onClose();
+  };
+
+  if (!visible || !post) return null;
+
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View className="flex-1 bg-black/50 items-center justify-end px-4 pb-8">
+        <Animated.View 
+          style={[{ transform: [{ scale: scaleAnim }] }]}
+          className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl"
+        >
+          {/* Header */}
+          <View className="px-6 py-4 border-b border-gray-100">
+            <View className="flex-row items-center justify-between">
+              <View className="flex-1">
+                <Text className="text-xl font-bold text-gray-900">Share this post</Text>
+                <Text className="text-gray-500 text-sm mt-1">Add your thoughts or share as is</Text>
+              </View>
+              <TouchableOpacity 
+                className="p-2 rounded-full bg-gray-100"
+                onPress={onClose}
+              >
+                <Ionicons name="close" size={20} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Content */}
+          <View className="px-6 py-4">
+            {/* Original Post Preview */}
+            <View className="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-200">
+              <View className="flex-row items-center mb-2">
+                <Image
+                  source={{ uri: post.AuthorImageURL }}
+                  className="w-8 h-8 rounded-full mr-2"
+                  resizeMode="cover"
+                />
+                <Text className="font-semibold text-gray-900 text-sm">{post.AuthorName}</Text>
+              </View>
+              <Text className="text-gray-700 text-sm" numberOfLines={3}>
+                {post.ContentDesc}
+              </Text>
+            </View>
+
+            {/* Quote Mode Toggle */}
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-gray-600 text-sm">Add your thoughts?</Text>
+              <TouchableOpacity
+                onPress={() => setIsQuoteMode(!isQuoteMode)}
+                className={`px-3 py-1 rounded-full border ${
+                  isQuoteMode ? 'bg-black border-black' : 'bg-gray-100 border-gray-300'
+                }`}
+              >
+                <Text className={`text-xs font-medium ${
+                  isQuoteMode ? 'text-white' : 'text-gray-600'
+                }`}>
+                  Quote
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Quote Input */}
+            {isQuoteMode && (
+              <View className="mb-4">
+                <TextInput
+                  className="border border-gray-300 rounded-xl p-3 text-gray-900 min-h-[80px]"
+                  placeholder="Add your comment..."
+                  placeholderTextColor="#9CA3AF"
+                  multiline
+                  textAlignVertical="top"
+                  value={repostComment}
+                  onChangeText={setRepostComment}
+                  maxLength={280}
+                />
+                <Text className="text-xs text-gray-500 mt-1 text-right">
+                  {repostComment.length}/280
+                </Text>
+              </View>
+            )}
+
+            {/* Action Buttons */}
+            <View className="flex-row space-x-3">
+              <TouchableOpacity
+                onPress={handleSimpleRepost}
+                className="flex-1 bg-gray-100 py-3 rounded-xl items-center"
+                activeOpacity={0.8}
+              >
+                <View className="flex-row items-center">
+                  <Ionicons name="repeat" size={18} color="#64748b" />
+                  <Text className="ml-2 text-gray-700 font-semibold">Repost</Text>
+                </View>
+              </TouchableOpacity>
+
+              {isQuoteMode && (
+                <TouchableOpacity
+                  onPress={handleQuoteRepost}
+                  className={`flex-1 py-3 rounded-xl items-center ${
+                    repostComment.trim() ? 'bg-black' : 'bg-gray-300'
+                  }`}
+                  activeOpacity={0.8}
+                  disabled={!repostComment.trim()}
+                >
+                  <View className="flex-row items-center">
+                    <MaterialCommunityIcons 
+                      name="comment-quote" 
+                      size={18} 
+                      color={repostComment.trim() ? "white" : "#9CA3AF"} 
+                    />
+                    <Text className={`ml-2 font-semibold ${
+                      repostComment.trim() ? 'text-white' : 'text-gray-500'
+                    }`}>
+                      Quote
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </Animated.View>
       </View>
@@ -211,16 +385,20 @@ export default function SentinelFeed(): React.JSX.Element {
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedPostType, setSelectedPostType] = useState<string | null>(null);
 
-    // ------- GRAPH MODAL STATE -------
-    const [isGraphModalVisible, setIsGraphModalVisible] = useState(false);
-    const [selectedGraphPostId, setSelectedGraphPostId] = useState<string | null>(null);
-    const [selectedGraphPostType, setSelectedGraphPostType] = useState<string | null>(null);
-    const [userExistingComment, setUserExistingComment] = useState<Comment | null>(null);
+  // ------- GRAPH MODAL STATE -------
+  const [isGraphModalVisible, setIsGraphModalVisible] = useState(false);
+  const [selectedGraphPostId, setSelectedGraphPostId] = useState<string | null>(null);
+  const [selectedGraphPostType, setSelectedGraphPostType] = useState<string | null>(null);
+  const [userExistingComment, setUserExistingComment] = useState<Comment | null>(null);
 
   // ------- REJECTION MODAL STATE -------
   const [isRejectionModalVisible, setIsRejectionModalVisible] = useState(false);
   const [selectedRejectionReasons, setSelectedRejectionReasons] = useState<string[]>([]);
   const [rejectionPostId, setRejectionPostId] = useState<string | null>(null);
+
+  // ------- REPOST MODAL STATE -------
+  const [isRepostModalVisible, setIsRepostModalVisible] = useState(false);
+  const [selectedRepostPost, setSelectedRepostPost] = useState<PostItem | null>(null);
 
   // ------- CUSTOM ALERT STATE -------
   const [modalConfig, setModalConfig] = useState<{
@@ -282,7 +460,7 @@ export default function SentinelFeed(): React.JSX.Element {
     setModalConfig(prev => ({ ...prev, visible: false }));
   };
 
-  // IMPROVED TIME AGO FUNCTION
+  // TIME AGO FUNCTION
   const getTimeAgo = useCallback((dateString: any) => {
     if (!dateString) return 'Just now';
     
@@ -336,6 +514,7 @@ export default function SentinelFeed(): React.JSX.Element {
     }
   }, []);
 
+  // MEDIA TYPE DETECTION
   const getMediaType = useCallback((url: string) => {
     if (!url) return 'unknown';
     
@@ -365,6 +544,7 @@ export default function SentinelFeed(): React.JSX.Element {
     return urlPath.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt)$/) ? 'doc' : 'image';
   }, []);
 
+  // CARD ANIMATION
   const initializeCardAnimation = useCallback((postId: string) => {
     if (!cardAnimations[postId]) {
       const newAnimation = new Animated.Value(0);
@@ -384,6 +564,7 @@ export default function SentinelFeed(): React.JSX.Element {
     }
   }, [cardAnimations]);
 
+  // GET ASYNC STORAGE ITEMS
   const getItem = useCallback(async () => {
     try {
       const fetchuserID = await AsyncStorage.getItem('userId');
@@ -399,7 +580,7 @@ export default function SentinelFeed(): React.JSX.Element {
     }
   }, []);
 
-  // ✅ FIXED: Correct comment counting from subcollections
+  // FETCH SINGLE POST COMMENTS
   const fetchSinglePostComments = useCallback(async (postId: string, postType: string) => {
     try {
       let totalComments = 0;
@@ -428,10 +609,9 @@ export default function SentinelFeed(): React.JSX.Element {
     }
   }, []);
 
-  // OPTIMIZED DATA FETCHING
+  // DATA FETCHING
   const handleFetchAllData = useCallback(async (forceRefresh: boolean = false) => {
     const currentTime = Date.now();
-    const cacheValidTime = 5 * 60 * 1000;
     
     let fetchuserID = userId;
     if(fetchuserID == ""){
@@ -474,7 +654,7 @@ export default function SentinelFeed(): React.JSX.Element {
             isNew: false,
             postType: "X-Data",
             Liked: (postData.LikedBy?.includes(fetchuserID) || false),
-            Reposted: false,
+            Reposted: (postData.RepostedBy?.includes(fetchuserID) || false),
             Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
             createdAt: postData.createdAt || postData.ContentDate,
           });
@@ -501,14 +681,6 @@ export default function SentinelFeed(): React.JSX.Element {
           const postData = doc.data;
           const postId = doc.id;
 
-          try {
-            console.log("Liked By List: ", postData.LikedBy);
-            console.log("UserID: ", fetchuserID);
-            console.log("Liked By: ", (postData.LikedBy?.includes(fetchuserID) || false));
-          } catch (error) {
-            console.log(error);
-          }
-
           postsData.push({
             uniqueId: `sentinel-${postId}`,
             id: postId,
@@ -525,9 +697,15 @@ export default function SentinelFeed(): React.JSX.Element {
             isNew: postData.isNew !== undefined ? postData.isNew : true,
             postType: "SentinelPosts",
             Liked: (postData.LikedBy?.includes(fetchuserID) || false),
-            Reposted: false,
+            Reposted: (postData.RepostedBy?.includes(fetchuserID) || false),
             Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
             createdAt: postData.createdAt || postData.ContentDate,
+            // Repost specific fields
+            isRepost: postData.isRepost || false,
+            originalPost: postData.originalPost || null,
+            repostComment: postData.repostComment || '',
+            repostedBy: postData.repostedBy || '',
+            repostedAt: postData.repostedAt || null,
           });
         }
 
@@ -536,7 +714,6 @@ export default function SentinelFeed(): React.JSX.Element {
         console.log('OnSnapshot Fetched and Sorted', `Total: ${allData.length} documents`);
 
         allData.forEach(post => {
-          //Fetching Comment and Reply Count
           onSnapshot(
             collection(doc(db, post.postType, post.id), 'Comments'),
             commentsSnap => {
@@ -553,7 +730,6 @@ export default function SentinelFeed(): React.JSX.Element {
             }
           )
         });
-        
       });
       
       setLastFetchTime(currentTime);
@@ -601,9 +777,8 @@ export default function SentinelFeed(): React.JSX.Element {
     }, [isInitialized, fetchSinglePostComments])
   );
 
-  // TO OPEN COMMENTS MODAL
+  // MODAL FUNCTIONS
   const openCommentsModal = useCallback((item: PostItem) => {
-    // Check if interactions are disabled for rejected posts
     if (areInteractionsDisabled(item)) {
       showCustomAlert(
         'warning',
@@ -624,16 +799,13 @@ export default function SentinelFeed(): React.JSX.Element {
     setIsCommentModalVisible(true);
   }, [areInteractionsDisabled, showCustomAlert, hideModal]);
 
-  // TO CLOSE COMMENTS MODAL
   const closeCommentsModal = useCallback(() => {
     setIsCommentModalVisible(false);
     setSelectedPostId(null);
     setSelectedPostType(null);
   }, []);
 
-  // TO OPEN GRAPH MODAL
   const openGraphModal = useCallback((item: PostItem) => {
-    // Check if interactions are disabled for rejected posts
     if (areInteractionsDisabled(item)) {
       showCustomAlert(
         'warning',
@@ -658,7 +830,6 @@ export default function SentinelFeed(): React.JSX.Element {
     setIsCommentModalVisible(false);
   }, [areInteractionsDisabled, showCustomAlert, hideModal]);
 
-  // TO CLOSE GRAPH MODAL
   const closeGraphModal = useCallback(() => {
     setIsGraphModalVisible(false);
     setSelectedGraphPostId(null);
@@ -670,7 +841,7 @@ export default function SentinelFeed(): React.JSX.Element {
     setIsCommentModalVisible(true);
   }, []);
 
-  // ENHANCED REJECTION MODAL FUNCTIONS
+  // REJECTION MODAL FUNCTIONS
   const openRejectionModal = useCallback((postId: string) => {
     setRejectionPostId(postId);
     setSelectedRejectionReasons([]);
@@ -805,7 +976,7 @@ export default function SentinelFeed(): React.JSX.Element {
     }, 800);
   }, [isFlipped, isFlipping]);
 
-  // ENHANCED APPROVAL TOGGLE FUNCTION
+  // APPROVAL TOGGLE FUNCTION
   const handleApprovalToggle = useCallback(async (postId: string, newApprovedStatus: boolean, newIsNew: boolean = false) => {
     console.log("Toggling post:", postId, "to approved:", newApprovedStatus, "isNew:", newIsNew);
 
@@ -846,8 +1017,8 @@ export default function SentinelFeed(): React.JSX.Element {
     }
   }, [fullScreenCard]);
 
+  // LIKE FUNCTION
   const toggleLike = useCallback(async (postItem: PostItem) => {
-    // Check if interactions are disabled for rejected posts
     if (areInteractionsDisabled(postItem)) {
       showCustomAlert(
         'warning',
@@ -899,8 +1070,8 @@ export default function SentinelFeed(): React.JSX.Element {
     await new Promise(r => setTimeout(r, 200));
   }, [fullScreenCard, areInteractionsDisabled, showCustomAlert, hideModal]);
 
-  const handleRepost = useCallback(async (postItem: PostItem) => {
-    // Check if interactions are disabled for rejected posts
+  // REPOST MODAL FUNCTIONS
+  const openRepostModal = useCallback((postItem: PostItem) => {
     if (areInteractionsDisabled(postItem)) {
       showCustomAlert(
         'warning',
@@ -916,37 +1087,258 @@ export default function SentinelFeed(): React.JSX.Element {
       return;
     }
 
-    console.log("Repost pressed:", postItem.id);
-    
-    setFetchedData(prevData => 
-      prevData.map(item => 
-        item.uniqueId === postItem.uniqueId 
-          ? { 
-              ...item, 
-              Reposted: !item.Reposted, 
-              ContentRepostCount: item.Reposted 
-                ? item.ContentRepostCount - 1 
-                : item.ContentRepostCount + 1
-            } 
-          : item
-      )
-    );
+    setSelectedRepostPost(postItem);
+    setIsRepostModalVisible(true);
+  }, [areInteractionsDisabled, showCustomAlert, hideModal]);
 
-    if (fullScreenCard && fullScreenCard.uniqueId === postItem.uniqueId) {
-      setFullScreenCard((prev: PostItem | null) => prev ? ({
-        ...prev,
-        Reposted: !prev.Reposted,
-        ContentRepostCount: prev.Reposted 
-          ? prev.ContentRepostCount - 1 
-          : prev.ContentRepostCount + 1
-      }) : null);
+  const closeRepostModal = useCallback(() => {
+    setIsRepostModalVisible(false);
+    setSelectedRepostPost(null);
+  }, []);
+
+  // SIMPLE REPOST FUNCTION
+  const handleSimpleRepost = useCallback(async () => {
+    if (!selectedRepostPost) return;
+
+    try {
+      let fetchuserID = userId;
+      if(fetchuserID == ""){
+        fetchuserID = await AsyncStorage.getItem('userId') || "";
+        setUserId(fetchuserID);
+      }
+
+      const userInfo = await AsyncStorage.getItem('userName') || 'Anonymous';
+      const userImage = await AsyncStorage.getItem('userImageURL') || dummyAuthorImage;
+
+      // Check if already reposted
+      if (selectedRepostPost.Reposted) {
+        // Undo repost
+        const postRef = doc(db, selectedRepostPost.postType, selectedRepostPost.id);
+        await updateDoc(postRef, {
+          ContentRepostCount: selectedRepostPost.ContentRepostCount - 1,
+          RepostedBy: arrayRemove(fetchuserID),
+        });
+
+        setFetchedData(prevData => 
+          prevData.map(item => 
+            item.uniqueId === selectedRepostPost.uniqueId 
+              ? { 
+                  ...item, 
+                  Reposted: false, 
+                  ContentRepostCount: item.ContentRepostCount - 1
+                } 
+              : item
+          )
+        );
+
+        showCustomAlert(
+          'success',
+          'Repost Removed',
+          'Post has been removed from your reposts.',
+          [
+            {
+              text: 'OK',
+              onPress: hideModal
+            }
+          ]
+        );
+      } else {
+        // Create new repost
+        const postRef = doc(db, selectedRepostPost.postType, selectedRepostPost.id);
+        await updateDoc(postRef, {
+          ContentRepostCount: selectedRepostPost.ContentRepostCount + 1,
+          RepostedBy: arrayUnion(fetchuserID),
+        });
+
+        // Create repost in SentinelPosts collection
+        await addDoc(collection(db, 'SentinelPosts'), {
+          AuthorImageURL: userImage,
+          AuthorName: userInfo,
+          ContentDate: new Date(),
+          ContentDesc: selectedRepostPost.ContentDesc,
+          ContentURL: selectedRepostPost.ContentURL,
+          ContentURLs: selectedRepostPost.ContentURLs,
+          ContentLikeCount: 0,
+          ContentRepostCount: 0,
+          ContentCommentCount: 0,
+          isApproved: true,
+          isNew: false,
+          LikedBy: [],
+          RepostedBy: [],
+          BookmarkedBy: [],
+          createdAt: new Date(),
+          // Repost specific fields
+          isRepost: true,
+          originalPost: {
+            id: selectedRepostPost.id,
+            AuthorName: selectedRepostPost.AuthorName,
+            AuthorImageURL: selectedRepostPost.AuthorImageURL,
+            ContentDesc: selectedRepostPost.ContentDesc,
+            ContentDate: selectedRepostPost.ContentDate,
+            postType: selectedRepostPost.postType
+          },
+          repostComment: '',
+          repostedBy: fetchuserID,
+          repostedAt: new Date(),
+        });
+
+        setFetchedData(prevData => 
+          prevData.map(item => 
+            item.uniqueId === selectedRepostPost.uniqueId 
+              ? { 
+                  ...item, 
+                  Reposted: true, 
+                  ContentRepostCount: item.ContentRepostCount + 1
+                } 
+              : item
+          )
+        );
+
+        showCustomAlert(
+          'success',
+          'Reposted Successfully',
+          'Post has been shared to your followers.',
+          [
+            {
+              text: 'OK',
+              onPress: hideModal
+            }
+          ]
+        );
+      }
+
+      if (fullScreenCard && fullScreenCard.uniqueId === selectedRepostPost.uniqueId) {
+        setFullScreenCard((prev: PostItem | null) => prev ? ({
+          ...prev,
+          Reposted: !prev.Reposted,
+          ContentRepostCount: prev.Reposted 
+            ? prev.ContentRepostCount - 1 
+            : prev.ContentRepostCount + 1
+        }) : null);
+      }
+    } catch (error) {
+      console.error('Error handling repost:', error);
+      showCustomAlert(
+        'error',
+        'Repost Failed',
+        'Failed to repost. Please try again.',
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
     }
+  }, [selectedRepostPost, userId, fullScreenCard, showCustomAlert, hideModal]);
 
-    await new Promise(r => setTimeout(r, 200));
-  }, [fullScreenCard, areInteractionsDisabled, showCustomAlert, hideModal]);
+  // QUOTE REPOST FUNCTION
+  const handleQuoteRepost = useCallback(async (comment: string) => {
+    if (!selectedRepostPost) return;
 
+    try {
+      let fetchuserID = userId;
+      if(fetchuserID == ""){
+        fetchuserID = await AsyncStorage.getItem('userId') || "";
+        setUserId(fetchuserID);
+      }
+
+      const userInfo = await AsyncStorage.getItem('userName') || 'Anonymous';
+      const userImage = await AsyncStorage.getItem('userImageURL') || dummyAuthorImage;
+
+      // Update original post repost count
+      const postRef = doc(db, selectedRepostPost.postType, selectedRepostPost.id);
+      await updateDoc(postRef, {
+        ContentRepostCount: selectedRepostPost.ContentRepostCount + 1,
+        RepostedBy: arrayUnion(fetchuserID),
+      });
+
+      // Create quote repost in SentinelPosts collection
+      await addDoc(collection(db, 'SentinelPosts'), {
+        AuthorImageURL: userImage,
+        AuthorName: userInfo,
+        ContentDate: new Date(),
+        ContentDesc: comment,
+        ContentURL: selectedRepostPost.ContentURL,
+        ContentURLs: selectedRepostPost.ContentURLs,
+        ContentLikeCount: 0,
+        ContentRepostCount: 0,
+        ContentCommentCount: 0,
+        isApproved: true,
+        isNew: false,
+        LikedBy: [],
+        RepostedBy: [],
+        BookmarkedBy: [],
+        createdAt: new Date(),
+        // Repost specific fields
+        isRepost: true,
+        originalPost: {
+          id: selectedRepostPost.id,
+          AuthorName: selectedRepostPost.AuthorName,
+          AuthorImageURL: selectedRepostPost.AuthorImageURL,
+          ContentDesc: selectedRepostPost.ContentDesc,
+          ContentDate: selectedRepostPost.ContentDate,
+          postType: selectedRepostPost.postType
+        },
+        repostComment: comment,
+        repostedBy: fetchuserID,
+        repostedAt: new Date(),
+      });
+
+      setFetchedData(prevData => 
+        prevData.map(item => 
+          item.uniqueId === selectedRepostPost.uniqueId 
+            ? { 
+                ...item, 
+                Reposted: true, 
+                ContentRepostCount: item.ContentRepostCount + 1
+              } 
+            : item
+        )
+      );
+
+      showCustomAlert(
+        'success',
+        'Quote Repost Created',
+        'Your quote repost has been shared to your followers.',
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
+
+      if (fullScreenCard && fullScreenCard.uniqueId === selectedRepostPost.uniqueId) {
+        setFullScreenCard((prev: PostItem | null) => prev ? ({
+          ...prev,
+          Reposted: true,
+          ContentRepostCount: prev.ContentRepostCount + 1
+        }) : null);
+      }
+    } catch (error) {
+      console.error('Error creating quote repost:', error);
+      showCustomAlert(
+        'error',
+        'Quote Repost Failed',
+        'Failed to create quote repost. Please try again.',
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
+    }
+  }, [selectedRepostPost, userId, fullScreenCard, showCustomAlert, hideModal]);
+
+  // MAIN REPOST HANDLER
+  const handleRepost = useCallback(async (postItem: PostItem) => {
+    openRepostModal(postItem);
+  }, [openRepostModal]);
+
+  // BOOKMARK FUNCTION
   const handleBookmark = useCallback(async (postItem: PostItem) => {
-    // Check if interactions are disabled for rejected posts
     if (areInteractionsDisabled(postItem)) {
       showCustomAlert(
         'warning',
@@ -995,10 +1387,10 @@ export default function SentinelFeed(): React.JSX.Element {
     await new Promise(r => setTimeout(r, 200));
   }, [fullScreenCard, areInteractionsDisabled, showCustomAlert, hideModal]);
 
+  // SHARE FUNCTION
   const handleShare = useCallback(async (postItem: PostItem) => {
     console.log("Share pressed:", postItem.id);
     
-    // first check if sharing is available
     const available = await Sharing.isAvailableAsync();
     if (!available) {
       alert("Sharing is not available on this device");
@@ -1006,21 +1398,18 @@ export default function SentinelFeed(): React.JSX.Element {
     }
 
     try {
-      // no image, just share text / link
-      // you might use React Native's Share API
-      
       await Share.share({
         message: `SENTINEL POST\n\nShared by ${postItem.AuthorName}\n${postItem.ContentDesc}\n${postItem.ContentURL}\n\nPlease take a look.`,
-    });
+      });
       
     } catch (error) {
       console.log("Error sharing ", error);
     }
 
     await new Promise(r => setTimeout(r, 200));
-  }, [fullScreenCard]);
+  }, []);
 
-  // OPTIMIZED MEDIA CONTENT - REDUCED SIZES
+  // MEDIA CONTENT RENDERER
   const renderMediaContent = useCallback((item: PostItem, index?: number) => {
     const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
                      (item.ContentURL ? [item.ContentURL] : []);
@@ -1153,7 +1542,31 @@ export default function SentinelFeed(): React.JSX.Element {
     }
   }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, currentVideoIndex]);
 
-  // OPTIMIZED REFRESH
+  // RENDER REPOST CONTENT
+  const renderRepostContent = useCallback((item: PostItem) => {
+    if (!item.isRepost || !item.originalPost) return null;
+
+    return (
+      <View className="border border-gray-200 rounded-xl p-3 mt-2 bg-gray-50">
+        <View className="flex-row items-center mb-2">
+          <Image
+            source={{ uri: item.originalPost.AuthorImageURL || dummyAuthorImage }}
+            className="w-6 h-6 rounded-full mr-2"
+            resizeMode="cover"
+          />
+          <Text className="font-semibold text-gray-900 text-sm">{item.originalPost.AuthorName}</Text>
+          <Text className="text-gray-500 text-xs ml-2">
+            {getTimeAgo(item.originalPost.ContentDate)}
+          </Text>
+        </View>
+        <Text className="text-gray-700 text-sm" numberOfLines={3}>
+          {item.originalPost.ContentDesc}
+        </Text>
+      </View>
+    );
+  }, [getTimeAgo, dummyAuthorImage]);
+
+  // REFRESH FUNCTION
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     console.log('Manual refresh triggered');
@@ -1161,7 +1574,7 @@ export default function SentinelFeed(): React.JSX.Element {
     setRefreshing(false);
   }, [handleFetchAllData]);
 
-  // Filtered data for posts
+  // FILTERED DATA
   const filteredData = useMemo(() => {
     return fetchedData.filter(item => {
       if (userRole === "User") {
@@ -1171,7 +1584,7 @@ export default function SentinelFeed(): React.JSX.Element {
     });
   }, [fetchedData, userRole]);
 
-  // AUTO PLAY VIDEO ON SCROLL
+  // SCROLL HANDLER
   const handleScroll = useCallback((event: any) => {
     const { contentOffset, layoutMeasurement } = event.nativeEvent;
     const currentScrollY = contentOffset.y;
@@ -1195,7 +1608,7 @@ export default function SentinelFeed(): React.JSX.Element {
     });
   }, [filteredData, getMediaType, currentVideoIndex]);
 
-  // COMPACT APPROVAL TOGGLE COMPONENT
+  // APPROVAL TOGGLE COMPONENT
   const ApprovalToggle = useCallback(({ isApproved, isNew, onToggle, postId, isFullScreen = false }: { 
     isApproved: boolean; 
     isNew: boolean;
@@ -1203,10 +1616,6 @@ export default function SentinelFeed(): React.JSX.Element {
     postId: string;
     isFullScreen?: boolean;
   }) => {
-    const handleNewClick = () => {
-      onToggle(false, true);
-    };
-
     const handleApproveClick = () => {
       onToggle(true, false);
     };
@@ -1217,7 +1626,6 @@ export default function SentinelFeed(): React.JSX.Element {
 
     return (
       <View className="flex-row items-center justify-center" style={{ gap: isFullScreen ? 8 : 4 }}>
-        {/* Approve Button - Compact */}
         <TouchableOpacity
           onPress={handleApproveClick}
           className={`px-1.5 py-1 rounded-full border flex-row items-center ${
@@ -1246,7 +1654,6 @@ export default function SentinelFeed(): React.JSX.Element {
           </Text>
         </TouchableOpacity>
 
-        {/* Reject Button - Compact */}
         <TouchableOpacity
           onPress={handleRejectClick}
           className={`px-1.5 py-1 rounded-full border flex-row items-center ${
@@ -1278,6 +1685,7 @@ export default function SentinelFeed(): React.JSX.Element {
     );
   }, [openRejectionModal]);
 
+  // ENHANCED CARD COMPONENT
   const EnhancedCard = useCallback(({ children, postId }: { children: React.ReactNode, postId: string }) => {
     const animValue = cardAnimations[postId] || new Animated.Value(0);
     
@@ -1314,7 +1722,7 @@ export default function SentinelFeed(): React.JSX.Element {
     );
   }, [cardAnimations]);
 
-  // Helper function to get post status text and color
+  // POST STATUS HELPER
   const getPostStatus = useCallback((item: PostItem) => {
     if (item.isNew) {
       return { text: 'New', color: '#f97316', bgColor: 'bg-orange-100' };
@@ -1325,333 +1733,7 @@ export default function SentinelFeed(): React.JSX.Element {
     }
   }, []);
 
-  const renderFlipCardFront = useCallback((item: PostItem) => (
-    <View style={{ 
-      flex: 1, 
-      backgroundColor: 'white', 
-      borderRadius: 24, 
-      overflow: 'hidden' 
-    }}>
-      <View className="px-4 py-3 bg-gray-50 border-b border-gray-100">
-        <View className="flex-row items-center">
-          <View className="relative">
-            <View className="w-10 h-10 rounded-full mr-2.5 overflow-hidden border-2 border-white shadow-lg">
-              <Image
-                source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
-                className="w-full h-full"
-                resizeMode="cover"
-              />
-            </View>
-          </View>
-          <View className="flex-1">
-            <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text>
-            <View className="flex-row items-center mt-0.5">
-              <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
-              {item.postType === 'X-Data' && (
-                <View className="bg-blue-100 px-2 py-0.5 rounded-full mr-2">
-                  <Text className="text-blue-600 text-xs font-semibold">𝕏 POST</Text>
-                </View>
-              )}
-              {item.postType === 'SentinelPosts' && (
-                <View className={`px-2 py-0.5 rounded-full ${getPostStatus(item).bgColor}`}>
-                  <Text className="text-xs font-semibold" style={{ color: getPostStatus(item).color }}>
-                    {getPostStatus(item).text}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
-          <View className="flex-col items-center">
-            <TouchableOpacity 
-              className="p-1.5 rounded-full bg-blue-100 mb-1"
-              onPress={handleFlipCard}
-              disabled={isFlipping}
-              style={{ opacity: isFlipping ? 0.6 : 1 }}
-            >
-              <Ionicons name="repeat" size={14} color="#3b82f6" />
-            </TouchableOpacity>
-            <Text className="text-xs text-blue-600 font-medium">Flip</Text>
-          </View>
-        </View>
-      </View>
-
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-        <View className="px-4 py-3">
-          <Text className="text-gray-800 text-sm leading-5 mb-3 font-normal">{item.ContentDesc}</Text>
-          
-          {renderMediaContent(item)}
-
-          <View className="flex-row items-center justify-between pt-3 mb-3">
-            <TouchableOpacity
-                className={`flex-row items-center px-2 py-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                onPress={() => toggleLike(item)}
-                activeOpacity={0.7}
-                disabled={areInteractionsDisabled(item)}
-              >
-              <Ionicons
-                name={item.Liked ? "heart" : "heart-outline"}
-                size={18}
-                color={item.Liked ? "#ef4444" : "#64748b"}
-              />
-              <Text className={`ml-2 text-sm font-semibold ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
-                {item.ContentLikeCount}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className={`flex-row items-center px-2 py-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-              onPress={() => {
-                closeFullScreenCard();
-                openCommentsModal(item);
-              }}
-              activeOpacity={0.7}
-              disabled={areInteractionsDisabled(item)}
-            >
-              <MaterialCommunityIcons
-                name="comment-outline"
-                size={18}
-                color="#64748b"
-              />
-              <Text className="text-gray-600 ml-2 text-sm font-semibold">{item.ContentCommentCount}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className={`flex-row items-center px-2 py-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-              onPress={() => handleRepost(item)}
-              activeOpacity={0.7}
-              disabled={areInteractionsDisabled(item)}
-            >
-              <Ionicons 
-                name="repeat-outline" 
-                size={18} 
-                color={item.Reposted ? "#0ea5e9" : "#64748b"} 
-              />
-              <Text className={`ml-2 text-sm font-semibold ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
-                {item.ContentRepostCount}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              className={`p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-              onPress={() => {
-                closeFullScreenCard();
-                openGraphModal(item);
-              }}
-              activeOpacity={0.7}
-              disabled={areInteractionsDisabled(item)}
-            >
-              <Feather name="bar-chart-2" size={16} color="#64748b" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className={`flex-row items-center px-2 py-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-              onPress={() => handleBookmark(item)}
-              activeOpacity={0.7}
-              disabled={areInteractionsDisabled(item)}
-            >
-              <Ionicons 
-                name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
-                size={18} 
-                color={item.Bookmarked ? "#000000" : "#64748b"} 
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              className={`p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-              onPress={() => handleShare(item)}
-              activeOpacity={0.7}
-              disabled={areInteractionsDisabled(item)}
-            >
-              <Feather name="share-2" size={16} color="#64748b" />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </ScrollView>
-    </View>
-  ), [getTimeAgo, handleFlipCard, isFlipping, renderMediaContent, toggleLike, handleRepost, handleBookmark, dummyAuthorImage, closeFullScreenCard, openCommentsModal, getPostStatus, areInteractionsDisabled, openGraphModal]);
-
-  const renderFlipCardBack = useCallback((item: PostItem) => (
-    <View style={{ 
-      flex: 1, 
-      backgroundColor: '#667eea', 
-      borderRadius: 24, 
-      overflow: 'hidden'
-    }}>
-      <View style={{ 
-        paddingHorizontal: 16, 
-        paddingVertical: 12, 
-        backgroundColor: 'rgba(0,0,0,0.2)', 
-        borderBottomWidth: 1, 
-        borderBottomColor: 'rgba(255,255,255,0.2)' 
-      }}>
-        <View className="flex-row items-center">
-          <View className="flex-1">
-            <Text className="font-bold text-white text-base">Post Analytics</Text>
-            <Text className="text-white/80 text-sm mt-0.5">Detailed insights</Text>
-          </View>
-          <View className="flex-col items-center">
-            <TouchableOpacity 
-              className="p-1.5 rounded-full mb-1" 
-              style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
-              onPress={handleFlipCard}
-              disabled={isFlipping}
-            >
-              <Ionicons name="repeat" size={14} color="white" />
-            </TouchableOpacity>
-            <Text className="text-xs text-white font-medium">Flip</Text>
-          </View>
-        </View>
-      </View>
-
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-        <View style={{ paddingHorizontal: 16, paddingVertical: 16 }}>
-          <View style={{ gap: 12 }}>
-            <View style={{ 
-              backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-              borderRadius: 14, 
-              padding: 16 
-            }}>
-              <Text className="text-white font-bold text-sm mb-3">Engagement</Text>
-              <View className="flex-row justify-between items-center mb-2">
-                <View className="flex-row items-center">
-                  <Ionicons name="heart" size={16} color="#ff6b6b" />
-                  <Text className="text-white ml-2 text-sm">Likes</Text>
-                </View>
-                <Text className="text-white font-bold text-base">{item.ContentLikeCount}</Text>
-              </View>
-              <View className="flex-row justify-between items-center mb-2">
-                <View className="flex-row items-center">
-                  <Ionicons name="repeat" size={16} color="#4ecdc4" />
-                  <Text className="text-white ml-2 text-sm">Reposts</Text>
-                </View>
-                <Text className="text-white font-bold text-base">{item.ContentRepostCount}</Text>
-              </View>
-              <View className="flex-row justify-between items-center">
-                <View className="flex-row items-center">
-                  <MaterialCommunityIcons name="comment" size={16} color="#45b7d1" />
-                  <Text className="text-white ml-2 text-sm">Comments</Text>
-                </View>
-                <Text className="text-white font-bold text-base">{item.ContentCommentCount}</Text>
-              </View>
-            </View>
-
-            <View style={{ 
-              backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-              borderRadius: 14, 
-              padding: 16 
-            }}>
-              <Text className="text-white font-bold text-sm mb-3">Post Details</Text>
-              <View style={{ gap: 8 }}>
-                <View>
-                  <Text className="text-white/70 text-xs">Post Type</Text>
-                  <Text className="text-white font-semibold text-sm">{item.postType}</Text>
-                </View>
-                <View>
-                  <Text className="text-white/70 text-xs">Status</Text>
-                  <View className="flex-row items-center mt-1">
-                    <View 
-                      style={{ 
-                        width: 6, 
-                        height: 6, 
-                        borderRadius: 3, 
-                        marginRight: 6,
-                        backgroundColor: getPostStatus(item).color
-                      }} 
-                    />
-                    <Text className="text-white font-semibold text-sm">
-                      {getPostStatus(item).text}
-                    </Text>
-                  </View>
-                </View>
-                <View>
-                  <Text className="text-white/70 text-xs">Published</Text>
-                  <Text className="text-white font-semibold text-sm">{getTimeAgo(item.ContentDate)}</Text>
-                </View>
-              </View>
-            </View>
-
-            {userRole !== "User" && item.postType === "SentinelPosts" && (
-              <View style={{ 
-                backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                borderRadius: 14, 
-                padding: 16 
-              }}>
-                <Text className="text-white font-bold text-sm mb-3">Admin Controls</Text>
-                <Text className="text-white/80 text-xs mb-3">
-                  Manage post visibility and approval status
-                </Text>
-                <ApprovalToggle
-                  isApproved={item.isApproved}
-                  isNew={item.isNew}
-                  onToggle={(approved, isNew) => handleApprovalToggle(item.id, approved, isNew)}
-                  postId={item.id}
-                  isFullScreen={true}
-                />
-              </View>
-            )}
-
-            <View style={{ 
-              backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-              borderRadius: 14, 
-              padding: 16 
-            }}>
-              <Text className="text-white font-bold text-sm mb-3">Quick Actions</Text>
-              <View className="flex-row justify-between" style={{ gap: 8 }}>
-                <TouchableOpacity 
-                  style={{ 
-                    flex: 1, 
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                    borderRadius: 8, 
-                    paddingVertical: 10, 
-                    alignItems: 'center',
-                    opacity: areInteractionsDisabled(item) ? 0.5 : 1
-                  }}
-                  onPress={() => {
-                    closeFullScreenCard();
-                    openCommentsModal(item);
-                  }}
-                  disabled={areInteractionsDisabled(item)}
-                >
-                  <MaterialCommunityIcons name="comment-plus" size={18} color="white" />
-                  <Text className="text-white text-xs mt-1 font-medium">Comment</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={{ 
-                    flex: 1, 
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                    borderRadius: 8, 
-                    paddingVertical: 10, 
-                    alignItems: 'center',
-                    opacity: areInteractionsDisabled(item) ? 0.5 : 1
-                  }}
-                  onPress={() => console.log("Edit pressed:", item.id)}
-                  disabled={areInteractionsDisabled(item)}
-                >
-                  <Ionicons name="create-outline" size={18} color="white" />
-                  <Text className="text-white text-xs mt-1 font-medium">Edit</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={{ 
-                    flex: 1, 
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                    borderRadius: 8, 
-                    paddingVertical: 10, 
-                    alignItems: 'center',
-                    opacity: areInteractionsDisabled(item) ? 0.5 : 1
-                  }}
-                  onPress={() => handleShare(item)}
-                  disabled={areInteractionsDisabled(item)}
-                >
-                  <Ionicons name="share-outline" size={18} color="white" />
-                  <Text className="text-white text-xs mt-1 font-medium">Share</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </View>
-      </ScrollView>
-    </View>
-  ), [handleFlipCard, isFlipping, getTimeAgo, userRole, ApprovalToggle, handleApprovalToggle, closeFullScreenCard, openCommentsModal, getPostStatus, areInteractionsDisabled]);
-
+  // RENDER POST CONTENT
   const renderPostContent = useCallback((item: PostItem, index: number) => (
     <TouchableOpacity 
       activeOpacity={0.95}
@@ -1694,9 +1776,23 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
 
         <View className="px-3 py-2.5">
+          {/* Repost Header */}
+          {item.isRepost && (
+            <View className="flex-row items-center mb-2 pb-2 border-b border-gray-100">
+              <Ionicons name="repeat" size={14} color="#64748b" />
+              <Text className="ml-1 text-gray-600 text-xs">
+                {item.repostComment ? 'Quote repost' : 'Reposted'}
+              </Text>
+            </View>
+          )}
+
           <Text className="text-gray-800 text-sm leading-5 mb-2 font-normal">{item.ContentDesc}</Text>
 
-          {renderMediaContent(item, index)}
+          {/* Render reposted content */}
+          {renderRepostContent(item)}
+
+          {/* Render media only if not a repost or if it's a quote repost */}
+          {(!item.isRepost || item.repostComment) && renderMediaContent(item, index)}
 
           <View className="flex-row items-center justify-between pt-1.5">
             <TouchableOpacity
@@ -1753,6 +1849,7 @@ export default function SentinelFeed(): React.JSX.Element {
                 {item.ContentRepostCount}
               </Text>
             </TouchableOpacity>
+            
             <TouchableOpacity 
               className={`p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
               onPress={(e) => {
@@ -1825,8 +1922,9 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
       </EnhancedCard>
     </TouchableOpacity>
-  ), [openCommentsModal, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, ApprovalToggle, handleApprovalToggle, dummyAuthorImage, userRole, openCommentsModal, getPostStatus, areInteractionsDisabled, openGraphModal]);
+  ), [openCommentsModal, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, ApprovalToggle, handleApprovalToggle, dummyAuthorImage, userRole, getPostStatus, areInteractionsDisabled, openGraphModal, renderRepostContent]);
 
+  // USER CONTENT RENDERER
   const renderPostUserContent = useCallback((item: PostItem, index: number) => (
     <TouchableOpacity 
       activeOpacity={0.95}
@@ -1862,9 +1960,23 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
 
         <View className="px-3 py-2.5">
+          {/* Repost Header */}
+          {item.isRepost && (
+            <View className="flex-row items-center mb-2 pb-2 border-b border-gray-100">
+              <Ionicons name="repeat" size={14} color="#64748b" />
+              <Text className="ml-1 text-gray-600 text-xs">
+                {item.repostComment ? 'Quote repost' : 'Reposted'}
+              </Text>
+            </View>
+          )}
+
           <Text className="text-gray-800 text-sm leading-5 mb-2">{item.ContentDesc}</Text>
 
-          {renderMediaContent(item, index)}
+          {/* Render reposted content */}
+          {renderRepostContent(item)}
+
+          {/* Render media only if not a repost or if it's a quote repost */}
+          {(!item.isRepost || item.repostComment) && renderMediaContent(item, index)}
 
           <View className="flex-row items-center justify-between pt-1.5">
             <TouchableOpacity
@@ -1921,6 +2033,7 @@ export default function SentinelFeed(): React.JSX.Element {
                 {item.ContentRepostCount}
               </Text>
             </TouchableOpacity>
+            
             <TouchableOpacity 
               className={`p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
               onPress={(e) => {
@@ -1964,40 +2077,9 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
       </EnhancedCard>
     </TouchableOpacity>
-  ), [openCommentsModal, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, dummyAuthorImage, openCommentsModal, areInteractionsDisabled, openGraphModal]);
+  ), [openCommentsModal, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, dummyAuthorImage, areInteractionsDisabled, openGraphModal, renderRepostContent]);
 
-  const renderFullScreenFlipCard = useCallback((item: PostItem) => (
-    <View className="flex-1 bg-gray-900">
-      <View style={{ paddingTop: Platform.OS === 'ios' ? 50 : 30 }} className="px-6 py-4 bg-gray-900/95 border-b border-gray-700">
-        <View className="flex-row items-center justify-between">
-          <Text className="text-white font-bold text-xl">Post Details</Text>
-          <TouchableOpacity 
-            className="p-3 rounded-full bg-red-500"
-            onPress={closeFullScreenCard}
-          >
-            <Ionicons name="close" size={24} color="white" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View className="flex-1 justify-center px-4">
-        <FlipCard
-          ref={flipCardRef}
-          style={{ width: screenWidth - 32, height: screenHeight * 0.75 }}
-          friction={6}
-          perspective={1000}
-          flipHorizontal={true}
-          flipVertical={false}
-          flip={isFlipped}
-          clickable={false}
-        >
-          {renderFlipCardFront(item)}
-          {renderFlipCardBack(item)}
-        </FlipCard>
-      </View>
-    </View>
-  ), [closeFullScreenCard, isFlipped, renderFlipCardFront, renderFlipCardBack]);
-
+  // LIST ITEMS
   const listItems = useMemo(() => {
     return filteredData.map((item, index) => {
       initializeCardAnimation(item.uniqueId);
@@ -2037,7 +2119,7 @@ export default function SentinelFeed(): React.JSX.Element {
           
           <TouchableOpacity 
               className="p-2 "
-              onPress={() =>router.push('/search')} // Navigate to search page
+              onPress={() =>router.push('/search')}
             >
               <MaterialCommunityIcons 
                 name="magnify" 
@@ -2187,17 +2269,6 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
       </Modal>
 
-      {/* CARD MODAL */}
-      <Modal
-        visible={isCardModalVisible}
-        transparent={false}
-        animationType="slide"
-        onRequestClose={closeFullScreenCard}
-        statusBarTranslucent
-      >
-        {fullScreenCard && renderFullScreenFlipCard(fullScreenCard)}
-      </Modal>
-
       {/* ENHANCED REJECTION REASON MODAL */}
       <Modal
         visible={isRejectionModalVisible}
@@ -2216,7 +2287,6 @@ export default function SentinelFeed(): React.JSX.Element {
                  elevation: 10,
                }}
           >
-            {/* Header */}
             <View className=" px-6 py-5 border-b border-gray-100">
               <View className="flex-row items-center justify-between">
                 <View className="flex-row items-center">
@@ -2237,14 +2307,12 @@ export default function SentinelFeed(): React.JSX.Element {
               </View>
             </View>
 
-            {/* Content */}
             <ScrollView style={{ maxHeight: screenHeight * 0.6 }} showsVerticalScrollIndicator={false}>
               <View className="px-6 py-6">
                 <Text className="text-gray-700 text-base mb-6 leading-6">
                   Please select one or more reasons why this post is being rejected. This will help the user understand our community guidelines.
                 </Text>
 
-                {/* Enhanced Checkbox Options */}
                 <View style={{ gap: 12 }}>
                   {rejectionReasons.map((reason, index) => {
                     const isSelected = selectedRejectionReasons.includes(reason);
@@ -2266,7 +2334,6 @@ export default function SentinelFeed(): React.JSX.Element {
                           elevation: isSelected ? 2 : 0,
                         }}
                       >
-                        {/* Enhanced Checkbox */}
                         <View 
                           className={`w-6 h-6 rounded-lg border-2 items-center justify-center mr-4 ${
                             isSelected 
@@ -2279,7 +2346,6 @@ export default function SentinelFeed(): React.JSX.Element {
                           )}
                         </View>
                         
-                        {/* Enhanced Text */}
                         <Text 
                           className={`flex-1 text-base leading-6 font-medium ${
                             isSelected ? 'text-black' : 'text-gray-700'
@@ -2288,7 +2354,6 @@ export default function SentinelFeed(): React.JSX.Element {
                           {reason}
                         </Text>
                         
-                        {/* Selection Indicator */}
                         {isSelected && (
                           <View className="ml-2">
                             <Ionicons name="checkmark-circle" size={20} color="#000" />
@@ -2299,7 +2364,6 @@ export default function SentinelFeed(): React.JSX.Element {
                   })}
                 </View>
 
-                {/* Selection Summary */}
                 {selectedRejectionReasons.length > 0 && (
                   <View className="mt-6 p-4  rounded-2xl ">
                     <Text className="text-black font-semibold text-sm">
@@ -2311,7 +2375,6 @@ export default function SentinelFeed(): React.JSX.Element {
                   </View>
                 )}
 
-                {/* Action Buttons */}
                 <View className="flex-row mt-8" style={{ gap: 12 }}>
                   <TouchableOpacity
                     className="flex-1 py-4 px-6 rounded-2xl border-2 border-gray-200 bg-gray-50"
@@ -2350,6 +2413,15 @@ export default function SentinelFeed(): React.JSX.Element {
           </View>
         </View>
       </Modal>
+
+      {/* REPOST MODAL */}
+      <RepostModal
+        visible={isRepostModalVisible}
+        onClose={closeRepostModal}
+        post={selectedRepostPost}
+        onSimpleRepost={handleSimpleRepost}
+        onQuoteRepost={handleQuoteRepost}
+      />
 
       {/* COMMENTS MODAL */}
       <CommentsModal
