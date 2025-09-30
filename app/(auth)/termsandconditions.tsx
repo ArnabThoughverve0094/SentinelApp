@@ -2,15 +2,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  Text,
-  TouchableOpacity,
-  View,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    Text,
+    TouchableOpacity,
+    Linking,
+    View,
 } from 'react-native';
 
-export default function PrivacyPolicy(): React.JSX.Element {
+export default function TermsOfUse(): React.JSX.Element {
   const router = useRouter();
 
   return (
@@ -27,7 +28,7 @@ export default function PrivacyPolicy(): React.JSX.Element {
             >
               <Ionicons name="arrow-back" size={20} color="#374151" />
             </TouchableOpacity>
-            <Text className="text-lg font-semibold text-gray-900">Privacy Policy</Text>
+            <Text className="text-lg font-semibold text-gray-900">Terms of Use</Text>
             <View className="w-10" />
           </View>
         </View>
@@ -39,11 +40,11 @@ export default function PrivacyPolicy(): React.JSX.Element {
           <View className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 mb-6 border border-blue-100">
             <View className="flex-row items-center mb-3">
               <View className="w-12 h-12 bg-blue-600 rounded-xl items-center justify-center mr-4">
-                <Ionicons name="shield-checkmark" size={24} color="white" />
+                <Ionicons name="document-text" size={24} color="white" />
               </View>
               <View className="flex-1">
                 <Text className="text-2xl font-bold text-gray-900 mb-1">
-                  Sentinel Privacy Policy
+                  Sentinel Terms of Use
                 </Text>
                 <Text className="text-sm text-gray-600">
                   Effective Date: October 7, 2025
@@ -54,11 +55,11 @@ export default function PrivacyPolicy(): React.JSX.Element {
               </View>
             </View>
             <Text className="text-base text-gray-700 leading-6">
-              Sentinel ("we," "our," "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, store, and protect information when you use the Sentinel platform ("Platform").
+              Welcome to Sentinel. By creating an account, accessing, or using the Sentinel platform ("Platform"), you agree to these Terms of Use ("Terms"). If you do not agree, you may not use Sentinel and should therefore not register.
             </Text>
           </View>
 
-          {/* Privacy sections with enhanced styling */}
+          {/* Terms sections with enhanced styling */}
           <View className="space-y-4">
             {/* Section 1 */}
             <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
@@ -67,34 +68,19 @@ export default function PrivacyPolicy(): React.JSX.Element {
                   <Text className="text-blue-600 font-bold text-sm">1</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  Information We Collect
+                  Eligibility and Account Registration
                 </Text>
               </View>
-              <View className="space-y-4 ml-11">
-                <View>
-                  <Text className="text-base font-medium text-gray-900 mb-2">Account Information:</Text>
-                  <Text className="text-base text-gray-700 leading-6">
-                    When you register, we collect your name, email, and other basic account details.
-                  </Text>
-                </View>
-                <View>
-                  <Text className="text-base font-medium text-gray-900 mb-2">User Submissions:</Text>
-                  <Text className="text-base text-gray-700 leading-6">
-                    If you submit a report, we collect the content of that report and any supporting information you provide.
-                  </Text>
-                </View>
-                <View>
-                  <Text className="text-base font-medium text-gray-900 mb-2">Device & Usage Data:</Text>
-                  <Text className="text-base text-gray-700 leading-6">
-                    We may collect IP addresses, browser type, operating system, and log data to help us operate and secure the Platform.
-                  </Text>
-                </View>
-                <View>
-                  <Text className="text-base font-medium text-gray-900 mb-2">Cookies & Tracking:</Text>
-                  <Text className="text-base text-gray-700 leading-6">
-                    We use cookies and similar technologies to improve your user experience.
-                  </Text>
-                </View>
+              <View className="space-y-3 ml-11">
+                <Text className="text-base text-gray-700 leading-6">
+                  • Only registered users ("Users" or "User") may submit incident reports and participate in the sentiment polls.
+                </Text>
+                <Text className="text-base text-gray-700 leading-6">
+                  • Registration requires accurate, current information. You are responsible for safeguarding your account credentials.
+                </Text>
+                <Text className="text-base text-gray-700 leading-6">
+                  • Sentinel reserves the right at its sole discretion to suspend or terminate accounts for violations of these Terms.
+                </Text>
               </View>
             </View>
 
@@ -105,23 +91,21 @@ export default function PrivacyPolicy(): React.JSX.Element {
                   <Text className="text-green-600 font-bold text-sm">2</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  How We Use Your Information
+                  User Responsibilities
                 </Text>
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6 mb-3">
-                  We use the information we collect to:
+                  By using Sentinel, you agree that you will not submit, upload, or transmit any content that:
                 </Text>
                 <View className="space-y-2">
-                  <Text className="text-base text-gray-700 leading-6">• Provide, maintain, and improve the Platform.</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Review reports for compliance with our Terms of Use.</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Communicate with you about your account, updates, and services.</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Enforce our Terms of Use and comply with applicable law.</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Analyze usage trends and enhance security.</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Is defamatory, libelous, harassing, threatening, or invasive of privacy.</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Promotes hate, violence, or discrimination.</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Violates or infringes upon any trademark, copyright, patent, trade secret, or other intellectual property rights.</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Contains false or misleading information intended to deceive.</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Contains viruses, malware, or other harmful code.</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Violates any applicable laws or regulations.</Text>
                 </View>
-                <Text className="text-base text-gray-900 font-medium mt-4">
-                  We do not sell your personal information to third parties.
-                </Text>
               </View>
             </View>
 
@@ -132,32 +116,28 @@ export default function PrivacyPolicy(): React.JSX.Element {
                   <Text className="text-orange-600 font-bold text-sm">3</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  How We Share Your Information
+                  Reporting and Moderation
                 </Text>
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6 mb-3">
-                  We may share your information only in the following cases:
+                  Users may submit reports of antisemitic, anti-Israel, or related incidents in three categories:
                 </Text>
-                <View className="space-y-4">
-                  <View>
-                    <Text className="text-base font-medium text-gray-900 mb-2">With Service Providers:</Text>
-                    <Text className="text-base text-gray-700 leading-6">
-                      Trusted vendors who help us operate the Platform (e.g., hosting, analytics, payment processing, if applicable).
-                    </Text>
-                  </View>
-                  <View>
-                    <Text className="text-base font-medium text-gray-900 mb-2">For Legal Reasons:</Text>
-                    <Text className="text-base text-gray-700 leading-6">
-                      To comply with a legal obligation, protect against fraud or security issues, or defend the rights of Sentinel, our users, or the public.
-                    </Text>
-                  </View>
-                  <View>
-                    <Text className="text-base font-medium text-gray-900 mb-2">With Your Consent:</Text>
-                    <Text className="text-base text-gray-700 leading-6">
-                      If you explicitly authorize us to share specific information.
-                    </Text>
-                  </View>
+                <View className="space-y-2 mb-4">
+                  <Text className="text-base text-gray-700 leading-6">• Digital incidents (online content).</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Physical incidents (events in real-world spaces).</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Personal experiences (first-hand accounts).</Text>
+                </View>
+                <View className="space-y-3">
+                  <Text className="text-base text-gray-700 leading-6">
+                    • All reports are reviewed by a Sentinel moderator before being released to the public timeline. You agree that the Moderator has sole authority and discretion to release/publish to the Sentinel platform.
+                  </Text>
+                  <Text className="text-base text-gray-700 leading-6">
+                    • Moderators may approve or decline submissions but will not alter or redact content.
+                  </Text>
+                  <Text className="text-base text-gray-700 leading-6">
+                    • Released reports may include structured polls or opinion-choice mechanisms for user engagement. Users cannot submit comments, replies, or free-form text.
+                  </Text>
                 </View>
               </View>
             </View>
@@ -169,18 +149,18 @@ export default function PrivacyPolicy(): React.JSX.Element {
                   <Text className="text-purple-600 font-bold text-sm">4</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  Public Reporting and Anonymity
+                  Public Timeline and Content Disclaimer
                 </Text>
               </View>
               <View className="space-y-3 ml-11">
                 <Text className="text-base text-gray-700 leading-6">
-                  • Reports you submit may be approved and posted publicly on the Sentinel timeline.
+                  • Approved reports are published on the public-facing timeline, accessible to all (whether registered or not).
                 </Text>
                 <Text className="text-base text-gray-700 leading-6">
-                  • Identifying information is not displayed publicly unless you choose to include it.
+                  • Sentinel does not verify the truth of user submissions and makes no guarantees about accuracy.
                 </Text>
                 <Text className="text-base text-gray-700 leading-6">
-                  • You may submit reports anonymously.
+                  • Reports are labeled as user-submitted content.
                 </Text>
               </View>
             </View>
@@ -192,12 +172,15 @@ export default function PrivacyPolicy(): React.JSX.Element {
                   <Text className="text-red-600 font-bold text-sm">5</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  Data Retention
+                  Intellectual Property
                 </Text>
               </View>
-              <View className="ml-11">
+              <View className="space-y-3 ml-11">
                 <Text className="text-base text-gray-700 leading-6">
-                  We retain personal information only as long as necessary to provide the Platform, comply with legal obligations, resolve disputes, and enforce agreements.
+                  • Sentinel respects intellectual property rights. If you believe content infringes your rights, notify us at SentinelTerms@gmail.com.
+                </Text>
+                <Text className="text-base text-gray-700 leading-6">
+                  • By submitting content, you grant Sentinel a worldwide, non-exclusive, royalty-free license to use, display, and distribute that content on the Platform.
                 </Text>
               </View>
             </View>
@@ -209,32 +192,24 @@ export default function PrivacyPolicy(): React.JSX.Element {
                   <Text className="text-indigo-600 font-bold text-sm">6</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  Your Rights
+                  Legal Protections and Disclaimers
                 </Text>
               </View>
-              <View className="ml-11">
-                <Text className="text-base text-gray-700 leading-6 mb-3">
-                  Depending on where you live, you may have specific rights under privacy laws:
-                </Text>
-                <View className="space-y-4">
-                  <View>
-                    <Text className="text-base font-medium text-gray-900 mb-2">GDPR (EU/UK):</Text>
-                    <Text className="text-base text-gray-700 leading-6">
-                      Right to access, correct, delete, restrict processing, and data portability.
-                    </Text>
-                  </View>
-                  <View>
-                    <Text className="text-base font-medium text-gray-900 mb-2">CCPA (California):</Text>
-                    <Text className="text-base text-gray-700 leading-6">
-                      Right to know, delete, and opt out of the sale of personal information.
-                    </Text>
-                  </View>
-                  <View>
-                    <Text className="text-base font-medium text-gray-900 mb-2">General:</Text>
-                    <Text className="text-base text-gray-700 leading-6">
-                      You may request account deletion at any time by contacting us.
-                    </Text>
-                  </View>
+              <View className="space-y-4 ml-11">
+                <View>
+                  <Text className="text-base font-medium text-gray-900 mb-2">United States:</Text>
+                  <Text className="text-base text-gray-700 leading-6">
+                    Under Section 230 of the Communications Decency Act (47 U.S.C. § 230), Sentinel is not the publisher or speaker of user-submitted content. Sentinel is not liable for statements or representations made by Users.
+                  </Text>
+                </View>
+                <View>
+                  <Text className="text-base font-medium text-gray-900 mb-2">European Union / United Kingdom:</Text>
+                  <Text className="text-base text-gray-700 leading-6 mb-2">
+                    Sentinel qualifies as a "hosting service." We are not liable for unlawful user content unless we have actual knowledge and fail to act.
+                  </Text>
+                  <Text className="text-base text-gray-700 leading-6">
+                    Users may flag unlawful content. Sentinel will review and may remove such content promptly in accordance with the EU Digital Services Act and UK Online Safety Act.
+                  </Text>
                 </View>
               </View>
             </View>
@@ -246,12 +221,15 @@ export default function PrivacyPolicy(): React.JSX.Element {
                   <Text className="text-teal-600 font-bold text-sm">7</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  Children's Privacy
+                  Termination
                 </Text>
               </View>
-              <View className="ml-11">
+              <View className="space-y-3 ml-11">
                 <Text className="text-base text-gray-700 leading-6">
-                  Sentinel is not directed to children under 13 (or 16 in the EU/UK). We do not knowingly collect personal information from children.
+                  • Sentinel, in its sole discretion, may suspend or terminate your account if you violate these Terms or applicable law.
+                </Text>
+                <Text className="text-base text-gray-700 leading-6">
+                  • Sentinel, in its sole discretion, may remove any content deemed unlawful, harmful, or violative of these Terms.
                 </Text>
               </View>
             </View>
@@ -263,12 +241,15 @@ export default function PrivacyPolicy(): React.JSX.Element {
                   <Text className="text-pink-600 font-bold text-sm">8</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  Data Security
+                  Limitation of Liability
                 </Text>
               </View>
-              <View className="ml-11">
+              <View className="space-y-3 ml-11">
                 <Text className="text-base text-gray-700 leading-6">
-                  We use reasonable administrative, technical, and physical safeguards to protect personal information. However, no system is completely secure, and we cannot guarantee absolute protection.
+                  • Sentinel provides the Platform "as is." We disclaim all warranties, express or implied.
+                </Text>
+                <Text className="text-base text-gray-700 leading-6">
+                  • Sentinel is not liable for damages arising from your use of the Platform, except as required by law.
                 </Text>
               </View>
             </View>
@@ -280,12 +261,12 @@ export default function PrivacyPolicy(): React.JSX.Element {
                   <Text className="text-cyan-600 font-bold text-sm">9</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  International Users
+                  Indemnification
                 </Text>
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6">
-                  If you are located outside the United States, your information may be processed and stored in the United States. As a registered User and using Sentinel, you consent to this.
+                  You agree to indemnify and hold harmless Sentinel, its directors, officers, employees, and partners (including David J Hart PA and Digital Iron Dome, Inc.) from any claims, damages, or expenses arising from your use of the Platform or violation of these Terms.
                 </Text>
               </View>
             </View>
@@ -297,12 +278,12 @@ export default function PrivacyPolicy(): React.JSX.Element {
                   <Text className="text-amber-600 font-bold text-sm">10</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  Changes to this Policy
+                  Changes to Terms
                 </Text>
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6">
-                  We may update this Privacy Policy from time to time. We will post the updated version on this page and update the effective date.
+                  Sentinel may update these Terms at any time. Continued use of the Platform after changes are posted constitutes acceptance.
                 </Text>
               </View>
             </View>
@@ -314,66 +295,95 @@ export default function PrivacyPolicy(): React.JSX.Element {
                   <Text className="text-lime-600 font-bold text-sm">11</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  Contact Us
+                  Governing Law
+                </Text>
+              </View>
+              <View className="ml-11">
+                <Text className="text-base text-gray-700 leading-6">
+                  These Terms are governed by the laws of the State of Delaware (for U.S. users) and by applicable law in your jurisdiction for international users.
+                </Text>
+              </View>
+            </View>
+
+            {/* Section 12 */}
+            <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+              <View className="flex-row items-center mb-4">
+                <View className="w-8 h-8 bg-emerald-100 rounded-lg items-center justify-center mr-3">
+                  <Text className="text-emerald-600 font-bold text-sm">12</Text>
+                </View>
+                <Text className="text-lg font-semibold text-gray-900 flex-1">
+                  Contact Information
                 </Text>
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6 mb-4">
-                  If you have any questions or concerns about this Privacy Policy or how we handle your data, please contact us at:
+                  Questions about these Terms may be sent to:
                 </Text>
                 <View className="bg-gray-50 rounded-lg p-4">
-                  <Text className="text-base text-gray-900 font-medium mb-2">
-                    📧 Email: SentinelTerms@gmail.com
+                <View className="flex-row items-center mb-2">
+                  <Text className="text-base text-gray-900 font-medium">
+                    📧 Email: 
                   </Text>
-                  <Text className="text-base text-gray-700 mb-2">
-                    📍 Address: C/O David J. Hart PA
-                  </Text>
-                  <Text className="text-base text-gray-700">
-                    7300 Biscayne Blvd Suite 200, Miami FL 33138 USA
-                  </Text>
+                  <TouchableOpacity 
+                    onPress={() => {
+                      const email = 'SentinelTerms@gmail.com';
+                      const subject = 'Terms of Use Inquiry';
+                      const url = `mailto:${email}?subject=${encodeURIComponent(subject)}`;
+                      Linking.openURL(url).catch(err => console.error('Error opening email:', err));
+                    }}
+                  >
+                    <Text className="text-base text-blue-600 underline ml-1">
+                      SentinelTerms@gmail.com
+                    </Text>
+                  </TouchableOpacity>
                 </View>
+                <Text className="text-base text-gray-700 mb-2">
+                  📍 Address: C/O David J. Hart PA
+                </Text>
+                <Text className="text-base text-gray-700">
+                  7300 Biscayne Blvd Suite 200, Miami FL 33138 USA
+                </Text>
+              </View>
+
               </View>
             </View>
 
-            {/* Important Privacy Notice */}
+            {/* Important Terms Notice */}
             <View className="bg-blue-50 rounded-xl p-6 border border-blue-200">
               <View className="flex-row items-center mb-3">
-                <Ionicons name="shield-checkmark" size={20} color="#2563EB" />
+                <Ionicons name="document-text" size={20} color="#2563EB" />
                 <Text className="text-lg font-semibold text-blue-800 ml-2">
-                  Your Privacy Matters
+                  Terms Agreement
                 </Text>
               </View>
               <Text className="text-base text-blue-700 leading-6">
-                We are committed to protecting your privacy and being transparent about how we collect and use your information. Your trust is important to us.
+                By using Sentinel, you acknowledge that you have read, understood, and agree to be bound by these Terms of Use. Please review these terms carefully.
               </Text>
             </View>
 
-            {/* Data Protection Notice */}
+            {/* User Responsibility Notice */}
             <View className="bg-green-50 rounded-xl p-6 border border-green-200">
               <View className="flex-row items-center mb-3">
-                <Ionicons name="lock-closed" size={20} color="#059669" />
+                <Ionicons name="checkmark-circle" size={20} color="#059669" />
                 <Text className="text-lg font-semibold text-green-800 ml-2">
-                  Data Protection
+                  User Responsibility
                 </Text>
               </View>
-              <Text className="text-base text-green-700 leading-6 mb-3">
-                We implement industry-standard security measures to protect your personal information from unauthorized access, disclosure, alteration, or destruction.
-              </Text>
               <Text className="text-base text-green-700 leading-6">
-                However, please remember that no method of transmission over the internet or electronic storage is 100% secure.
+                Users are responsible for ensuring their submissions comply with our community guidelines and applicable laws. Help us maintain a respectful and safe environment for all.
               </Text>
             </View>
 
-            {/* Rights Notice */}
+            {/* Legal Compliance Notice */}
             <View className="bg-purple-50 rounded-xl p-6 border border-purple-200">
               <View className="flex-row items-center mb-3">
-                <Ionicons name="person-circle" size={20} color="#7C3AED" />
+                <Ionicons name="scale" size={20} color="#7C3AED" />
                 <Text className="text-lg font-semibold text-purple-800 ml-2">
-                  Know Your Rights
+                  Legal Compliance
                 </Text>
               </View>
               <Text className="text-base text-purple-700 leading-6">
-                You have the right to access, correct, or delete your personal information. Contact us if you wish to exercise any of these rights or have questions about your data.
+                Sentinel operates in compliance with applicable laws and regulations. We reserve the right to take appropriate action to ensure platform safety and legal compliance.
               </Text>
             </View>
           </View>
