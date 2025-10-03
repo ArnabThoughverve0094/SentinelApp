@@ -222,6 +222,15 @@ export default function SentinelFeed(): React.JSX.Element {
   const [selectedRejectionReasons, setSelectedRejectionReasons] = useState<string[]>([]);
   const [rejectionPostId, setRejectionPostId] = useState<string | null>(null);
 
+  // Comment Template Response options matching the image design
+  let RESPONSE_OPTIONS = [
+    { id: 'agree', label: 'Agree', icon: '👍', color: '#34C759' },
+    { id: 'disagree', label: 'Disagree', icon: '🚫', color: '#FF3B30' },
+    { id: 'support', label: 'I Support This', icon: '⭐', color: '#FF9500' },
+    { id: 'hate', label: 'Hate Speech', icon: '😡', color: '#FF3B30' }
+  ];
+
+
   // ------- CUSTOM ALERT STATE -------
   const [modalConfig, setModalConfig] = useState<{
     visible: boolean;
@@ -573,9 +582,42 @@ export default function SentinelFeed(): React.JSX.Element {
     }
   }, [isInitialized, fetchedData.length, lastFetchTime]);
 
+  const fetchCommentTemplate = async () => {
+    try {
+      const collCommentTempPost = collection(db, 'SentimentTemplates');
+      console.log("Comment Template Called");
+
+      const unsubscribeCommentTemp = onSnapshot(collCommentTempPost, commentTempSnapshot => {
+        const commentTempdataArr = commentTempSnapshot.docs.map(doc => ({
+          id: doc.id,
+          data: doc.data(),
+        }));
+
+        RESPONSE_OPTIONS = [];
+        for (const doc of commentTempdataArr) {
+          const postData = doc.data;
+          const postId = doc.id;
+          console.log("Comment Template ID: ", postId);
+          console.log("Comment Template Data: ", postData);
+        }
+
+      })
+
+      return () => {
+        unsubscribeCommentTemp();
+      };
+
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     getItem();
     handleFetchAllData();
+    fetchCommentTemplate();
   }, []);
 
   useFocusEffect(
