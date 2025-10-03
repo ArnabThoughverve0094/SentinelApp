@@ -84,7 +84,7 @@ interface CommentScreenProps {
 }
 
 // Response options matching the image design
-const RESPONSE_OPTIONS = [
+let RESPONSE_OPTIONS = [
   { id: 'agree', label: 'Agree', icon: '👍', color: '#34C759' },
   { id: 'disagree', label: 'Disagree', icon: '🚫', color: '#FF3B30' },
   { id: 'support', label: 'I Support This', icon: '⭐', color: '#FF9500' },
@@ -280,10 +280,54 @@ export default function CommentScreen({
           await checkUserExistingComment(postId, postType, fetchuserID);
         }
         
+        // fetchCommentTemplate("Template1");
         fetchCommentFirestore(postId, postType);
       }
     } catch (error) {
       console.log("Error retrieving item", error);
+    }
+  }
+
+  const fetchCommentTemplate = async (tempoption: any) => {
+    try {
+      const collCommentTempPost = collection(db, 'SentimentTemplates');
+      console.log("Comment Template Called");
+
+      const unsubscribeCommentTemp = onSnapshot(collCommentTempPost, commentTempSnapshot => {
+        const commentTempdataArr = commentTempSnapshot.docs.map(doc => ({
+          id: doc.id,
+          data: doc.data(),
+        }));
+
+        RESPONSE_OPTIONS = [];
+        for (const doc of commentTempdataArr) {
+          const postData = doc.data;
+          const postId = doc.id;
+          console.log("Comment Template ID: ", postId);
+          console.log("Comment Template Data: ", postData);
+
+          if(tempoption == postId){
+            const inputString = postData.title;
+            RESPONSE_OPTIONS.push({
+              id: inputString,
+              label: postData.title,
+              icon: '👍',
+              color: '#34C759'
+            })
+          }
+          
+        }
+
+      })
+
+      return () => {
+        unsubscribeCommentTemp();
+      };
+
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -1172,6 +1216,11 @@ export default function CommentScreen({
                   <Text style={{ fontSize: 40, marginBottom: 8 }}>
                     {option.icon}
                   </Text>
+                  {/* <Image
+                    source={{ uri: option.icon}}
+                    className="w-16 h-10"
+                    resizeMode="contain"
+                  /> */}
                   <Text style={{
                     fontSize: 16,
                     fontWeight: '600',

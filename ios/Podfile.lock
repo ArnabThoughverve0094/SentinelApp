@@ -2785,7 +2785,7 @@ PODS:
     - React-perflogger (= 0.81.4)
     - React-utils (= 0.81.4)
     - SocketRocket
-  - RNCAsyncStorage (2.2.0):
+  - RNCAsyncStorage (1.24.0):
     - boost
     - DoubleConversion
     - fast_float
@@ -3587,7 +3587,7 @@ SPEC CHECKSUMS:
   ReactAppDependencyProvider: 433ddfb4536948630aadd5bd925aff8a632d2fe3
   ReactCodegen: 1d05923ad119796be9db37830d5e5dc76586aa00
   ReactCommon: 394c6b92765cf6d211c2c3f7f6bc601dffb316a6
-  RNCAsyncStorage: 29f0230e1a25f36c20b05f65e2eb8958d6526e82
+  RNCAsyncStorage: 01e4301688a611936e3644746ffe3325d3181952
   RNDateTimePicker: cda4c045beca864cebb3209ef9cc4094f974864c
   RNReanimated: 9de34f0313c4177a34c079ca9fce6f1f278bff24
   RNScreens: 0bbf16c074ae6bb1058a7bf2d1ae017f4306797c
