@@ -3,13 +3,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Link, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Animated,
   FlatList,
   KeyboardAvoidingView,
   Modal,
   Platform,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   Text,

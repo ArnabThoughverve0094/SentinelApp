@@ -6,6 +6,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { arrayRemove, arrayUnion, collection, doc, getDocs, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
   Animated,
@@ -14,7 +15,6 @@ import {
   Modal,
   Platform,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   Share,
   StatusBar,

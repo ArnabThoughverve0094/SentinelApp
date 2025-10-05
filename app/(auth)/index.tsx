@@ -5,7 +5,8 @@ import { ResizeMode, Video } from 'expo-av';
 import { router } from 'expo-router';
 import { collection, doc, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Dimensions, Image, Linking, Modal, Platform, RefreshControl, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Animated, Dimensions, Image, Linking, Modal, Platform, RefreshControl,ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import FlipCard from 'react-native-flip-card';
 
 interface PostItem {

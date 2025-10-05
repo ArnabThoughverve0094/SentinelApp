@@ -1777,14 +1777,14 @@ export default function SentinelFeed(): React.JSX.Element {
 
         <View className="px-3 py-2.5">
           {/* Repost Header */}
-          {item.isRepost && (
+          {/* {item.isRepost && (
             <View className="flex-row items-center mb-2 pb-2 border-b border-gray-100">
               <Ionicons name="repeat" size={14} color="#64748b" />
               <Text className="ml-1 text-gray-600 text-xs">
                 {item.repostComment ? 'Quote repost' : 'Reposted'}
               </Text>
             </View>
-          )}
+          )} */}
 
           <Text className="text-gray-800 text-sm leading-5 mb-2 font-normal">{item.ContentDesc}</Text>
 
