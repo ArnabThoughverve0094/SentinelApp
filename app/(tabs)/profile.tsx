@@ -1773,9 +1773,9 @@ export default function ProfilePage(): React.JSX.Element {
             disabled={areInteractionsDisabled(item)}
           >
             <MaterialCommunityIcons
-              name="comment-outline"
+              name="thumbs-up-down"
               size={14}
-              color="#64748b"
+              color="#000000"
             />
             <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount || 0}</Text>
           </TouchableOpacity>
