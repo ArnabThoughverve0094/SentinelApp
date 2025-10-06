@@ -179,6 +179,88 @@ const CustomModal: React.FC<CustomModalProps> = ({
   );
 };
 
+// Tab Header Component
+const TabHeader: React.FC<{
+  activeTab: 'forYou' | 'following';
+  onTabChange: (tab: 'forYou' | 'following') => void;
+}> = ({ activeTab, onTabChange }) => {
+  const slideAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.spring(slideAnim, {
+      toValue: activeTab === 'forYou' ? 0 : 1,
+      tension: 100,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  }, [activeTab, slideAnim]);
+
+  const indicatorStyle = {
+    transform: [
+      {
+        translateX: slideAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, screenWidth / 2],
+        }),
+      },
+    ],
+  };
+
+  return (
+    <View className="bg-white border-b border-gray-200">
+      <View className="flex-row">
+        <TouchableOpacity
+          className={`flex-1 py-4 items-center ${
+            activeTab === 'forYou' ? 'bg-white' : 'bg-gray-50'
+          }`}
+          onPress={() => onTabChange('forYou')}
+          activeOpacity={0.8}
+        >
+          <Text
+            className={`text-base font-semibold ${
+              activeTab === 'forYou' ? 'text-black' : 'text-gray-500'
+            }`}
+          >
+            For you
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          className={`flex-1 py-4 items-center ${
+            activeTab === 'following' ? 'bg-white' : 'bg-gray-50'
+          }`}
+          onPress={() => onTabChange('following')}
+          activeOpacity={0.8}
+        >
+          <Text
+            className={`text-base font-semibold ${
+              activeTab === 'following' ? 'text-black' : 'text-gray-500'
+            }`}
+          >
+            Following
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Animated Tab Indicator */}
+      <View className="relative">
+        <Animated.View
+          style={[
+            {
+              position: 'absolute',
+              bottom: 0,
+              height: 2,
+              width: screenWidth / 2,
+              backgroundColor: '#000000',
+            },
+            indicatorStyle,
+          ]}
+        />
+      </View>
+    </View>
+  );
+};
+
 // Repost Modal Component
 interface RepostModalProps {
   visible: boolean;
@@ -380,6 +462,10 @@ export default function SentinelFeed(): React.JSX.Element {
   const videoRefs = useRef<{ [key: string]: any }>({});
   const flipCardRef = useRef<any>(null);
 
+  // NEW TAB STATE
+  const [activeTab, setActiveTab] = useState<'forYou' | 'following'>('forYou');
+  const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
+
   // ------- COMMENT MODAL STATE -------
   const [isCommentModalVisible, setIsCommentModalVisible] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
@@ -494,19 +580,19 @@ export default function SentinelFeed(): React.JSX.Element {
       const diffInYears = Math.floor(diffInDays / 365);
 
       if (diffInSeconds < 60) {
-        return diffInSeconds <= 0 ? 'Just now' : `${diffInSeconds}s ago`;
+        return diffInSeconds <= 0 ? 'Just now' : `${diffInSeconds}s`;
       } else if (diffInMinutes < 60) {
-        return `${diffInMinutes}m ago`;
+        return `${diffInMinutes}m`;
       } else if (diffInHours < 24) {
-        return `${diffInHours}h ago`;
+        return `${diffInHours}h`;
       } else if (diffInDays < 7) {
-        return `${diffInDays}d ago`;
+        return `${diffInDays}d`;
       } else if (diffInWeeks < 4) {
-        return `${diffInWeeks}w ago`;
+        return `${diffInWeeks}w`;
       } else if (diffInMonths < 12) {
-        return `${diffInMonths}mo ago`;
+        return `${diffInMonths}mo`;
       } else {
-        return `${diffInYears}y ago`;
+        return `${diffInYears}y`;
       }
     } catch (error) {
       console.error('Error parsing date:', error);
@@ -580,6 +666,30 @@ export default function SentinelFeed(): React.JSX.Element {
     }
   }, []);
 
+  // FETCH USER FOLLOWING LIST
+  const fetchUserFollowing = useCallback(async () => {
+    try {
+      let fetchuserID = userId;
+      if(fetchuserID === "") {
+        fetchuserID = await AsyncStorage.getItem('userId') || "";
+        setUserId(fetchuserID);
+      }
+
+      if (fetchuserID) {
+        // This is a placeholder - implement your following logic
+        // You might have a "Following" collection or user document with following array
+        // const userDoc = await getDoc(doc(db, 'Users', fetchuserID));
+        // const following = userDoc.data()?.following || [];
+        // setFollowingUserIds(following);
+        
+        // For demo purposes, setting empty array
+        setFollowingUserIds([]);
+      }
+    } catch (error) {
+      console.error('Error fetching following list:', error);
+    }
+  }, [userId]);
+
   // FETCH SINGLE POST COMMENTS
   const fetchSinglePostComments = useCallback(async (postId: string, postType: string) => {
     try {
@@ -614,9 +724,13 @@ export default function SentinelFeed(): React.JSX.Element {
     const currentTime = Date.now();
     
     let fetchuserID = userId;
-    if(fetchuserID == ""){
+    if(fetchuserID === ""){
       fetchuserID = await AsyncStorage.getItem('userId') || "";
       setUserId(fetchuserID);
+    }
+
+    if (!forceRefresh && isInitialized && (currentTime - lastFetchTime < 30000)) {
+      return;
     }
 
     setLoading(true);
@@ -751,6 +865,7 @@ export default function SentinelFeed(): React.JSX.Element {
 
   useEffect(() => {
     getItem();
+    fetchUserFollowing();
     handleFetchAllData();
   }, []);
 
@@ -1035,7 +1150,7 @@ export default function SentinelFeed(): React.JSX.Element {
     }
 
     let fetchuserID = userId;
-    if(fetchuserID == ""){
+    if(fetchuserID === ""){
       fetchuserID = await AsyncStorage.getItem('userId') || "";
       setUserId(fetchuserID);
     }
@@ -1102,7 +1217,7 @@ export default function SentinelFeed(): React.JSX.Element {
 
     try {
       let fetchuserID = userId;
-      if(fetchuserID == ""){
+      if(fetchuserID === ""){
         fetchuserID = await AsyncStorage.getItem('userId') || "";
         setUserId(fetchuserID);
       }
@@ -1238,7 +1353,7 @@ export default function SentinelFeed(): React.JSX.Element {
 
     try {
       let fetchuserID = userId;
-      if(fetchuserID == ""){
+      if(fetchuserID === ""){
         fetchuserID = await AsyncStorage.getItem('userId') || "";
         setUserId(fetchuserID);
       }
@@ -1357,7 +1472,7 @@ export default function SentinelFeed(): React.JSX.Element {
     console.log("Bookmark pressed:", postItem.id);
     
     let fetchuserID = userId;
-    if(fetchuserID == ""){
+    if(fetchuserID === ""){
       fetchuserID = await AsyncStorage.getItem('userId') || "";
       setUserId(fetchuserID);
     }
@@ -1574,15 +1689,29 @@ export default function SentinelFeed(): React.JSX.Element {
     setRefreshing(false);
   }, [handleFetchAllData]);
 
-  // FILTERED DATA
+  // FILTERED DATA BASED ON TAB
   const filteredData = useMemo(() => {
-    return fetchedData.filter(item => {
+    let baseData = fetchedData.filter(item => {
       if (userRole === "User") {
         return item.isApproved && !item.isNew;
       }
       return true;
     });
-  }, [fetchedData, userRole]);
+
+    if (activeTab === 'following') {
+      // Filter posts from followed users only
+      // You'll need to implement the logic to check if post author is in following list
+      // For now, this is a placeholder - you can customize based on your data structure
+      return baseData.filter(item => {
+        // Example: return followingUserIds.includes(item.AuthorId) || item.postType === 'SentinelPosts'
+        // For demo purposes, showing all posts in Following tab too
+        return true;
+      });
+    }
+
+    // For "For You" tab, return all posts (this could be algorithmic in real app)
+    return baseData;
+  }, [fetchedData, userRole, activeTab, followingUserIds]);
 
   // SCROLL HANDLER
   const handleScroll = useCallback((event: any) => {
@@ -1776,16 +1905,6 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
 
         <View className="px-3 py-2.5">
-          {/* Repost Header */}
-          {/* {item.isRepost && (
-            <View className="flex-row items-center mb-2 pb-2 border-b border-gray-100">
-              <Ionicons name="repeat" size={14} color="#64748b" />
-              <Text className="ml-1 text-gray-600 text-xs">
-                {item.repostComment ? 'Quote repost' : 'Reposted'}
-              </Text>
-            </View>
-          )} */}
-
           <Text className="text-gray-800 text-sm leading-5 mb-2 font-normal">{item.ContentDesc}</Text>
 
           {/* Render reposted content */}
@@ -1824,9 +1943,9 @@ export default function SentinelFeed(): React.JSX.Element {
               disabled={areInteractionsDisabled(item)}
             >
               <MaterialCommunityIcons
-                name="comment-outline"
+                name="thumbs-up-down"
                 size={14}
-                color="#64748b"
+                color="#000000"
               />
               <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
             </TouchableOpacity>
@@ -2008,9 +2127,9 @@ export default function SentinelFeed(): React.JSX.Element {
               disabled={areInteractionsDisabled(item)}
             >
               <MaterialCommunityIcons
-                name="comment-outline"
+                name="thumbs-up-down"
                 size={14}
-                color="#64748b"
+                color="#000000"
               />
               <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
             </TouchableOpacity>
@@ -2119,7 +2238,7 @@ export default function SentinelFeed(): React.JSX.Element {
           
           <TouchableOpacity 
               className="p-2 "
-              onPress={() =>router.push('/search')}
+              onPress={() => router.push('/search')}
             >
               <MaterialCommunityIcons 
                 name="magnify" 
@@ -2129,6 +2248,12 @@ export default function SentinelFeed(): React.JSX.Element {
             </TouchableOpacity>
         </View>
       </View>
+
+      {/* TAB HEADER */}
+      <TabHeader 
+        activeTab={activeTab} 
+        onTabChange={setActiveTab}
+      />
 
       <ScrollView 
         ref={scrollViewRef}

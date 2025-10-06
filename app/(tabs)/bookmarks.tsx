@@ -993,9 +993,9 @@ export default function BookmarksPage(): React.JSX.Element {
             activeOpacity={0.7}
           >
             <MaterialCommunityIcons
-              name="comment-outline"
+              name="thumbs-up-down"
               size={14}
-              color="#64748b"
+              color="#000000"
             />
             <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
           </TouchableOpacity>
