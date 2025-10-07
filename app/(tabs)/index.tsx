@@ -5,7 +5,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from "expo-sharing";
 import { arrayRemove, arrayUnion, collection, doc, getDocs, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Share } from "react-native";
+import { Share, StyleSheet, useWindowDimensions } from "react-native";
+import { Dropdown } from 'react-native-element-dropdown';
 
 import { ResizeMode, Video } from 'expo-av';
 import {
@@ -30,6 +31,17 @@ import TotalSentiment from '../../components/TotalSentiment';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
+interface Option {
+  icon: string;
+  title: string;
+  // you may have other fields, e.g. id, description, etc.
+}
+
+interface Template {
+  name: string;
+  options: Option[];
+}
+
 interface PostItem {
   id: string;
   uniqueId: string;
@@ -49,6 +61,7 @@ interface PostItem {
   Reposted: boolean;
   Bookmarked?: boolean;
   createdAt?: any;
+  CommentTemplate: string;
 }
 
 // Custom Modal Component for Alerts
@@ -181,6 +194,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
 
 export default function SentinelFeed(): React.JSX.Element {
   const router = useRouter();
+  const { width } = useWindowDimensions(); // Get screen width
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [userId, setUserId] = useState("");
@@ -210,6 +224,8 @@ export default function SentinelFeed(): React.JSX.Element {
   const [isCommentModalVisible, setIsCommentModalVisible] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedPostType, setSelectedPostType] = useState<string | null>(null);
+  const [selectedCommentTemplate, setSelectedCommentTemplate] = useState<string | null>(null);
+  const [fetchedCommentTemplate, setFetchedCommentTemplate] = useState<Template[]>([]);
 
     // ------- GRAPH MODAL STATE -------
     const [isGraphModalVisible, setIsGraphModalVisible] = useState(false);
@@ -221,14 +237,6 @@ export default function SentinelFeed(): React.JSX.Element {
   const [isRejectionModalVisible, setIsRejectionModalVisible] = useState(false);
   const [selectedRejectionReasons, setSelectedRejectionReasons] = useState<string[]>([]);
   const [rejectionPostId, setRejectionPostId] = useState<string | null>(null);
-
-  // Comment Template Response options matching the image design
-  let RESPONSE_OPTIONS = [
-    { id: 'agree', label: 'Agree', icon: '👍', color: '#34C759' },
-    { id: 'disagree', label: 'Disagree', icon: '🚫', color: '#FF3B30' },
-    { id: 'support', label: 'I Support This', icon: '⭐', color: '#FF9500' },
-    { id: 'hate', label: 'Hate Speech', icon: '😡', color: '#FF3B30' }
-  ];
 
 
   // ------- CUSTOM ALERT STATE -------
@@ -486,6 +494,7 @@ export default function SentinelFeed(): React.JSX.Element {
             Reposted: false,
             Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
             createdAt: postData.createdAt || postData.ContentDate,
+            CommentTemplate: postData.CommentTemplate || "Template1",
           });
         }
 
@@ -537,6 +546,7 @@ export default function SentinelFeed(): React.JSX.Element {
             Reposted: false,
             Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
             createdAt: postData.createdAt || postData.ContentDate,
+            CommentTemplate: postData.CommentTemplate || "Template1",
           });
         }
 
@@ -582,7 +592,7 @@ export default function SentinelFeed(): React.JSX.Element {
     }
   }, [isInitialized, fetchedData.length, lastFetchTime]);
 
-  const fetchCommentTemplate = async () => {
+  const fetchCommentTemplate = useCallback(async () => {
     try {
       const collCommentTempPost = collection(db, 'SentimentTemplates');
       console.log("Comment Template Called");
@@ -593,13 +603,37 @@ export default function SentinelFeed(): React.JSX.Element {
           data: doc.data(),
         }));
 
-        RESPONSE_OPTIONS = [];
+        const commentTemmp = [];
+
         for (const doc of commentTempdataArr) {
           const postData = doc.data;
           const postId = doc.id;
           console.log("Comment Template ID: ", postId);
-          console.log("Comment Template Data: ", postData);
+
+          const optionsField = postData.options;
+
+            // Convert map to array:
+            const result: Array<{ key: string; icon: string; title: string }> = [];
+            for (const key in optionsField) {
+              if (Object.prototype.hasOwnProperty.call(optionsField, key)) {
+                const maybeOption = (optionsField as any)[key];
+                if (maybeOption && typeof maybeOption === "object") {
+                  const icon = (maybeOption as any).icon;
+                  const title = (maybeOption as any).title;
+                  result.push({
+                    key,
+                    icon: typeof icon === "string" ? icon : "",
+                    title: typeof title === "string" ? title : "",
+                  });
+                }
+              }
+            }
+            commentTemmp.push({
+              name: postData.name || "",
+              options: result,
+            });
         }
+        setFetchedCommentTemplate(commentTemmp);
 
       })
 
@@ -612,7 +646,7 @@ export default function SentinelFeed(): React.JSX.Element {
     } finally {
       setLoading(false);
     }
-  }
+  },[]);
 
   useEffect(() => {
     getItem();
@@ -663,6 +697,7 @@ export default function SentinelFeed(): React.JSX.Element {
 
     setSelectedPostId(item.id);
     setSelectedPostType(item.postType);
+    setSelectedCommentTemplate(item.CommentTemplate);
     setIsCommentModalVisible(true);
   }, [areInteractionsDisabled, showCustomAlert, hideModal]);
 
@@ -671,6 +706,7 @@ export default function SentinelFeed(): React.JSX.Element {
     setIsCommentModalVisible(false);
     setSelectedPostId(null);
     setSelectedPostType(null);
+    setSelectedCommentTemplate(null);
   }, []);
 
   // TO OPEN GRAPH MODAL
@@ -698,6 +734,7 @@ export default function SentinelFeed(): React.JSX.Element {
     setSelectedPostId(item.id);
     setSelectedPostType(item.postType);
     setIsCommentModalVisible(false);
+    setSelectedCommentTemplate(item.CommentTemplate);
   }, [areInteractionsDisabled, showCustomAlert, hideModal]);
 
   // TO CLOSE GRAPH MODAL
@@ -1061,6 +1098,16 @@ export default function SentinelFeed(): React.JSX.Element {
 
     await new Promise(r => setTimeout(r, 200));
   }, [fullScreenCard]);
+
+  const handleDropdownChange = async (item: {name: string }, postItem: PostItem) => {
+    setSelectedCommentTemplate(item.name);
+    console.log('Selected option:', item.name);
+    // Add any additional logic you want to execute on change
+    const postRef = doc(db, postItem.postType, postItem.id);
+    await updateDoc(postRef, {
+      CommentTemplate: item.name,
+    });
+  };
 
   // OPTIMIZED MEDIA CONTENT - REDUCED SIZES
   const renderMediaContent = useCallback((item: PostItem, index?: number) => {
@@ -1864,6 +1911,28 @@ export default function SentinelFeed(): React.JSX.Element {
               </View>
             </TouchableOpacity>
           )}
+          {userRole !== "User" && item.postType === "SentinelPosts" && (
+            <TouchableOpacity
+              onPress={(e) => e.stopPropagation()}
+              activeOpacity={1}
+            >
+              <View className="mt-2 p-2.5 bg-gray-50 rounded-lg border border-gray-200">
+                <View style={styles.container}>
+                  <View style={[styles.labelContainer, { maxWidth: width * 0.6 }]}>
+                    <Text style={styles.label}>Comment Template:</Text>
+                  </View>
+                  <Dropdown
+                    data={fetchedCommentTemplate}
+                    labelField="name"
+                    valueField="name"
+                    value={item.CommentTemplate}
+                    onChange={itemValue => handleDropdownChange(itemValue, item)}
+                    style={styles.dropdown}
+                  />
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
       </EnhancedCard>
     </TouchableOpacity>
@@ -2400,6 +2469,7 @@ export default function SentinelFeed(): React.JSX.Element {
         postId={selectedPostId}
         postType={selectedPostType}
         postData={fetchedData.find(item => item.id === selectedPostId)}
+        commentTemplate={selectedCommentTemplate}
       />
 
       {/* GRAPH MODAL */}
@@ -2412,6 +2482,7 @@ export default function SentinelFeed(): React.JSX.Element {
         onAddResponse={addResponseGraphModal} 
         userExistingComment={undefined} 
         onEditComment={undefined}
+        commentTemplate={selectedCommentTemplate}
         />
 
       {/* CUSTOM ALERT MODAL */}
@@ -2426,3 +2497,28 @@ export default function SentinelFeed(): React.JSX.Element {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  labelContainer: {
+    marginRight: 8,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    flexWrap: 'wrap', // Allow label to wrap
+  },
+  dropdown: {
+    flex: 1,
+    width: 200,
+    height: 40,
+    borderColor: '#ccc',
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingLeft: 8,
+  },
+});

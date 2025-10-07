@@ -1,7 +1,7 @@
 import { db } from '@/FirebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { collection, onSnapshot } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -45,6 +45,7 @@ interface PostData {
   postType: string;
   Liked: boolean;
   Reposted: boolean;
+  CommentTemplate: string;
 }
 
 interface TotalSentimentProps {
@@ -56,14 +57,15 @@ interface TotalSentimentProps {
   onAddResponse: () => void;
   userExistingComment: Comment | null;
   onEditComment: (comment: Comment) => void;
+  commentTemplate: string | null;
 }
 
 // Response options matching the design
-const RESPONSE_OPTIONS = [
-  { id: 'agree', label: 'Agree', icon: '👍', color: '#34C759' },
-  { id: 'disagree', label: 'Disagree', icon: '🚫', color: '#FF3B30' },
-  { id: 'support', label: 'I Support This', icon: '⭐', color: '#FF9500' },
-  { id: 'hate', label: 'Hate Speech', icon: '😡', color: '#FF3B30' }
+let RESPONSE_OPTIONS = [
+  // { id: 'agree', label: 'Agree', icon: '👍', color: '#34C759' },
+  // { id: 'disagree', label: 'Disagree', icon: '🚫', color: '#FF3B30' },
+  // { id: 'support', label: 'I Support This', icon: '⭐', color: '#FF9500' },
+  // { id: 'hate', label: 'Hate Speech', icon: '😡', color: '#FF3B30' }
 ];
 
 export default function TotalSentiment({ 
@@ -74,7 +76,8 @@ export default function TotalSentiment({
   postData,
   onAddResponse,
   userExistingComment,
-  onEditComment
+  onEditComment,
+  commentTemplate
 }: TotalSentimentProps) {
   const insets = useSafeAreaInsets();
   const [sentimentData, setSentimentData] = useState({
@@ -85,6 +88,59 @@ export default function TotalSentiment({
   });
   const [loading, setLoading] = useState(false);
 
+  const fetchCommentTemplate = useCallback(async () => {
+    try {
+      const collCommentTempPost = collection(db, 'SentimentTemplates');
+      console.log("Comment Template Called");
+
+      const unsubscribeCommentTemp = onSnapshot(collCommentTempPost, commentTempSnapshot => {
+        const commentTempdataArr = commentTempSnapshot.docs.map(doc => ({
+          id: doc.id,
+          data: doc.data(),
+        }));
+
+        RESPONSE_OPTIONS = [];
+        for (const doc of commentTempdataArr) {
+          const postData = doc.data;
+          const postId = doc.id;
+          console.log("Graph Template Passed: ", commentTemplate);
+
+          if(commentTemplate == postId){
+            const optionsField = postData.options;
+
+            // Convert map to array:
+            for (const key in optionsField) {
+              if (Object.prototype.hasOwnProperty.call(optionsField, key)) {
+                const maybeOption = (optionsField as any)[key];
+                if (maybeOption && typeof maybeOption === "object") {
+                  const icon = (maybeOption as any).icon;
+                  const title = (maybeOption as any).title;
+                  RESPONSE_OPTIONS.push({
+                    id: typeof title === "string" ? title : "",
+                    label: typeof title === "string" ? title : "",
+                    icon: typeof icon === "string" ? icon : "",
+                    color: '#34C759'
+                  })
+                }
+              }
+            }    
+          }
+          
+        }
+
+      })
+
+      return () => {
+        unsubscribeCommentTemp();
+      };
+
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  },[RESPONSE_OPTIONS]);
+  
   // Fetch sentiment data from Firestore
   const fetchSentimentData = async () => {
     if (!postId || !postType) return;
@@ -161,7 +217,10 @@ export default function TotalSentiment({
     if (visible && postId && postType) {
       fetchSentimentData();
     }
-  }, [visible, postId, postType]);
+    if(commentTemplate !== null) {
+      fetchCommentTemplate();
+    }
+  }, [visible, postId, postType, commentTemplate]);
 
   return (
     <Modal
@@ -265,7 +324,12 @@ export default function TotalSentiment({
                     <View key={option.id} style={{ marginBottom: 16 }}>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          <Text style={{ fontSize: 16, marginRight: 8 }}>{option.icon}</Text>
+                          {/* <Text style={{ fontSize: 16, marginRight: 8 }}>{option.icon}</Text> */}
+                          <Image
+                            source={{ uri: option.icon}}
+                            className="w-16 h-10"
+                            resizeMode="contain"
+                          />
                           <Text style={{ fontSize: 16, color: '#000', fontWeight: '500' }}>
                             {option.label}
                           </Text>

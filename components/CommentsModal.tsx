@@ -15,7 +15,7 @@ import {
   updateDoc,
   where
 } from 'firebase/firestore';
-import { useEffect, useReducer, useState } from 'react';
+import { useCallback, useEffect, useReducer, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -73,6 +73,7 @@ interface PostData {
   postType: string;
   Liked: boolean;
   Reposted: boolean;
+  CommentTemplate: string,
 }
 
 interface CommentScreenProps {
@@ -81,14 +82,15 @@ interface CommentScreenProps {
   postId: string | null;
   postType: string | null;
   postData: PostData | undefined;
+  commentTemplate: string | null;
 }
 
 // Response options matching the image design
 let RESPONSE_OPTIONS = [
-  { id: 'agree', label: 'Agree', icon: '👍', color: '#34C759' },
-  { id: 'disagree', label: 'Disagree', icon: '🚫', color: '#FF3B30' },
-  { id: 'support', label: 'I Support This', icon: '⭐', color: '#FF9500' },
-  { id: 'hate', label: 'Hate Speech', icon: '😡', color: '#FF3B30' }
+  // { id: 'agree', label: 'Agree', icon: '👍', color: '#34C759' },
+  // { id: 'disagree', label: 'Disagree', icon: '🚫', color: '#FF3B30' },
+  // { id: 'support', label: 'I Support This', icon: '⭐', color: '#FF9500' },
+  // { id: 'hate', label: 'Hate Speech', icon: '😡', color: '#FF3B30' }
 ];
 
 export default function CommentScreen({ 
@@ -96,7 +98,8 @@ export default function CommentScreen({
   onClose, 
   postId, 
   postType, 
-  postData
+  postData,
+  commentTemplate
 }: CommentScreenProps) {
   const insets = useSafeAreaInsets();
   const [, forceRerender] = useReducer(x => x + 1, 0);
@@ -224,7 +227,9 @@ export default function CommentScreen({
           postType: itemType,
           Liked: false,
           Reposted: false,
+          CommentTemplate: data.CommentTemplate || 'Template1',
         });
+        fetchCommentTemplate(data.CommentTemplate || 'Template1');
       }
     } catch (error) {
       console.error('Error fetching post data:', error);
@@ -250,7 +255,9 @@ export default function CommentScreen({
       postType: postType || '',
       Liked: passedPostData.Liked || false,
       Reposted: passedPostData.Reposted || false,
+      CommentTemplate: passedPostData.CommentTemplate || 'Template1'
     });
+    fetchCommentTemplate(passedPostData.CommentTemplate || 'Template1');
   };
 
   const getItem = async () => {
@@ -280,7 +287,6 @@ export default function CommentScreen({
           await checkUserExistingComment(postId, postType, fetchuserID);
         }
         
-        // fetchCommentTemplate("Template1");
         fetchCommentFirestore(postId, postType);
       }
     } catch (error) {
@@ -288,7 +294,7 @@ export default function CommentScreen({
     }
   }
 
-  const fetchCommentTemplate = async (tempoption: any) => {
+  const fetchCommentTemplate = useCallback(async (passedCommentTemplate: any) => {
     try {
       const collCommentTempPost = collection(db, 'SentimentTemplates');
       console.log("Comment Template Called");
@@ -303,17 +309,27 @@ export default function CommentScreen({
         for (const doc of commentTempdataArr) {
           const postData = doc.data;
           const postId = doc.id;
-          console.log("Comment Template ID: ", postId);
-          console.log("Comment Template Data: ", postData);
+          console.log("Comment Template Passed: ", passedCommentTemplate);
 
-          if(tempoption == postId){
-            const inputString = postData.title;
-            RESPONSE_OPTIONS.push({
-              id: inputString,
-              label: postData.title,
-              icon: '👍',
-              color: '#34C759'
-            })
+          if(passedCommentTemplate == postId){
+            const optionsField = postData.options;
+
+            // Convert map to array:
+            for (const key in optionsField) {
+              if (Object.prototype.hasOwnProperty.call(optionsField, key)) {
+                const maybeOption = (optionsField as any)[key];
+                if (maybeOption && typeof maybeOption === "object") {
+                  const icon = (maybeOption as any).icon;
+                  const title = (maybeOption as any).title;
+                  RESPONSE_OPTIONS.push({
+                    id: typeof title === "string" ? title : "",
+                    label: typeof title === "string" ? title : "",
+                    icon: typeof icon === "string" ? icon : "",
+                    color: '#34C759'
+                  })
+                }
+              }
+            }    
           }
           
         }
@@ -329,7 +345,7 @@ export default function CommentScreen({
     } finally {
       setLoading(false);
     }
-  }
+  },[RESPONSE_OPTIONS]);
 
   const fetchCommentFirestore = async (item: any, type: any) => {
     setLoading(true);
@@ -696,9 +712,14 @@ export default function CommentScreen({
                   alignItems: 'center'
                 }}
               >
-                <Text style={{ fontSize: 16, marginRight: 8 }}>
+                {/* <Text style={{ fontSize: 16, marginRight: 8 }}>
                   {optionData?.icon || '✓'}
-                </Text>
+                </Text> */}
+                <Image
+                    source={{ uri: optionData?.icon}}
+                    className="w-16 h-10"
+                    resizeMode="contain"
+                  />
                 <Text style={{ fontSize: 13, color: '#007aff', fontWeight: '500' }}>
                   {optionData?.label || option}
                 </Text>
@@ -1213,14 +1234,14 @@ export default function CommentScreen({
                     elevation: selectedOption === option.id ? 4 : 0,
                   }}
                 >
-                  <Text style={{ fontSize: 40, marginBottom: 8 }}>
+                  {/* <Text style={{ fontSize: 40, marginBottom: 8 }}>
                     {option.icon}
-                  </Text>
-                  {/* <Image
+                  </Text> */}
+                  <Image
                     source={{ uri: option.icon}}
                     className="w-16 h-10"
                     resizeMode="contain"
-                  /> */}
+                  />
                   <Text style={{
                     fontSize: 16,
                     fontWeight: '600',
@@ -1274,6 +1295,7 @@ export default function CommentScreen({
         onAddResponse={handleAddResponseFromSentiment}
         userExistingComment={userExistingComment}
         onEditComment={handleEditComment}
+        commentTemplate={commentTemplate}
       />
     </>
   );
