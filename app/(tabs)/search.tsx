@@ -2,7 +2,7 @@ import { db } from '@/FirebaseConfig';
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { addDoc, arrayRemove, arrayUnion, collection, doc, getDocs, onSnapshot, updateDoc } from 'firebase/firestore';
+import { addDoc, arrayRemove, arrayUnion, collection, doc, getDocs, onSnapshot, updateDoc, query, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -30,7 +30,7 @@ interface SearchUser {
   nickName?: string;
   email?: string;
   avatar: string;
-  followers?: string;
+  followers?: string[];
   postCount?: number;
   isFollowing?: boolean;
 }
@@ -323,28 +323,135 @@ export default function SearchPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
+  const [followedUsers, setFollowedUsers] = useState<SearchUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(false);
   const [currentUserId, setCurrentUserId] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
+  const [followingList, setFollowingList] = useState<string[]>([]);
+  const [currentUserDocId, setCurrentUserDocId] = useState('');
 
   const searchInputRef = useRef<TextInput>(null);
-  let usersData = [];
 
-  // Load current user ID
+  // Load current user ID and fetch following data
   useEffect(() => {
-    loadCurrentUserId();
-    handleFetchAllAuthorData();
+    loadCurrentUserData();
   }, []);
 
-  const loadCurrentUserId = async () => {
+  const loadCurrentUserData = async () => {
     try {
       const userId = await AsyncStorage.getItem('userId');
       if (userId) {
         setCurrentUserId(userId);
+        await fetchFollowingData(userId);
+        await fetchFollowedUsers(userId);
       }
     } catch (error) {
-      console.error('Error loading current user ID:', error);
+      console.error('Error loading current user data:', error);
+    }
+  };
+
+  // Fetch current user's following list
+  const fetchFollowingData = async (userId: string) => {
+    try {
+      const sentinelUsersRef = collection(db, 'SentinelUsers');
+      const q = query(sentinelUsersRef, where('userID', '==', userId));
+      
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        if (!snapshot.empty) {
+          const userDoc = snapshot.docs[0];
+          const userData = userDoc.data();
+          setCurrentUserDocId(userDoc.id);
+          setFollowingList(userData.Following || []);
+          console.log('📱 Following list updated:', userData.Following || []);
+        } else {
+          console.log('📱 No user document found, creating one...');
+          setFollowingList([]);
+          setCurrentUserDocId('');
+        }
+      });
+
+      return unsubscribe;
+    } catch (error) {
+      console.error('Error fetching following data:', error);
+    }
+  };
+
+  // Fetch users that current user is following
+  const fetchFollowedUsers = async (userId: string) => {
+    try {
+      setInitialLoading(true);
+      const followedUsersData: SearchUser[] = [];
+      
+      // Get following list first
+      const sentinelUsersRef = collection(db, 'SentinelUsers');
+      const q = query(sentinelUsersRef, where('userID', '==', userId));
+      const userSnapshot = await getDocs(q);
+      
+      let followingIds: string[] = [];
+      if (!userSnapshot.empty) {
+        const userData = userSnapshot.docs[0].data();
+        followingIds = userData.Following || [];
+      }
+
+      if (followingIds.length === 0) {
+        setFollowedUsers([]);
+        setInitialLoading(false);
+        return;
+      }
+
+      // Search for followed users in both collections
+      const uniqueFollowedUsers = new Map<string, SearchUser>();
+
+      // Search in SentinelPosts
+      const sentinelSnapshot = await getDocs(collection(db, 'SentinelPosts'));
+      sentinelSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        const authorId = data.AuthorUserID;
+        
+        if (followingIds.includes(authorId) && !uniqueFollowedUsers.has(authorId)) {
+          uniqueFollowedUsers.set(authorId, {
+            docID: "",
+            id: authorId,
+            name: data.AuthorName || 'Unknown User',
+            avatar: data.AuthorImageURL || '',
+            postCount: 1,
+            isFollowing: true,
+          });
+        } else if (followingIds.includes(authorId)) {
+          const existing = uniqueFollowedUsers.get(authorId)!;
+          existing.postCount = (existing.postCount || 0) + 1;
+        }
+      });
+
+      // Search in X-Data
+      const xDataSnapshot = await getDocs(collection(db, 'X-Data'));
+      xDataSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        const authorId = data.AuthorUserID;
+        
+        if (followingIds.includes(authorId)) {
+          if (!uniqueFollowedUsers.has(authorId)) {
+            uniqueFollowedUsers.set(authorId, {
+              docID: "",
+              id: authorId,
+              name: data.AuthorName || 'Unknown User',
+              avatar: data.AuthorImageURL || '',
+              postCount: 1,
+              isFollowing: true,
+            });
+          } else {
+            const existing = uniqueFollowedUsers.get(authorId)!;
+            existing.postCount = (existing.postCount || 0) + 1;
+          }
+        }
+      });
+
+      setFollowedUsers(Array.from(uniqueFollowedUsers.values()));
+      setInitialLoading(false);
+    } catch (error) {
+      console.error('Error fetching followed users:', error);
+      setInitialLoading(false);
     }
   };
 
@@ -360,7 +467,7 @@ export default function SearchPage() {
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+  }, [searchQuery, followingList]);
 
   // Enhanced search function
   const performSearch = async (query: string) => {
@@ -389,23 +496,22 @@ export default function SearchPage() {
         sentinelSnapshot.docs.forEach(doc => {
           const data = doc.data();
           const authorName = data.AuthorName?.toLowerCase() || '';
+          const authorId = data.AuthorUserID;
           
           // Check if author name contains the search query
-          if (authorName.includes(lowerQuery)) {
-            const authorKey = authorName;
-            
-            if (!uniqueAuthors.has(authorKey)) {
-              uniqueAuthors.set(authorKey, {
+          if (authorName.includes(lowerQuery) && authorId && authorId !== currentUserId) {
+            if (!uniqueAuthors.has(authorId)) {
+              uniqueAuthors.set(authorId, {
                 docID: "",
-                id: data.AuthorUserID || "Unknown User", // Use a composite ID
+                id: authorId,
                 name: data.AuthorName || 'Unknown User',
                 avatar: data.AuthorImageURL || '',
                 postCount: 1,
-                isFollowing: (usersData?.includes(data.AuthorUserID) || false), // This would be determined by your follow system
+                isFollowing: followingList.includes(authorId),
               });
             } else {
               // Increment post count
-              const existing = uniqueAuthors.get(authorKey)!;
+              const existing = uniqueAuthors.get(authorId)!;
               existing.postCount = (existing.postCount || 0) + 1;
             }
           }
@@ -431,32 +537,31 @@ export default function SearchPage() {
         xDataSnapshot.docs.forEach(doc => {
           const data = doc.data();
           const authorName = data.AuthorName?.toLowerCase() || '';
+          const authorId = data.AuthorUserID;
           
           // Check if author name contains the search query
-          if (authorName.includes(lowerQuery)) {
-            const authorKey = authorName;
-            
-            if (!uniqueXAuthors.has(authorKey)) {
-              uniqueXAuthors.set(authorKey, {
+          if (authorName.includes(lowerQuery) && authorId && authorId !== currentUserId) {
+            if (!uniqueXAuthors.has(authorId)) {
+              uniqueXAuthors.set(authorId, {
                 docID: "",
-                id: `xdata-${doc.id}-${authorName}`, // Use a composite ID
+                id: authorId,
                 name: data.AuthorName || 'Unknown User',
                 avatar: data.AuthorImageURL || '',
                 postCount: 1,
-                isFollowing: false,
+                isFollowing: followingList.includes(authorId),
               });
             } else {
               // Increment post count
-              const existing = uniqueXAuthors.get(authorKey)!;
+              const existing = uniqueXAuthors.get(authorId)!;
               existing.postCount = (existing.postCount || 0) + 1;
             }
           }
         });
 
-        // Add to results, but avoid duplicates by name
+        // Add to results, but avoid duplicates by ID
         uniqueXAuthors.forEach(author => {
           const existingIndex = searchResults.findIndex(
-            existing => existing.name.toLowerCase() === author.name.toLowerCase()
+            existing => existing.id === author.id
           );
           
           if (existingIndex >= 0) {
@@ -478,20 +583,18 @@ export default function SearchPage() {
         console.warn('⚠️ Error searching X-Data:', xDataError);
       }
 
-      // Remove current user from results and sort by relevance
-      const filteredResults = searchResults
-        .filter(user => user.id !== currentUserId)
-        .sort((a, b) => {
-          // Sort by exact match first, then by post count
-          const aExact = a.name.toLowerCase() === lowerQuery ? 1 : 0;
-          const bExact = b.name.toLowerCase() === lowerQuery ? 1 : 0;
-          
-          if (aExact !== bExact) {
-            return bExact - aExact; // Exact matches first
-          }
-          
-          return (b.postCount || 0) - (a.postCount || 0); // Then by post count
-        });
+      // Sort by relevance
+      const filteredResults = searchResults.sort((a, b) => {
+        // Sort by exact match first, then by post count
+        const aExact = a.name.toLowerCase() === lowerQuery ? 1 : 0;
+        const bExact = b.name.toLowerCase() === lowerQuery ? 1 : 0;
+        
+        if (aExact !== bExact) {
+          return bExact - aExact; // Exact matches first
+        }
+        
+        return (b.postCount || 0) - (a.postCount || 0); // Then by post count
+      });
 
       setSearchResults(filteredResults);
       console.log(`🎉 Total search results: ${filteredResults.length}`);
@@ -505,91 +608,67 @@ export default function SearchPage() {
   };
 
   // Handle follow/unfollow action
-  const handleFollowPress = useCallback((user: SearchUser) => {
+  const handleFollowPress = useCallback(async (user: SearchUser) => {
     console.log('Follow/Unfollow pressed for user:', user.id);
 
-    handleFollow(user);
-    
-    // Update the local state optimistically
-    setSearchResults(prevResults => 
-      prevResults.map(user => 
-        user.id === user.id
-          ? { ...user, isFollowing: !user.isFollowing }
-          : user
-      )
-    );
+    try {
+      await handleFollow(user);
+      
+      // Update the local state optimistically
+      setSearchResults(prevResults => 
+        prevResults.map(result => 
+          result.id === user.id
+            ? { ...result, isFollowing: !result.isFollowing }
+            : result
+        )
+      );
 
-    // Here you would implement your actual follow/unfollow API call
-    // Example:
-    // await followUser(userId);
-    
-  }, []);
+      // Update followed users list
+      if (user.isFollowing) {
+        setFollowedUsers(prevUsers => prevUsers.filter(u => u.id !== user.id));
+      } else {
+        setFollowedUsers(prevUsers => [...prevUsers, { ...user, isFollowing: true }]);
+      }
+      
+    } catch (error) {
+      console.error('Error handling follow/unfollow:', error);
+    }
+  }, [currentUserDocId, currentUserId]);
 
   // Follow FUNCTION
   const handleFollow = useCallback(async (user: SearchUser) => {
-      if(user.isFollowing) {
-        const postRef = doc(db, "SentinelUsers", user.docID);
-          console.log("item UserID: ", user.id);
-          console.log("item isFollowing: ", user.isFollowing);
-          await updateDoc(postRef, {
-            Followers: arrayRemove(user.id),
+    try {
+      if (user.isFollowing) {
+        // Unfollow user
+        if (currentUserDocId) {
+          const userRef = doc(db, "SentinelUsers", currentUserDocId);
+          await updateDoc(userRef, {
+            Following: arrayRemove(user.id),
           });
+          console.log(`✅ Unfollowed user: ${user.name}`);
+        }
       } else {
-        if(user.docID == ""){
-          const userId = await AsyncStorage.getItem('userId');
+        // Follow user
+        if (currentUserDocId) {
+          const userRef = doc(db, "SentinelUsers", currentUserDocId);
+          await updateDoc(userRef, {
+            Following: arrayUnion(user.id),
+          });
+          console.log(`✅ Followed user: ${user.name}`);
+        } else {
+          // Create new document if it doesn't exist
           await addDoc(collection(db, 'SentinelUsers'), {
-            userID: userId,
+            userID: currentUserId,
             Following: [user.id],
           });
-        } else {
-          const postRef = doc(db, "SentinelUsers", user.docID);
-          console.log("item UserID: ", user.id);
-          console.log("item isFollowing: ", user.isFollowing);
-          await updateDoc(postRef, {
-            Followers: arrayUnion(user.id),
-          });
+          console.log(`✅ Created new user document and followed: ${user.name}`);
         }
-        
       }
-
-  }, []);
-
-  // DATA FETCHING
-  const handleFetchAllAuthorData = useCallback(async() => {
-
-    let fetchuserID = currentUserId;
-    if(fetchuserID === ""){
-      fetchuserID = await AsyncStorage.getItem('userId') || "";
-      setCurrentUserId(fetchuserID);
-    }
-
-    try {
-      console.log("SentinelUsers OnSnapshot");
-      const collSentinelUsersRef = collection(db, 'SentinelUsers');
-      const unsubscribeSentinel = onSnapshot(collSentinelUsersRef, async sentinelSnapshot => {
-        const sentineldataArr = sentinelSnapshot.docs.map(doc => ({
-          id: doc.id,
-          data: doc.data(),
-        }))
-        usersData = [];
-        for (const doc of sentineldataArr) {
-          const postData = doc.data;
-          const postId = doc.id;
-          if(postData.userID == fetchuserID) {
-            usersData = postData.Following || [];
-          }
-        }
-      })
-
-      return () => {
-        unsubscribeSentinel();
-      };
-
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('Error in handleFollow:', error);
+      throw error;
     }
-
-  }, []);
+  }, [currentUserDocId, currentUserId]);
 
   // Clear search
   const clearSearch = () => {
@@ -611,11 +690,11 @@ export default function SearchPage() {
 
   // Render empty state
   const renderEmptyState = () => {
-    if (loading) {
+    if (loading || initialLoading) {
       return <SkeletonLoader count={5} />;
     }
 
-    if (!hasSearched) {
+    if (!hasSearched && followedUsers.length === 0) {
       return (
         <View className="items-center justify-center flex-1 px-8" style={{ marginTop: screenWidth * 0.3 }}>
           <View className="w-20 h-20 bg-gray-100 rounded-full items-center justify-center mb-6">
@@ -649,6 +728,9 @@ export default function SearchPage() {
 
     return null;
   };
+
+  const displayUsers = hasSearched ? searchResults : followedUsers;
+  const showingFollowed = !hasSearched && followedUsers.length > 0;
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -709,7 +791,7 @@ export default function SearchPage() {
       </View>
 
       {/* Loading indicator at top */}
-      {loading && searchResults.length > 0 && (
+      {loading && displayUsers.length > 0 && (
         <View className="py-2 px-6">
           <View className="flex-row items-center">
             <ActivityIndicator size="small" color="#3B82F6" />
@@ -727,12 +809,21 @@ export default function SearchPage() {
         </View>
       )}
 
+      {/* Following Header */}
+      {showingFollowed && (
+        <View className="px-6 py-2">
+          <Text className="text-sm text-gray-600">
+            Following {followedUsers.length} user{followedUsers.length !== 1 ? 's' : ''}
+          </Text>
+        </View>
+      )}
+
       {/* Results List */}
       <View className="flex-1">
-        {searchResults.length > 0 ? (
+        {displayUsers.length > 0 ? (
           <FlatList
-            data={searchResults}
-            keyExtractor={(item) => item.id}
+            data={displayUsers}
+            keyExtractor={(item) => `${item.id}-${hasSearched ? 'search' : 'following'}`}
             renderItem={({ item }) => (
               <SearchItem 
                 user={item} 
@@ -744,7 +835,7 @@ export default function SearchPage() {
             contentContainerStyle={{ paddingTop: 8, paddingBottom: 32 }}
             ItemSeparatorComponent={() => <View style={{ height: 4 }} />}
             ListFooterComponent={() => {
-              if (loading) {
+              if (loading || initialLoading) {
                 return (
                   <View className="py-4">
                     <LoadingComponent visible={true} size="small" />
