@@ -1,13 +1,11 @@
 import { db } from '@/FirebaseConfig';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ResizeMode, Video } from 'expo-av';
 import { useRouter } from 'expo-router';
 import * as Sharing from "expo-sharing";
 import { arrayRemove, arrayUnion, collection, doc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Share } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { ResizeMode, Video } from 'expo-av';
 import {
   Animated,
   Dimensions,
@@ -16,12 +14,12 @@ import {
   Modal,
   Platform,
   RefreshControl,
-  ScrollView,
-  StatusBar,
+  ScrollView, Share, StatusBar,
   Text,
   TouchableOpacity,
   View
-} from 'react-native';
+} from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import CommentsModal from '../../components/CommentsModal';
 import { LoadingComponent } from '../../components/LoadingComponent';
 
@@ -47,6 +45,7 @@ interface PostItem {
   Bookmarked?: boolean;
   createdAt?: any;
   bookmarkedAt?: any;
+  CommentTemplate: string;
 }
 
 // Custom Modal Component for Alerts
@@ -228,6 +227,7 @@ export default function BookmarksPage(): React.JSX.Element {
   const [isCommentModalVisible, setIsCommentModalVisible] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedPostType, setSelectedPostType] = useState<string | null>(null);
+  const [selectedCommentTemplate, setSelectedCommentTemplate] = useState<string | null>(null);
 
   // ------- CUSTOM ALERT STATE -------
   const [modalConfig, setModalConfig] = useState<{
@@ -465,6 +465,7 @@ export default function BookmarksPage(): React.JSX.Element {
               Reposted: false,
               Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
               createdAt: postData.createdAt || postData.ContentDate,
+              CommentTemplate: postData.CommentTemplate || "Template1",
             });
           }
         }
@@ -518,6 +519,7 @@ export default function BookmarksPage(): React.JSX.Element {
               Reposted: false,
               Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
               createdAt: postData.createdAt || postData.ContentDate,
+              CommentTemplate: postData.CommentTemplate || "Template1",
             });
           }
 
@@ -578,6 +580,7 @@ export default function BookmarksPage(): React.JSX.Element {
   const openCommentsModal = useCallback((item: PostItem) => {
     setSelectedPostId(item.id);
     setSelectedPostType(item.postType);
+    setSelectedCommentTemplate(item.CommentTemplate);
     setIsCommentModalVisible(true);
   }, []);
 
@@ -586,6 +589,7 @@ export default function BookmarksPage(): React.JSX.Element {
     setIsCommentModalVisible(false);
     setSelectedPostId(null);
     setSelectedPostType(null);
+    setSelectedCommentTemplate(null);
   }, []);
 
   // MEDIA MODAL CONTROLS
@@ -1288,6 +1292,7 @@ export default function BookmarksPage(): React.JSX.Element {
         postId={selectedPostId}
         postType={selectedPostType}
         postData={bookmarkedPosts.find(item => item.id === selectedPostId)}
+        commentTemplate={selectedCommentTemplate}
       />
 
       {/* CUSTOM ALERT MODAL */}
