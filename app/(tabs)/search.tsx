@@ -4,7 +4,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { collection, getDocs } from 'firebase/firestore';
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
   Animated,
@@ -19,6 +18,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -247,6 +247,11 @@ type SearchItemProps = {
   onFollowPress: (userId: string) => void;
   currentUserId: string;
 };
+
+// Follow FUNCTION
+const handleFollow = useCallback(async (user: SearchUser, currentUserId: any) => {
+
+}, []);
 
 const SearchItem: React.FC<SearchItemProps> = ({ user, onFollowPress, currentUserId }) => {
   const scaleAnim = useRef(new Animated.Value(0)).current;
