@@ -965,6 +965,16 @@ export default function SentinelFeed(): React.JSX.Element {
     }, [isInitialized, fetchSinglePostComments])
   );
 
+  const handleDropdownChange = async (item: {name: string }, postItem: PostItem) => {
+    setSelectedCommentTemplate(item.name);
+    console.log('Selected option:', item.name);
+    // Add any additional logic you want to execute on change
+    const postRef = doc(db, postItem.postType, postItem.id);
+    await updateDoc(postRef, {
+      CommentTemplate: item.name,
+    });
+  };
+  
   // MODAL FUNCTIONS
   const openCommentsModal = useCallback((item: PostItem) => {
     if (areInteractionsDisabled(item)) {
