@@ -6,7 +6,6 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from "expo-router";
 import { addDoc, collection } from "firebase/firestore";
 import React, { useEffect, useRef, useState } from "react";
-import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
   Animated,
@@ -22,6 +21,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -288,6 +288,7 @@ export default function CreatePost() {
   const [postText, setPostText] = useState("");
   const [userImage, setUserImage] = useState("");
   const [userName, setUserName] = useState("");
+  const [userId, setUserId] = useState("");
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(false);
@@ -367,6 +368,7 @@ export default function CreatePost() {
     try {
       const fetchuserName = await AsyncStorage.getItem('userName');
       const fetchUserImage = await AsyncStorage.getItem('profilePicUrl');
+      const fetchuserID = await AsyncStorage.getItem('userId');
 
       if(fetchuserName !== null) {
         console.log("userName: ", fetchuserName);
@@ -376,6 +378,10 @@ export default function CreatePost() {
       if(fetchUserImage !== null) {
         console.log("userImage: ", fetchUserImage);
         setUserImage(fetchUserImage);
+      }
+
+      if(fetchuserID !== null) {
+        setUserId(fetchuserID);
       }
       
     } catch (error) {
@@ -710,6 +716,7 @@ export default function CreatePost() {
       await addDoc(collection(db, 'SentinelPosts'), {
         AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
         AuthorName: userName,
+        AuthorUserID: userId,
         ContentDate: new Date(),
         ContentDesc: postText,
         ContentURL: uploadedUrls.length > 0 ? uploadedUrls[0] : null,
