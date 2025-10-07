@@ -20,6 +20,7 @@ import {
   View
 } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { showToast } from '../../utils/toast';
 import CommentsModal from '../../components/CommentsModal';
 import { LoadingComponent } from '../../components/LoadingComponent';
 
@@ -48,160 +49,6 @@ interface PostItem {
   CommentTemplate: string;
 }
 
-// Custom Modal Component for Alerts
-interface CustomModalProps {
-  visible: boolean;
-  type: 'success' | 'error' | 'info' | 'warning';
-  title: string;
-  message: string;
-  buttons: Array<{
-    text: string;
-    onPress: () => void;
-    style?: 'default' | 'cancel' | 'destructive';
-  }>;
-  onClose?: () => void;
-}
-
-const CustomModal: React.FC<CustomModalProps> = ({
-  visible,
-  type,
-  title,
-  message,
-  buttons,
-  onClose
-}) => {
-  const scaleAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (visible) {
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 50,
-        friction: 8,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      scaleAnim.setValue(0);
-    }
-  }, [visible, scaleAnim]);
-
-  const getModalStyle = () => {
-    switch (type) {
-      case 'success':
-        return {
-          iconName: 'checkmark-circle' as const,
-          iconColor: '#22C55E',
-          iconBg: 'bg-green-100',
-        };
-      case 'error':
-        return {
-          iconName: 'close-circle' as const,
-          iconColor: '#EF4444',
-          iconBg: 'bg-red-100',
-        };
-      case 'warning':
-        return {
-          iconName: 'warning' as const,
-          iconColor: '#F59E0B',
-          iconBg: 'bg-yellow-100',
-        };
-      default:
-        return {
-          iconName: 'information-circle' as const,
-          iconColor: '#3B82F6',
-          iconBg: 'bg-blue-100',
-        };
-    }
-  };
-
-  const modalStyle = getModalStyle();
-
-  if (!visible) return null;
-
-  return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <View className="flex-1 bg-black/50 items-center justify-center px-6">
-        <Animated.View 
-          style={[{ transform: [{ scale: scaleAnim }] }]}
-          className="bg-white rounded-3xl p-8 items-center w-full max-w-sm shadow-2xl"
-        >
-          {/* Icon */}
-          <View className={`w-20 h-20 ${modalStyle.iconBg} rounded-full items-center justify-center mb-6`}>
-            <Ionicons name={modalStyle.iconName} size={48} color={modalStyle.iconColor} />
-          </View>
-
-          {/* Title */}
-          <Text className="text-2xl font-bold text-gray-900 text-center mb-3">
-            {title}
-          </Text>
-
-          {/* Message */}
-          <Text className="text-base text-gray-600 text-center mb-8 leading-6">
-            {message}
-          </Text>
-
-          {/* Buttons with Proper Spacing */}
-          <View className="w-full">
-            {buttons.length === 1 ? (
-              // Single button - full width
-              <TouchableOpacity
-                className={`py-4 px-8 rounded-xl items-center w-full shadow-lg ${
-                  buttons[0].style === 'cancel' 
-                    ? 'bg-gray-200' 
-                    : buttons[0].style === 'destructive'
-                    ? 'bg-red-500'
-                    : 'bg-black'
-                }`}
-                onPress={buttons[0].onPress}
-                activeOpacity={0.8}
-              >
-                <Text className={`text-lg font-semibold ${
-                  buttons[0].style === 'cancel' 
-                    ? 'text-gray-700' 
-                    : 'text-white'
-                }`}>
-                  {buttons[0].text}
-                </Text>
-              </TouchableOpacity>
-            ) : (
-              // Multiple buttons - side by side with spacing
-              <View className="flex-row" style={{ gap: 12 }}>
-                {buttons.map((button, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    className={`flex-1 py-4 px-6 rounded-xl items-center shadow-lg ${
-                      button.style === 'cancel' 
-                        ? 'bg-gray-200' 
-                        : button.style === 'destructive'
-                        ? 'bg-red-500'
-                        : 'bg-black'
-                    }`}
-                    onPress={button.onPress}
-                    activeOpacity={0.8}
-                  >
-                    <Text className={`text-lg font-semibold ${
-                      button.style === 'cancel' 
-                        ? 'text-gray-700' 
-                        : 'text-white'
-                    }`}>
-                      {button.text}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
-        </Animated.View>
-      </View>
-    </Modal>
-  );
-};
-
 export default function BookmarksPage(): React.JSX.Element {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -229,50 +76,7 @@ export default function BookmarksPage(): React.JSX.Element {
   const [selectedPostType, setSelectedPostType] = useState<string | null>(null);
   const [selectedCommentTemplate, setSelectedCommentTemplate] = useState<string | null>(null);
 
-  // ------- CUSTOM ALERT STATE -------
-  const [modalConfig, setModalConfig] = useState<{
-    visible: boolean;
-    type: 'success' | 'error' | 'info' | 'warning';
-    title: string;
-    message: string;
-    buttons: Array<{
-      text: string;
-      onPress: () => void;
-      style?: 'default' | 'cancel' | 'destructive';
-    }>;
-  }>({
-    visible: false,
-    type: 'info',
-    title: '',
-    message: '',
-    buttons: []
-  });
-
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
-
-  // Custom Alert function
-  const showCustomAlert = (
-    type: 'success' | 'error' | 'info' | 'warning',
-    title: string,
-    message: string,
-    buttons: Array<{
-      text: string;
-      onPress: () => void;
-      style?: 'default' | 'cancel' | 'destructive';
-    }>
-  ) => {
-    setModalConfig({
-      visible: true,
-      type,
-      title,
-      message,
-      buttons
-    });
-  };
-
-  const hideModal = () => {
-    setModalConfig(prev => ({ ...prev, visible: false }));
-  };
 
   // IMPROVED TIME AGO FUNCTION
   const getTimeAgo = useCallback((dateString: any) => {
@@ -397,7 +201,7 @@ export default function BookmarksPage(): React.JSX.Element {
     // first check if sharing is available
     const available = await Sharing.isAvailableAsync();
     if (!available) {
-      alert("Sharing is not available on this device");
+      showToast.error("Sharing is not available on this device");
       return;
     }
 
@@ -411,6 +215,7 @@ export default function BookmarksPage(): React.JSX.Element {
       
     } catch (error) {
       console.log("Error sharing ", error);
+      showToast.error("Failed to share post");
     }
 
     await new Promise(r => setTimeout(r, 200));
@@ -671,57 +476,33 @@ export default function BookmarksPage(): React.JSX.Element {
   }, []);
 
   const handleRemoveBookmark = useCallback(async (postItem: PostItem) => {
-    showCustomAlert(
-      'warning',
-      'Remove Bookmark',
-      'Are you sure you want to remove this post from your bookmarks?',
-      [
-        {
-          text: 'Cancel',
-          onPress: hideModal,
-          style: 'cancel'
-        },
-        {
-          text: 'Remove',
-          onPress: async () => {
-            let fetchuserID = userId;
-            if(fetchuserID == ""){
-              fetchuserID = await AsyncStorage.getItem('userId') || "";
-              setUserId(fetchuserID);
-            }
+    try {
+      let fetchuserID = userId;
+      if(fetchuserID == ""){
+        fetchuserID = await AsyncStorage.getItem('userId') || "";
+        setUserId(fetchuserID);
+      }
 
-            const postRef = doc(db, postItem.postType, postItem.id);
-            if(postItem.Bookmarked) {
-              console.log("itemID: ", postItem.id);
-              console.log("item Bookmarked: ", postItem.Bookmarked);
-              await updateDoc(postRef, {
-                BookmarkedBy: arrayRemove(fetchuserID),
-              });
-            } else {
-              console.log("itemID: ", postItem.id);
-              console.log("item Bookmarked: ", postItem.Bookmarked);
-              await updateDoc(postRef, {
-                BookmarkedBy: arrayUnion(fetchuserID),
-              });
-            }
-            hideModal();
-            showCustomAlert(
-              'success',
-              'Bookmark Removed',
-              'Post has been removed from your bookmarks.',
-              [
-                {
-                  text: 'OK',
-                  onPress: hideModal
-                }
-              ]
-            );
-          },
-          style: 'destructive'
-        }
-      ]
-    );
-  }, [showCustomAlert, hideModal]);
+      const postRef = doc(db, postItem.postType, postItem.id);
+      if(postItem.Bookmarked) {
+        console.log("itemID: ", postItem.id);
+        console.log("item Bookmarked: ", postItem.Bookmarked);
+        await updateDoc(postRef, {
+          BookmarkedBy: arrayRemove(fetchuserID),
+        });
+      } else {
+        console.log("itemID: ", postItem.id);
+        console.log("item Bookmarked: ", postItem.Bookmarked);
+        await updateDoc(postRef, {
+          BookmarkedBy: arrayUnion(fetchuserID),
+        });
+      }
+      showToast.success('Post has been removed from your bookmarks.', 'Bookmark Removed');
+    } catch (error) {
+      console.error('Error removing bookmark:', error);
+      showToast.error('Failed to remove bookmark. Please try again.', 'Error');
+    }
+  }, []);
 
   // OPTIMIZED MEDIA CONTENT
   const renderMediaContent = useCallback((item: PostItem, index?: number) => {
@@ -842,7 +623,7 @@ export default function BookmarksPage(): React.JSX.Element {
                 justifyContent: 'center',
                 height: 80,
               }}>
-              <Ionicons name="document-text-outline" size={32} color="#8B5CF6" />
+              <Ionicons name="document-text-outline" size={32} color="#000000" />
               <Text numberOfLines={1} style={{ color: '#333', marginTop: 4, textAlign: 'center', paddingHorizontal: 12, fontSize: 11 }}>
                 {primaryMediaUrl.split('/').pop() || 'Document'}
               </Text>
@@ -1273,7 +1054,7 @@ export default function BookmarksPage(): React.JSX.Element {
                 <Text className="text-white text-xl mt-6 text-center font-bold">
                   Open Document
                 </Text>
-                <Text className="text-black text-base mt-4 text-center underline">
+                <Text className="text-purple-400 text-base mt-4 text-center underline">
                   {fullScreenDoc.split('/').pop() || 'Document'}
                 </Text>
                 <Text className="text-gray-400 text-sm mt-4 text-center">
@@ -1293,16 +1074,6 @@ export default function BookmarksPage(): React.JSX.Element {
         postType={selectedPostType}
         postData={bookmarkedPosts.find(item => item.id === selectedPostId)}
         commentTemplate={selectedCommentTemplate}
-      />
-
-      {/* CUSTOM ALERT MODAL */}
-      <CustomModal
-        visible={modalConfig.visible}
-        type={modalConfig.type}
-        title={modalConfig.title}
-        message={modalConfig.message}
-        buttons={modalConfig.buttons}
-        onClose={hideModal}
       />
     </SafeAreaView>
   );
