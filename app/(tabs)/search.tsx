@@ -2,7 +2,7 @@ import { db } from '@/FirebaseConfig';
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { collection, getDocs } from 'firebase/firestore';
+import { addDoc, arrayRemove, arrayUnion, collection, doc, getDocs, onSnapshot, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -24,6 +24,7 @@ const { width: screenWidth } = Dimensions.get('window');
 
 // User interface for search results
 interface SearchUser {
+  docID: string;
   id: string;
   name: string;
   nickName?: string;
@@ -244,14 +245,9 @@ const SkeletonLoader: React.FC<{ count?: number }> = ({ count = 5 }) => {
 // Search Item Component
 type SearchItemProps = {
   user: SearchUser;
-  onFollowPress: (userId: string) => void;
+  onFollowPress: (user: SearchUser) => void;
   currentUserId: string;
 };
-
-// Follow FUNCTION
-const handleFollow = useCallback(async (user: SearchUser, currentUserId: any) => {
-
-}, []);
 
 const SearchItem: React.FC<SearchItemProps> = ({ user, onFollowPress, currentUserId }) => {
   const scaleAnim = useRef(new Animated.Value(0)).current;
@@ -312,7 +308,7 @@ const SearchItem: React.FC<SearchItemProps> = ({ user, onFollowPress, currentUse
       {/* Right side - Follow Button */}
       <TouchableOpacity 
         className={`px-4 py-2 rounded-lg ${user.isFollowing ? 'bg-gray-200' : 'bg-black'}`}
-        onPress={() => onFollowPress(user.id)}
+        onPress={() => onFollowPress(user)}
         activeOpacity={0.8}
       >
         <Text className={`text-sm font-medium ${user.isFollowing ? 'text-gray-700' : 'text-white'}`}>
@@ -333,10 +329,12 @@ export default function SearchPage() {
   const [hasSearched, setHasSearched] = useState(false);
 
   const searchInputRef = useRef<TextInput>(null);
+  let usersData = [];
 
   // Load current user ID
   useEffect(() => {
     loadCurrentUserId();
+    handleFetchAllAuthorData();
   }, []);
 
   const loadCurrentUserId = async () => {
@@ -398,11 +396,12 @@ export default function SearchPage() {
             
             if (!uniqueAuthors.has(authorKey)) {
               uniqueAuthors.set(authorKey, {
-                id: `sentinel-${doc.id}-${authorName}`, // Use a composite ID
+                docID: "",
+                id: data.AuthorUserID || "Unknown User", // Use a composite ID
                 name: data.AuthorName || 'Unknown User',
                 avatar: data.AuthorImageURL || '',
                 postCount: 1,
-                isFollowing: false, // This would be determined by your follow system
+                isFollowing: (usersData?.includes(data.AuthorUserID) || false), // This would be determined by your follow system
               });
             } else {
               // Increment post count
@@ -439,6 +438,7 @@ export default function SearchPage() {
             
             if (!uniqueXAuthors.has(authorKey)) {
               uniqueXAuthors.set(authorKey, {
+                docID: "",
                 id: `xdata-${doc.id}-${authorName}`, // Use a composite ID
                 name: data.AuthorName || 'Unknown User',
                 avatar: data.AuthorImageURL || '',
@@ -505,13 +505,15 @@ export default function SearchPage() {
   };
 
   // Handle follow/unfollow action
-  const handleFollowPress = useCallback((userId: string) => {
-    console.log('Follow/Unfollow pressed for user:', userId);
+  const handleFollowPress = useCallback((user: SearchUser) => {
+    console.log('Follow/Unfollow pressed for user:', user.id);
+
+    handleFollow(user);
     
     // Update the local state optimistically
     setSearchResults(prevResults => 
       prevResults.map(user => 
-        user.id === userId 
+        user.id === user.id
           ? { ...user, isFollowing: !user.isFollowing }
           : user
       )
@@ -521,6 +523,72 @@ export default function SearchPage() {
     // Example:
     // await followUser(userId);
     
+  }, []);
+
+  // Follow FUNCTION
+  const handleFollow = useCallback(async (user: SearchUser) => {
+      if(user.isFollowing) {
+        const postRef = doc(db, "SentinelUsers", user.docID);
+          console.log("item UserID: ", user.id);
+          console.log("item isFollowing: ", user.isFollowing);
+          await updateDoc(postRef, {
+            Followers: arrayRemove(user.id),
+          });
+      } else {
+        if(user.docID == ""){
+          const userId = await AsyncStorage.getItem('userId');
+          await addDoc(collection(db, 'SentinelUsers'), {
+            userID: userId,
+            Following: [user.id],
+          });
+        } else {
+          const postRef = doc(db, "SentinelUsers", user.docID);
+          console.log("item UserID: ", user.id);
+          console.log("item isFollowing: ", user.isFollowing);
+          await updateDoc(postRef, {
+            Followers: arrayUnion(user.id),
+          });
+        }
+        
+      }
+
+  }, []);
+
+  // DATA FETCHING
+  const handleFetchAllAuthorData = useCallback(async() => {
+
+    let fetchuserID = currentUserId;
+    if(fetchuserID === ""){
+      fetchuserID = await AsyncStorage.getItem('userId') || "";
+      setCurrentUserId(fetchuserID);
+    }
+
+    try {
+      console.log("SentinelUsers OnSnapshot");
+      const collSentinelUsersRef = collection(db, 'SentinelUsers');
+      const unsubscribeSentinel = onSnapshot(collSentinelUsersRef, async sentinelSnapshot => {
+        const sentineldataArr = sentinelSnapshot.docs.map(doc => ({
+          id: doc.id,
+          data: doc.data(),
+        }))
+        usersData = [];
+        for (const doc of sentineldataArr) {
+          const postData = doc.data;
+          const postId = doc.id;
+          if(postData.userID == fetchuserID) {
+            usersData = postData.Following || [];
+          }
+        }
+      })
+
+      return () => {
+        unsubscribeSentinel();
+      };
+
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    }
+
   }, []);
 
   // Clear search
