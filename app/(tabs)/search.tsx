@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { collection, getDocs } from 'firebase/firestore';
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
   Animated,
@@ -11,7 +12,6 @@ import {
   FlatList,
   Image,
   Keyboard,
-  SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
