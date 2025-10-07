@@ -1,9 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   FlatList,
   Image,
-  SafeAreaView,
   StatusBar,
   Text,
   TouchableOpacity,
