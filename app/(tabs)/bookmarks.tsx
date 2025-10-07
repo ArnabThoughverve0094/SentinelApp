@@ -6,7 +6,7 @@ import * as Sharing from "expo-sharing";
 import { arrayRemove, arrayUnion, collection, doc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Share } from "react-native";
-
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ResizeMode, Video } from 'expo-av';
 import {
   Animated,
@@ -16,7 +16,6 @@ import {
   Modal,
   Platform,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   Text,
@@ -994,9 +993,9 @@ export default function BookmarksPage(): React.JSX.Element {
             activeOpacity={0.7}
           >
             <MaterialCommunityIcons
-              name="comment-outline"
+              name="thumbs-up-down"
               size={14}
-              color="#64748b"
+              color="#000000"
             />
             <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
           </TouchableOpacity>
