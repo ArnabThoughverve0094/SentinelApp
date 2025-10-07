@@ -830,6 +830,7 @@ export default function SentinelFeed(): React.JSX.Element {
             Reposted: (postData.RepostedBy?.includes(fetchuserID) || false),
             Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
             createdAt: postData.createdAt || postData.ContentDate,
+            CommentTemplate: postData.CommentTemplate || "Template1",
             // Repost specific fields
             isRepost: postData.isRepost || false,
             originalPost: postData.originalPost || null,
