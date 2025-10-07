@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Animated,
   KeyboardAvoidingView,

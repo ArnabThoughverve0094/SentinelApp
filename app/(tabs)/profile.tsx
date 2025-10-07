@@ -6,7 +6,6 @@ import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { arrayRemove, arrayUnion, collection, doc, getDocs, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
   Animated,
@@ -23,6 +22,7 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import CommentsModal from '../../components/CommentsModal';
 import SentinelFAQ from '../../components/SentinelFAQ';
 import TotalSentiment from '../../components/TotalSentiment';
@@ -49,6 +49,7 @@ interface PostItem {
   Reposted: boolean;
   Bookmarked?: boolean;
   createdAt?: any;
+  CommentTemplate: string;
 }
 
 // Your Custom LoadingComponent with Sentinel Logo (Smaller Size)
@@ -581,6 +582,7 @@ export default function ProfilePage(): React.JSX.Element {
   const [isCommentModalVisible, setIsCommentModalVisible] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedPostType, setSelectedPostType] = useState<string | null>(null);
+  const [selectedCommentTemplate, setSelectedCommentTemplate] = useState<string | null>(null);
 
   // Graph modal states
   const [isGraphModalVisible, setIsGraphModalVisible] = useState(false);
@@ -765,6 +767,7 @@ export default function ProfilePage(): React.JSX.Element {
               Reposted: false,
               Bookmarked: (postData.BookmarkedBy?.includes(userId) || false),
               createdAt: postData.createdAt || postData.ContentDate,
+              CommentTemplate: postData.CommentTemplate || "Template1",
             } as PostItem;
           })
           .filter(post => {
@@ -810,6 +813,7 @@ export default function ProfilePage(): React.JSX.Element {
               Reposted: false,
               Bookmarked: (postData.BookmarkedBy?.includes(userId) || false),
               createdAt: postData.createdAt || postData.ContentDate,
+              CommentTemplate: postData.CommentTemplate || "Template1",
             } as PostItem;
           })
           .filter(post => {
@@ -1314,6 +1318,7 @@ export default function ProfilePage(): React.JSX.Element {
 
     setSelectedPostId(item.id);
     setSelectedPostType(item.postType);
+    setSelectedCommentTemplate(item.CommentTemplate);
     setIsCommentModalVisible(true);
   }, [areInteractionsDisabled]);
 
@@ -1322,6 +1327,7 @@ export default function ProfilePage(): React.JSX.Element {
     setIsCommentModalVisible(false);
     setSelectedPostId(null);
     setSelectedPostType(null);
+    setSelectedCommentTemplate(null);
     // Refresh posts to get updated comment counts
     fetchUserPosts();
   }, [fetchUserPosts]);
@@ -1350,6 +1356,7 @@ export default function ProfilePage(): React.JSX.Element {
     setIsGraphModalVisible(true);
     setSelectedPostId(item.id);
     setSelectedPostType(item.postType);
+    setSelectedCommentTemplate(item.CommentTemplate);
     setIsCommentModalVisible(false);
   }, [areInteractionsDisabled]);
 
@@ -2223,6 +2230,7 @@ export default function ProfilePage(): React.JSX.Element {
           postId={selectedPostId}
           postType={selectedPostType}
           postData={selectedPostData}
+          commentTemplate={selectedCommentTemplate}
         />
       )}
 
@@ -2237,6 +2245,7 @@ export default function ProfilePage(): React.JSX.Element {
           userExistingComment={null}
           onEditComment={() => {}}
           onAddResponse={addResponseGraphModal}
+          commentTemplate={selectedCommentTemplate}
         />
       )}
 
