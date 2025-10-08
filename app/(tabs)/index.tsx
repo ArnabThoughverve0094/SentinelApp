@@ -3,10 +3,11 @@ import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from "expo-sharing";
-import { addDoc, arrayRemove, arrayUnion, collection, doc, getDocs, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
+import { addDoc, arrayRemove, arrayUnion, collection, doc, getDocs, onSnapshot, orderBy, query, updateDoc, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Share, StyleSheet, useWindowDimensions } from "react-native";
 import { Dropdown } from 'react-native-element-dropdown';
+import Toast from 'react-native-toast-message';
 
 import { ResizeMode, Video } from 'expo-av';
 import {
@@ -34,7 +35,6 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 interface Option {
   icon: string;
   title: string;
-  // you may have other fields, e.g. id, description, etc.
 }
 
 interface Template {
@@ -47,6 +47,7 @@ interface PostItem {
   uniqueId: string;
   AuthorImageURL: string;
   AuthorName: string;
+  AuthorUserID?: string;
   ContentDate: string;
   ContentDesc: string;
   ContentURL: string;
@@ -61,7 +62,6 @@ interface PostItem {
   Reposted: boolean;
   Bookmarked?: boolean;
   createdAt?: any;
-  // New repost fields
   isRepost?: boolean;
   originalPost?: PostItem;
   repostComment?: string;
@@ -69,127 +69,6 @@ interface PostItem {
   repostedAt?: any;
   CommentTemplate: string;
 }
-
-// Custom Modal Component for Alerts
-interface CustomModalProps {
-  visible: boolean;
-  type: 'success' | 'error' | 'info' | 'warning';
-  title: string;
-  message: string;
-  buttons: Array<{
-    text: string;
-    onPress: () => void;
-    style?: 'default' | 'cancel' | 'destructive';
-  }>;
-  onClose?: () => void;
-}
-
-const CustomModal: React.FC<CustomModalProps> = ({
-  visible,
-  type,
-  title,
-  message,
-  buttons,
-  onClose
-}) => {
-  const scaleAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (visible) {
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 50,
-        friction: 8,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      scaleAnim.setValue(0);
-    }
-  }, [visible, scaleAnim]);
-
-  const getModalStyle = () => {
-    switch (type) {
-      case 'success':
-        return {
-          iconName: 'checkmark-circle' as const,
-          iconColor: '#22C55E',
-          iconBg: 'bg-green-100',
-        };
-      case 'error':
-        return {
-          iconName: 'close-circle' as const,
-          iconColor: '#EF4444',
-          iconBg: 'bg-red-100',
-        };
-      case 'warning':
-        return {
-          iconName: 'warning' as const,
-          iconColor: '#F59E0B',
-          iconBg: 'bg-yellow-100',
-        };
-      default:
-        return {
-          iconName: 'information-circle' as const,
-          iconColor: '#3B82F6',
-          iconBg: 'bg-blue-100',
-        };
-    }
-  };
-
-  const modalStyle = getModalStyle();
-
-  if (!visible) return null;
-
-  return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <View className="flex-1 bg-black/50 items-center justify-center px-6">
-        <Animated.View 
-          style={[{ transform: [{ scale: scaleAnim }] }]}
-          className="bg-white rounded-3xl p-8 items-center w-full max-w-sm shadow-2xl"
-        >
-          <View className={`w-20 h-20 ${modalStyle.iconBg} rounded-full items-center justify-center mb-6`}>
-            <Ionicons name={modalStyle.iconName} size={48} color={modalStyle.iconColor} />
-          </View>
-          <Text className="text-2xl font-bold text-gray-900 text-center mb-3">
-            {title}
-          </Text>
-          <Text className="text-base text-gray-600 text-center mb-8 leading-6">
-            {message}
-          </Text>
-          <View className="w-full space-y-3">
-            {buttons.map((button, index) => (
-              <TouchableOpacity
-                key={index}
-                className={`py-4 px-8 rounded-xl items-center w-full shadow-lg ${
-                  button.style === 'cancel' 
-                    ? 'bg-gray-200' 
-                    : button.style === 'destructive'
-                    ? 'bg-red-500'
-                    : 'bg-black'
-                }`}
-                onPress={button.onPress}
-                activeOpacity={0.8}
-              >
-                <Text className={`text-lg font-semibold ${
-                  button.style === 'cancel' 
-                    ? 'text-gray-700' 
-                    : 'text-white'
-                }`}>
-                  {button.text}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </Animated.View>
-      </View>
-    </Modal>
-  );
-};
 
 // Tab Header Component
 const TabHeader: React.FC<{
@@ -254,7 +133,6 @@ const TabHeader: React.FC<{
         </TouchableOpacity>
       </View>
 
-      {/* Animated Tab Indicator */}
       <View className="relative">
         <Animated.View
           style={[
@@ -334,7 +212,6 @@ const RepostModal: React.FC<RepostModalProps> = ({
           style={[{ transform: [{ scale: scaleAnim }] }]}
           className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl"
         >
-          {/* Header */}
           <View className="px-6 py-4 border-b border-gray-100">
             <View className="flex-row items-center justify-between">
               <View className="flex-1">
@@ -350,9 +227,7 @@ const RepostModal: React.FC<RepostModalProps> = ({
             </View>
           </View>
 
-          {/* Content */}
           <View className="px-6 py-4">
-            {/* Original Post Preview */}
             <View className="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-200">
               <View className="flex-row items-center mb-2">
                 <Image
@@ -367,7 +242,6 @@ const RepostModal: React.FC<RepostModalProps> = ({
               </Text>
             </View>
 
-            {/* Quote Mode Toggle */}
             <View className="flex-row items-center justify-between mb-4">
               <Text className="text-gray-600 text-sm">Add your thoughts?</Text>
               <TouchableOpacity
@@ -384,7 +258,6 @@ const RepostModal: React.FC<RepostModalProps> = ({
               </TouchableOpacity>
             </View>
 
-            {/* Quote Input */}
             {isQuoteMode && (
               <View className="mb-4">
                 <TextInput
@@ -403,7 +276,6 @@ const RepostModal: React.FC<RepostModalProps> = ({
               </View>
             )}
 
-            {/* Action Buttons */}
             <View className="flex-row space-x-3">
               <TouchableOpacity
                 onPress={handleSimpleRepost}
@@ -449,7 +321,7 @@ const RepostModal: React.FC<RepostModalProps> = ({
 
 export default function SentinelFeed(): React.JSX.Element {
   const router = useRouter();
-  const { width } = useWindowDimensions(); // Get screen width
+  const { width } = useWindowDimensions();
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [userId, setUserId] = useState("");
@@ -475,54 +347,30 @@ export default function SentinelFeed(): React.JSX.Element {
   const videoRefs = useRef<{ [key: string]: any }>({});
   const flipCardRef = useRef<any>(null);
 
-  // NEW TAB STATE
   const [activeTab, setActiveTab] = useState<'forYou' | 'following'>('forYou');
   const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
+  const [currentUserDocId, setCurrentUserDocId] = useState('');
 
-  // ------- COMMENT MODAL STATE -------
   const [isCommentModalVisible, setIsCommentModalVisible] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedPostType, setSelectedPostType] = useState<string | null>(null);
   const [selectedCommentTemplate, setSelectedCommentTemplate] = useState<string | null>(null);
   const [fetchedCommentTemplate, setFetchedCommentTemplate] = useState<Template[]>([]);
 
-  // ------- GRAPH MODAL STATE -------
   const [isGraphModalVisible, setIsGraphModalVisible] = useState(false);
   const [selectedGraphPostId, setSelectedGraphPostId] = useState<string | null>(null);
   const [selectedGraphPostType, setSelectedGraphPostType] = useState<string | null>(null);
   const [userExistingComment, setUserExistingComment] = useState<Comment | null>(null);
 
-  // ------- REJECTION MODAL STATE -------
   const [isRejectionModalVisible, setIsRejectionModalVisible] = useState(false);
   const [selectedRejectionReasons, setSelectedRejectionReasons] = useState<string[]>([]);
   const [rejectionPostId, setRejectionPostId] = useState<string | null>(null);
 
-  // ------- REPOST MODAL STATE -------
   const [isRepostModalVisible, setIsRepostModalVisible] = useState(false);
   const [selectedRepostPost, setSelectedRepostPost] = useState<PostItem | null>(null);
 
-  // ------- CUSTOM ALERT STATE -------
-  const [modalConfig, setModalConfig] = useState<{
-    visible: boolean;
-    type: 'success' | 'error' | 'info' | 'warning';
-    title: string;
-    message: string;
-    buttons: Array<{
-      text: string;
-      onPress: () => void;
-      style?: 'default' | 'cancel' | 'destructive';
-    }>;
-  }>({
-    visible: false,
-    type: 'info',
-    title: '',
-    message: '',
-    buttons: []
-  });
-
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
 
-  // REJECTION REASONS ARRAY
   const rejectionReasons = [
     'Inappropriate content or language',
     'Spam or repetitive content', 
@@ -532,36 +380,47 @@ export default function SentinelFeed(): React.JSX.Element {
     'Offensive or discriminatory content'
   ];
 
-  // Helper function to check if interaction buttons should be disabled
   const areInteractionsDisabled = useCallback((item: PostItem) => {
     return !item.isApproved && !item.isNew;
   }, []);
 
-  // Custom Alert function
-  const showCustomAlert = (
-    type: 'success' | 'error' | 'info' | 'warning',
-    title: string,
-    message: string,
-    buttons: Array<{
-      text: string;
-      onPress: () => void;
-      style?: 'default' | 'cancel' | 'destructive';
-    }>
-  ) => {
-    setModalConfig({
-      visible: true,
-      type,
-      title,
-      message,
-      buttons
-    });
-  };
+  const fetchUserFollowing = useCallback(async () => {
+    try {
+      let fetchuserID = userId;
+      if(fetchuserID === "") {
+        fetchuserID = await AsyncStorage.getItem('userId') || "";
+        setUserId(fetchuserID);
+      }
 
-  const hideModal = () => {
-    setModalConfig(prev => ({ ...prev, visible: false }));
-  };
+      if (fetchuserID) {
+        console.log('🔄 Fetching following list for user:', fetchuserID);
+        
+        const sentinelUsersRef = collection(db, 'SentinelUsers');
+        const q = query(sentinelUsersRef, where('userID', '==', fetchuserID));
+        
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          if (!snapshot.empty) {
+            const userDoc = snapshot.docs[0];
+            const userData = userDoc.data();
+            setCurrentUserDocId(userDoc.id);
+            const following = userData.Following || [];
+            setFollowingUserIds(following);
+            console.log('✅ Following list updated:', following);
+          } else {
+            console.log('📱 No user document found');
+            setFollowingUserIds([]);
+            setCurrentUserDocId('');
+          }
+        });
 
-  // TIME AGO FUNCTION
+        return unsubscribe;
+      }
+    } catch (error) {
+      console.error('Error fetching following list:', error);
+      setFollowingUserIds([]);
+    }
+  }, [userId]);
+
   const getTimeAgo = useCallback((dateString: any) => {
     if (!dateString) return 'Just now';
     
@@ -615,7 +474,6 @@ export default function SentinelFeed(): React.JSX.Element {
     }
   }, []);
 
-  // MEDIA TYPE DETECTION
   const getMediaType = useCallback((url: string) => {
     if (!url) return 'unknown';
     
@@ -645,13 +503,14 @@ export default function SentinelFeed(): React.JSX.Element {
     return urlPath.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt)$/) ? 'doc' : 'image';
   }, []);
 
-  // CARD ANIMATION
   const initializeCardAnimation = useCallback((postId: string) => {
-    if (!cardAnimations[postId]) {
+    const animationKey = `${activeTab}-${postId}`;
+    
+    if (!cardAnimations[animationKey]) {
       const newAnimation = new Animated.Value(0);
       setCardAnimations(prev => ({
         ...prev,
-        [postId]: newAnimation
+        [animationKey]: newAnimation
       }));
       
       setTimeout(() => {
@@ -663,9 +522,8 @@ export default function SentinelFeed(): React.JSX.Element {
         }).start();
       }, Math.random() * 150);
     }
-  }, [cardAnimations]);
+  }, [cardAnimations, activeTab]);
 
-  // GET ASYNC STORAGE ITEMS
   const getItem = useCallback(async () => {
     try {
       const fetchuserID = await AsyncStorage.getItem('userId');
@@ -681,31 +539,6 @@ export default function SentinelFeed(): React.JSX.Element {
     }
   }, []);
 
-  // FETCH USER FOLLOWING LIST
-  const fetchUserFollowing = useCallback(async () => {
-    try {
-      let fetchuserID = userId;
-      if(fetchuserID === "") {
-        fetchuserID = await AsyncStorage.getItem('userId') || "";
-        setUserId(fetchuserID);
-      }
-
-      if (fetchuserID) {
-        // This is a placeholder - implement your following logic
-        // You might have a "Following" collection or user document with following array
-        // const userDoc = await getDoc(doc(db, 'Users', fetchuserID));
-        // const following = userDoc.data()?.following || [];
-        // setFollowingUserIds(following);
-        
-        // For demo purposes, setting empty array
-        setFollowingUserIds([]);
-      }
-    } catch (error) {
-      console.error('Error fetching following list:', error);
-    }
-  }, [userId]);
-
-  // FETCH SINGLE POST COMMENTS
   const fetchSinglePostComments = useCallback(async (postId: string, postType: string) => {
     try {
       let totalComments = 0;
@@ -734,7 +567,6 @@ export default function SentinelFeed(): React.JSX.Element {
     }
   }, []);
 
-  // DATA FETCHING
   const handleFetchAllData = useCallback(async (forceRefresh: boolean = false) => {
     const currentTime = Date.now();
     
@@ -772,6 +604,7 @@ export default function SentinelFeed(): React.JSX.Element {
             id: postId,
             AuthorImageURL: postData.AuthorImageURL,
             AuthorName: postData.AuthorName,
+            AuthorUserID: postData.AuthorUserID || '',
             ContentDate: postData.ContentDate,
             ContentDesc: postData.ContentDesc,
             ContentURL: postData.ContentURL,
@@ -816,6 +649,7 @@ export default function SentinelFeed(): React.JSX.Element {
             id: postId,
             AuthorImageURL: postData.AuthorImageURL,
             AuthorName: postData.AuthorName,
+            AuthorUserID: postData.AuthorUserID || postData.repostedBy || '',
             ContentDate: postData.ContentDate,
             ContentDesc: postData.ContentDesc,
             ContentURL: postData.ContentURL,
@@ -831,7 +665,6 @@ export default function SentinelFeed(): React.JSX.Element {
             Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
             createdAt: postData.createdAt || postData.ContentDate,
             CommentTemplate: postData.CommentTemplate || "Template1",
-            // Repost specific fields
             isRepost: postData.isRepost || false,
             originalPost: postData.originalPost || null,
             repostComment: postData.repostComment || '',
@@ -878,7 +711,7 @@ export default function SentinelFeed(): React.JSX.Element {
     } finally {
       setLoading(false);
     }
-  }, [isInitialized, fetchedData.length, lastFetchTime]);
+  }, [isInitialized, fetchedData.length, lastFetchTime, userId]);
 
   const fetchCommentTemplate = useCallback(async () => {
     try {
@@ -900,7 +733,6 @@ export default function SentinelFeed(): React.JSX.Element {
 
           const optionsField = postData.options;
 
-            // Convert map to array:
             const result: Array<{ key: string; icon: string; title: string }> = [];
             for (const key in optionsField) {
               if (Object.prototype.hasOwnProperty.call(optionsField, key)) {
@@ -969,27 +801,21 @@ export default function SentinelFeed(): React.JSX.Element {
   const handleDropdownChange = async (item: {name: string }, postItem: PostItem) => {
     setSelectedCommentTemplate(item.name);
     console.log('Selected option:', item.name);
-    // Add any additional logic you want to execute on change
     const postRef = doc(db, postItem.postType, postItem.id);
     await updateDoc(postRef, {
       CommentTemplate: item.name,
     });
   };
   
-  // MODAL FUNCTIONS
   const openCommentsModal = useCallback((item: PostItem) => {
     if (areInteractionsDisabled(item)) {
-      showCustomAlert(
-        'warning',
-        'Post Not Available',
-        'This post has been rejected and interactions are disabled.',
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
-      );
+      Toast.show({
+        type: 'error',
+        text1: 'Post Not Available',
+        text2: 'This post has been rejected and interactions are disabled.',
+        position: 'top',
+        visibilityTime: 3000,
+      });
       return;
     }
 
@@ -997,7 +823,7 @@ export default function SentinelFeed(): React.JSX.Element {
     setSelectedPostType(item.postType);
     setSelectedCommentTemplate(item.CommentTemplate);
     setIsCommentModalVisible(true);
-  }, [areInteractionsDisabled, showCustomAlert, hideModal]);
+  }, [areInteractionsDisabled]);
 
   const closeCommentsModal = useCallback(() => {
     setIsCommentModalVisible(false);
@@ -1008,17 +834,13 @@ export default function SentinelFeed(): React.JSX.Element {
 
   const openGraphModal = useCallback((item: PostItem) => {
     if (areInteractionsDisabled(item)) {
-      showCustomAlert(
-        'warning',
-        'Post Not Available',
-        'This post has been rejected and interactions are disabled.',
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
-      );
+      Toast.show({
+        type: 'error',
+        text1: 'Post Not Available',
+        text2: 'This post has been rejected and interactions are disabled.',
+        position: 'top',
+        visibilityTime: 3000,
+      });
       return;
     }
 
@@ -1030,7 +852,7 @@ export default function SentinelFeed(): React.JSX.Element {
     setSelectedPostType(item.postType);
     setIsCommentModalVisible(false);
     setSelectedCommentTemplate(item.CommentTemplate);
-  }, [areInteractionsDisabled, showCustomAlert, hideModal]);
+  }, [areInteractionsDisabled]);
 
   const closeGraphModal = useCallback(() => {
     setIsGraphModalVisible(false);
@@ -1043,7 +865,6 @@ export default function SentinelFeed(): React.JSX.Element {
     setIsCommentModalVisible(true);
   }, []);
 
-  // REJECTION MODAL FUNCTIONS
   const openRejectionModal = useCallback((postId: string) => {
     setRejectionPostId(postId);
     setSelectedRejectionReasons([]);
@@ -1068,17 +889,13 @@ export default function SentinelFeed(): React.JSX.Element {
 
   const handleRejectionSubmit = useCallback(async () => {
     if (selectedRejectionReasons.length === 0 || !rejectionPostId) {
-      showCustomAlert(
-        'warning',
-        'Selection Required',
-        'Please select at least one reason for rejection.',
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
-      );
+      Toast.show({
+        type: 'error',
+        text1: 'Selection Required',
+        text2: 'Please select at least one reason for rejection.',
+        position: 'top',
+        visibilityTime: 3000,
+      });
       return;
     }
 
@@ -1094,35 +911,26 @@ export default function SentinelFeed(): React.JSX.Element {
 
       closeRejectionModal();
       
-      showCustomAlert(
-        'success',
-        'Post Rejected',
-        `Post has been rejected successfully with ${selectedRejectionReasons.length} reason(s).`,
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
-      );
+      Toast.show({
+        type: 'success',
+        text1: 'Post Rejected',
+        text2: `Post has been rejected successfully with ${selectedRejectionReasons.length} reason(s).`,
+        position: 'top',
+        visibilityTime: 3000,
+      });
       
     } catch (error) {
       console.error('Error rejecting post:', error);
-      showCustomAlert(
-        'error',
-        'Rejection Failed',
-        'Failed to reject post. Please try again.',
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
-      );
+      Toast.show({
+        type: 'error',
+        text1: 'Rejection Failed',
+        text2: 'Failed to reject post. Please try again.',
+        position: 'top',
+        visibilityTime: 3000,
+      });
     }
-  }, [selectedRejectionReasons, rejectionPostId, closeRejectionModal, showCustomAlert, hideModal]);
+  }, [selectedRejectionReasons, rejectionPostId, closeRejectionModal]);
 
-  // MEDIA MODAL CONTROLS
   const openFullScreenImage = useCallback((imageUrl: string) => {
     setFullScreenImage(imageUrl);
     setIsImageModalVisible(true);
@@ -1178,7 +986,7 @@ export default function SentinelFeed(): React.JSX.Element {
     }, 800);
   }, [isFlipped, isFlipping]);
 
-  // APPROVAL TOGGLE FUNCTION
+  // APPROVAL TOGGLE WITH TOAST
   const handleApprovalToggle = useCallback(async (postId: string, newApprovedStatus: boolean, newIsNew: boolean = false) => {
     console.log("Toggling post:", postId, "to approved:", newApprovedStatus, "isNew:", newIsNew);
 
@@ -1202,8 +1010,28 @@ export default function SentinelFeed(): React.JSX.Element {
         isNew: newIsNew,
       });
       console.log("Post status updated successfully");
+      
+      // Show toast for approval
+      if (newApprovedStatus && !newIsNew) {
+        Toast.show({
+          type: 'success',
+          text1: 'Post Approved',
+          text2: 'Post has been approved and is now visible to users!',
+          position: 'top',
+          visibilityTime: 3000,
+        });
+      }
+      
     } catch (error) {
       console.error("Error updating post status:", error);
+      Toast.show({
+        type: 'error',
+        text1: 'Update Failed',
+        text2: 'Failed to update post status. Please try again.',
+        position: 'top',
+        visibilityTime: 3000,
+      });
+      
       setFetchedData(prevData => 
         prevData.map(item => 
           item.id === postId 
@@ -1219,20 +1047,15 @@ export default function SentinelFeed(): React.JSX.Element {
     }
   }, [fullScreenCard]);
 
-  // LIKE FUNCTION
   const toggleLike = useCallback(async (postItem: PostItem) => {
     if (areInteractionsDisabled(postItem)) {
-      showCustomAlert(
-        'warning',
-        'Action Not Available',
-        'This post has been rejected and interactions are disabled.',
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
-      );
+      Toast.show({
+        type: 'error',
+        text1: 'Action Not Available',
+        text2: 'This post has been rejected and interactions are disabled.',
+        position: 'top',
+        visibilityTime: 3000,
+      });
       return;
     }
 
@@ -1270,35 +1093,30 @@ export default function SentinelFeed(): React.JSX.Element {
     }
 
     await new Promise(r => setTimeout(r, 200));
-  }, [fullScreenCard, areInteractionsDisabled, showCustomAlert, hideModal]);
+  }, [fullScreenCard, areInteractionsDisabled, userId]);
 
-  // REPOST MODAL FUNCTIONS
   const openRepostModal = useCallback((postItem: PostItem) => {
     if (areInteractionsDisabled(postItem)) {
-      showCustomAlert(
-        'warning',
-        'Action Not Available',
-        'This post has been rejected and interactions are disabled.',
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
-      );
+      Toast.show({
+        type: 'error',
+        text1: 'Action Not Available',
+        text2: 'This post has been rejected and interactions are disabled.',
+        position: 'top',
+        visibilityTime: 3000,
+      });
       return;
     }
 
     setSelectedRepostPost(postItem);
     setIsRepostModalVisible(true);
-  }, [areInteractionsDisabled, showCustomAlert, hideModal]);
+  }, [areInteractionsDisabled]);
 
   const closeRepostModal = useCallback(() => {
     setIsRepostModalVisible(false);
     setSelectedRepostPost(null);
   }, []);
 
-  // SIMPLE REPOST FUNCTION
+  // SIMPLE REPOST WITH TOAST
   const handleSimpleRepost = useCallback(async () => {
     if (!selectedRepostPost) return;
 
@@ -1312,9 +1130,7 @@ export default function SentinelFeed(): React.JSX.Element {
       const userInfo = await AsyncStorage.getItem('userName') || 'Anonymous';
       const userImage = await AsyncStorage.getItem('userImageURL') || dummyAuthorImage;
 
-      // Check if already reposted
       if (selectedRepostPost.Reposted) {
-        // Undo repost
         const postRef = doc(db, selectedRepostPost.postType, selectedRepostPost.id);
         await updateDoc(postRef, {
           ContentRepostCount: selectedRepostPost.ContentRepostCount - 1,
@@ -1333,33 +1149,28 @@ export default function SentinelFeed(): React.JSX.Element {
           )
         );
 
-        showCustomAlert(
-          'success',
-          'Repost Removed',
-          'Post has been removed from your reposts.',
-          [
-            {
-              text: 'OK',
-              onPress: hideModal
-            }
-          ]
-        );
+        Toast.show({
+          type: 'success',
+          text1: 'Repost Removed',
+          text2: 'Post has been removed from your reposts.',
+          position: 'top',
+          visibilityTime: 2000,
+        });
       } else {
-        // Create new repost
         const postRef = doc(db, selectedRepostPost.postType, selectedRepostPost.id);
         await updateDoc(postRef, {
           ContentRepostCount: selectedRepostPost.ContentRepostCount + 1,
           RepostedBy: arrayUnion(fetchuserID),
         });
 
-        // Create repost in SentinelPosts collection
         await addDoc(collection(db, 'SentinelPosts'), {
           AuthorImageURL: userImage,
           AuthorName: userInfo,
+          AuthorUserID: fetchuserID,
           ContentDate: new Date(),
-          ContentDesc: selectedRepostPost.ContentDesc,
-          ContentURL: selectedRepostPost.ContentURL,
-          ContentURLs: selectedRepostPost.ContentURLs,
+          ContentDesc: selectedRepostPost.ContentDesc || '',
+          ContentURL: selectedRepostPost.ContentURL || '',
+          ContentURLs: selectedRepostPost.ContentURLs || [],
           ContentLikeCount: 0,
           ContentRepostCount: 0,
           ContentCommentCount: 0,
@@ -1369,15 +1180,15 @@ export default function SentinelFeed(): React.JSX.Element {
           RepostedBy: [],
           BookmarkedBy: [],
           createdAt: new Date(),
-          // Repost specific fields
+          CommentTemplate: selectedRepostPost.CommentTemplate || "Template1",
           isRepost: true,
           originalPost: {
-            id: selectedRepostPost.id,
-            AuthorName: selectedRepostPost.AuthorName,
-            AuthorImageURL: selectedRepostPost.AuthorImageURL,
-            ContentDesc: selectedRepostPost.ContentDesc,
-            ContentDate: selectedRepostPost.ContentDate,
-            postType: selectedRepostPost.postType
+            id: selectedRepostPost.id || '',
+            AuthorName: selectedRepostPost.AuthorName || 'Unknown User',
+            AuthorImageURL: selectedRepostPost.AuthorImageURL || dummyAuthorImage,
+            ContentDesc: selectedRepostPost.ContentDesc || '',
+            ContentDate: selectedRepostPost.ContentDate || new Date(),
+            postType: selectedRepostPost.postType || 'Unknown'
           },
           repostComment: '',
           repostedBy: fetchuserID,
@@ -1396,17 +1207,13 @@ export default function SentinelFeed(): React.JSX.Element {
           )
         );
 
-        showCustomAlert(
-          'success',
-          'Reposted Successfully',
-          'Post has been shared to your followers.',
-          [
-            {
-              text: 'OK',
-              onPress: hideModal
-            }
-          ]
-        );
+        Toast.show({
+          type: 'success',
+          text1: 'Reposted Successfully',
+          text2: 'Post has been shared to your followers.',
+          position: 'top',
+          visibilityTime: 2000,
+        });
       }
 
       if (fullScreenCard && fullScreenCard.uniqueId === selectedRepostPost.uniqueId) {
@@ -1420,21 +1227,17 @@ export default function SentinelFeed(): React.JSX.Element {
       }
     } catch (error) {
       console.error('Error handling repost:', error);
-      showCustomAlert(
-        'error',
-        'Repost Failed',
-        'Failed to repost. Please try again.',
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
-      );
+      Toast.show({
+        type: 'error',
+        text1: 'Repost Failed',
+        text2: 'Failed to repost. Please try again.',
+        position: 'top',
+        visibilityTime: 3000,
+      });
     }
-  }, [selectedRepostPost, userId, fullScreenCard, showCustomAlert, hideModal]);
+  }, [selectedRepostPost, userId, fullScreenCard]);
 
-  // QUOTE REPOST FUNCTION
+  // QUOTE REPOST WITH TOAST
   const handleQuoteRepost = useCallback(async (comment: string) => {
     if (!selectedRepostPost) return;
 
@@ -1448,21 +1251,20 @@ export default function SentinelFeed(): React.JSX.Element {
       const userInfo = await AsyncStorage.getItem('userName') || 'Anonymous';
       const userImage = await AsyncStorage.getItem('userImageURL') || dummyAuthorImage;
 
-      // Update original post repost count
       const postRef = doc(db, selectedRepostPost.postType, selectedRepostPost.id);
       await updateDoc(postRef, {
         ContentRepostCount: selectedRepostPost.ContentRepostCount + 1,
         RepostedBy: arrayUnion(fetchuserID),
       });
 
-      // Create quote repost in SentinelPosts collection
       await addDoc(collection(db, 'SentinelPosts'), {
         AuthorImageURL: userImage,
         AuthorName: userInfo,
+        AuthorUserID: fetchuserID,
         ContentDate: new Date(),
-        ContentDesc: comment,
-        ContentURL: selectedRepostPost.ContentURL,
-        ContentURLs: selectedRepostPost.ContentURLs,
+        ContentDesc: comment || '',
+        ContentURL: selectedRepostPost.ContentURL || '',
+        ContentURLs: selectedRepostPost.ContentURLs || [],
         ContentLikeCount: 0,
         ContentRepostCount: 0,
         ContentCommentCount: 0,
@@ -1472,17 +1274,17 @@ export default function SentinelFeed(): React.JSX.Element {
         RepostedBy: [],
         BookmarkedBy: [],
         createdAt: new Date(),
-        // Repost specific fields
+        CommentTemplate: selectedRepostPost.CommentTemplate || "Template1",
         isRepost: true,
         originalPost: {
-          id: selectedRepostPost.id,
-          AuthorName: selectedRepostPost.AuthorName,
-          AuthorImageURL: selectedRepostPost.AuthorImageURL,
-          ContentDesc: selectedRepostPost.ContentDesc,
-          ContentDate: selectedRepostPost.ContentDate,
-          postType: selectedRepostPost.postType
+          id: selectedRepostPost.id || '',
+          AuthorName: selectedRepostPost.AuthorName || 'Unknown User',
+          AuthorImageURL: selectedRepostPost.AuthorImageURL || dummyAuthorImage,
+          ContentDesc: selectedRepostPost.ContentDesc || '',
+          ContentDate: selectedRepostPost.ContentDate || new Date(),
+          postType: selectedRepostPost.postType || 'Unknown'
         },
-        repostComment: comment,
+        repostComment: comment || '',
         repostedBy: fetchuserID,
         repostedAt: new Date(),
       });
@@ -1499,17 +1301,13 @@ export default function SentinelFeed(): React.JSX.Element {
         )
       );
 
-      showCustomAlert(
-        'success',
-        'Quote Repost Created',
-        'Your quote repost has been shared to your followers.',
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
-      );
+      Toast.show({
+        type: 'success',
+        text1: 'Quote Repost Created',
+        text2: 'Your quote repost has been shared to your followers.',
+        position: 'top',
+        visibilityTime: 2000,
+      });
 
       if (fullScreenCard && fullScreenCard.uniqueId === selectedRepostPost.uniqueId) {
         setFullScreenCard((prev: PostItem | null) => prev ? ({
@@ -1520,39 +1318,29 @@ export default function SentinelFeed(): React.JSX.Element {
       }
     } catch (error) {
       console.error('Error creating quote repost:', error);
-      showCustomAlert(
-        'error',
-        'Quote Repost Failed',
-        'Failed to create quote repost. Please try again.',
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
-      );
+      Toast.show({
+        type: 'error',
+        text1: 'Quote Repost Failed',
+        text2: 'Failed to create quote repost. Please try again.',
+        position: 'top',
+        visibilityTime: 3000,
+      });
     }
-  }, [selectedRepostPost, userId, fullScreenCard, showCustomAlert, hideModal]);
+  }, [selectedRepostPost, userId, fullScreenCard]);
 
-  // MAIN REPOST HANDLER
   const handleRepost = useCallback(async (postItem: PostItem) => {
     openRepostModal(postItem);
   }, [openRepostModal]);
 
-  // BOOKMARK FUNCTION
   const handleBookmark = useCallback(async (postItem: PostItem) => {
     if (areInteractionsDisabled(postItem)) {
-      showCustomAlert(
-        'warning',
-        'Action Not Available',
-        'This post has been rejected and interactions are disabled.',
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
-      );
+      Toast.show({
+        type: 'error',
+        text1: 'Action Not Available',
+        text2: 'This post has been rejected and interactions are disabled.',
+        position: 'top',
+        visibilityTime: 3000,
+      });
       return;
     }
 
@@ -1571,11 +1359,25 @@ export default function SentinelFeed(): React.JSX.Element {
       await updateDoc(postRef, {
         BookmarkedBy: arrayRemove(fetchuserID),
       });
+      Toast.show({
+        type: 'info',
+        text1: 'Bookmark Removed',
+        text2: 'Post removed from bookmarks',
+        position: 'top',
+        visibilityTime: 2000,
+      });
     } else {
       console.log("itemID: ", postItem.id);
       console.log("item Bookmarked: ", postItem.Bookmarked);
       await updateDoc(postRef, {
         BookmarkedBy: arrayUnion(fetchuserID),
+      });
+      Toast.show({
+        type: 'success',
+        text1: 'Bookmarked',
+        text2: 'Post saved to bookmarks',
+        position: 'top',
+        visibilityTime: 2000,
       });
     }
 
@@ -1587,15 +1389,20 @@ export default function SentinelFeed(): React.JSX.Element {
     }
 
     await new Promise(r => setTimeout(r, 200));
-  }, [fullScreenCard, areInteractionsDisabled, showCustomAlert, hideModal]);
+  }, [fullScreenCard, areInteractionsDisabled, userId]);
 
-  // SHARE FUNCTION
   const handleShare = useCallback(async (postItem: PostItem) => {
     console.log("Share pressed:", postItem.id);
     
     const available = await Sharing.isAvailableAsync();
     if (!available) {
-      alert("Sharing is not available on this device");
+      Toast.show({
+        type: 'error',
+        text1: 'Sharing Not Available',
+        text2: 'Sharing is not available on this device',
+        position: 'top',
+        visibilityTime: 2000,
+      });
       return;
     }
 
@@ -1606,12 +1413,18 @@ export default function SentinelFeed(): React.JSX.Element {
       
     } catch (error) {
       console.log("Error sharing ", error);
+      Toast.show({
+        type: 'error',
+        text1: 'Share Failed',
+        text2: 'Failed to share post',
+        position: 'top',
+        visibilityTime: 2000,
+      });
     }
 
     await new Promise(r => setTimeout(r, 200));
   }, []);
 
-  // MEDIA CONTENT RENDERER
   const renderMediaContent = useCallback((item: PostItem, index?: number) => {
     const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
                      (item.ContentURL ? [item.ContentURL] : []);
@@ -1744,7 +1557,6 @@ export default function SentinelFeed(): React.JSX.Element {
     }
   }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, currentVideoIndex]);
 
-  // RENDER REPOST CONTENT
   const renderRepostContent = useCallback((item: PostItem) => {
     if (!item.isRepost || !item.originalPost) return null;
 
@@ -1768,7 +1580,6 @@ export default function SentinelFeed(): React.JSX.Element {
     );
   }, [getTimeAgo, dummyAuthorImage]);
 
-  // REFRESH FUNCTION
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     console.log('Manual refresh triggered');
@@ -1776,7 +1587,6 @@ export default function SentinelFeed(): React.JSX.Element {
     setRefreshing(false);
   }, [handleFetchAllData]);
 
-  // FILTERED DATA BASED ON TAB
   const filteredData = useMemo(() => {
     let baseData = fetchedData.filter(item => {
       if (userRole === "User") {
@@ -1786,21 +1596,28 @@ export default function SentinelFeed(): React.JSX.Element {
     });
 
     if (activeTab === 'following') {
-      // Filter posts from followed users only
-      // You'll need to implement the logic to check if post author is in following list
-      // For now, this is a placeholder - you can customize based on your data structure
-      return baseData.filter(item => {
-        // Example: return followingUserIds.includes(item.AuthorId) || item.postType === 'SentinelPosts'
-        // For demo purposes, showing all posts in Following tab too
-        return true;
+      console.log('🔍 Filtering for following tab');
+      console.log('Following user IDs:', followingUserIds);
+      console.log('Base data count:', baseData.length);
+      
+      const followingData = baseData.filter(item => {
+        const authorId = item.AuthorUserID || item.repostedBy;
+        const isFromFollowedUser = authorId && followingUserIds.includes(authorId);
+        
+        if (isFromFollowedUser) {
+          console.log(`✅ Including post from followed user: ${item.AuthorName} (${authorId})`);
+        }
+        
+        return isFromFollowedUser;
       });
+      
+      console.log('✅ Following filtered data count:', followingData.length);
+      return followingData;
     }
 
-    // For "For You" tab, return all posts (this could be algorithmic in real app)
     return baseData;
   }, [fetchedData, userRole, activeTab, followingUserIds]);
 
-  // SCROLL HANDLER
   const handleScroll = useCallback((event: any) => {
     const { contentOffset, layoutMeasurement } = event.nativeEvent;
     const currentScrollY = contentOffset.y;
@@ -1824,7 +1641,6 @@ export default function SentinelFeed(): React.JSX.Element {
     });
   }, [filteredData, getMediaType, currentVideoIndex]);
 
-  // APPROVAL TOGGLE COMPONENT
   const ApprovalToggle = useCallback(({ isApproved, isNew, onToggle, postId, isFullScreen = false }: { 
     isApproved: boolean; 
     isNew: boolean;
@@ -1901,9 +1717,9 @@ export default function SentinelFeed(): React.JSX.Element {
     );
   }, [openRejectionModal]);
 
-  // ENHANCED CARD COMPONENT
   const EnhancedCard = useCallback(({ children, postId }: { children: React.ReactNode, postId: string }) => {
-    const animValue = cardAnimations[postId] || new Animated.Value(0);
+    const animationKey = `${activeTab}-${postId}`;
+    const animValue = cardAnimations[animationKey] || new Animated.Value(0);
     
     return (
       <Animated.View
@@ -1936,9 +1752,8 @@ export default function SentinelFeed(): React.JSX.Element {
         {children}
       </Animated.View>
     );
-  }, [cardAnimations]);
+  }, [cardAnimations, activeTab]);
 
-  // POST STATUS HELPER
   const getPostStatus = useCallback((item: PostItem) => {
     if (item.isNew) {
       return { text: 'New', color: '#f97316', bgColor: 'bg-orange-100' };
@@ -1949,7 +1764,6 @@ export default function SentinelFeed(): React.JSX.Element {
     }
   }, []);
 
-  // RENDER POST CONTENT
   const renderPostContent = useCallback((item: PostItem, index: number) => (
     <TouchableOpacity 
       activeOpacity={0.95}
@@ -1994,10 +1808,8 @@ export default function SentinelFeed(): React.JSX.Element {
         <View className="px-3 py-2.5">
           <Text className="text-gray-800 text-sm leading-5 mb-2 font-normal">{item.ContentDesc}</Text>
 
-          {/* Render reposted content */}
           {renderRepostContent(item)}
 
-          {/* Render media only if not a repost or if it's a quote repost */}
           {(!item.isRepost || item.repostComment) && renderMediaContent(item, index)}
 
           <View className="flex-row items-center justify-between pt-1.5">
@@ -2152,7 +1964,6 @@ export default function SentinelFeed(): React.JSX.Element {
     </TouchableOpacity>
   ), [openCommentsModal, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, ApprovalToggle, handleApprovalToggle, dummyAuthorImage, userRole, getPostStatus, areInteractionsDisabled, openGraphModal, renderRepostContent]);
 
-  // USER CONTENT RENDERER
   const renderPostUserContent = useCallback((item: PostItem, index: number) => (
     <TouchableOpacity 
       activeOpacity={0.95}
@@ -2188,7 +1999,6 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
 
         <View className="px-3 py-2.5">
-          {/* Repost Header */}
           {item.isRepost && (
             <View className="flex-row items-center mb-2 pb-2 border-b border-gray-100">
               <Ionicons name="repeat" size={14} color="#64748b" />
@@ -2200,10 +2010,8 @@ export default function SentinelFeed(): React.JSX.Element {
 
           <Text className="text-gray-800 text-sm leading-5 mb-2">{item.ContentDesc}</Text>
 
-          {/* Render reposted content */}
           {renderRepostContent(item)}
 
-          {/* Render media only if not a repost or if it's a quote repost */}
           {(!item.isRepost || item.repostComment) && renderMediaContent(item, index)}
 
           <View className="flex-row items-center justify-between pt-1.5">
@@ -2307,26 +2115,60 @@ export default function SentinelFeed(): React.JSX.Element {
     </TouchableOpacity>
   ), [openCommentsModal, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, dummyAuthorImage, areInteractionsDisabled, openGraphModal, renderRepostContent]);
 
-  // LIST ITEMS
   const listItems = useMemo(() => {
+    console.log(`🔄 Rendering ${filteredData.length} items for ${activeTab} tab`);
+    
     return filteredData.map((item, index) => {
       initializeCardAnimation(item.uniqueId);
       
+      const baseKey = `${item.postType}-${item.id}`;
+      const contextKey = `${activeTab}-${index}`;
+      const getTimestamp = (date: any) => {
+        if (date && typeof date === 'object' && 'seconds' in date) return date.seconds;
+        if (typeof date === 'number') return date;
+        if (typeof date === 'string') return date;
+        return '';
+      };
+      const timestampKey = getTimestamp(item.createdAt) || getTimestamp(item.ContentDate) || index;
+      const uniqueKey = `${baseKey}-${contextKey}-${timestampKey}`;
+      
       if (userRole === "User") {
         return (
-          <React.Fragment key={item.uniqueId}>
+          <React.Fragment key={uniqueKey}>
             {renderPostUserContent(item, index)}
           </React.Fragment>
         );
       } else {
         return (
-          <React.Fragment key={item.uniqueId}>
+          <React.Fragment key={uniqueKey}>
             {renderPostContent(item, index)}
           </React.Fragment>
         );
       }
     });
-  }, [filteredData, userRole, initializeCardAnimation, renderPostUserContent, renderPostContent]);
+  }, [filteredData, userRole, initializeCardAnimation, renderPostUserContent, renderPostContent, activeTab]);
+
+  const renderEmptyFollowingState = () => (
+    <View className="flex-1 justify-center items-center py-20 px-8">
+      <View className="w-20 h-20 bg-gray-100 rounded-full items-center justify-center mb-6">
+        <MaterialCommunityIcons name="account-heart-outline" size={40} color="#9CA3AF" />
+      </View>
+      <Text className="text-xl font-semibold text-gray-900 mb-2 text-center">
+        No Posts from Following
+      </Text>
+      <Text className="text-gray-500 text-center leading-6 mb-4">
+        You're not following anyone yet, or users you follow haven't posted anything.
+      </Text>
+      <TouchableOpacity 
+        className="bg-black px-6 py-3 rounded-xl"
+        onPress={() => {
+          router.push('/search');
+        }}
+      >
+        <Text className="text-white font-semibold">Find People to Follow</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -2358,13 +2200,13 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
       </View>
 
-      {/* TAB HEADER */}
       <TabHeader 
         activeTab={activeTab} 
         onTabChange={setActiveTab}
       />
 
       <ScrollView 
+        key={`feed-${activeTab}-${filteredData.length}`}
         ref={scrollViewRef}
         className="flex-1" 
         showsVerticalScrollIndicator={false}
@@ -2389,8 +2231,12 @@ export default function SentinelFeed(): React.JSX.Element {
           <View className="flex-1 justify-center items-center py-20">
             <LoadingComponent visible={true} size="large" />
           </View>
+        ) : activeTab === 'following' && followingUserIds.length === 0 ? (
+          renderEmptyFollowingState()
         ) : listItems.length > 0 ? (
           listItems
+        ) : activeTab === 'following' ? (
+          renderEmptyFollowingState()
         ) : (
           <View className="flex-1 justify-center items-center py-20">
             <LoadingComponent visible={true} size="large" />
@@ -2503,7 +2349,7 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
       </Modal>
 
-      {/* ENHANCED REJECTION REASON MODAL */}
+      {/* REJECTION MODAL */}
       <Modal
         visible={isRejectionModalVisible}
         transparent={true}
@@ -2648,7 +2494,6 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
       </Modal>
 
-      {/* REPOST MODAL */}
       <RepostModal
         visible={isRepostModalVisible}
         onClose={closeRepostModal}
@@ -2657,7 +2502,6 @@ export default function SentinelFeed(): React.JSX.Element {
         onQuoteRepost={handleQuoteRepost}
       />
 
-      {/* COMMENTS MODAL */}
       <CommentsModal
         visible={isCommentModalVisible}
         onClose={closeCommentsModal}
@@ -2680,15 +2524,7 @@ export default function SentinelFeed(): React.JSX.Element {
         commentTemplate={selectedCommentTemplate}
         />
 
-      {/* CUSTOM ALERT MODAL */}
-      <CustomModal
-        visible={modalConfig.visible}
-        type={modalConfig.type}
-        title={modalConfig.title}
-        message={modalConfig.message}
-        buttons={modalConfig.buttons}
-        onClose={hideModal}
-      />
+     
     </SafeAreaView>
   );
 }
