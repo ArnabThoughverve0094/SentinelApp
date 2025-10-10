@@ -297,6 +297,7 @@ export default function CommentScreen({
   const fetchCommentTemplate = useCallback(async (passedCommentTemplate: any) => {
     try {
       const collCommentTempPost = collection(db, 'SentimentTemplates');
+      // const collCommentTempPost = collection(db, 'templates');
       console.log("Comment Template Called");
 
       const unsubscribeCommentTemp = onSnapshot(collCommentTempPost, commentTempSnapshot => {
@@ -307,12 +308,15 @@ export default function CommentScreen({
 
         RESPONSE_OPTIONS = [];
         for (const doc of commentTempdataArr) {
-          const postData = doc.data;
-          const postId = doc.id;
+          const templateData = doc.data;
+          const templateId = doc.id;
           console.log("Comment Template Passed: ", passedCommentTemplate);
+          console.log("Template Data: ", templateData);
 
-          if(passedCommentTemplate == postId){
-            const optionsField = postData.options;
+          if(passedCommentTemplate == templateData.name){
+            // if("Sentinel Default Template" == templateData.name){
+            const optionsField = templateData.options;
+            console.log("Template Options: ", optionsField);
 
             // Convert map to array:
             for (const key in optionsField) {
@@ -329,7 +333,20 @@ export default function CommentScreen({
                   })
                 }
               }
-            }    
+            }
+            
+            // optionsField.map((item: any) => {
+            //   const details: any = Object.values(item)[0];
+            //   console.log("Option details: ", details);
+            //   console.log("Option details icon: ", details.icon);
+            //   RESPONSE_OPTIONS.push({
+            //     id: typeof details.title === "string" ? details.title : "",
+            //     label: typeof details.title === "string" ? details.title : "",
+            //     icon: typeof details.icon === "string" ? details.icon : "",
+            //     color: '#34C759'
+            //   })
+            // })
+            
           }
           
         }
