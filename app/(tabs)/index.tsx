@@ -1945,7 +1945,7 @@ export default function SentinelFeed(): React.JSX.Element {
               <View className="mt-2 p-2.5 bg-gray-50 rounded-lg border border-gray-200">
                 <View style={styles.container}>
                   <View style={[styles.labelContainer, { maxWidth: width * 0.6 }]}>
-                    <Text style={styles.label}>Comment Template:</Text>
+                    <Text style={styles.label}>Vote Option:</Text>
                   </View>
                   <Dropdown
                     data={fetchedCommentTemplate}
