@@ -1,29 +1,19 @@
 pluginManagement {
-    // Include React Native Gradle Plugin
-    def reactNativeGradlePlugin = new File(
-        providers.exec {
-            workingDir(rootDir)
-            commandLine(
-                "node",
-                "--print",
-                "require.resolve('@react-native/gradle-plugin/package.json', { paths: [require.resolve('react-native/package.json')] })"
-            )
-        }.standardOutput.asText.get().trim()
-    ).getParentFile().absolutePath
-    includeBuild(reactNativeGradlePlugin)
+    // Include React Native Gradle Plugin from node_modules
+    includeBuild(file("node_modules/@react-native/gradle-plugin"))
 
-    // Include Expo Modules Autolinking
-    def expoAutolinkingPath = new File(
-        providers.exec {
-            workingDir(rootDir)
-            commandLine("node", "--print", "require.resolve('expo-modules-autolinking/package.json')")
-        }.standardOutput.asText.get().trim()
-    ).getParentFile().absolutePath + "/android/expo-gradle-plugin"
-
-    if (file(expoAutolinkingPath).exists()) {
+    // Include Expo Modules Autolinking plugin from node_modules
+    def expoAutolinkingPath = file("node_modules/expo-modules-autolinking/android/expo-gradle-plugin")
+    if (expoAutolinkingPath.exists()) {
         includeBuild(expoAutolinkingPath)
     } else {
         println("Warning: Expo Gradle plugin not found at $expoAutolinkingPath")
+    }
+
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
     }
 }
 
@@ -41,7 +31,7 @@ extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
 }
 
 expoAutolinking.useExpoModules()
-rootProject.name = 'frontend'
 expoAutolinking.useExpoVersionCatalog()
 
+rootProject.name = 'frontend'
 include ':app'
