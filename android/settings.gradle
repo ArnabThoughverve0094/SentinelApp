@@ -3,19 +3,28 @@ pluginManagement {
     def reactNativeGradlePlugin = new File(
         providers.exec {
             workingDir(rootDir)
-            commandLine("node", "--print", "require.resolve('@react-native/gradle-plugin/package.json', { paths: [require.resolve('react-native/package.json')] })")
+            commandLine(
+                "node",
+                "--print",
+                "require.resolve('@react-native/gradle-plugin/package.json', { paths: [require.resolve('react-native/package.json')] })"
+            )
         }.standardOutput.asText.get().trim()
     ).getParentFile().absolutePath
     includeBuild(reactNativeGradlePlugin)
 
     // Include Expo Modules Autolinking
-    def expoModulesAutolinking = new File(
+    def expoAutolinkingPath = new File(
         providers.exec {
             workingDir(rootDir)
             commandLine("node", "--print", "require.resolve('expo-modules-autolinking/package.json')")
         }.standardOutput.asText.get().trim()
     ).getParentFile().absolutePath + "/android/expo-gradle-plugin"
-    includeBuild(expoModulesAutolinking)
+
+    if (file(expoAutolinkingPath).exists()) {
+        includeBuild(expoAutolinkingPath)
+    } else {
+        println("Warning: Expo Gradle plugin not found at $expoAutolinkingPath")
+    }
 }
 
 plugins {
@@ -36,4 +45,3 @@ rootProject.name = 'frontend'
 expoAutolinking.useExpoVersionCatalog()
 
 include ':app'
-includeBuild(expoAutolinking.reactNativeGradlePlugin)
