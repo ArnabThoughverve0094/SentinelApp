@@ -1,10 +1,11 @@
 {
-  "extends": "expo/tsconfig.base",
+  "extends": "expo/tsconfig.base.json",
   "compilerOptions": {
-    "strict": false,                // turn off strict mode for now
-    "skipLibCheck": true,           // skip type errors in node_modules
-    "noImplicitAny": false,         // allow implicit any
-    "jsx": "react-jsx",             // needed for React 18 JSX transform
+    "module": "esnext",          // override "preserve" issue
+    "strict": false,
+    "skipLibCheck": true,
+    "noImplicitAny": false,
+    "jsx": "react-jsx",
     "paths": {
       "@/*": ["./*"]
     },
