@@ -1,19 +1,19 @@
 pluginManagement {
-    // Include React Native Gradle Plugin from node_modules
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+
+    // Include React Native Gradle Plugin
     includeBuild(file("node_modules/@react-native/gradle-plugin"))
 
-    // Include Expo Modules Autolinking plugin from node_modules
+    // Include Expo Modules Autolinking plugin
     def expoAutolinkingPath = file("node_modules/expo-modules-autolinking/android/expo-gradle-plugin")
     if (expoAutolinkingPath.exists()) {
         includeBuild(expoAutolinkingPath)
     } else {
         println("Warning: Expo Gradle plugin not found at $expoAutolinkingPath")
-    }
-
-    repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
     }
 }
 

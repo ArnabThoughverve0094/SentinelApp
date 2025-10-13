@@ -1,9 +1,7 @@
-// Top-level build file where you can add configuration options common to all sub-projects/modules.
-
 buildscript {
-     ext {
-        kotlinVersion = "2.2.20" // match supported Kotlin version
-        reactNativeGradlePluginVersion = "0.76.11" // <- set your RN Gradle plugin version
+    ext {
+        kotlinVersion = "2.2.20"
+        reactNativeGradlePluginVersion = "0.76.11"
     }
     repositories {
         google()
@@ -17,7 +15,6 @@ buildscript {
     }
 }
 
-// Optional: path to local React Native android folder
 def reactNativeAndroidDir = new File(
     providers.exec {
         workingDir(rootDir)
@@ -34,7 +31,3 @@ allprojects {
         maven { url 'https://www.jitpack.io' }
     }
 }
-
-// REMOVE these lines:
-// apply plugin: "expo-root-project"
-// apply plugin: "com.facebook.react.rootproject"
