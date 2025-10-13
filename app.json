@@ -1,11 +1,11 @@
 {
   "expo": {
     "name": "Sentinel",
-    "slug": "frontend",
+    "slug": "sentinel",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/sentinel_logo.png",
-    "scheme": "frontend",
+    "scheme": "sentinel",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -18,7 +18,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.frontend"
+      "package": "in.thoughtverve.sentinel"
     },
     "web": {
       "bundler": "metro",
