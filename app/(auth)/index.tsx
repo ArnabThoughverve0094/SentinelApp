@@ -1,7 +1,8 @@
 import { db } from '@/FirebaseConfig';
 import { LoadingComponent } from '@/components/LoadingComponent';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
-import { ResizeMode, Video } from 'expo-av';
+import { VideoView, useVideoPlayer } from 'expo-video';
+
 import { router } from 'expo-router';
 import { collection, doc, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -55,7 +56,7 @@ export default function Index(): React.JSX.Element {
   const [currentVideoIndex, setCurrentVideoIndex] = useState(-1);
   const flipCardRef = useRef<any>(null);
   const scrollViewRef = useRef<ScrollView>(null);
-  const videoRefs = useRef<{ [key: string]: any }>({});
+  // const videoRefs = useRef<{ [key: string]: any }>({});
 
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
 
@@ -68,6 +69,54 @@ export default function Index(): React.JSX.Element {
       return true;
     });
   }, [fetchedData, userRole]);
+
+  const fullScreenVideoPlayer = useVideoPlayer(fullScreenVideo || '', (player) => {
+    player.loop = false;
+    player.play();
+  });
+
+  const VideoPlayer = useCallback(({ videoUrl, index }: { videoUrl: string; index?: number }) => {
+    const player = useVideoPlayer(videoUrl, (player) => {
+      player.loop = true;
+      player.muted = true;
+      if (currentVideoIndex === index) {
+        player.play();
+      } else {
+        player.pause();
+      }
+    });
+
+    // Update play/pause when currentVideoIndex changes
+    useEffect(() => {
+      if (currentVideoIndex === index) {
+        player.play();
+      } else {
+        player.pause();
+      }
+    }, [currentVideoIndex, index, player]);
+
+    return (
+      <View className="relative rounded-xl overflow-hidden bg-black">
+        <VideoView
+          player={player}
+          style={{ width: '100%', height: 200 }}
+          contentFit="contain"
+          nativeControls={false}
+        />
+        <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+          <Ionicons name="play-outline" size={14} color="white" />
+        </View>
+        {currentVideoIndex !== index && (
+          <View className="absolute inset-0 bg-black/20 items-center justify-center">
+            <View className="w-10 h-10 bg-black/60 rounded-full items-center justify-center">
+              <Ionicons name="play" size={20} color="white" />
+            </View>
+          </View>
+        )}
+      </View>
+    );
+  }, [currentVideoIndex]);
+
 
   // ✅ FIXED: Fetch comments from correct subcollection structure
   const fetchCommentsCount = useCallback(async (posts: PostItem[]) => {
@@ -474,7 +523,7 @@ export default function Index(): React.JSX.Element {
             }}
             activeOpacity={0.95}
           >
-            <View className="relative rounded-xl overflow-hidden bg-black">
+            {/* <View className="relative rounded-xl overflow-hidden bg-black">
               <Video
                 ref={(ref) => {
                   if (ref && index !== undefined) {
@@ -499,7 +548,8 @@ export default function Index(): React.JSX.Element {
                   </View>
                 </View>
               )}
-            </View>
+            </View> */}
+            <VideoPlayer videoUrl={primaryMediaUrl} index={index} />
           </TouchableOpacity>
         </View>
       );
@@ -558,7 +608,7 @@ export default function Index(): React.JSX.Element {
     } else {
       return null;
     }
-  }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, currentVideoIndex]);
+  }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, VideoPlayer]);
 
   // ✅ ADDED: Graph/Analytics modal function
   const openGraphModal = useCallback((item: PostItem) => {
@@ -1269,14 +1319,12 @@ export default function Index(): React.JSX.Element {
           
           <View className="flex-1 justify-center items-center">
             {fullScreenVideo && (
-              <Video
-                source={{ uri: fullScreenVideo }}
+              <VideoView
+                player={fullScreenVideoPlayer}
                 style={{ width: screenWidth, height: screenHeight - 100 }}
-                resizeMode={ResizeMode.CONTAIN}
-                useNativeControls
-                shouldPlay
-                isLooping={false}
-              />
+                contentFit="contain"
+                nativeControls={true}
+                />
             )}
           </View>
         </View>
