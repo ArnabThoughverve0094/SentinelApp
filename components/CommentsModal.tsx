@@ -1,7 +1,9 @@
 import { db } from '@/FirebaseConfig';
 import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ResizeMode, Video } from 'expo-av';
+import { VideoView, useVideoPlayer } from 'expo-video';
+
+
 import {
   addDoc,
   collection,
@@ -114,6 +116,9 @@ export default function CommentScreen({
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [showResponseModal, setShowResponseModal] = useState(false);
   const [showSentimentPage, setShowSentimentPage] = useState(false);
+  const [fullScreenVideo, setFullScreenVideo] = useState<string | null>(null);
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(-1);
+
   
   // New states for user comment management
   const [userExistingComment, setUserExistingComment] = useState<Comment | null>(null);
@@ -204,6 +209,51 @@ export default function CommentScreen({
       return null;
     }
   };
+   const fullScreenVideoPlayer = useVideoPlayer(fullScreenVideo || '', (player) => {
+    player.loop = false;
+    player.play();
+  });
+  const VideoPlayer = useCallback(({ videoUrl, index }: { videoUrl: string; index?: number }) => {
+    const player = useVideoPlayer(videoUrl, (player) => {
+      player.loop = true;
+      player.muted = true;
+      if (currentVideoIndex === index) {
+        player.play();
+      } else {
+        player.pause();
+      }
+    });
+
+    // Update play/pause when currentVideoIndex changes
+    useEffect(() => {
+      if (currentVideoIndex === index) {
+        player.play();
+      } else {
+        player.pause();
+      }
+    }, [currentVideoIndex, index, player]);
+
+    return (
+      <View className="relative rounded-xl overflow-hidden bg-black">
+        <VideoView
+          player={player}
+          style={{ width: '100%', height: 200 }}
+          contentFit="contain"
+          nativeControls={false}
+        />
+        <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+          <Ionicons name="play-outline" size={14} color="white" />
+        </View>
+        {currentVideoIndex !== index && (
+          <View className="absolute inset-0 bg-black/20 items-center justify-center">
+            <View className="w-10 h-10 bg-black/60 rounded-full items-center justify-center">
+              <Ionicons name="play" size={20} color="white" />
+            </View>
+          </View>
+        )}
+      </View>
+    );
+  }, [currentVideoIndex]);
 
   // Fetch post data (only used as fallback if postData is not provided)
   const fetchPostData = async (itemId: string, itemType: string) => {
@@ -670,22 +720,7 @@ export default function CommentScreen({
       );
     } else if (mediaType === 'video') {
       return (
-        <View style={{ marginTop: 12, marginBottom: 16 }}>
-          <Video
-            source={{ uri: primaryMediaUrl }}
-            style={{ 
-              width: '100%', 
-              height: 240, 
-              borderRadius: 16, 
-              backgroundColor: '#000' 
-            }}
-            resizeMode={ResizeMode.CONTAIN}
-            useNativeControls={false}
-            shouldPlay={false}
-            isMuted={true}
-            isLooping={false}
-          />
-        </View>
+         <VideoPlayer videoUrl={primaryMediaUrl} />
       );
     } else if (mediaType === 'gif') {
       return (
