@@ -1,9 +1,9 @@
 import { db } from '@/FirebaseConfig';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ResizeMode, Video } from 'expo-av';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { VideoView, useVideoPlayer } from 'expo-video';
 import { arrayRemove, arrayUnion, collection, doc, getDocs, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -20,8 +20,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-  ViewToken
+  View
 } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CommentsModal from '../../components/CommentsModal';
@@ -589,37 +588,6 @@ export default function ProfilePage(): React.JSX.Element {
   const [isGraphModalVisible, setIsGraphModalVisible] = useState(false);
   const [selectedGraphPostId, setSelectedGraphPostId] = useState<string | null>(null);
   const [selectedGraphPostType, setSelectedGraphPostType] = useState<string | null>(null);
-
-  // State to track the URI of the video that is currently the 'primary' in view
-  const [activeVideoUri, setActiveVideoUri] = useState<string | null>(null);
-
-  // 1. Create a single VideoPlayer instance for the list
-  const player = useVideoPlayer(activeVideoUri || null, (p) => {
-    p.loop = true;
-    p.play();
-  });
-
-  // 2. Define the viewability config (e.g., must be 50% visible)
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 50,
-  }).current;
-
-  // 3. Callback function to update the active URI when viewability changes
-  const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      // Find the first item that is currently in view
-      const firstViewableItem = viewableItems.find(item => item.isViewable);
-
-      if (firstViewableItem && firstViewableItem.item.uri !== activeVideoUri) {
-        // Update the state, which triggers a re-render and updates the player source
-        setActiveVideoUri(firstViewableItem.item.uri);
-      } else if (!firstViewableItem && activeVideoUri) {
-         // Optionally pause the player if no video is in view
-         setActiveVideoUri(null);
-      }
-    },
-    [activeVideoUri]
-  );
 
   // Toast state
   const [toast, setToast] = useState<{
@@ -1594,7 +1562,6 @@ export default function ProfilePage(): React.JSX.Element {
 
     const primaryMediaUrl = mediaUrls[0];
     const mediaType = getMediaType(primaryMediaUrl);
-    const isActive = primaryMediaUrl === activeVideoUri;
 
     if (mediaType === 'image') {
       return (
@@ -1623,21 +1590,20 @@ export default function ProfilePage(): React.JSX.Element {
             activeOpacity={0.95}
           >
             <View className="relative rounded-xl overflow-hidden bg-black">
-            {isActive ? (
-                // Only the currently active video renders the actual VideoView
-                <VideoView 
-                style={styles.video}
-                player={player}
-                allowsPictureInPicture
-                nativeControls={true}
+              <Video
+                ref={(ref) => {
+                  if (ref && index !== undefined) {
+                    videoRefs.current[`video-${index}`] = ref;
+                  }
+                }}
+                source={{ uri: primaryMediaUrl }}
+                style={{ width: '100%', height: 200 }}
+                resizeMode={ResizeMode.CONTAIN}
+                useNativeControls={false}
+                shouldPlay={currentVideoIndex === index}
+                isMuted={true}
+                isLooping={true}
               />
-              ) : (
-                // Non-active videos show a static placeholder or thumbnail
-                <View style={styles.video}>
-                  {/*  */}
-                  <Text style={styles.video}>Video: {item.id}</Text>
-                </View>
-              )}
               <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
                 <Ionicons name="play-outline" size={14} color="white" />
               </View>
@@ -2468,9 +2434,5 @@ const styles = StyleSheet.create({
   results: { 
     marginTop: 20, 
     width: '100%' 
-  },
-  video: {
-    width: Dimensions.get('window').width,
-    height: Dimensions.get('window').width * (9 / 16), // Example: 16:9 aspect ratio
   },
 });
