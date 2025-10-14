@@ -7,11 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		05A6954D0928BD5FAAAA24E5 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 27E5C1FD0C5AAA8A30824094 /* PrivacyInfo.xcprivacy */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		26F7ECDB2A28B9182BC6BB04 /* libPods-Sentinel.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2EE0D75828FA8BA17CCA7535 /* libPods-Sentinel.a */; };
-		31E51A58396F6109C762FF0B /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 148F45D78801A2AD6A73F4A1 /* PrivacyInfo.xcprivacy */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		7DCA18EF8AA64622CE5F9D73 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BC7129C79291C657277D197 /* ExpoModulesProvider.swift */; };
+		5959A923E9508CA1B362A00D /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8B4D276B3335C44C1B22CE4 /* ExpoModulesProvider.swift */; };
+		5FC41E8876BA56C55A7EEC19 /* libPods-Sentinel.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C0346FACD6CFD3C6A3E06B48 /* libPods-Sentinel.a */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
@@ -20,16 +20,16 @@
 		13B07F961A680F5B00A75B9A /* Sentinel.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sentinel.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Sentinel/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Sentinel/Info.plist; sourceTree = "<group>"; };
-		148F45D78801A2AD6A73F4A1 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Sentinel/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		1BC7129C79291C657277D197 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Sentinel/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		2EE0D75828FA8BA17CCA7535 /* libPods-Sentinel.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Sentinel.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		4BDF73FF594ACB41F7F3A869 /* Pods-Sentinel.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Sentinel.debug.xcconfig"; path = "Target Support Files/Pods-Sentinel/Pods-Sentinel.debug.xcconfig"; sourceTree = "<group>"; };
-		763AE4B862B9D5AF920B3049 /* Pods-Sentinel.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Sentinel.release.xcconfig"; path = "Target Support Files/Pods-Sentinel/Pods-Sentinel.release.xcconfig"; sourceTree = "<group>"; };
+		27E5C1FD0C5AAA8A30824094 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Sentinel/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		2DD2E700FB186C2F4C5D25CF /* Pods-Sentinel.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Sentinel.release.xcconfig"; path = "Target Support Files/Pods-Sentinel/Pods-Sentinel.release.xcconfig"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Sentinel/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
+		C0346FACD6CFD3C6A3E06B48 /* libPods-Sentinel.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Sentinel.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Sentinel/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* Sentinel-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Sentinel-Bridging-Header.h"; path = "Sentinel/Sentinel-Bridging-Header.h"; sourceTree = "<group>"; };
+		F1917460BD43E199494498DC /* Pods-Sentinel.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Sentinel.debug.xcconfig"; path = "Target Support Files/Pods-Sentinel/Pods-Sentinel.debug.xcconfig"; sourceTree = "<group>"; };
+		F8B4D276B3335C44C1B22CE4 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Sentinel/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -37,18 +37,18 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				26F7ECDB2A28B9182BC6BB04 /* libPods-Sentinel.a in Frameworks */,
+				5FC41E8876BA56C55A7EEC19 /* libPods-Sentinel.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		0BB1A773C7FBEBE5BF86EF9F /* Pods */ = {
+		007A33C38440D6F3D0E2AEDD /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				4BDF73FF594ACB41F7F3A869 /* Pods-Sentinel.debug.xcconfig */,
-				763AE4B862B9D5AF920B3049 /* Pods-Sentinel.release.xcconfig */,
+				F1917460BD43E199494498DC /* Pods-Sentinel.debug.xcconfig */,
+				2DD2E700FB186C2F4C5D25CF /* Pods-Sentinel.release.xcconfig */,
 			);
 			name = Pods;
 			path = Pods;
@@ -63,7 +63,7 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				148F45D78801A2AD6A73F4A1 /* PrivacyInfo.xcprivacy */,
+				27E5C1FD0C5AAA8A30824094 /* PrivacyInfo.xcprivacy */,
 			);
 			name = Sentinel;
 			sourceTree = "<group>";
@@ -72,17 +72,9 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				2EE0D75828FA8BA17CCA7535 /* libPods-Sentinel.a */,
+				C0346FACD6CFD3C6A3E06B48 /* libPods-Sentinel.a */,
 			);
 			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		6685AD26C2C75F3F05C2313D /* Sentinel */ = {
-			isa = PBXGroup;
-			children = (
-				1BC7129C79291C657277D197 /* ExpoModulesProvider.swift */,
-			);
-			name = Sentinel;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -99,8 +91,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				0BB1A773C7FBEBE5BF86EF9F /* Pods */,
-				DE354A475927B8DBE4C7B290 /* ExpoModulesProviders */,
+				007A33C38440D6F3D0E2AEDD /* Pods */,
+				B801466936332FE657667116 /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -115,6 +107,22 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		A080E54A3AF10FD8658B3AE8 /* Sentinel */ = {
+			isa = PBXGroup;
+			children = (
+				F8B4D276B3335C44C1B22CE4 /* ExpoModulesProvider.swift */,
+			);
+			name = Sentinel;
+			sourceTree = "<group>";
+		};
+		B801466936332FE657667116 /* ExpoModulesProviders */ = {
+			isa = PBXGroup;
+			children = (
+				A080E54A3AF10FD8658B3AE8 /* Sentinel */,
+			);
+			name = ExpoModulesProviders;
+			sourceTree = "<group>";
+		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
 			isa = PBXGroup;
 			children = (
@@ -122,14 +130,6 @@
 			);
 			name = Supporting;
 			path = Sentinel/Supporting;
-			sourceTree = "<group>";
-		};
-		DE354A475927B8DBE4C7B290 /* ExpoModulesProviders */ = {
-			isa = PBXGroup;
-			children = (
-				6685AD26C2C75F3F05C2313D /* Sentinel */,
-			);
-			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -140,13 +140,13 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "Sentinel" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				E59886E6EA6C7DCB446988A3 /* [Expo] Configure project */,
+				B35786DBF0D9C7B142F4AAC1 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				B5AFA905092D87B15D26FE40 /* [CP] Embed Pods Frameworks */,
+				234C865DB01A4B54BEF3CC98 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -196,7 +196,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				31E51A58396F6109C762FF0B /* PrivacyInfo.xcprivacy in Resources */,
+				05A6954D0928BD5FAAAA24E5 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -242,6 +242,28 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
+		234C865DB01A4B54BEF3CC98 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Sentinel/Pods-Sentinel-frameworks.sh",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/React.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Sentinel/Pods-Sentinel-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
 		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -280,29 +302,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Sentinel/Pods-Sentinel-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		B5AFA905092D87B15D26FE40 /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-Sentinel/Pods-Sentinel-frameworks.sh",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/React.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Sentinel/Pods-Sentinel-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		E59886E6EA6C7DCB446988A3 /* [Expo] Configure project */ = {
+		B35786DBF0D9C7B142F4AAC1 /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -334,7 +334,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				7DCA18EF8AA64622CE5F9D73 /* ExpoModulesProvider.swift in Sources */,
+				5959A923E9508CA1B362A00D /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -343,7 +343,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 4BDF73FF594ACB41F7F3A869 /* Pods-Sentinel.debug.xcconfig */;
+			baseConfigurationReference = F1917460BD43E199494498DC /* Pods-Sentinel.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -379,7 +379,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 763AE4B862B9D5AF920B3049 /* Pods-Sentinel.release.xcconfig */;
+			baseConfigurationReference = 2DD2E700FB186C2F4C5D25CF /* Pods-Sentinel.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
