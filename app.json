@@ -1,11 +1,11 @@
 {
   "expo": {
     "name": "Sentinel",
-    "slug": "sentinel",
+    "slug": "frontend",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/sentinel_logo.png",
-    "scheme": "sentinel",
+    "scheme": "frontend",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
