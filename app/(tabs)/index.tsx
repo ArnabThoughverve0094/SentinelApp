@@ -8,8 +8,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Share, StyleSheet, useWindowDimensions } from "react-native";
 import { Dropdown } from 'react-native-element-dropdown';
 import Toast from 'react-native-toast-message';
-
-// UPDATED: Import from expo-video instead of expo-av
 import { VideoView, useVideoPlayer } from 'expo-video';
 import {
   Animated,
