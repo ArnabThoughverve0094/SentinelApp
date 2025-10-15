@@ -1313,7 +1313,6 @@ export default function Index(): React.JSX.Element {
               <VideoView 
                 style={styles.video}
                 player={player}
-                allowsFullscreen
                 allowsPictureInPicture
                 nativeControls={true}
               />
