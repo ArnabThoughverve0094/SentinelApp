@@ -57,7 +57,7 @@
     "typescript": "~5.9.2"
   },
   "overrides": {
-    "@pnpm/logger": "5.2.0" 
+    "@pnpm/logger": "5.2.0"
   },
   "private": true
 }

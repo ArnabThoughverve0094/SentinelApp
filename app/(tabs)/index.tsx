@@ -9,7 +9,6 @@ import { Share, StyleSheet, useWindowDimensions, ViewToken } from "react-native"
 import { Dropdown } from 'react-native-element-dropdown';
 import Toast from 'react-native-toast-message';
 
-// import { ResizeMode, Video } from 'expo-av';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import {
   Animated,
