@@ -18,7 +18,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "in.thoughtverve.sentinel"
+      "package": "com.anonymous.frontend"
     },
     "web": {
       "bundler": "metro",
@@ -38,8 +38,7 @@
       ],
       "react-native-compressor",
       "expo-font",
-      "expo-video",
-      "expo-web-browser"
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true
