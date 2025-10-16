@@ -591,8 +591,7 @@ export default function TotalSentiment({
                     strokeColor="white"
                     strokeWidth={2}
                   />
-                  
-                  {renderLegend()}
+                  {/* {renderLegend()} */}
                 </View>
               ) : (
                 <View style={{ 
@@ -617,9 +616,9 @@ export default function TotalSentiment({
                       Sentiment Breakdown
                     </Text>
                   </View>
-                  <Text style={{ fontSize: 14, color: '#8e8e93', marginBottom: 20 }}>
+                  {/* <Text style={{ fontSize: 14, color: '#8e8e93', marginBottom: 20 }}>
                     Detailed Rating
-                  </Text>
+                  </Text> */}
 
                   {/* Sentiment Bars */}
                   <View style={{ marginBottom: 30 }}>
