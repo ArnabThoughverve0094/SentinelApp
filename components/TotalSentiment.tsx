@@ -12,9 +12,13 @@ import {
   StatusBar,
   Text,
   TouchableOpacity,
-  View
+  View,
+  Dimensions
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PieChart } from 'react-native-gifted-charts';
+
+const screenWidth = Dimensions.get('window').width;
 
 interface Comment {
   id: string;
@@ -61,12 +65,14 @@ interface TotalSentimentProps {
 }
 
 // Response options matching the design
-let RESPONSE_OPTIONS = [
-  // { id: 'agree', label: 'Agree', icon: '👍', color: '#34C759' },
-  // { id: 'disagree', label: 'Disagree', icon: '🚫', color: '#FF3B30' },
-  // { id: 'support', label: 'I Support This', icon: '⭐', color: '#FF9500' },
-  // { id: 'hate', label: 'Hate Speech', icon: '😡', color: '#FF3B30' }
-];
+let RESPONSE_OPTIONS: any[] = [];
+
+// Sentiment API Response
+interface SentimentAPIResponse {
+  data: {
+    summary: string;
+  };
+}
 
 export default function TotalSentiment({ 
   visible, 
@@ -80,13 +86,23 @@ export default function TotalSentiment({
   commentTemplate
 }: TotalSentimentProps) {
   const insets = useSafeAreaInsets();
-  const [sentimentData, setSentimentData] = useState({
-    agree: 0,
-    disagree: 0,
-    support: 0,
-    hate: 0
-  });
+  const [sentimentData, setSentimentData] = useState<any>({});
   const [loading, setLoading] = useState(false);
+  const [pieChartData, setPieChartData] = useState<any[]>([]);
+  const [aiSummary, setAiSummary] = useState('');
+  const [totalResponses, setTotalResponses] = useState(0);
+
+  // Color palette for pie chart
+  const CHART_COLORS = [
+    '#34C759', // Green
+    '#FF3B30', // Red
+    '#FF9500', // Orange
+    '#007AFF', // Blue
+    '#5856D6', // Purple
+    '#FF2D55', // Pink
+    '#FFD60A', // Yellow
+    '#32ADE6', // Cyan
+  ];
 
   const fetchCommentTemplate = useCallback(async () => {
     try {
@@ -125,9 +141,8 @@ export default function TotalSentiment({
               }
             }    
           }
-          
         }
-
+        console.log("RESPONSE_OPTIONS loaded:", RESPONSE_OPTIONS);
       })
 
       return () => {
@@ -136,10 +151,44 @@ export default function TotalSentiment({
 
     } catch (error) {
       console.error(error);
-    } finally {
-      setLoading(false);
     }
-  },[RESPONSE_OPTIONS]);
+  },[commentTemplate]);
+
+  // Fetch sentiment analysis from API
+  const fetchSentimentAnalysis = async () => {
+    if (!postId) return;
+    
+    try {
+      console.log('Fetching sentiment analysis for postId:', postId);
+      
+      const response = await fetch(
+        'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/sentiment-analysis',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            postId: postId
+          })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result: SentimentAPIResponse = await response.json();
+      console.log('Sentiment API Response:', result);
+      
+      if (result.data && result.data.summary) {
+        setAiSummary(result.data.summary);
+      }
+    } catch (error) {
+      console.error('Error fetching sentiment analysis:', error);
+      setAiSummary('Unable to generate sentiment analysis at this time.');
+    }
+  };
   
   // Fetch sentiment data from Firestore
   const fetchSentimentData = async () => {
@@ -153,31 +202,72 @@ export default function TotalSentiment({
         const commentDataArr = commentsSnapshot.docs.map(doc => ({
           id: doc.id,
           data: doc.data(),
-        }))
+        }));
 
-        const counts = { agree: 0, disagree: 0, support: 0, hate: 0 };
+        console.log("Comments fetched:", commentDataArr.length);
+
+        // Initialize counts object dynamically based on RESPONSE_OPTIONS
+        const counts: any = {};
+        RESPONSE_OPTIONS.forEach(option => {
+          counts[option.id] = 0;
+        });
+
         let total = 0;
         
+        // Count responses
         for (const doc of commentDataArr) {
-          const postData = doc.data;
-          if (postData.selectedOptions && postData.selectedOptions.length > 0) {
-            const option = postData.selectedOptions[0] as keyof typeof counts;
+          const commentData = doc.data;
+          if (commentData.selectedOptions && commentData.selectedOptions.length > 0) {
+            const option = commentData.selectedOptions[0];
             if (counts.hasOwnProperty(option)) {
               counts[option]++;
               total++;
             }
           }
         }
+
+        console.log("Counts:", counts);
+        console.log("Total responses:", total);
+
+        setTotalResponses(total);
+
         if (total > 0) {
-          const percentages = {
-            agree: Math.round((counts.agree / total) * 100),
-            disagree: Math.round((counts.disagree / total) * 100),
-            support: Math.round((counts.support / total) * 100),
-            hate: Math.round((counts.hate / total) * 100)
-          };
+          // Calculate percentages
+          const percentages: any = {};
+          Object.keys(counts).forEach(key => {
+            percentages[key] = Math.round((counts[key] / total) * 100);
+          });
+
+          console.log("Percentages:", percentages);
           setSentimentData(percentages);
+
+          // Generate pie chart data
+          const chartData = RESPONSE_OPTIONS.map((option, index) => {
+            const count = counts[option.id] || 0;
+            const percentage = percentages[option.id] || 0;
+            
+            return {
+              value: count,
+              color: CHART_COLORS[index % CHART_COLORS.length],
+              text: `${percentage}%`,
+              label: option.label,
+              icon: option.icon,
+              focused: false,
+              textColor: 'white',
+              textSize: 16,
+              fontWeight: 'bold',
+            };
+          }).filter(item => item.value > 0); // Only show non-zero values
+
+          console.log("Chart Data:", chartData);
+          setPieChartData(chartData);
+        } else {
+          setSentimentData({});
+          setPieChartData([]);
         }
-      })
+
+        setLoading(false);
+      });
 
       return () => {
         unsubscribeCommentData();
@@ -185,7 +275,6 @@ export default function TotalSentiment({
 
     } catch (error) {
       console.error('Error fetching sentiment data:', error);
-    } finally {
       setLoading(false);
     }
   };
@@ -214,13 +303,64 @@ export default function TotalSentiment({
   };
 
   useEffect(() => {
-    if (visible && postId && postType) {
-      fetchSentimentData();
-    }
-    if(commentTemplate !== null) {
+    if (commentTemplate !== null) {
       fetchCommentTemplate();
     }
-  }, [visible, postId, postType, commentTemplate]);
+  }, [commentTemplate]);
+
+  useEffect(() => {
+    if (visible && postId && postType && RESPONSE_OPTIONS.length > 0) {
+      fetchSentimentData();
+      fetchSentimentAnalysis();
+    }
+  }, [visible, postId, postType, RESPONSE_OPTIONS]);
+
+  // Render pie chart legend
+  const renderLegend = () => {
+    return (
+      <View style={{ marginTop: 20, paddingHorizontal: 16 }}>
+        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#000', marginBottom: 12 }}>
+          Legend
+        </Text>
+        {pieChartData.map((item, index) => (
+          <View 
+            key={index}
+            style={{ 
+              flexDirection: 'row', 
+              alignItems: 'center', 
+              marginBottom: 12,
+              backgroundColor: '#f8f9fa',
+              padding: 10,
+              borderRadius: 8
+            }}
+          >
+            <View 
+              style={{ 
+                width: 20, 
+                height: 20, 
+                backgroundColor: item.color, 
+                borderRadius: 4,
+                marginRight: 12 
+              }} 
+            />
+            {item.icon && (
+              <Image
+                source={{ uri: item.icon }}
+                style={{ width: 30, height: 30, marginRight: 8 }}
+                resizeMode="contain"
+              />
+            )}
+            <Text style={{ fontSize: 15, color: '#000', flex: 1, fontWeight: '500' }}>
+              {item.label}
+            </Text>
+            <Text style={{ fontSize: 15, color: '#000', fontWeight: 'bold' }}>
+              {item.value} ({item.text})
+            </Text>
+          </View>
+        ))}
+      </View>
+    );
+  };
 
   return (
     <Modal
@@ -304,58 +444,139 @@ export default function TotalSentiment({
               </View>
             )}
 
-            {/* Sentiment Analysis */}
-            <View style={{ paddingHorizontal: 16, marginTop: 20 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                <Text style={{ fontSize: 24, marginRight: 8 }}>👍</Text>
-                <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#000' }}>
-                  Agreeable post
+            {/* AI Sentiment Summary */}
+            {aiSummary && (
+              <View style={{ 
+                paddingHorizontal: 16, 
+                marginTop: 20,
+                backgroundColor: '#f8f9fa',
+                marginHorizontal: 16,
+                padding: 16,
+                borderRadius: 12,
+                borderLeftWidth: 4,
+                borderLeftColor: '#007AFF'
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <Ionicons name="analytics" size={20} color="#007AFF" />
+                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#000', marginLeft: 8 }}>
+                    AI Sentiment Analysis
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 14, color: '#333', lineHeight: 20 }}>
+                  {aiSummary}
                 </Text>
               </View>
-              <Text style={{ fontSize: 14, color: '#8e8e93', marginBottom: 20 }}>
-                Sentiment Rating
-              </Text>
+            )}
 
-              {/* Sentiment Bars */}
-              <View style={{ marginBottom: 30 }}>
-                {RESPONSE_OPTIONS.map((option) => {
-                  const percentage = sentimentData[option.id as keyof typeof sentimentData] || 0;
-                  return (
-                    <View key={option.id} style={{ marginBottom: 16 }}>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          {/* <Text style={{ fontSize: 16, marginRight: 8 }}>{option.icon}</Text> */}
-                          <Image
-                            source={{ uri: option.icon}}
-                            className="w-16 h-10"
-                            resizeMode="contain"
-                          />
-                          <Text style={{ fontSize: 16, color: '#000', fontWeight: '500' }}>
-                            {option.label}
+            {/* Pie Chart Section */}
+            {pieChartData.length > 0 ? (
+              <View style={{ marginTop: 30, alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <Text style={{ fontSize: 24, marginRight: 8 }}>📊</Text>
+                  <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#000' }}>
+                    Response Distribution
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 14, color: '#8e8e93', marginBottom: 20 }}>
+                  Total Responses: {totalResponses}
+                </Text>
+                
+                <PieChart
+                  data={pieChartData}
+                  donut
+                  radius={130}
+                  innerRadius={70}
+                  showText
+                  textColor="white"
+                  textSize={14}
+                  fontWeight="bold"
+                  centerLabelComponent={() => (
+                    <View style={{ alignItems: 'center' }}>
+                      <Text style={{ fontSize: 28, fontWeight: 'bold', color: '#000' }}>
+                        {totalResponses}
+                      </Text>
+                      <Text style={{ fontSize: 14, color: '#8e8e93', marginTop: 4 }}>
+                        Votes
+                      </Text>
+                    </View>
+                  )}
+                  focusOnPress
+                  sectionAutoFocus
+                  strokeColor="white"
+                  strokeWidth={2}
+                />
+                
+                {renderLegend()}
+              </View>
+            ) : (
+              <View style={{ 
+                paddingHorizontal: 16, 
+                marginTop: 30,
+                alignItems: 'center',
+                paddingVertical: 40
+              }}>
+                <Ionicons name="pie-chart-outline" size={64} color="#e5e5e5" />
+                <Text style={{ fontSize: 16, color: '#8e8e93', marginTop: 16, textAlign: 'center' }}>
+                  No responses yet.{'\n'}Be the first to share your sentiment!
+                </Text>
+              </View>
+            )}
+
+            {/* Sentiment Breakdown */}
+            {RESPONSE_OPTIONS.length > 0 && (
+              <View style={{ paddingHorizontal: 16, marginTop: 40 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <Text style={{ fontSize: 24, marginRight: 8 }}>👍</Text>
+                  <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#000' }}>
+                    Sentiment Breakdown
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 14, color: '#8e8e93', marginBottom: 20 }}>
+                  Detailed Rating
+                </Text>
+
+                {/* Sentiment Bars */}
+                <View style={{ marginBottom: 30 }}>
+                  {RESPONSE_OPTIONS.map((option, index) => {
+                    const percentage = sentimentData[option.id] || 0;
+                    return (
+                      <View key={option.id} style={{ marginBottom: 16 }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                            {option.icon && (
+                              <Image
+                                source={{ uri: option.icon}}
+                                style={{ width: 40, height: 25, marginRight: 8 }}
+                                resizeMode="contain"
+                              />
+                            )}
+                            <Text style={{ fontSize: 16, color: '#000', fontWeight: '500' }}>
+                              {option.label}
+                            </Text>
+                          </View>
+                          <Text style={{ fontSize: 16, color: '#000', fontWeight: 'bold' }}>
+                            {percentage}%
                           </Text>
                         </View>
-                        <Text style={{ fontSize: 16, color: '#000', fontWeight: 'bold' }}>
-                          {percentage}%
-                        </Text>
-                      </View>
-                      <View style={{ 
-                        height: 8, 
-                        backgroundColor: '#f0f0f0', 
-                        borderRadius: 4,
-                        overflow: 'hidden'
-                      }}>
                         <View style={{ 
-                          height: '100%', 
-                          backgroundColor: '#000', 
-                          width: `${percentage}%`,
-                          borderRadius: 4
-                        }} />
+                          height: 10, 
+                          backgroundColor: '#f0f0f0', 
+                          borderRadius: 5,
+                          overflow: 'hidden'
+                        }}>
+                          <View style={{ 
+                            height: '100%', 
+                            backgroundColor: CHART_COLORS[index % CHART_COLORS.length], 
+                            width: `${percentage}%`,
+                            borderRadius: 5
+                          }} />
+                        </View>
                       </View>
-                    </View>
-                  );
-                })}
+                    );
+                  })}
+                </View>
               </View>
-            </View>
+            )}
           </ScrollView>
         )}
 
@@ -374,7 +595,12 @@ export default function TotalSentiment({
               paddingVertical: 16,
               alignItems: 'center',
               flexDirection: 'row',
-              justifyContent: 'center'
+              justifyContent: 'center',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.25,
+              shadowRadius: 3.84,
+              elevation: 5,
             }}
           >
             <Ionicons 
