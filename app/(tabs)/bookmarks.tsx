@@ -1,9 +1,9 @@
 import { db } from '@/FirebaseConfig';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ResizeMode, Video } from 'expo-av';
 import { useRouter } from 'expo-router';
 import * as Sharing from "expo-sharing";
-import { VideoView, useVideoPlayer } from 'expo-video';
 import { arrayRemove, arrayUnion, collection, doc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -20,9 +20,9 @@ import {
   View
 } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { showToast } from '../../utils/toast';
 import CommentsModal from '../../components/CommentsModal';
 import { LoadingComponent } from '../../components/LoadingComponent';
-import { showToast } from '../../utils/toast';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -67,7 +67,7 @@ export default function BookmarksPage(): React.JSX.Element {
   const [cardAnimations, setCardAnimations] = useState<{ [key: string]: Animated.Value }>({});
   const [currentVideoIndex, setCurrentVideoIndex] = useState(-1);
   const scrollViewRef = useRef<ScrollView>(null);
-  // const videoRefs = useRef<{ [key: string]: any }>({});
+  const videoRefs = useRef<{ [key: string]: any }>({});
   const [fetchedXData, setFetchedXData] = useState<any>([]);
 
   // ------- COMMENT MODAL STATE -------
@@ -131,51 +131,6 @@ export default function BookmarksPage(): React.JSX.Element {
       return 'Just now';
     }
   }, []);
-  const fullScreenVideoPlayer = useVideoPlayer(fullScreenVideo || '', (player) => {
-    player.loop = false;
-    player.play();
-  });
-  const VideoPlayer = useCallback(({ videoUrl, index }: { videoUrl: string; index?: number }) => {
-    const player = useVideoPlayer(videoUrl, (player) => {
-      player.loop = true;
-      player.muted = true;
-      if (currentVideoIndex === index) {
-        player.play();
-      } else {
-        player.pause();
-      }
-    });
-
-    // Update play/pause when currentVideoIndex changes
-    useEffect(() => {
-      if (currentVideoIndex === index) {
-        player.play();
-      } else {
-        player.pause();
-      }
-    }, [currentVideoIndex, index, player]);
-
-    return (
-      <View className="relative rounded-xl overflow-hidden bg-black">
-        <VideoView
-          player={player}
-          style={{ width: '100%', height: 200 }}
-          contentFit="contain"
-          nativeControls={false}
-        />
-        <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
-          <Ionicons name="play-outline" size={14} color="white" />
-        </View>
-        {currentVideoIndex !== index && (
-          <View className="absolute inset-0 bg-black/20 items-center justify-center">
-            <View className="w-10 h-10 bg-black/60 rounded-full items-center justify-center">
-              <Ionicons name="play" size={20} color="white" />
-            </View>
-          </View>
-        )}
-      </View>
-    );
-  }, [currentVideoIndex]);
 
   const getMediaType = useCallback((url: string) => {
     if (!url) return 'unknown';
@@ -596,7 +551,32 @@ export default function BookmarksPage(): React.JSX.Element {
             }}
             activeOpacity={0.95}
           >
-            <VideoPlayer videoUrl={primaryMediaUrl} index={index} />
+            <View className="relative rounded-xl overflow-hidden bg-black">
+              <Video
+                ref={(ref) => {
+                  if (ref && index !== undefined) {
+                    videoRefs.current[`video-${index}`] = ref;
+                  }
+                }}
+                source={{ uri: primaryMediaUrl }}
+                style={{ width: '100%', height: 200 }}
+                resizeMode={ResizeMode.CONTAIN}
+                useNativeControls={false}
+                shouldPlay={currentVideoIndex === index}
+                isMuted={true}
+                isLooping={true}
+              />
+              <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+                <Ionicons name="play-outline" size={14} color="white" />
+              </View>
+              {currentVideoIndex !== index && (
+                <View className="absolute inset-0 bg-black/20 items-center justify-center">
+                  <View className="w-10 h-10 bg-black/60 rounded-full items-center justify-center">
+                    <Ionicons name="play" size={20} color="white" />
+                  </View>
+                </View>
+              )}
+            </View>
           </TouchableOpacity>
         </View>
       );
@@ -655,7 +635,7 @@ export default function BookmarksPage(): React.JSX.Element {
     } else {
       return null;
     }
-  }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, VideoPlayer]);
+  }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, currentVideoIndex]);
 
   // OPTIMIZED REFRESH
   const onRefresh = useCallback(async () => {
@@ -1035,11 +1015,13 @@ export default function BookmarksPage(): React.JSX.Element {
           
           <View className="flex-1 justify-center items-center">
             {fullScreenVideo && (
-              <VideoView
-                player={fullScreenVideoPlayer}
+              <Video
+                source={{ uri: fullScreenVideo }}
                 style={{ width: screenWidth, height: screenHeight - 100 }}
-                contentFit="contain"
-                nativeControls={true}
+                resizeMode={ResizeMode.CONTAIN}
+                useNativeControls
+                shouldPlay
+                isLooping={false}
               />
             )}
           </View>
