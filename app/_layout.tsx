@@ -1,7 +1,8 @@
-import React, { useEffect } from 'react';
-import { Stack } from 'expo-router';
-import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
+import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, useFonts } from '@expo-google-fonts/inter';
+import { Stack, useRootNavigationState } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import React, { useEffect, useState } from 'react';
+import { Text } from 'react-native';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 import '../global.css';
 
@@ -151,11 +152,23 @@ export default function RootLayout(): React.JSX.Element {
     'Inter-Bold': Inter_700Bold,
   });
 
+  const rootNavigationState = useRootNavigationState();
+  const [isReady, setIsReady] = useState(false);
+
   useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
+    if (rootNavigationState?.key) {
+      setIsReady(true);
+      if (fontsLoaded || fontError) {
+        SplashScreen.hideAsync();
+      }
     }
-  }, [fontsLoaded, fontError]);
+    
+  }, [rootNavigationState?.key, fontsLoaded, fontError]);
+
+  if (!isReady) {
+    // You can return a Splash screen component here
+    return <Text>Loading...</Text>;
+  }
 
   if (!fontsLoaded && !fontError) {
     return <></>;
