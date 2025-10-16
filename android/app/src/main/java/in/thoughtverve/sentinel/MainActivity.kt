@@ -1,4 +1,4 @@
-package com.anonymous.frontend
+package `in`.thoughtverve.sentinel
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

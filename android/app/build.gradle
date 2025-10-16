@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.anonymous.frontend'
+    namespace 'in.thoughtverve.sentinel'
     defaultConfig {
-        applicationId 'com.anonymous.frontend'
+        applicationId 'in.thoughtverve.sentinel'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
