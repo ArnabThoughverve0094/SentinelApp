@@ -2025,7 +2025,7 @@ PODS:
     - React-utils (= 0.81.4)
     - ReactNativeDependencies
   - ReactNativeDependencies (0.81.4)
-  - RNCAsyncStorage (2.2.0):
+  - RNCAsyncStorage (1.24.0):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2736,7 +2736,7 @@ SPEC CHECKSUMS:
   ReactCodegen: a15ad48730e9fb2a51a4c9f61fe1ed253dfcf10f
   ReactCommon: 149b6c05126f2e99f2ed0d3c63539369546f8cae
   ReactNativeDependencies: ed6d1e64802b150399f04f1d5728ec16b437251e
-  RNCAsyncStorage: 3a4f5e2777dae1688b781a487923a08569e27fe4
+  RNCAsyncStorage: 7a5a6094f9f6b9158e72f1855cd86e769413d851
   RNDateTimePicker: be0e44bcb9ed0607c7c5f47dbedd88cf091f6791
   RNReanimated: 3895a29fdf77bbe2a627e1ed599a5e5d1df76c29
   RNScreens: d8d6f1792f6e7ac12b0190d33d8d390efc0c1845
