@@ -2,6 +2,8 @@ import { db } from '@/FirebaseConfig';
 import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VideoView, useVideoPlayer } from 'expo-video';
+
+
 import {
   addDoc,
   collection,
@@ -15,21 +17,18 @@ import {
   updateDoc,
   where
 } from 'firebase/firestore';
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
   Image,
   Modal,
   Platform,
   ScrollView,
   StatusBar,
-  StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-  ViewToken
+  View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TotalSentiment from './TotalSentiment';
@@ -107,6 +106,7 @@ export default function CommentScreen({
   const insets = useSafeAreaInsets();
   const [, forceRerender] = useReducer(x => x + 1, 0);
   const [userId, setUserId] = useState("1");
+  const [userImage, setUserImage] = useState("");
   const [userName, setUserName] = useState("");
   const [comments, setComments] = useState<Comment[]>([]);
   const [postDataState, setPostDataState] = useState<PostData | null>(null);
@@ -117,6 +117,9 @@ export default function CommentScreen({
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [showResponseModal, setShowResponseModal] = useState(false);
   const [showSentimentPage, setShowSentimentPage] = useState(false);
+  const [fullScreenVideo, setFullScreenVideo] = useState<string | null>(null);
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(-1);
+
   
   // New states for user comment management
   const [userExistingComment, setUserExistingComment] = useState<Comment | null>(null);
@@ -126,37 +129,6 @@ export default function CommentScreen({
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
   
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
-
-  // State to track the URI of the video that is currently the 'primary' in view
-  const [activeVideoUri, setActiveVideoUri] = useState<string | null>(null);
-
-  // 1. Create a single VideoPlayer instance for the list
-  const player = useVideoPlayer(activeVideoUri || null, (p) => {
-    p.loop = true;
-    p.play();
-  });
-
-  // 2. Define the viewability config (e.g., must be 50% visible)
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 50,
-  }).current;
-
-  // 3. Callback function to update the active URI when viewability changes
-  const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      // Find the first item that is currently in view
-      const firstViewableItem = viewableItems.find(item => item.isViewable);
-
-      if (firstViewableItem && firstViewableItem.item.uri !== activeVideoUri) {
-        // Update the state, which triggers a re-render and updates the player source
-        setActiveVideoUri(firstViewableItem.item.uri);
-      } else if (!firstViewableItem && activeVideoUri) {
-         // Optionally pause the player if no video is in view
-         setActiveVideoUri(null);
-      }
-    },
-    [activeVideoUri]
-  );
 
   // Time calculation utility function
   const getTimeAgo = (timestamp: any): string => {
@@ -238,6 +210,51 @@ export default function CommentScreen({
       return null;
     }
   };
+   const fullScreenVideoPlayer = useVideoPlayer(fullScreenVideo || '', (player) => {
+    player.loop = false;
+    player.play();
+  });
+  const VideoPlayer = useCallback(({ videoUrl, index }: { videoUrl: string; index?: number }) => {
+    const player = useVideoPlayer(videoUrl, (player) => {
+      player.loop = true;
+      player.muted = true;
+      if (currentVideoIndex === index) {
+        player.play();
+      } else {
+        player.pause();
+      }
+    });
+
+    // Update play/pause when currentVideoIndex changes
+    useEffect(() => {
+      if (currentVideoIndex === index) {
+        player.play();
+      } else {
+        player.pause();
+      }
+    }, [currentVideoIndex, index, player]);
+
+    return (
+      <View className="relative rounded-xl overflow-hidden bg-black">
+        <VideoView
+          player={player}
+          style={{ width: '100%', height: 200 }}
+          contentFit="contain"
+          nativeControls={false}
+        />
+        <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+          <Ionicons name="play-outline" size={14} color="white" />
+        </View>
+        {currentVideoIndex !== index && (
+          <View className="absolute inset-0 bg-black/20 items-center justify-center">
+            <View className="w-10 h-10 bg-black/60 rounded-full items-center justify-center">
+              <Ionicons name="play" size={20} color="white" />
+            </View>
+          </View>
+        )}
+      </View>
+    );
+  }, [currentVideoIndex]);
 
   // Fetch post data (only used as fallback if postData is not provided)
   const fetchPostData = async (itemId: string, itemType: string) => {
@@ -298,12 +315,18 @@ export default function CommentScreen({
     try {
       const fetchuserID = await AsyncStorage.getItem('userId');
       const fetchuserName = await AsyncStorage.getItem('userName');
+      const fetchUserImage = await AsyncStorage.getItem('profilePicUrl');
       
       if(fetchuserID !== null && fetchuserName !== null) {
         console.log("userID: ", fetchuserID);
         console.log("userName: ", fetchuserName);
         setUserId(fetchuserID);
         setUserName(fetchuserName);
+      }
+
+      if(fetchUserImage !== null) {
+        console.log("userImage: ", fetchUserImage);
+        setUserImage(fetchUserImage);
       }
       
       if(postId && postType) {
@@ -331,7 +354,6 @@ export default function CommentScreen({
   const fetchCommentTemplate = useCallback(async (passedCommentTemplate: any) => {
     try {
       const collCommentTempPost = collection(db, 'SentimentTemplates');
-      // const collCommentTempPost = collection(db, 'templates');
       console.log("Comment Template Called");
 
       const unsubscribeCommentTemp = onSnapshot(collCommentTempPost, commentTempSnapshot => {
@@ -342,15 +364,12 @@ export default function CommentScreen({
 
         RESPONSE_OPTIONS = [];
         for (const doc of commentTempdataArr) {
-          const templateData = doc.data;
-          const templateId = doc.id;
+          const postData = doc.data;
+          const postId = doc.id;
           console.log("Comment Template Passed: ", passedCommentTemplate);
-          console.log("Template Data: ", templateData);
 
-          if(passedCommentTemplate == templateData.name){
-            // if("Sentinel Default Template" == templateData.name){
-            const optionsField = templateData.options;
-            console.log("Template Options: ", optionsField);
+          if(passedCommentTemplate == postId){
+            const optionsField = postData.options;
 
             // Convert map to array:
             for (const key in optionsField) {
@@ -367,20 +386,7 @@ export default function CommentScreen({
                   })
                 }
               }
-            }
-            
-            // optionsField.map((item: any) => {
-            //   const details: any = Object.values(item)[0];
-            //   console.log("Option details: ", details);
-            //   console.log("Option details icon: ", details.icon);
-            //   RESPONSE_OPTIONS.push({
-            //     id: typeof details.title === "string" ? details.title : "",
-            //     label: typeof details.title === "string" ? details.title : "",
-            //     icon: typeof details.icon === "string" ? details.icon : "",
-            //     color: '#34C759'
-            //   })
-            // })
-            
+            }    
           }
           
         }
@@ -521,7 +527,7 @@ export default function CommentScreen({
         // Add reply
         const repliesRef = collection(db, postType, postId, 'Comments', replyingTo, 'Replies');
         const postDocRef = await addDoc(repliesRef, {
-          AuthorImageURL: "",
+          AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
           AuthorName: userName,
           CommentDate: new Date(),
           Comment: commentText,
@@ -534,7 +540,7 @@ export default function CommentScreen({
         // Add new comment
         const commentRef = collection(db, postType, postId, 'Comments');
         const postDocRef = await addDoc(commentRef, {
-          AuthorImageURL: "",
+          AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
           AuthorName: userName,
           CommentDate: new Date(),
           Comment: commentText,
@@ -686,7 +692,6 @@ export default function CommentScreen({
 
     const primaryMediaUrl = mediaUrls[0];
     const mediaType = getMediaType(primaryMediaUrl);
-    const isActive = primaryMediaUrl === activeVideoUri;
 
     if (mediaType === 'image') {
       return (
@@ -705,23 +710,7 @@ export default function CommentScreen({
       );
     } else if (mediaType === 'video') {
       return (
-        <View style={{ marginTop: 12, marginBottom: 16 }}>
-          {isActive ? (
-                // Only the currently active video renders the actual VideoView
-                <VideoView 
-                style={styles.video}
-                player={player}
-                allowsPictureInPicture
-                nativeControls={true}
-              />
-              ) : (
-                // Non-active videos show a static placeholder or thumbnail
-                <View style={styles.video}>
-                  {/*  */}
-                  <Text style={styles.video}>Video: {post.id}</Text>
-                </View>
-              )}
-        </View>
+         <VideoPlayer videoUrl={primaryMediaUrl} />
       );
     } else if (mediaType === 'gif') {
       return (
@@ -1353,10 +1342,3 @@ export default function CommentScreen({
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  video: {
-    width: Dimensions.get('window').width,
-    height: Dimensions.get('window').width * (9 / 16), // Example: 16:9 aspect ratio
-  },
-})

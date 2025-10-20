@@ -21,29 +21,37 @@ export default function Index() {
       const token = userToken[1];
       const expiry = tokenExpiry[1];
 
-      if (token && expiry) {
-        const currentTime = Date.now();
-        const expiryTime = parseInt(expiry);
-
-        if (currentTime < expiryTime) {
-          console.log('Valid session found, redirecting to tabs');
-          router.replace('/(tabs)');
-        } else {
-          console.log('Token expired, clearing storage');
-          await AsyncStorage.multiRemove([
-            'userToken',
-            'userRefreshToken', 
-            'userIdToken',
-            'userEmail',
-            'tokenExpiry',
-            'userData',
-          ]);
-          router.replace('/(auth)/email-login');
-        }
+      if (token) {
+        console.log('Valid session found, redirecting to tabs');
+        router.replace('/(tabs)');
       } else {
         console.log('No valid session, redirecting to login');
-        router.replace('/(auth)/email-login');
+        router.replace('/(auth)');
       }
+
+      // if (token && expiry) {
+      //   const currentTime = Date.now();
+      //   const expiryTime = parseInt(expiry);
+
+      //   if (currentTime < expiryTime) {
+      //     console.log('Valid session found, redirecting to tabs');
+      //     router.replace('/(tabs)');
+      //   } else {
+      //     console.log('Token expired, clearing storage');
+      //     await AsyncStorage.multiRemove([
+      //       'userToken',
+      //       'userRefreshToken', 
+      //       'userIdToken',
+      //       'userEmail',
+      //       'tokenExpiry',
+      //       'userData',
+      //     ]);
+      //     router.replace('/(auth)/email-login');
+      //   }
+      // } else {
+      //   console.log('No valid session, redirecting to login');
+      //   router.replace('/(auth)/email-login');
+      // }
     } catch (error) {
       console.error('Error checking auth status:', error);
       router.replace('/(auth)/email-login');
