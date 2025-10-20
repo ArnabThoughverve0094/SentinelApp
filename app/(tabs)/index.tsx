@@ -3,14 +3,9 @@ import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from "expo-sharing";
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { addDoc, arrayRemove, arrayUnion, collection, doc, getDocs, onSnapshot, orderBy, query, updateDoc, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Share, StyleSheet, useWindowDimensions, ViewToken } from "react-native";
-import { Dropdown } from 'react-native-element-dropdown';
-import Toast from 'react-native-toast-message';
-
-// import { ResizeMode, Video } from 'expo-av';
-import { useVideoPlayer, VideoView } from 'expo-video';
 import {
   Animated,
   Dimensions,
@@ -19,14 +14,14 @@ import {
   Modal,
   Platform,
   RefreshControl,
-  ScrollView,
-  StatusBar,
-  Text,
+  ScrollView, Share, StatusBar, StyleSheet, Text,
   TextInput,
   TouchableOpacity,
-  View
-} from 'react-native';
+  View, useWindowDimensions
+} from "react-native";
+import { Dropdown } from 'react-native-element-dropdown';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Toast from 'react-native-toast-message';
 import CommentsModal from '../../components/CommentsModal';
 import { LoadingComponent } from '../../components/LoadingComponent';
 import TotalSentiment from '../../components/TotalSentiment';
@@ -345,7 +340,8 @@ export default function SentinelFeed(): React.JSX.Element {
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(-1);
   const scrollViewRef = useRef<ScrollView>(null);
-  const videoRefs = useRef<{ [key: string]: any }>({});
+  
+  // UPDATED: Removed videoRefs since we'll use useVideoPlayer directly
   const flipCardRef = useRef<any>(null);
 
   const [activeTab, setActiveTab] = useState<'forYou' | 'following'>('forYou');
@@ -370,6 +366,12 @@ export default function SentinelFeed(): React.JSX.Element {
   const [isRepostModalVisible, setIsRepostModalVisible] = useState(false);
   const [selectedRepostPost, setSelectedRepostPost] = useState<PostItem | null>(null);
 
+  // UPDATED: Create video player for fullscreen modal
+  const fullScreenVideoPlayer = useVideoPlayer(fullScreenVideo || '', (player) => {
+    player.loop = false;
+    player.play();
+  });
+
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
 
   const rejectionReasons = [
@@ -380,37 +382,6 @@ export default function SentinelFeed(): React.JSX.Element {
     'Copyright infringement',
     'Offensive or discriminatory content'
   ];
-
-  // State to track the URI of the video that is currently the 'primary' in view
-  const [activeVideoUri, setActiveVideoUri] = useState<string | null>(null);
-
-  // 1. Create a single VideoPlayer instance for the list
-  const player = useVideoPlayer(activeVideoUri || null, (p) => {
-    p.loop = true;
-    p.play();
-  });
-
-  // 2. Define the viewability config (e.g., must be 50% visible)
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 50,
-  }).current;
-
-  // 3. Callback function to update the active URI when viewability changes
-  const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      // Find the first item that is currently in view
-      const firstViewableItem = viewableItems.find(item => item.isViewable);
-
-      if (firstViewableItem && firstViewableItem.item.uri !== activeVideoUri) {
-        // Update the state, which triggers a re-render and updates the player source
-        setActiveVideoUri(firstViewableItem.item.uri);
-      } else if (!firstViewableItem && activeVideoUri) {
-         // Optionally pause the player if no video is in view
-         setActiveVideoUri(null);
-      }
-    },
-    [activeVideoUri]
-  );
 
   const areInteractionsDisabled = useCallback((item: PostItem) => {
     return !item.isApproved && !item.isNew;
@@ -1457,6 +1428,49 @@ export default function SentinelFeed(): React.JSX.Element {
     await new Promise(r => setTimeout(r, 200));
   }, []);
 
+  // UPDATED: VideoPlayer component using expo-video
+  const VideoPlayer = useCallback(({ videoUrl, index }: { videoUrl: string; index?: number }) => {
+    const player = useVideoPlayer(videoUrl, (player) => {
+      player.loop = true;
+      player.muted = true;
+      if (currentVideoIndex === index) {
+        player.play();
+      } else {
+        player.pause();
+      }
+    });
+
+    // Update play/pause when currentVideoIndex changes
+    useEffect(() => {
+      if (currentVideoIndex === index) {
+        player.play();
+      } else {
+        player.pause();
+      }
+    }, [currentVideoIndex, index, player]);
+
+    return (
+      <View className="relative rounded-xl overflow-hidden bg-black">
+        <VideoView
+          player={player}
+          style={{ width: '100%', height: 200 }}
+          contentFit="contain"
+          nativeControls={false}
+        />
+        <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+          <Ionicons name="play-outline" size={14} color="white" />
+        </View>
+        {currentVideoIndex !== index && (
+          <View className="absolute inset-0 bg-black/20 items-center justify-center">
+            <View className="w-10 h-10 bg-black/60 rounded-full items-center justify-center">
+              <Ionicons name="play" size={20} color="white" />
+            </View>
+          </View>
+        )}
+      </View>
+    );
+  }, [currentVideoIndex]);
+
   const renderMediaContent = useCallback((item: PostItem, index?: number) => {
     const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
                      (item.ContentURL ? [item.ContentURL] : []);
@@ -1465,7 +1479,6 @@ export default function SentinelFeed(): React.JSX.Element {
 
     const primaryMediaUrl = mediaUrls[0];
     const mediaType = getMediaType(primaryMediaUrl);
-    const isActive = primaryMediaUrl === activeVideoUri;
 
     if (mediaType === 'image') {
       return (
@@ -1478,15 +1491,34 @@ export default function SentinelFeed(): React.JSX.Element {
             activeOpacity={0.95}
           >
             <View className="relative rounded-xl overflow-hidden">
+              {/* Background Image (faded) */}
               <Image
                 source={{ uri: primaryMediaUrl }}
-                style={{ width: '100%', height: 200 }}
-                className="bg-gray-100"
-                resizeMode="cover"
+                style={{
+                  width: '100%',
+                  height: 200, // Fills the parent View
+                  position: 'absolute', // Allows other content to layer on top
+                  opacity: 0.4, // Adjust for desired transparency (0.0 to 1.0)
+                }}
+                className="bg-white" // This background will be visible if the image doesn't fill
+                resizeMode="cover" // The background image usually covers the entire area
+                blurRadius={5} // Optional: Add a blur effect to the background
+              />
+
+              {/* Foreground Image (main) */}
+              <Image
+                source={{ uri: primaryMediaUrl }}
+                style={{
+                  width: '100%',
+                  height: 200, // Fills the parent View
+                }}
+                // No className here, as the background image is now handled by the other Image
+                resizeMode="contain" // Ensures the full foreground image is visible
                 onError={(error) => {
                   console.log("Image load error:", error.nativeEvent.error);
                 }}
               />
+              
               <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
                 <Ionicons name="expand-outline" size={14} color="white" />
               </View>
@@ -1504,34 +1536,7 @@ export default function SentinelFeed(): React.JSX.Element {
             }}
             activeOpacity={0.95}
           >
-            <View className="relative rounded-xl overflow-hidden bg-black">
-              {isActive ? (
-                // Only the currently active video renders the actual VideoView
-                <VideoView 
-                style={styles.video}
-                player={player}
-                allowsPictureInPicture
-                nativeControls={true}
-              />
-              ) : (
-                // Non-active videos show a static placeholder or thumbnail
-                <View style={styles.video}>
-                  {/*  */}
-                  <Text style={styles.video}>Video: {item.id}</Text>
-                </View>
-              )}
-              
-              <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
-                <Ionicons name="play-outline" size={14} color="white" />
-              </View>
-              {currentVideoIndex !== index && (
-                <View className="absolute inset-0 bg-black/20 items-center justify-center">
-                  <View className="w-10 h-10 bg-black/60 rounded-full items-center justify-center">
-                    <Ionicons name="play" size={20} color="white" />
-                  </View>
-                </View>
-              )}
-            </View>
+            <VideoPlayer videoUrl={primaryMediaUrl} index={index} />
           </TouchableOpacity>
         </View>
       );
@@ -1590,7 +1595,7 @@ export default function SentinelFeed(): React.JSX.Element {
     } else {
       return null;
     }
-  }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, currentVideoIndex]);
+  }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, VideoPlayer]);
 
   const renderRepostContent = useCallback((item: PostItem) => {
     if (!item.isRepost || !item.originalPost) return null;
@@ -2315,7 +2320,7 @@ export default function SentinelFeed(): React.JSX.Element {
         </View>
       </Modal>
 
-      {/* VIDEO MODAL */}
+      {/* VIDEO MODAL - UPDATED */}
       <Modal
         visible={isVideoModalVisible}
         transparent={true}
@@ -2333,10 +2338,10 @@ export default function SentinelFeed(): React.JSX.Element {
           
           <View className="flex-1 justify-center items-center">
             {fullScreenVideo && (
-              <VideoView 
-                style={styles.video}
-                player={player}
-                allowsPictureInPicture
+              <VideoView
+                player={fullScreenVideoPlayer}
+                style={{ width: screenWidth, height: screenHeight - 100 }}
+                contentFit="contain"
                 nativeControls={true}
               />
             )}
@@ -2584,9 +2589,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 4,
     paddingLeft: 8,
-  },
-  video: {
-    width: Dimensions.get('window').width,
-    height: Dimensions.get('window').width * (9 / 16), // Example: 16:9 aspect ratio
   },
 });

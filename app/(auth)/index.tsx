@@ -1,11 +1,12 @@
 import { db } from '@/FirebaseConfig';
 import { LoadingComponent } from '@/components/LoadingComponent';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { VideoView, useVideoPlayer } from 'expo-video';
+
+import { router } from 'expo-router';
 import { collection, doc, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Dimensions, Image, Linking, Modal, Platform, RefreshControl, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, ViewToken } from 'react-native';
+import { Animated, Dimensions, Image, Linking, Modal, Platform, RefreshControl, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import FlipCard from 'react-native-flip-card';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -55,40 +56,9 @@ export default function Index(): React.JSX.Element {
   const [currentVideoIndex, setCurrentVideoIndex] = useState(-1);
   const flipCardRef = useRef<any>(null);
   const scrollViewRef = useRef<ScrollView>(null);
-  const videoRefs = useRef<{ [key: string]: any }>({});
+  // const videoRefs = useRef<{ [key: string]: any }>({});
 
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
-
-  // State to track the URI of the video that is currently the 'primary' in view
-  const [activeVideoUri, setActiveVideoUri] = useState<string | null>(null);
-
-  // 1. Create a single VideoPlayer instance for the list
-  const player = useVideoPlayer(activeVideoUri || null, (p) => {
-    p.loop = true;
-    p.play();
-  });
-
-  // 2. Define the viewability config (e.g., must be 50% visible)
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 50,
-  }).current;
-
-  // 3. Callback function to update the active URI when viewability changes
-  const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      // Find the first item that is currently in view
-      const firstViewableItem = viewableItems.find(item => item.isViewable);
-
-      if (firstViewableItem && firstViewableItem.item.uri !== activeVideoUri) {
-        // Update the state, which triggers a re-render and updates the player source
-        setActiveVideoUri(firstViewableItem.item.uri);
-      } else if (!firstViewableItem && activeVideoUri) {
-         // Optionally pause the player if no video is in view
-         setActiveVideoUri(null);
-      }
-    },
-    [activeVideoUri]
-  );
 
   // ✅ MOVE filteredData EARLY - Before any usage
   const filteredData = useMemo(() => {
@@ -99,6 +69,54 @@ export default function Index(): React.JSX.Element {
       return true;
     });
   }, [fetchedData, userRole]);
+
+  const fullScreenVideoPlayer = useVideoPlayer(fullScreenVideo || '', (player) => {
+    player.loop = false;
+    player.play();
+  });
+
+  const VideoPlayer = useCallback(({ videoUrl, index }: { videoUrl: string; index?: number }) => {
+    const player = useVideoPlayer(videoUrl, (player) => {
+      player.loop = true;
+      player.muted = true;
+      if (currentVideoIndex === index) {
+        player.play();
+      } else {
+        player.pause();
+      }
+    });
+
+    // Update play/pause when currentVideoIndex changes
+    useEffect(() => {
+      if (currentVideoIndex === index) {
+        player.play();
+      } else {
+        player.pause();
+      }
+    }, [currentVideoIndex, index, player]);
+
+    return (
+      <View className="relative rounded-xl overflow-hidden bg-black">
+        <VideoView
+          player={player}
+          style={{ width: '100%', height: 200 }}
+          contentFit="contain"
+          nativeControls={false}
+        />
+        <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+          <Ionicons name="play-outline" size={14} color="white" />
+        </View>
+        {currentVideoIndex !== index && (
+          <View className="absolute inset-0 bg-black/20 items-center justify-center">
+            <View className="w-10 h-10 bg-black/60 rounded-full items-center justify-center">
+              <Ionicons name="play" size={20} color="white" />
+            </View>
+          </View>
+        )}
+      </View>
+    );
+  }, [currentVideoIndex]);
+
 
   // ✅ FIXED: Fetch comments from correct subcollection structure
   const fetchCommentsCount = useCallback(async (posts: PostItem[]) => {
@@ -467,7 +485,6 @@ export default function Index(): React.JSX.Element {
 
     const primaryMediaUrl = mediaUrls[0];
     const mediaType = getMediaType(primaryMediaUrl);
-    const isActive = primaryMediaUrl === activeVideoUri;
 
     if (mediaType === 'image') {
       return (
@@ -480,11 +497,29 @@ export default function Index(): React.JSX.Element {
             activeOpacity={0.95}
           >
             <View className="relative rounded-xl overflow-hidden">
+              {/* Background Image (faded) */}
               <Image
                 source={{ uri: primaryMediaUrl }}
-                style={{ width: '100%', height: 200 }}
-                className="bg-gray-100"
-                resizeMode="cover"
+                style={{
+                  width: '100%',
+                  height: 200, // Fills the parent View
+                  position: 'absolute', // Allows other content to layer on top
+                  opacity: 0.4, // Adjust for desired transparency (0.0 to 1.0)
+                }}
+                className="bg-white" // This background will be visible if the image doesn't fill
+                resizeMode="cover" // The background image usually covers the entire area
+                blurRadius={5} // Optional: Add a blur effect to the background
+              />
+
+              {/* Foreground Image (main) */}
+              <Image
+                source={{ uri: primaryMediaUrl }}
+                style={{
+                  width: '100%',
+                  height: 200, // Fills the parent View
+                }}
+                // No className here, as the background image is now handled by the other Image
+                resizeMode="contain" // Ensures the full foreground image is visible
                 onError={(error) => {
                   console.log("Image load error:", error.nativeEvent.error);
                 }}
@@ -506,22 +541,21 @@ export default function Index(): React.JSX.Element {
             }}
             activeOpacity={0.95}
           >
-            <View className="relative rounded-xl overflow-hidden bg-black">
-              {isActive ? (
-                // Only the currently active video renders the actual VideoView
-                <VideoView 
-                style={styles.video}
-                player={player}
-                allowsPictureInPicture
-                nativeControls={true}
+            {/* <View className="relative rounded-xl overflow-hidden bg-black">
+              <Video
+                ref={(ref) => {
+                  if (ref && index !== undefined) {
+                    videoRefs.current[`video-${index}`] = ref;
+                  }
+                }}
+                source={{ uri: primaryMediaUrl }}
+                style={{ width: '100%', height: 200 }}
+                resizeMode={ResizeMode.CONTAIN}
+                useNativeControls={false}
+                shouldPlay={currentVideoIndex === index}
+                isMuted={true}
+                isLooping={true}
               />
-              ) : (
-                // Non-active videos show a static placeholder or thumbnail
-                <View style={styles.video}>
-                  {/*  */}
-                  <Text style={styles.video}>Video: {item.id}</Text>
-                </View>
-              )}
               <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
                 <Ionicons name="play-outline" size={14} color="white" />
               </View>
@@ -532,7 +566,8 @@ export default function Index(): React.JSX.Element {
                   </View>
                 </View>
               )}
-            </View>
+            </View> */}
+            <VideoPlayer videoUrl={primaryMediaUrl} index={index} />
           </TouchableOpacity>
         </View>
       );
@@ -591,7 +626,7 @@ export default function Index(): React.JSX.Element {
     } else {
       return null;
     }
-  }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, currentVideoIndex]);
+  }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, VideoPlayer]);
 
   // ✅ ADDED: Graph/Analytics modal function
   const openGraphModal = useCallback((item: PostItem) => {
@@ -732,7 +767,7 @@ export default function Index(): React.JSX.Element {
               activeOpacity={0.7}
             >
               <MaterialCommunityIcons
-                name="comment-outline"
+                name="thumbs-up-down"
                 size={14}
                 color="#64748b"
               />
@@ -924,7 +959,7 @@ export default function Index(): React.JSX.Element {
               activeOpacity={0.7}
             >
               <MaterialCommunityIcons
-                name="comment-outline"
+                name="thumbs-up-down"
                 size={18}
                 color="#64748b"
               />
@@ -1041,7 +1076,7 @@ export default function Index(): React.JSX.Element {
               </View>
               <View className="flex-row justify-between items-center">
                 <View className="flex-row items-center">
-                  <MaterialCommunityIcons name="comment" size={16} color="#45b7d1" />
+                  <MaterialCommunityIcons name="thumbs-up-down" size={16} color="#45b7d1" />
                   <Text className="text-white ml-2 text-sm">Comments</Text>
                 </View>
                 <Text className="text-white font-bold text-base">{item.ContentCommentCount}</Text>
@@ -1103,7 +1138,7 @@ export default function Index(): React.JSX.Element {
                     loginScreen();
                   }}
                 >
-                  <MaterialCommunityIcons name="comment-plus" size={18} color="white" />
+                  <MaterialCommunityIcons name="thumbs-up-down" size={18} color="white" />
                   <Text className="text-white text-xs mt-1 font-medium">Comment</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
@@ -1302,21 +1337,12 @@ export default function Index(): React.JSX.Element {
           
           <View className="flex-1 justify-center items-center">
             {fullScreenVideo && (
-              // <Video
-              //   source={{ uri: fullScreenVideo }}
-              //   style={{ width: screenWidth, height: screenHeight - 100 }}
-              //   resizeMode={ResizeMode.CONTAIN}
-              //   useNativeControls
-              //   shouldPlay
-              //   isLooping={false}
-              // />
-              <VideoView 
-                style={styles.video}
-                player={player}
-                allowsFullscreen
-                allowsPictureInPicture
+              <VideoView
+                player={fullScreenVideoPlayer}
+                style={{ width: screenWidth, height: screenHeight - 100 }}
+                contentFit="contain"
                 nativeControls={true}
-              />
+                />
             )}
           </View>
         </View>
@@ -1373,9 +1399,3 @@ export default function Index(): React.JSX.Element {
     </SafeAreaView>
   );
 }
-const styles = StyleSheet.create({
-  video: {
-    width: Dimensions.get('window').width,
-    height: Dimensions.get('window').width * (9 / 16), // Example: 16:9 aspect ratio
-  },
-})
