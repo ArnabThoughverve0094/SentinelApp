@@ -1387,7 +1387,7 @@ export default function Index(): React.JSX.Element {
       </Modal>
 
       {/* CARD MODAL */}
-      <Modal
+      {/* <Modal
         visible={isCardModalVisible}
         transparent={false}
         animationType="slide"
@@ -1395,7 +1395,7 @@ export default function Index(): React.JSX.Element {
         statusBarTranslucent
       >
         {fullScreenCard && renderFullScreenFlipCard(fullScreenCard)}
-      </Modal>
+      </Modal> */}
     </SafeAreaView>
   );
 }
