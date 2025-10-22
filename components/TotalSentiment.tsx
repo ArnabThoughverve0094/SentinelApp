@@ -19,7 +19,7 @@ import {
 import { PieChart } from 'react-native-gifted-charts';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const screenWidth = Dimensions.get('window').width;
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 interface Comment {
   id: string;
@@ -93,6 +93,74 @@ export default function TotalSentiment({
   const [aiSummary, setAiSummary] = useState('');
   const [totalResponses, setTotalResponses] = useState(0);
 
+  // NEW: Full screen media states
+  const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+  const [isImageModalVisible, setIsImageModalVisible] = useState(false);
+  const [fullScreenVideo, setFullScreenVideo] = useState<string | null>(null);
+  const [isVideoModalVisible, setIsVideoModalVisible] = useState(false);
+
+  // NEW: Real-time timestamp state
+  const [postTimeAgo, setPostTimeAgo] = useState('');
+
+  // NEW: Calculate time ago from timestamp
+  const getTimeAgo = useCallback((timestamp: any): string => {
+    if (!timestamp) return 'now';
+    
+    const now = Date.now();
+    let postTime: number;
+    
+    // Handle different timestamp formats
+    if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+      // Firestore Timestamp
+      postTime = timestamp.toDate().getTime();
+    } else if (timestamp.seconds) {
+      // Firestore Timestamp object
+      postTime = timestamp.seconds * 1000;
+    } else if (typeof timestamp === 'string') {
+      // ISO string
+      postTime = new Date(timestamp).getTime();
+    } else if (timestamp instanceof Date) {
+      // Date object
+      postTime = timestamp.getTime();
+    } else {
+      return 'now';
+    }
+    
+    const diff = now - postTime;
+    
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    const weeks = Math.floor(days / 7);
+    const months = Math.floor(days / 30);
+    const years = Math.floor(days / 365);
+    
+    if (seconds < 10) return 'now';
+    if (seconds < 60) return `${seconds}s`;
+    if (minutes < 60) return `${minutes}m`;
+    if (hours < 24) return `${hours}h`;
+    if (days < 7) return `${days}d`;
+    if (weeks < 4) return `${weeks}w`;
+    if (months < 12) return `${months}mo`;
+    return `${years}y`;
+  }, []);
+
+  // NEW: Update time ago every minute
+  useEffect(() => {
+    if (postData?.ContentDate) {
+      // Initial calculation
+      setPostTimeAgo(getTimeAgo(postData.ContentDate));
+      
+      // Update every minute
+      const interval = setInterval(() => {
+        setPostTimeAgo(getTimeAgo(postData.ContentDate));
+      }, 60000); // Update every 60 seconds
+      
+      return () => clearInterval(interval);
+    }
+  }, [postData?.ContentDate, getTimeAgo]);
+
   // Determine media type based on URL
   const getMediaType = useCallback((url: string) => {
     if (!url) return 'unknown';
@@ -123,6 +191,33 @@ export default function TotalSentiment({
       }
     }
   );
+
+  // Full screen video player
+  const fullScreenVideoPlayer = useVideoPlayer(fullScreenVideo || '', (player) => {
+    player.loop = false;
+    player.play();
+  });
+
+  // Full screen handlers
+  const openFullScreenImage = useCallback((imageUrl: string) => {
+    setFullScreenImage(imageUrl);
+    setIsImageModalVisible(true);
+  }, []);
+
+  const closeFullScreenImage = useCallback(() => {
+    setIsImageModalVisible(false);
+    setFullScreenImage(null);
+  }, []);
+
+  const openFullScreenVideo = useCallback((videoUrl: string) => {
+    setFullScreenVideo(videoUrl);
+    setIsVideoModalVisible(true);
+  }, []);
+
+  const closeFullScreenVideo = useCallback(() => {
+    setIsVideoModalVisible(false);
+    setFullScreenVideo(null);
+  }, []);
 
   // Color palette for pie chart
   const CHART_COLORS = [
@@ -352,6 +447,11 @@ export default function TotalSentiment({
     if (!visible && videoPlayer && isVideoPost) {
       videoPlayer.pause();
     }
+    // Close full screen modals
+    if (!visible) {
+      closeFullScreenImage();
+      closeFullScreenVideo();
+    }
   }, [visible, isVideoPost]);
 
   // Render pie chart legend
@@ -401,7 +501,7 @@ export default function TotalSentiment({
     );
   };
 
-  // Render media content (image or video) - matching landing page implementation
+  // Render media content with full screen on tap
   const renderMediaContent = () => {
     if (!postData?.ContentURL) return null;
 
@@ -410,312 +510,424 @@ export default function TotalSentiment({
     if (mediaType === 'video') {
       return (
         <View style={{ marginBottom: 12 }}>
-          <View style={{ 
-            position: 'relative', 
-            borderRadius: 12, 
-            overflow: 'hidden', 
-            backgroundColor: '#000' 
-          }}>
-            <VideoView
-              player={videoPlayer}
-              style={{ width: '100%', height: 200 }}
-              contentFit="contain"
-              nativeControls={false}
-            />
+          <TouchableOpacity 
+            onPress={() => openFullScreenVideo(postData.ContentURL)}
+            activeOpacity={0.95}
+          >
             <View style={{ 
-              position: 'absolute', 
-              top: 8, 
-              right: 8, 
-              padding: 6, 
-              borderRadius: 20, 
-              backgroundColor: 'rgba(0,0,0,0.5)' 
+              position: 'relative', 
+              borderRadius: 12, 
+              overflow: 'hidden', 
+              backgroundColor: '#000' 
             }}>
-              <Ionicons name="play-outline" size={14} color="white" />
+              <VideoView
+                player={videoPlayer}
+                style={{ width: '100%', height: 200 }}
+                contentFit="contain"
+                nativeControls={false}
+              />
+              <View style={{ 
+                position: 'absolute', 
+                top: 8, 
+                right: 8, 
+                padding: 6, 
+                borderRadius: 20, 
+                backgroundColor: 'rgba(0,0,0,0.5)' 
+              }}>
+                <Ionicons name="play-outline" size={14} color="white" />
+              </View>
+              <View style={{ 
+                position: 'absolute', 
+                bottom: 8, 
+                right: 8, 
+                padding: 6, 
+                borderRadius: 20, 
+                backgroundColor: 'rgba(0,0,0,0.5)' 
+              }}>
+                <Ionicons name="expand-outline" size={14} color="white" />
+              </View>
             </View>
-          </View>
+          </TouchableOpacity>
         </View>
       );
     }
 
-    // Image content
+    // Image content with full screen on tap
     return (
-      <Image
-        source={{ uri: postData.ContentURL }}
-        style={{ 
-          width: '100%', 
-          height: 200, 
-          borderRadius: 12, 
-          backgroundColor: '#e8e8e8',
-          marginBottom: 12
-        }}
-        resizeMode="cover"
-      />
+      <TouchableOpacity 
+        onPress={() => openFullScreenImage(postData.ContentURL)}
+        activeOpacity={0.95}
+      >
+        <View style={{ position: 'relative', marginBottom: 12 }}>
+          <Image
+            source={{ uri: postData.ContentURL }}
+            style={{ 
+              width: '100%', 
+              height: 200, 
+              borderRadius: 12, 
+              backgroundColor: '#e8e8e8'
+            }}
+            resizeMode="cover"
+          />
+          <View style={{ 
+            position: 'absolute', 
+            bottom: 8, 
+            right: 8, 
+            padding: 6, 
+            borderRadius: 20, 
+            backgroundColor: 'rgba(0,0,0,0.5)' 
+          }}>
+            <Ionicons name="expand-outline" size={14} color="white" />
+          </View>
+        </View>
+      </TouchableOpacity>
     );
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent={false}
-      animationType="slide"
-      onRequestClose={onClose}
-      statusBarTranslucent={false}
-    >
-      <View style={{ flex: 1, backgroundColor: '#fff' }}>
-        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-        
-        {/* Header */}
-        <View 
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingHorizontal: 16,
-            paddingTop: Platform.OS === 'ios' ? insets.top + 12 : insets.top + 20,
-            paddingBottom: 16,
-            borderBottomWidth: 0.5,
-            borderBottomColor: '#e5e5e5',
-            backgroundColor: '#fff'
-          }}
-        >
-          <TouchableOpacity onPress={onClose} style={{ padding: 8 }}>
-            <Ionicons name="arrow-back" size={24} color="#000" />
-          </TouchableOpacity>
-          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#000', marginLeft: 8 }}>
-            Total Sentiment
-          </Text>
-        </View>
-
-        {loading ? (
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <ActivityIndicator size="large" color="#FF3B30" />
-            <Text style={{ marginTop: 16, color: '#8e8e93' }}>Loading sentiment data...</Text>
+    <>
+      <Modal
+        visible={visible}
+        transparent={false}
+        animationType="slide"
+        onRequestClose={onClose}
+        statusBarTranslucent={false}
+      >
+        <View style={{ flex: 1, backgroundColor: '#fff' }}>
+          <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+          
+          {/* Header */}
+          <View 
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingHorizontal: 16,
+              paddingTop: Platform.OS === 'ios' ? insets.top + 12 : insets.top + 20,
+              paddingBottom: 16,
+              borderBottomWidth: 0.5,
+              borderBottomColor: '#e5e5e5',
+              backgroundColor: '#fff'
+            }}
+          >
+            <TouchableOpacity onPress={onClose} style={{ padding: 8 }}>
+              <Ionicons name="arrow-back" size={24} color="#000" />
+            </TouchableOpacity>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#000', marginLeft: 8 }}>
+              Total Sentiment
+            </Text>
           </View>
-        ) : (
-          <View style={{ flex: 1 }}>
-            <ScrollView 
-              style={{ flex: 1 }} 
-              contentContainerStyle={{ paddingBottom: 100 }}
-              showsVerticalScrollIndicator={true}
-            >
-              {/* Post Preview */}
-              {postData && (
-                <View style={{ paddingHorizontal: 16, paddingVertical: 16 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                    <Image
-                      source={{ uri: postData.AuthorImageURL || 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg' }}
-                      style={{ 
-                        width: 40, 
-                        height: 40, 
-                        borderRadius: 20, 
-                        marginRight: 12,
-                        backgroundColor: '#e8e8e8' 
-                      }}
-                      resizeMode="cover"
-                    />
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontWeight: 'bold', fontSize: 16, color: '#000' }}>
-                        {postData.AuthorName}
-                      </Text>
-                      <Text style={{ fontSize: 14, color: '#8e8e93' }}>
-                        21m
-                      </Text>
-                    </View>
-                  </View>
-                  
-                  <Text style={{ fontSize: 15, color: '#000', lineHeight: 20, marginBottom: 12 }}>
-                    {postData.ContentDesc}
-                  </Text>
-                  
-                  {renderMediaContent()}
-                </View>
-              )}
 
-              {/* AI Sentiment Summary */}
-              {aiSummary && (
-                <View style={{ 
-                  paddingHorizontal: 16, 
-                  marginTop: 20,
-                  backgroundColor: '#f8f9fa',
-                  marginHorizontal: 16,
-                  padding: 16,
-                  borderRadius: 12,
-                  borderLeftWidth: 4,
-                  borderLeftColor: '#007AFF'
-                }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                    <Ionicons name="analytics" size={20} color="#007AFF" />
-                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#000', marginLeft: 8 }}>
-                      AI Sentiment Analysis
-                    </Text>
-                  </View>
-                  <Text style={{ fontSize: 14, color: '#333', lineHeight: 20 }}>
-                    {aiSummary}
-                  </Text>
-                </View>
-              )}
-
-              {/* Pie Chart Section */}
-              {pieChartData.length > 0 ? (
-                <View style={{ marginTop: 30, alignItems: 'center' }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                    <Text style={{ fontSize: 24, marginRight: 8 }}>📊</Text>
-                    <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#000' }}>
-                      Response Distribution
-                    </Text>
-                  </View>
-                  <Text style={{ fontSize: 14, color: '#8e8e93', marginBottom: 20 }}>
-                    Total Responses: {totalResponses}
-                  </Text>
-                  
-                  <PieChart
-                    data={pieChartData}
-                    donut
-                    radius={130}
-                    innerRadius={70}
-                    showText
-                    textColor="white"
-                    textSize={14}
-                    fontWeight="bold"
-                    centerLabelComponent={() => (
-                      <View style={{ alignItems: 'center' }}>
-                        <Text style={{ fontSize: 28, fontWeight: 'bold', color: '#000' }}>
-                          {totalResponses}
+          {loading ? (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+              <ActivityIndicator size="large" color="#FF3B30" />
+              <Text style={{ marginTop: 16, color: '#8e8e93' }}>Loading sentiment data...</Text>
+            </View>
+          ) : (
+            <View style={{ flex: 1 }}>
+              <ScrollView 
+                style={{ flex: 1 }} 
+                contentContainerStyle={{ paddingBottom: 100 }}
+                showsVerticalScrollIndicator={true}
+              >
+                {/* Post Preview */}
+                {postData && (
+                  <View style={{ paddingHorizontal: 16, paddingVertical: 16 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                      <Image
+                        source={{ uri: postData.AuthorImageURL || 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg' }}
+                        style={{ 
+                          width: 40, 
+                          height: 40, 
+                          borderRadius: 20, 
+                          marginRight: 12,
+                          backgroundColor: '#e8e8e8' 
+                        }}
+                        resizeMode="cover"
+                      />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontWeight: 'bold', fontSize: 16, color: '#000' }}>
+                          {postData.AuthorName}
                         </Text>
-                        <Text style={{ fontSize: 14, color: '#8e8e93', marginTop: 4 }}>
-                          Votes
+                        {/* UPDATED: Real-time timestamp */}
+                        <Text style={{ fontSize: 14, color: '#8e8e93' }}>
+                          {postTimeAgo || 'now'}
                         </Text>
                       </View>
-                    )}
-                    focusOnPress
-                    sectionAutoFocus
-                    strokeColor="white"
-                    strokeWidth={2}
-                  />
-                  {/* {renderLegend()} */}
-                </View>
-              ) : (
-                <View style={{ 
-                  paddingHorizontal: 16, 
-                  marginTop: 30,
-                  alignItems: 'center',
-                  paddingVertical: 40
-                }}>
-                  <Ionicons name="pie-chart-outline" size={64} color="#e5e5e5" />
-                  <Text style={{ fontSize: 16, color: '#8e8e93', marginTop: 16, textAlign: 'center' }}>
-                    No responses yet.{'\n'}Be the first to share your sentiment!
-                  </Text>
-                </View>
-              )}
+                    </View>
+                    
+                    <Text style={{ fontSize: 15, color: '#000', lineHeight: 20, marginBottom: 12 }}>
+                      {postData.ContentDesc}
+                    </Text>
+                    
+                    {renderMediaContent()}
+                  </View>
+                )}
 
-              {/* Sentiment Breakdown */}
-              {RESPONSE_OPTIONS.length > 0 && (
-                <View style={{ paddingHorizontal: 16, marginTop: 40 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                    <Text style={{ fontSize: 24, marginRight: 8 }}>👍</Text>
-                    <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#000' }}>
-                      Sentiment Breakdown
+                {/* AI Sentiment Summary */}
+                {aiSummary && (
+                  <View style={{ 
+                    paddingHorizontal: 16, 
+                    marginTop: 20,
+                    backgroundColor: '#f8f9fa',
+                    marginHorizontal: 16,
+                    padding: 16,
+                    borderRadius: 12,
+                    borderLeftWidth: 4,
+                    borderLeftColor: '#007AFF'
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                      <Ionicons name="analytics" size={20} color="#007AFF" />
+                      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#000', marginLeft: 8 }}>
+                        AI Sentiment Analysis
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 14, color: '#333', lineHeight: 20 }}>
+                      {aiSummary}
                     </Text>
                   </View>
-                  {/* <Text style={{ fontSize: 14, color: '#8e8e93', marginBottom: 20 }}>
-                    Detailed Rating
-                  </Text> */}
+                )}
 
-                  {/* Sentiment Bars */}
-                  <View style={{ marginBottom: 30 }}>
-                    {RESPONSE_OPTIONS.map((option, index) => {
-                      const percentage = sentimentData[option.id] || 0;
-                      return (
-                        <View key={option.id} style={{ marginBottom: 16 }}>
-                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                              {option.icon && (
-                                <Image
-                                  source={{ uri: option.icon}}
-                                  style={{ width: 40, height: 25, marginRight: 8 }}
-                                  resizeMode="contain"
-                                />
-                              )}
-                              <Text style={{ fontSize: 16, color: '#000', fontWeight: '500' }}>
-                                {option.label}
+                {/* Pie Chart Section */}
+                {pieChartData.length > 0 ? (
+                  <View style={{ marginTop: 30, alignItems: 'center' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                      <Text style={{ fontSize: 24, marginRight: 8 }}>📊</Text>
+                      <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#000' }}>
+                        Response Distribution
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 14, color: '#8e8e93', marginBottom: 20 }}>
+                      Total Responses: {totalResponses}
+                    </Text>
+                    
+                    <PieChart
+                      data={pieChartData}
+                      donut
+                      radius={130}
+                      innerRadius={70}
+                      showText
+                      textColor="white"
+                      textSize={14}
+                      fontWeight="bold"
+                      centerLabelComponent={() => (
+                        <View style={{ alignItems: 'center' }}>
+                          <Text style={{ fontSize: 28, fontWeight: 'bold', color: '#000' }}>
+                            {totalResponses}
+                          </Text>
+                          <Text style={{ fontSize: 14, color: '#8e8e93', marginTop: 4 }}>
+                            Votes
+                          </Text>
+                        </View>
+                      )}
+                      focusOnPress
+                      sectionAutoFocus
+                      strokeColor="white"
+                      strokeWidth={2}
+                    />
+                  </View>
+                ) : (
+                  <View style={{ 
+                    paddingHorizontal: 16, 
+                    marginTop: 30,
+                    alignItems: 'center',
+                    paddingVertical: 40
+                  }}>
+                    <Ionicons name="pie-chart-outline" size={64} color="#e5e5e5" />
+                    <Text style={{ fontSize: 16, color: '#8e8e93', marginTop: 16, textAlign: 'center' }}>
+                      No responses yet.{'\n'}Be the first to share your sentiment!
+                    </Text>
+                  </View>
+                )}
+
+                {/* Sentiment Breakdown */}
+                {RESPONSE_OPTIONS.length > 0 && (
+                  <View style={{ paddingHorizontal: 16, marginTop: 40 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                      <Text style={{ fontSize: 24, marginRight: 8 }}>👍</Text>
+                      <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#000' }}>
+                        Sentiment Breakdown
+                      </Text>
+                    </View>
+
+                    {/* Sentiment Bars */}
+                    <View style={{ marginBottom: 30 }}>
+                      {RESPONSE_OPTIONS.map((option, index) => {
+                        const percentage = sentimentData[option.id] || 0;
+                        return (
+                          <View key={option.id} style={{ marginBottom: 16 }}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                                {option.icon && (
+                                  <Image
+                                    source={{ uri: option.icon}}
+                                    style={{ width: 40, height: 25, marginRight: 8 }}
+                                    resizeMode="contain"
+                                  />
+                                )}
+                                <Text style={{ fontSize: 16, color: '#000', fontWeight: '500' }}>
+                                  {option.label}
+                                </Text>
+                              </View>
+                              <Text style={{ fontSize: 16, color: '#000', fontWeight: 'bold' }}>
+                                {percentage}%
                               </Text>
                             </View>
-                            <Text style={{ fontSize: 16, color: '#000', fontWeight: 'bold' }}>
-                              {percentage}%
-                            </Text>
-                          </View>
-                          <View style={{ 
-                            height: 10, 
-                            backgroundColor: '#f0f0f0', 
-                            borderRadius: 5,
-                            overflow: 'hidden'
-                          }}>
                             <View style={{ 
-                              height: '100%', 
-                              backgroundColor: CHART_COLORS[index % CHART_COLORS.length], 
-                              width: `${percentage}%`,
-                              borderRadius: 5
-                            }} />
+                              height: 10, 
+                              backgroundColor: '#f0f0f0', 
+                              borderRadius: 5,
+                              overflow: 'hidden'
+                            }}>
+                              <View style={{ 
+                                height: '100%', 
+                                backgroundColor: CHART_COLORS[index % CHART_COLORS.length], 
+                                width: `${percentage}%`,
+                                borderRadius: 5
+                              }} />
+                            </View>
                           </View>
-                        </View>
-                      );
-                    })}
+                        );
+                      })}
+                    </View>
                   </View>
-                </View>
-              )}
-            </ScrollView>
+                )}
+              </ScrollView>
 
-            {/* Fixed Add/Edit Response Button at Bottom */}
-            <View style={{ 
-              position: 'absolute', 
-              bottom: 0,
-              left: 0,
-              right: 0,
-              paddingBottom: Platform.OS === 'ios' ? insets.bottom : 20,
-              paddingTop: 12,
-              paddingHorizontal: 16,
-              backgroundColor: '#fff',
-              borderTopWidth: 1,
-              borderTopColor: '#e5e5e5',
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: -2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 3,
-              elevation: 10,
-            }}>
-              <TouchableOpacity
-                onPress={handleAddResponse}
-                style={{
-                  backgroundColor: userExistingComment ? '#000000' : '#FF3B30',
-                  borderRadius: 12,
-                  paddingVertical: 16,
-                  alignItems: 'center',
-                  flexDirection: 'row',
-                  justifyContent: 'center',
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 3.84,
-                  elevation: 5,
-                }}
-              >
-                <Ionicons 
-                  name={userExistingComment ? "pencil" : "add"} 
-                  size={20} 
-                  color="#fff" 
-                  style={{ marginRight: 8 }} 
-                />
-                <Text style={{
-                  color: '#fff',
-                  fontSize: 18,
-                  fontWeight: '600'
-                }}>
-                  {userExistingComment ? 'Edit Response' : 'Add Response'}
-                </Text>
-              </TouchableOpacity>
+              {/* Fixed Add/Edit Response Button at Bottom */}
+              <View style={{ 
+                position: 'absolute', 
+                bottom: 0,
+                left: 0,
+                right: 0,
+                paddingBottom: Platform.OS === 'ios' ? insets.bottom : 20,
+                paddingTop: 12,
+                paddingHorizontal: 16,
+                backgroundColor: '#fff',
+                borderTopWidth: 1,
+                borderTopColor: '#e5e5e5',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: -2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 3,
+                elevation: 10,
+              }}>
+                <TouchableOpacity
+                  onPress={handleAddResponse}
+                  style={{
+                    backgroundColor: userExistingComment ? '#000000' : '#FF3B30',
+                    borderRadius: 12,
+                    paddingVertical: 16,
+                    alignItems: 'center',
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.25,
+                    shadowRadius: 3.84,
+                    elevation: 5,
+                  }}
+                >
+                  <Ionicons 
+                    name={userExistingComment ? "pencil" : "add"} 
+                    size={20} 
+                    color="#fff" 
+                    style={{ marginRight: 8 }} 
+                  />
+                  <Text style={{
+                    color: '#fff',
+                    fontSize: 18,
+                    fontWeight: '600'
+                  }}>
+                    {userExistingComment ? 'Edit Response' : 'Add Response'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
+          )}
+        </View>
+      </Modal>
+
+      {/* IMAGE FULL SCREEN MODAL */}
+      <Modal
+        visible={isImageModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeFullScreenImage}
+        statusBarTranslucent
+      >
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+          <TouchableOpacity 
+            style={{ 
+              position: 'absolute', 
+              top: Platform.OS === 'ios' ? 50 : 20, 
+              right: 24, 
+              zIndex: 10, 
+              padding: 12, 
+              borderRadius: 25, 
+              backgroundColor: 'rgba(0,0,0,0.6)' 
+            }}
+            onPress={closeFullScreenImage}
+          >
+            <Ionicons name="close" size={24} color="white" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
+            activeOpacity={1}
+            onPress={closeFullScreenImage}
+          >
+            {fullScreenImage && (
+              <Image
+                source={{ uri: fullScreenImage }}
+                style={{ 
+                  width: '100%', 
+                  maxWidth: '100%',
+                  height: screenHeight - 100, 
+                  maxHeight: screenHeight - 100 
+                }}
+                resizeMode="contain"
+              />
+            )}
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* VIDEO FULL SCREEN MODAL */}
+      <Modal
+        visible={isVideoModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeFullScreenVideo}
+        statusBarTranslucent
+      >
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+          <TouchableOpacity 
+            style={{ 
+              position: 'absolute', 
+              top: Platform.OS === 'ios' ? 50 : 20, 
+              right: 24, 
+              zIndex: 10, 
+              padding: 12, 
+              borderRadius: 25, 
+              backgroundColor: 'rgba(0,0,0,0.6)' 
+            }}
+            onPress={closeFullScreenVideo}
+          >
+            <Ionicons name="close" size={24} color="white" />
+          </TouchableOpacity>
+          
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            {fullScreenVideo && (
+              <VideoView
+                player={fullScreenVideoPlayer}
+                style={{ width: screenWidth, height: screenHeight - 100 }}
+                contentFit="contain"
+                nativeControls={true}
+              />
+            )}
           </View>
-        )}
-      </View>
-    </Modal>
+        </View>
+      </Modal>
+    </>
   );
 }
