@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Link, router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, KeyboardAvoidingView, Modal, Platform, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Animated, Image, KeyboardAvoidingView, Modal, Platform, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Custom Modal Component
@@ -308,13 +308,30 @@ export default function ForgotPassword(): React.JSX.Element {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           
           {/* Header with Back Button */}
-          <View className="px-6 pt-16 pb-8">
+          {/* <View className="px-6 pt-16 pb-8">
             <Link href="/(auth)/email-login" asChild>
               <TouchableOpacity className="w-10 h-10 rounded-full bg-white/95 items-center justify-center shadow-lg border border-white/30">
                 <Ionicons name="arrow-back" size={20} color="#374151" />
               </TouchableOpacity>
             </Link>
+          </View> */}
+
+        <View className="px-4 py-2 flex-row items-center justify-between">
+          <View className="px-0 pt-6 pb-8">
+            <Link href="/(auth)/email-login" asChild>
+              <TouchableOpacity className="w-10 h-10 rounded-full bg-white/95 items-center justify-center shadow-sm border border-white/30">
+                <Ionicons name="arrow-back" size={20} color="#374151" />
+              </TouchableOpacity>
+            </Link>
           </View>
+          <View>
+            <Image
+              source={require("../../assets/images/sentinel_logo.png")}
+              className="w-16 h-10"
+              resizeMode="contain"
+            />
+          </View>
+        </View>
 
           {/* Main content */}
           <View className="flex-1 px-6">

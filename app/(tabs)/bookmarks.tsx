@@ -577,7 +577,7 @@ export default function BookmarksPage(): React.JSX.Element {
                   width: '100%',
                   height: 200, // Fills the parent View
                   position: 'absolute', // Allows other content to layer on top
-                  opacity: 0.4, // Adjust for desired transparency (0.0 to 1.0)
+                  opacity: 0.2, // Adjust for desired transparency (0.0 to 1.0)
                 }}
                 className="bg-white" // This background will be visible if the image doesn't fill
                 resizeMode="cover" // The background image usually covers the entire area
