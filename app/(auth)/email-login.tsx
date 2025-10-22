@@ -211,13 +211,30 @@ export default function EmailLogin(): React.JSX.Element {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           {/* Header with back button */}
-          <View className="px-6 pt-10 pb-8">
+          {/* <View className="px-6 pt-10 pb-8">
+            <Link href="/(auth)" asChild>
+              <TouchableOpacity className="w-10 h-10 rounded-full bg-white/95 items-center justify-center shadow-sm border border-white/30">
+                <Ionicons name="arrow-back" size={20} color="#374151" />
+              </TouchableOpacity>
+            </Link>
+          </View> */}
+
+        <View className="px-4 py-2 flex-row items-center justify-between">
+          <View className="px-0 pt-6 pb-8">
             <Link href="/(auth)" asChild>
               <TouchableOpacity className="w-10 h-10 rounded-full bg-white/95 items-center justify-center shadow-sm border border-white/30">
                 <Ionicons name="arrow-back" size={20} color="#374151" />
               </TouchableOpacity>
             </Link>
           </View>
+          <View>
+            <Image
+              source={require("../../assets/images/sentinel_logo.png")}
+              className="w-16 h-10"
+              resizeMode="contain"
+            />
+          </View>
+        </View>
 
           {/* Main content */}
           <View className="flex-1 px-6">
