@@ -1,6 +1,7 @@
 import { db } from '@/FirebaseConfig';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Application from 'expo-application';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from "expo-sharing";
 import { VideoView, useVideoPlayer } from 'expo-video';
@@ -308,6 +309,193 @@ const RepostModal: React.FC<RepostModalProps> = ({
                 </TouchableOpacity>
               )}
             </View>
+          </View>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+};
+
+// Custom Modal Component with better UI
+interface CustomModalProps {
+  visible: boolean;
+  type: 'success' | 'error' | 'info' | 'warning';
+  title: string;
+  message: string;
+  buttons: Array<{
+    text: string;
+    onPress: () => void;
+    style?: 'default' | 'cancel' | 'destructive';
+  }>;
+  onClose?: () => void;
+}
+
+const CustomModal: React.FC<CustomModalProps> = ({
+  visible,
+  type,
+  title,
+  message,
+  buttons,
+  onClose
+}) => {
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      scaleAnim.setValue(0);
+    }
+  }, [visible, scaleAnim]);
+
+  const getModalStyle = () => {
+    switch (type) {
+      case 'success':
+        return {
+          iconName: 'checkmark-circle' as const,
+          iconColor: '#22C55E',
+          iconBg: 'bg-green-100',
+        };
+      case 'error':
+        return {
+          iconName: 'close-circle' as const,
+          iconColor: '#EF4444',
+          iconBg: 'bg-red-100',
+        };
+      case 'warning':
+        return {
+          iconName: 'warning' as const,
+          iconColor: '#F59E0B',
+          iconBg: 'bg-yellow-100',
+        };
+      default:
+        return {
+          iconName: 'information-circle' as const,
+          iconColor: '#3B82F6',
+          iconBg: 'bg-blue-100',
+        };
+    }
+  };
+
+  const modalStyle = getModalStyle();
+
+  if (!visible) return null;
+
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View className="flex-1 bg-black/50 items-center justify-center px-6">
+        <Animated.View 
+          style={[{ transform: [{ scale: scaleAnim }] }]}
+          className="bg-white rounded-3xl p-6 items-center w-full max-w-sm shadow-2xl"
+        >
+          {/* Icon */}
+          <View className={`w-16 h-16 ${modalStyle.iconBg} rounded-full items-center justify-center mb-4`}>
+            <Ionicons name={modalStyle.iconName} size={32} color={modalStyle.iconColor} />
+          </View>
+
+          {/* Title */}
+          <Text className="text-xl font-bold text-gray-900 text-center mb-2">
+            {title}
+          </Text>
+
+          {/* Message */}
+          <Text className="text-sm text-gray-600 text-center mb-6 leading-5">
+            {message}
+          </Text>
+
+          {/* Better Button Layout */}
+          <View className="w-full space-y-3">
+            {/* For image picker modal, show vertical button layout */}
+            {title === 'Update Profile Picture' ? (
+              <>
+                {/* Camera Button */}
+                <TouchableOpacity
+                  className="flex-row items-center justify-center bg-black py-4 px-6 rounded-xl shadow-sm mb-5"
+                  onPress={buttons.find(b => b.text === 'Camera')?.onPress}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="camera" size={20} color="white" style={{ marginRight: 8 }} />
+                  <Text className="text-white font-semibold text-base">Take Photo</Text>
+                </TouchableOpacity>
+
+                {/* Gallery Button */}
+                <TouchableOpacity
+                  className="flex-row items-center justify-center bg-black py-4 px-6 rounded-xl shadow-sm mb-5"
+                  onPress={buttons.find(b => b.text === 'Gallery')?.onPress}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="images" size={20} color="white" style={{ marginRight: 8 }} />
+                  <Text className="text-white font-semibold text-base">Choose from Gallery</Text>
+                </TouchableOpacity>
+
+                {/* Cancel Button */}
+                <TouchableOpacity
+                  className="flex-row items-center justify-center bg-gray-200 py-4 px-6 rounded-xl"
+                  onPress={buttons.find(b => b.text === 'Cancel')?.onPress}
+                  activeOpacity={0.8}
+                >
+                  <Text className="text-gray-700 font-semibold text-base">Cancel</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              /* Default button layout for other modals */
+              buttons.length === 1 ? (
+                <TouchableOpacity
+                  className={`py-4 px-8 rounded-xl items-center w-full shadow-lg ${
+                    buttons[0].style === 'cancel' 
+                      ? 'bg-gray-200' 
+                      : buttons[0].style === 'destructive'
+                      ? 'bg-red-500'
+                      : 'bg-black'
+                  }`}
+                  onPress={buttons[0].onPress}
+                  activeOpacity={0.8}
+                >
+                  <Text className={`text-lg font-semibold ${
+                    buttons[0].style === 'cancel' 
+                      ? 'text-gray-700' 
+                      : 'text-white'
+                  }`}>
+                    {buttons[0].text}
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <View className="flex-row" style={{ gap: 12 }}>
+                  {buttons.map((button, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      className={`flex-1 py-4 px-6 rounded-xl items-center shadow-lg ${
+                        button.style === 'cancel' 
+                          ? 'bg-gray-200' 
+                          : button.style === 'destructive'
+                          ? 'bg-red-500'
+                          : 'bg-black'
+                      }`}
+                      onPress={button.onPress}
+                      activeOpacity={0.8}
+                    >
+                      <Text className={`text-lg font-semibold ${
+                        button.style === 'cancel' 
+                          ? 'text-gray-700' 
+                          : 'text-white'
+                      }`}>
+                        {button.text}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )
+            )}
           </View>
         </Animated.View>
       </View>
@@ -771,6 +959,59 @@ export default function SentinelFeed(): React.JSX.Element {
     }
   },[]);
 
+  const fetchUpdate = useCallback(async () => {
+    try {
+      const collSentinelUpdate = collection(db, 'SentinelUpdate');
+      console.log("Sentinel Update Called");
+
+      // 1. Fetch the user-facing version name (e.g., "1.0.0")
+      const currentVersion = Application.nativeApplicationVersion ?? '1.0.0';
+      console.log("Sentinel Current version: ", currentVersion);
+
+      const unsubscribeSentinelUpdate = onSnapshot(collSentinelUpdate, updateSnapshot => {
+        const updateDataArr = updateSnapshot.docs.map(doc => ({
+          id: doc.id,
+          data: doc.data(),
+        }));
+
+        for (const doc of updateDataArr) {
+          const updateData = doc.data;
+          const updateId = doc.id;
+          console.log("Update ID: ", updateId);
+          console.log("Sentinel Updated version: ", updateData.version);
+
+          if(updateData.forceLogout || false){
+            console.log("Force Logout: true");
+            if(currentVersion != updateData.version) {
+              confirmForceLogout();
+            }
+          } else {
+            if(updateData.logout || false){
+              console.log("Logout: true");
+              if(currentVersion != updateData.version) {
+                confirmLogout();
+              }
+            } else{
+              console.log("Logout: false");
+              console.log("Force Logout: false");
+            }
+          }
+          
+        }
+
+      })
+
+      return () => {
+        unsubscribeSentinelUpdate();
+      };
+
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  },[]);
+
   useEffect(() => {
     getItem();
     fetchUserFollowing();
@@ -798,8 +1039,146 @@ export default function SentinelFeed(): React.JSX.Element {
       };
       
       checkCommentUpdate();
+      fetchUpdate();
     }, [isInitialized, fetchSinglePostComments])
   );
+
+  // Custom Alert function
+  const showCustomAlert = (
+    type: 'success' | 'error' | 'info' | 'warning',
+    title: string,
+    message: string,
+    buttons: Array<{
+      text: string;
+      onPress: () => void;
+      style?: 'default' | 'cancel' | 'destructive';
+    }>
+  ) => {
+    setModalConfig({
+      visible: true,
+      type,
+      title,
+      message,
+      buttons
+    });
+  };
+
+  const hideModal = () => {
+    setModalConfig(prev => ({ ...prev, visible: false }));
+  };
+
+  // Modal states
+  const [modalConfig, setModalConfig] = useState<{
+    visible: boolean;
+    type: 'success' | 'error' | 'info' | 'warning';
+    title: string;
+    message: string;
+    buttons: Array<{
+      text: string;
+      onPress: () => void;
+      style?: 'default' | 'cancel' | 'destructive';
+    }>;
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+    buttons: []
+  });
+
+  const confirmLogout = () => {
+    showCustomAlert(
+      'warning',
+      'Update Required',
+      "We've released an important update to improve your experience and security. To ensure you get the latest features and fixes, please log out and log back in. Would you like to log out now?",
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+          onPress: hideModal
+        },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            hideModal();
+            handleLogout();
+          }
+        }
+      ]
+    );
+  };
+
+  const confirmForceLogout = () => {
+    showCustomAlert(
+      'warning',
+      'Critical Update Required',
+      "A critical update is now available. To apply essential security and feature improvements, your current session must end. Please tap logout and then log back in immediately to continue using the app.",
+      [
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            hideModal();
+            handleLogout();
+          }
+        }
+      ]
+    );
+  };
+
+  const handleLogout = async () => {
+    try {
+      console.log('🔄 Logging out user...');
+      
+      await AsyncStorage.multiRemove([
+        'userToken',
+        'accessToken',
+        'userRefreshToken', 
+        'refreshToken',
+        'userIdToken',
+        'idToken',
+        'userEmail',
+        'userName',
+        'userNickName',
+        'userId',
+        'userRole',
+        'tokenExpiry',
+        'userData',
+        'profilePicUrl',
+      ]);
+      console.log('✅ User data cleared');
+
+      showCustomAlert(
+        'success',
+        'Logout Successful',
+        'You have been logged out successfully.',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              hideModal();
+              router.replace('/(auth)');
+            }
+          }
+        ]
+      );
+      
+    } catch (error) {
+      console.error('❌ Error during logout:', error);
+      showCustomAlert(
+        'error',
+        'Logout Failed',
+        'Failed to logout. Please try again.',
+        [
+          {
+            text: 'OK',
+            onPress: hideModal
+          }
+        ]
+      );
+    }
+  };
 
   const handleDropdownChange = async (item: {name: string }, postItem: PostItem) => {
     setSelectedCommentTemplate(item.name);
@@ -1498,7 +1877,7 @@ export default function SentinelFeed(): React.JSX.Element {
                   width: '100%',
                   height: 200, // Fills the parent View
                   position: 'absolute', // Allows other content to layer on top
-                  opacity: 0.4, // Adjust for desired transparency (0.0 to 1.0)
+                  opacity: 0.2, // Adjust for desired transparency (0.0 to 1.0)
                 }}
                 className="bg-white" // This background will be visible if the image doesn't fill
                 resizeMode="cover" // The background image usually covers the entire area
@@ -2562,6 +2941,15 @@ export default function SentinelFeed(): React.JSX.Element {
         commentTemplate={selectedCommentTemplate}
         />
 
+      {/* Custom Alert Modal */}
+      <CustomModal
+        visible={modalConfig.visible}
+        type={modalConfig.type}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        buttons={modalConfig.buttons}
+        onClose={hideModal}
+      />
      
     </SafeAreaView>
   );
