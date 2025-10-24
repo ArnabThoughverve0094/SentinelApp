@@ -711,14 +711,16 @@ export default function Index(): React.JSX.Element {
             <View className="relative">
               <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
                 <Image
-                  source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
+                  // source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
+                  source={{ uri: dummyAuthorImage }}
                   className="w-full h-full"
                   resizeMode="cover"
                 />
               </View>
             </View>
             <View className="flex-1">
-              <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text>
+              {/* <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text> */}
+              <Text className="font-bold text-gray-900 text-sm">Anonymous</Text>
               <View className="flex-row items-center mt-0.5">
                 <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
                 {item.postType === 'X-Data' && (
@@ -897,14 +899,16 @@ export default function Index(): React.JSX.Element {
           <View className="relative">
             <View className="w-10 h-10 rounded-full mr-2.5 overflow-hidden border-2 border-white shadow-lg">
               <Image
-                source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
+                // source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
+                source={{ uri: dummyAuthorImage }}
                 className="w-full h-full"
                 resizeMode="cover"
               />
             </View>
           </View>
           <View className="flex-1">
-            <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text>
+            {/* <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text> */}
+            <Text className="font-bold text-gray-900 text-sm">Anonymous</Text>
             <View className="flex-row items-center mt-0.5">
               <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
               {item.postType === 'X-Data' && (
