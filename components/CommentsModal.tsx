@@ -278,9 +278,9 @@ export default function CommentScreen({
           postType: itemType,
           Liked: false,
           Reposted: false,
-          CommentTemplate: data.CommentTemplate || 'Template1',
+          CommentTemplate: data.CommentTemplate || 'Sentinel Default Template',
         });
-        fetchCommentTemplate(data.CommentTemplate || 'Template1');
+        fetchCommentTemplate(data.CommentTemplate || 'Sentinel Default Template');
       }
     } catch (error) {
       console.error('Error fetching post data:', error);
@@ -306,9 +306,9 @@ export default function CommentScreen({
       postType: postType || '',
       Liked: passedPostData.Liked || false,
       Reposted: passedPostData.Reposted || false,
-      CommentTemplate: passedPostData.CommentTemplate || 'Template1'
+      CommentTemplate: passedPostData.CommentTemplate || 'Sentinel Default Template'
     });
-    fetchCommentTemplate(passedPostData.CommentTemplate || 'Template1');
+    fetchCommentTemplate(passedPostData.CommentTemplate || 'Sentinel Default Template');
   };
 
   const getItem = async () => {
@@ -353,7 +353,8 @@ export default function CommentScreen({
 
   const fetchCommentTemplate = useCallback(async (passedCommentTemplate: any) => {
     try {
-      const collCommentTempPost = collection(db, 'SentimentTemplates');
+      // const collCommentTempPost = collection(db, 'SentimentTemplates');
+      const collCommentTempPost = collection(db, 'templates');
       console.log("Comment Template Called");
 
       const unsubscribeCommentTemp = onSnapshot(collCommentTempPost, commentTempSnapshot => {
@@ -367,27 +368,52 @@ export default function CommentScreen({
           const postData = doc.data;
           const postId = doc.id;
           console.log("Comment Template Passed: ", passedCommentTemplate);
+          console.log("Comment Template Fetched: ", postData);
 
-          if(passedCommentTemplate == postId){
+          // if("Sentinel Default Template" == postData.name) {
+          if(passedCommentTemplate == postData.name) {
             const optionsField = postData.options;
 
-            // Convert map to array:
-            for (const key in optionsField) {
-              if (Object.prototype.hasOwnProperty.call(optionsField, key)) {
-                const maybeOption = (optionsField as any)[key];
-                if (maybeOption && typeof maybeOption === "object") {
-                  const icon = (maybeOption as any).icon;
-                  const title = (maybeOption as any).title;
-                  RESPONSE_OPTIONS.push({
-                    id: typeof title === "string" ? title : "",
-                    label: typeof title === "string" ? title : "",
-                    icon: typeof icon === "string" ? icon : "",
-                    color: '#34C759'
-                  })
-                }
-              }
-            }    
+            optionsField.map((nestedOption, index) => {
+              // Get the key (e.g., "option1") and the value (the {icon, title} map)
+              const optionKey = Object.keys(nestedOption)[0];
+              const optionDetails = nestedOption[optionKey];
+
+              console.log("Comment optionKey Fetched: ", optionKey);
+              console.log("Comment optionDetails Fetched: ", optionDetails);
+              console.log("Comment icon Fetched: ", optionDetails.icon);
+              console.log("Comment title Fetched: ", optionDetails.title);
+
+              RESPONSE_OPTIONS.push({
+                id: typeof optionDetails.title === "string" ? optionDetails.title : "",
+                label: typeof optionDetails.title === "string" ? optionDetails.title : "",
+                icon: typeof optionDetails.icon === "string" ? optionDetails.icon : "",
+                color: '#34C759'
+              })
+            })
+
           }
+
+          // if(passedCommentTemplate == postId){
+          //   const optionsField = postData.options;
+
+          //   // Convert map to array:
+          //   for (const key in optionsField) {
+          //     if (Object.prototype.hasOwnProperty.call(optionsField, key)) {
+          //       const maybeOption = (optionsField as any)[key];
+          //       if (maybeOption && typeof maybeOption === "object") {
+          //         const icon = (maybeOption as any).icon;
+          //         const title = (maybeOption as any).title;
+          //         RESPONSE_OPTIONS.push({
+          //           id: typeof title === "string" ? title : "",
+          //           label: typeof title === "string" ? title : "",
+          //           icon: typeof icon === "string" ? icon : "",
+          //           color: '#34C759'
+          //         })
+          //       }
+          //     }
+          //   }    
+          // }
           
         }
 
@@ -854,7 +880,8 @@ export default function CommentScreen({
                 {/* Post Header */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
                   <Image
-                    source={{ uri: postDataState.AuthorImageURL || dummyAuthorImage }}
+                    // source={{ uri: postDataState.AuthorImageURL || dummyAuthorImage }}
+                    source={{ uri: dummyAuthorImage }}
                     style={{ 
                       width: 48, 
                       height: 48, 
@@ -866,12 +893,13 @@ export default function CommentScreen({
                   />
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontWeight: 'bold', fontSize: 16, color: '#000' }}>
-                      {postDataState.AuthorName}
+                      {/* {postDataState.AuthorName} */}
+                      Anonymous
                     </Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                      <Text style={{ fontSize: 14, color: '#8e8e93' }}>
+                      {/* <Text style={{ fontSize: 14, color: '#8e8e93' }}>
                         {postDataState.AuthorUsername}
-                      </Text>
+                      </Text> */}
                       <Text style={{ fontSize: 14, color: '#8e8e93', marginLeft: 8 }}>
                         {getTimeAgo(postDataState.ContentDate)}
                       </Text>

@@ -138,7 +138,8 @@ export default function TotalSentiment({
 
   const fetchCommentTemplate = useCallback(async () => {
     try {
-      const collCommentTempPost = collection(db, 'SentimentTemplates');
+      const collCommentTempPost = collection(db, 'templates');
+      // const collCommentTempPost = collection(db, 'SentimentTemplates');
       console.log("Comment Template Called");
 
       const unsubscribeCommentTemp = onSnapshot(collCommentTempPost, commentTempSnapshot => {
@@ -151,28 +152,56 @@ export default function TotalSentiment({
         for (const doc of commentTempdataArr) {
           const postData = doc.data;
           const postId = doc.id;
-          console.log("Graph Template Passed: ", commentTemplate);
+          console.log("Comment Template Passed: ", commentTemplate);
+          console.log("Comment Template Fetched: ", postData);
 
-          if(commentTemplate == postId){
+          if(commentTemplate == postData.name) {
             const optionsField = postData.options;
 
-            // Convert map to array:
-            for (const key in optionsField) {
-              if (Object.prototype.hasOwnProperty.call(optionsField, key)) {
-                const maybeOption = (optionsField as any)[key];
-                if (maybeOption && typeof maybeOption === "object") {
-                  const icon = (maybeOption as any).icon;
-                  const title = (maybeOption as any).title;
-                  RESPONSE_OPTIONS.push({
-                    id: typeof title === "string" ? title : "",
-                    label: typeof title === "string" ? title : "",
-                    icon: typeof icon === "string" ? icon : "",
-                    color: '#34C759'
-                  })
-                }
-              }
-            }    
+            optionsField.map((nestedOption, index) => {
+              // Get the key (e.g., "option1") and the value (the {icon, title} map)
+              const optionKey = Object.keys(nestedOption)[0];
+              const optionDetails = nestedOption[optionKey];
+
+              console.log("Comment optionKey Fetched: ", optionKey);
+              console.log("Comment optionDetails Fetched: ", optionDetails);
+              console.log("Comment icon Fetched: ", optionDetails.icon);
+              console.log("Comment title Fetched: ", optionDetails.title);
+
+              RESPONSE_OPTIONS.push({
+                id: typeof optionDetails.title === "string" ? optionDetails.title : "",
+                label: typeof optionDetails.title === "string" ? optionDetails.title : "",
+                icon: typeof optionDetails.icon === "string" ? optionDetails.icon : "",
+                color: '#34C759'
+              })
+            })
+
           }
+
+          // const postData = doc.data;
+          // const postId = doc.id;
+          // console.log("Graph Template Passed: ", commentTemplate);
+
+          // if(commentTemplate == postId){
+          //   const optionsField = postData.options;
+
+          //   // Convert map to array:
+          //   for (const key in optionsField) {
+          //     if (Object.prototype.hasOwnProperty.call(optionsField, key)) {
+          //       const maybeOption = (optionsField as any)[key];
+          //       if (maybeOption && typeof maybeOption === "object") {
+          //         const icon = (maybeOption as any).icon;
+          //         const title = (maybeOption as any).title;
+          //         RESPONSE_OPTIONS.push({
+          //           id: typeof title === "string" ? title : "",
+          //           label: typeof title === "string" ? title : "",
+          //           icon: typeof icon === "string" ? icon : "",
+          //           color: '#34C759'
+          //         })
+          //       }
+          //     }
+          //   }    
+          // }
         }
         console.log("RESPONSE_OPTIONS loaded:", RESPONSE_OPTIONS);
       })
@@ -502,7 +531,8 @@ export default function TotalSentiment({
                 <View style={{ paddingHorizontal: 16, paddingVertical: 16 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
                     <Image
-                      source={{ uri: postData.AuthorImageURL || 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg' }}
+                      // source={{ uri: postData.AuthorImageURL || 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg' }}
+                      source={{ uri: 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg' }}
                       style={{ 
                         width: 40, 
                         height: 40, 
@@ -514,7 +544,8 @@ export default function TotalSentiment({
                     />
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontWeight: 'bold', fontSize: 16, color: '#000' }}>
-                        {postData.AuthorName}
+                        {/* {postData.AuthorName} */}
+                        Anonymous
                       </Text>
                       <Text style={{ fontSize: 14, color: '#8e8e93' }}>
                         21m
