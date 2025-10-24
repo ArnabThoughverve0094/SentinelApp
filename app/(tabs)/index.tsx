@@ -167,6 +167,7 @@ const RepostModal: React.FC<RepostModalProps> = ({
   const [repostComment, setRepostComment] = useState('');
   const [isQuoteMode, setIsQuoteMode] = useState(false);
   const scaleAnim = useRef(new Animated.Value(0)).current;
+  const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
 
   useEffect(() => {
     if (visible) {
@@ -228,11 +229,13 @@ const RepostModal: React.FC<RepostModalProps> = ({
             <View className="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-200">
               <View className="flex-row items-center mb-2">
                 <Image
-                  source={{ uri: post.AuthorImageURL }}
+                  // source={{ uri: post.AuthorImageURL }}
+                  source={{uri: dummyAuthorImage}}
                   className="w-8 h-8 rounded-full mr-2"
                   resizeMode="cover"
                 />
-                <Text className="font-semibold text-gray-900 text-sm">{post.AuthorName}</Text>
+                {/* <Text className="font-semibold text-gray-900 text-sm">{post.AuthorName}</Text> */}
+                <Text className="font-semibold text-gray-900 text-sm">Anonymous</Text>
               </View>
               <Text className="text-gray-700 text-sm" numberOfLines={3}>
                 {post.ContentDesc}
@@ -810,7 +813,7 @@ export default function SentinelFeed(): React.JSX.Element {
             Reposted: (postData.RepostedBy?.includes(fetchuserID) || false),
             Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
             createdAt: postData.createdAt || postData.ContentDate,
-            CommentTemplate: postData.CommentTemplate || "Template1",
+            CommentTemplate: postData.CommentTemplate || "Sentinel Default Template",
           });
         }
 
@@ -855,7 +858,7 @@ export default function SentinelFeed(): React.JSX.Element {
             Reposted: (postData.RepostedBy?.includes(fetchuserID) || false),
             Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
             createdAt: postData.createdAt || postData.ContentDate,
-            CommentTemplate: postData.CommentTemplate || "Template1",
+            CommentTemplate: postData.CommentTemplate || "Sentinel Default Template",
             isRepost: postData.isRepost || false,
             originalPost: postData.originalPost || null,
             repostComment: postData.repostComment || '',
@@ -906,7 +909,8 @@ export default function SentinelFeed(): React.JSX.Element {
 
   const fetchCommentTemplate = useCallback(async () => {
     try {
-      const collCommentTempPost = collection(db, 'SentimentTemplates');
+      // const collCommentTempPost = collection(db, 'SentimentTemplates');
+      const collCommentTempPost = collection(db, 'templates');
       console.log("Comment Template Called");
 
       const unsubscribeCommentTemp = onSnapshot(collCommentTempPost, commentTempSnapshot => {
@@ -925,20 +929,33 @@ export default function SentinelFeed(): React.JSX.Element {
           const optionsField = postData.options;
 
             const result: Array<{ key: string; icon: string; title: string }> = [];
-            for (const key in optionsField) {
-              if (Object.prototype.hasOwnProperty.call(optionsField, key)) {
-                const maybeOption = (optionsField as any)[key];
-                if (maybeOption && typeof maybeOption === "object") {
-                  const icon = (maybeOption as any).icon;
-                  const title = (maybeOption as any).title;
-                  result.push({
-                    key,
-                    icon: typeof icon === "string" ? icon : "",
-                    title: typeof title === "string" ? title : "",
-                  });
-                }
-              }
-            }
+            
+            optionsField.map((nestedOption, index) => {
+              // Get the key (e.g., "option1") and the value (the {icon, title} map)
+              const optionKey = Object.keys(nestedOption)[0];
+              const optionDetails = nestedOption[optionKey];
+
+              result.push({
+                key: optionKey,
+                icon: typeof optionDetails.icon === "string" ? optionDetails.icon : "",
+                title: typeof optionDetails.title === "string" ? optionDetails.title : "",
+              })
+            })
+
+            // for (const key in optionsField) {
+            //   if (Object.prototype.hasOwnProperty.call(optionsField, key)) {
+            //     const maybeOption = (optionsField as any)[key];
+            //     if (maybeOption && typeof maybeOption === "object") {
+            //       const icon = (maybeOption as any).icon;
+            //       const title = (maybeOption as any).title;
+            //       result.push({
+            //         key,
+            //         icon: typeof icon === "string" ? icon : "",
+            //         title: typeof title === "string" ? title : "",
+            //       });
+            //     }
+            //   }
+            // }
             commentTemmp.push({
               name: postData.name || "",
               options: result,
@@ -1562,11 +1579,11 @@ export default function SentinelFeed(): React.JSX.Element {
           RepostedBy: [],
           BookmarkedBy: [],
           createdAt: new Date(),
-          CommentTemplate: selectedRepostPost.CommentTemplate || "Template1",
+          CommentTemplate: selectedRepostPost.CommentTemplate || "Sentinel Default Template",
           isRepost: true,
           originalPost: {
             id: selectedRepostPost.id || '',
-            AuthorName: selectedRepostPost.AuthorName || 'Unknown User',
+            AuthorName: selectedRepostPost.AuthorName || 'Anonymous',
             AuthorImageURL: selectedRepostPost.AuthorImageURL || dummyAuthorImage,
             ContentDesc: selectedRepostPost.ContentDesc || '',
             ContentDate: selectedRepostPost.ContentDate || new Date(),
@@ -1656,11 +1673,11 @@ export default function SentinelFeed(): React.JSX.Element {
         RepostedBy: [],
         BookmarkedBy: [],
         createdAt: new Date(),
-        CommentTemplate: selectedRepostPost.CommentTemplate || "Template1",
+        CommentTemplate: selectedRepostPost.CommentTemplate || "Sentinel Default Template",
         isRepost: true,
         originalPost: {
           id: selectedRepostPost.id || '',
-          AuthorName: selectedRepostPost.AuthorName || 'Unknown User',
+          AuthorName: selectedRepostPost.AuthorName || 'Anonymous',
           AuthorImageURL: selectedRepostPost.AuthorImageURL || dummyAuthorImage,
           ContentDesc: selectedRepostPost.ContentDesc || '',
           ContentDate: selectedRepostPost.ContentDate || new Date(),
@@ -1790,7 +1807,7 @@ export default function SentinelFeed(): React.JSX.Element {
 
     try {
       await Share.share({
-        message: `SENTINEL POST\n\nShared by ${postItem.AuthorName}\n${postItem.ContentDesc}\n${postItem.ContentURL}\n\nPlease take a look.`,
+        message: `SENTINEL POST\n\nShared by Anonymous\n${postItem.ContentDesc}\n${postItem.ContentURL}\n\nPlease take a look.`,
       });
       
     } catch (error) {
@@ -1983,11 +2000,13 @@ export default function SentinelFeed(): React.JSX.Element {
       <View className="border border-gray-200 rounded-xl p-3 mt-2 bg-gray-50">
         <View className="flex-row items-center mb-2">
           <Image
-            source={{ uri: item.originalPost.AuthorImageURL || dummyAuthorImage }}
+            // source={{ uri: item.originalPost.AuthorImageURL || dummyAuthorImage }}
+            source={{ uri: dummyAuthorImage }}
             className="w-6 h-6 rounded-full mr-2"
             resizeMode="cover"
           />
-          <Text className="font-semibold text-gray-900 text-sm">{item.originalPost.AuthorName}</Text>
+          {/* <Text className="font-semibold text-gray-900 text-sm">{item.originalPost.AuthorName}</Text> */}
+          <Text className="font-semibold text-gray-900 text-sm">Anonymous</Text>
           <Text className="text-gray-500 text-xs ml-2">
             {getTimeAgo(item.originalPost.ContentDate)}
           </Text>
@@ -2194,14 +2213,16 @@ export default function SentinelFeed(): React.JSX.Element {
             <View className="relative">
               <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
                 <Image
-                  source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
+                  // source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
+                  source={{ uri: dummyAuthorImage }}
                   className="w-full h-full"
                   resizeMode="cover"
                 />
               </View>
             </View>
             <View className="flex-1">
-              <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text>
+              {/* <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text> */}
+              <Text className="font-bold text-gray-900 text-sm">Anonymous</Text>
               <View className="flex-row items-center mt-0.5">
                 <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
                 {item.postType === 'X-Data' && (
@@ -2394,14 +2415,16 @@ export default function SentinelFeed(): React.JSX.Element {
             <View className="relative">
               <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
                 <Image
-                  source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
+                  // source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
+                  source={{ uri: dummyAuthorImage }}
                   className="w-full h-full"
                   resizeMode="cover"
                 />
               </View>
             </View>
             <View className="flex-1">
-              <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text>
+              {/* <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text> */}
+              <Text className="font-bold text-gray-900 text-sm">Anonymous</Text>
               <View className="flex-row items-center mt-0.5">
                 <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
                 {item.postType === 'X-Data' && (

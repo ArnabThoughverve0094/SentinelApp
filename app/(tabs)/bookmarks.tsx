@@ -255,7 +255,7 @@ export default function BookmarksPage(): React.JSX.Element {
       // you might use React Native's Share API
       
       await Share.share({
-        message: `SENTINEL POST\n\nShared by ${postItem.AuthorName}\n${postItem.ContentDesc}\n${postItem.ContentURL}\n\nPlease take a look.`,
+        message: `SENTINEL POST\n\nShared by Anonymous\n${postItem.ContentDesc}\n${postItem.ContentURL}\n\nPlease take a look.`,
     });
       
     } catch (error) {
@@ -315,7 +315,7 @@ export default function BookmarksPage(): React.JSX.Element {
               Reposted: false,
               Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
               createdAt: postData.createdAt || postData.ContentDate,
-              CommentTemplate: postData.CommentTemplate || "Template1",
+              CommentTemplate: postData.CommentTemplate || "Sentinel Default Template",
             });
           }
         }
@@ -369,7 +369,7 @@ export default function BookmarksPage(): React.JSX.Element {
               Reposted: false,
               Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
               createdAt: postData.createdAt || postData.ContentDate,
-              CommentTemplate: postData.CommentTemplate || "Template1",
+              CommentTemplate: postData.CommentTemplate || "Sentinel Default Template",
             });
           }
 
@@ -761,14 +761,16 @@ export default function BookmarksPage(): React.JSX.Element {
             <View className="relative">
               <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
                 <Image
-                  source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
+                  // source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
+                  source={{ uri: dummyAuthorImage }}
                   className="w-full h-full"
                   resizeMode="cover"
                 />
               </View>
             </View>
             <View className="flex-1">
-              <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text>
+              {/* <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text> */}
+              <Text className="font-bold text-gray-900 text-sm">Anonymous</Text>
               <View className="flex-row items-center mt-0.5">
                 <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
               </View>
