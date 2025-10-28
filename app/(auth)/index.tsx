@@ -54,9 +54,12 @@ export default function Index(): React.JSX.Element {
   const [isFlipped, setIsFlipped] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(-1);
+  
+  // ✅ NEW: State for confirmation modal
+  const [isConfirmationModalVisible, setIsConfirmationModalVisible] = useState(false);
+  
   const flipCardRef = useRef<any>(null);
   const scrollViewRef = useRef<ScrollView>(null);
-  // const videoRefs = useRef<{ [key: string]: any }>({});
 
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
 
@@ -86,7 +89,6 @@ export default function Index(): React.JSX.Element {
       }
     });
 
-    // Update play/pause when currentVideoIndex changes
     useEffect(() => {
       if (currentVideoIndex === index) {
         player.play();
@@ -117,25 +119,21 @@ export default function Index(): React.JSX.Element {
     );
   }, [currentVideoIndex]);
 
-
   // ✅ FIXED: Fetch comments from correct subcollection structure
   const fetchCommentsCount = useCallback(async (posts: PostItem[]) => {
     try {
       console.log('Starting to fetch comments for', posts.length, 'posts');
       const commentsCount: { [key: string]: number } = {};
       
-      // Process each post to count comments and replies
       const commentPromises = posts.map(async (post) => {
         try {
           let totalComments = 0;
           
-          // ✅ FIXED: Use correct subcollection path
           const commentsRef = collection(db, post.postType, post.id, 'Comments');
           const commentsSnapshot = await getDocs(commentsRef);
           
-          totalComments = commentsSnapshot.size; // Direct comments count
+          totalComments = commentsSnapshot.size;
           
-          // Count replies for each comment
           const replyPromises = commentsSnapshot.docs.map(async (commentDoc) => {
             const repliesRef = collection(db, post.postType, post.id, 'Comments', commentDoc.id, 'Replies');
             const repliesSnapshot = await getDocs(repliesRef);
@@ -187,13 +185,12 @@ export default function Index(): React.JSX.Element {
   // OPTIMIZED DATA FETCHING
   const handleFetchAllData = useCallback(async (forceRefresh: boolean = false) => {
     const currentTime = Date.now();
-    const cacheValidTime = 5 * 60 * 1000; // 5 minutes cache
+    const cacheValidTime = 5 * 60 * 1000;
 
     setLoading(true);
     try {
       const postsXData: any = [];
 
-      // Process X-Data
       const collXDataRefPost = collection(db, 'X-Data');
       const queryXData = query(
         collXDataRefPost,
@@ -241,7 +238,6 @@ export default function Index(): React.JSX.Element {
       );
       
       console.log("Sentinel OnSnapshot");
-      // Process SentinelPosts
       const unsubscribeSentinel = onSnapshot(querySentinel, async sentinelSnapshot => {
         const sentineldataArr = sentinelSnapshot.docs.map(doc => ({
           id: doc.id,
@@ -273,7 +269,6 @@ export default function Index(): React.JSX.Element {
             Bookmarked: false,
             createdAt: postData.createdAt || postData.ContentDate,
           });
-
         }
 
         const allData = postsData.concat(postsXData);
@@ -313,31 +308,38 @@ export default function Index(): React.JSX.Element {
     }
   }, [isInitialized, fetchedData.length, lastFetchTime]);
 
-  // ✅ Helper function to get actual comment counts
   const getCommentsCount = useCallback((postId: string) => {
     return commentsData[postId] || 0;
   }, [commentsData]);
   
-  // Navigate to comments screen
-  const loginScreen = async () => {
+  // ✅ NEW: Show confirmation modal
+  const showConfirmationModal = useCallback(() => {
+    setIsConfirmationModalVisible(true);
+  }, []);
+
+  // ✅ NEW: Handle confirmation modal "Yes" button
+  const handleConfirmYes = useCallback(() => {
+    setIsConfirmationModalVisible(false);
+    // Redirect to registration screen
     try {
       router.push("/(auth)/email-login");
     } catch (error) {
       console.error("error, ", error);
     }
+  }, []);
+
+  // ✅ NEW: Handle confirmation modal "No" button
+  const handleConfirmNo = useCallback(() => {
+    setIsConfirmationModalVisible(false);
+  }, []);
+
+  // Navigate to login screen (kept for backward compatibility, but now uses confirmation modal)
+  const loginScreen = async () => {
+    showConfirmationModal();
   }
 
   useEffect(() => {
     handleFetchAllData();
-    // try {
-    //   const fetchuserID = AsyncStorage.getItem('userId');
-    //   if(fetchuserID != null) {
-    //     router.push("/(tabs)");
-    //   }
-      
-    // } catch (error) {
-    //   console.error("error, ", error);
-    // }
   }, []);
 
   // MEDIA MODAL CONTROLS
@@ -497,7 +499,6 @@ export default function Index(): React.JSX.Element {
             activeOpacity={0.95}
           >
             <View className="relative rounded-xl overflow-hidden">
-              {/* Background Image (faded) */}
               <Image
                 source={{ uri: primaryMediaUrl }}
                 style={{
@@ -506,20 +507,17 @@ export default function Index(): React.JSX.Element {
                   position: 'absolute', // Allows other content to layer on top
                   opacity: 0.2, // Adjust for desired transparency (0.0 to 1.0)
                 }}
-                className="bg-white" // This background will be visible if the image doesn't fill
-                resizeMode="cover" // The background image usually covers the entire area
-                blurRadius={5} // Optional: Add a blur effect to the background
+                className="bg-white"
+                resizeMode="cover"
+                blurRadius={5}
               />
-
-              {/* Foreground Image (main) */}
               <Image
                 source={{ uri: primaryMediaUrl }}
                 style={{
                   width: '100%',
-                  height: 200, // Fills the parent View
+                  height: 200,
                 }}
-                // No className here, as the background image is now handled by the other Image
-                resizeMode="contain" // Ensures the full foreground image is visible
+                resizeMode="contain"
                 onError={(error) => {
                   console.log("Image load error:", error.nativeEvent.error);
                 }}
@@ -541,32 +539,6 @@ export default function Index(): React.JSX.Element {
             }}
             activeOpacity={0.95}
           >
-            {/* <View className="relative rounded-xl overflow-hidden bg-black">
-              <Video
-                ref={(ref) => {
-                  if (ref && index !== undefined) {
-                    videoRefs.current[`video-${index}`] = ref;
-                  }
-                }}
-                source={{ uri: primaryMediaUrl }}
-                style={{ width: '100%', height: 200 }}
-                resizeMode={ResizeMode.CONTAIN}
-                useNativeControls={false}
-                shouldPlay={currentVideoIndex === index}
-                isMuted={true}
-                isLooping={true}
-              />
-              <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
-                <Ionicons name="play-outline" size={14} color="white" />
-              </View>
-              {currentVideoIndex !== index && (
-                <View className="absolute inset-0 bg-black/20 items-center justify-center">
-                  <View className="w-10 h-10 bg-black/60 rounded-full items-center justify-center">
-                    <Ionicons name="play" size={20} color="white" />
-                  </View>
-                </View>
-              )}
-            </View> */}
             <VideoPlayer videoUrl={primaryMediaUrl} index={index} />
           </TouchableOpacity>
         </View>
@@ -631,11 +603,10 @@ export default function Index(): React.JSX.Element {
   // ✅ ADDED: Graph/Analytics modal function
   const openGraphModal = useCallback((item: PostItem) => {
     console.log("Graph/Analytics pressed:", item.id);
-    // For now, redirect to login. Later you can implement actual graph modal
     loginScreen();
   }, [loginScreen]);
 
-  // AUTO PLAY VIDEO ON SCROLL - Now filteredData is available
+  // AUTO PLAY VIDEO ON SCROLL
   const handleScroll = useCallback((event: any) => {
     const { contentOffset, layoutMeasurement } = event.nativeEvent;
     const currentScrollY = contentOffset.y;
@@ -804,12 +775,11 @@ export default function Index(): React.JSX.Element {
               <Feather name="bar-chart-2" size={16} color="#64748b" />
             </TouchableOpacity>
 
-            {/* ✅ ADDED: Bookmark button */}
             <TouchableOpacity
               className="flex-row items-center px-1.5 py-1"
               onPress={(e) => {
                 e.stopPropagation();
-                loginScreen(); // Redirect to login
+                loginScreen();
               }}
               activeOpacity={0.7}
             >
@@ -820,12 +790,11 @@ export default function Index(): React.JSX.Element {
               />
             </TouchableOpacity>
 
-            {/* ✅ UPDATED: Share button now redirects to login */}
             <TouchableOpacity 
               className="p-1"
               onPress={(e) => {
                 e.stopPropagation();
-                loginScreen(); // Redirect to login instead of just logging
+                loginScreen();
               }}
               activeOpacity={0.7}
             >
@@ -995,7 +964,6 @@ export default function Index(): React.JSX.Element {
               <Feather name="bar-chart-2" size={16} color="#64748b" />
             </TouchableOpacity>
 
-            {/* ✅ ADDED: Bookmark button in flip card */}
             <TouchableOpacity
               className="flex-row items-center px-2 py-1.5"
               onPress={() => loginScreen()}
@@ -1008,7 +976,6 @@ export default function Index(): React.JSX.Element {
               />
             </TouchableOpacity>
 
-            {/* ✅ UPDATED: Share button redirects to login */}
             <TouchableOpacity 
               className="p-1.5"
               onPress={() => loginScreen()}
@@ -1287,6 +1254,61 @@ export default function Index(): React.JSX.Element {
         )}
       </ScrollView>
       
+      {/* ✅ NEW: CONFIRMATION MODAL */}
+      <Modal
+        visible={isConfirmationModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleConfirmNo}
+        statusBarTranslucent
+      >
+        <View className="flex-1 bg-black/50 justify-center items-center px-6">
+          <View className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            {/* Icon */}
+            <View className="items-center mb-4">
+              <View className="w-16 h-16 bg-blue-100 rounded-full items-center justify-center">
+                <Ionicons name="lock-closed" size={32} color="#3b82f6" />
+              </View>
+            </View>
+
+            {/* Title */}
+            <Text className="text-xl font-bold text-gray-900 text-center mb-3">
+              Registration Required
+            </Text>
+
+            {/* Message */}
+            <Text className="text-base text-gray-600 text-center mb-6 leading-6">
+              You must be a registered user to interact with this post. Please register to proceed.
+            </Text>
+
+            {/* Buttons */}
+            <View className="flex-row gap-3">
+              {/* No Button */}
+              <TouchableOpacity
+                className="flex-1 bg-gray-200 py-3.5 rounded-xl"
+                onPress={handleConfirmNo}
+                activeOpacity={0.8}
+              >
+                <Text className="text-gray-700 font-semibold text-center text-base">
+                  No
+                </Text>
+              </TouchableOpacity>
+
+              {/* Yes Button */}
+              <TouchableOpacity
+                className="flex-1 bg-red-700 py-3.5 rounded-xl shadow-lg"
+                onPress={handleConfirmYes}
+                activeOpacity={0.8}
+              >
+                <Text className="text-white font-semibold text-center text-base">
+                  Yes, Register
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* IMAGE MODAL */}
       <Modal
         visible={isImageModalVisible}
@@ -1391,7 +1413,7 @@ export default function Index(): React.JSX.Element {
       </Modal>
 
       {/* CARD MODAL */}
-      <Modal
+      {/* <Modal
         visible={isCardModalVisible}
         transparent={false}
         animationType="slide"
@@ -1399,7 +1421,7 @@ export default function Index(): React.JSX.Element {
         statusBarTranslucent
       >
         {fullScreenCard && renderFullScreenFlipCard(fullScreenCard)}
-      </Modal>
+      </Modal> */}
     </SafeAreaView>
   );
 }
