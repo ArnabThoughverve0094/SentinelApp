@@ -4,8 +4,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from "expo-router";
-import { addDoc, collection } from "firebase/firestore";
-import React, { useEffect, useRef, useState } from "react";
+import { addDoc, arrayUnion, collection, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -16,6 +16,7 @@ import {
   Platform,
   ScrollView,
   StatusBar,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -292,6 +293,8 @@ export default function CreatePost() {
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(false);
+  const [currentUserDocId, setCurrentUserDocId] = useState('');
+  const [isAnonymous, setIsAnonymous] = useState(false);
 
   // Modal states
   const [modalConfig, setModalConfig] = useState<{
@@ -598,6 +601,40 @@ export default function CreatePost() {
     }
   };
 
+  const fetchUserData = useCallback(async () => {
+    try {
+      let fetchuserID = userId;
+      if(fetchuserID === "") {
+        fetchuserID = await AsyncStorage.getItem('userId') || "";
+        setUserId(fetchuserID);
+      }
+
+      if (fetchuserID) {
+        console.log('🔄 Fetching following list for user:', fetchuserID);
+        
+        const sentinelUsersRef = collection(db, 'SentinelUsers');
+        const q = query(sentinelUsersRef, where('userID', '==', fetchuserID));
+        
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          if (!snapshot.empty) {
+            const userDoc = snapshot.docs[0];
+            const userData = userDoc.data();
+            setCurrentUserDocId(userDoc.id);
+            console.log('✅ Current user doc updated');
+          } else {
+            console.log('📱 No user document found');
+            setCurrentUserDocId('');
+          }
+        });
+
+        return unsubscribe;
+      }
+    } catch (error) {
+      console.error('Error fetching following list:', error);
+      setCurrentUserDocId('');
+    }
+  }, [userId]);
+
   // **ENHANCED: Post handler with better error management**
   const handlePostNow = async () => {
     if (!postText.trim() && selectedMedia.length === 0) {
@@ -725,6 +762,7 @@ export default function CreatePost() {
         ContentRepostCount: 0,
         isApproved: false,
         isLiked: false,
+        isAnonymous: isAnonymous,
       });
 
       setPostText('');
@@ -754,6 +792,40 @@ export default function CreatePost() {
         ],
         'checkmark-circle'
       );
+
+      // Create Notification
+      if (currentUserDocId) {
+        const userRef = doc(db, "SentinelUsers", currentUserDocId);
+        await updateDoc(userRef, {
+          Notification: arrayUnion({
+            AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+            AuthorName: userName,
+            AuthorUserID: userId,
+            ContentDate: new Date(),
+            Description: 'Congrats! Your post has been submitted successfully and awaiting admin approval',
+            NotifyType: 'post_submitted',
+            ShowButtons: false,
+            Status: 'submitted',
+          }),
+        });
+        console.log(`✅ Submitted post`);
+      } else {
+        // Create new document if it doesn't exist
+        await addDoc(collection(db, 'SentinelUsers'), {
+          userID: await AsyncStorage.getItem('userId'),
+          Notification: [{
+            AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+            AuthorName: userName,
+            AuthorUserID: userId,
+            ContentDate: new Date(),
+            Description: 'Congrats! Your post has been submitted successfully and awaiting admin approval',
+            NotifyType: 'post_submitted',
+            ShowButtons: false,
+            Status: 'submitted',
+          }],
+        });
+        console.log(`✅ Created new user document and notification`);
+      }
     } catch (e) {
       console.error("❌ Firebase error:", e);
       showCustomAlert(
@@ -768,6 +840,7 @@ export default function CreatePost() {
 
   useEffect(() => {
     getItem();
+    fetchUserData();
   }, []);
 
   return (
@@ -1042,6 +1115,17 @@ export default function CreatePost() {
               </View>
             </View>
 
+            <View style={styles.anonymousOptionContainer}>
+              <TouchableOpacity
+                style={styles.checkbox}
+                onPress={() => setIsAnonymous(!isAnonymous)}
+              >
+                {/* 💡 Renders a checkmark if isAnonymous is true */}
+                {isAnonymous && <Text style={styles.checkmark}>✓</Text>}
+              </TouchableOpacity>
+              <Text style={styles.anonymousText}>Post as anonymous</Text>
+            </View>
+
             {/* Post Now Button */}
             <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
               <TouchableOpacity
@@ -1077,3 +1161,34 @@ export default function CreatePost() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  // ... existing styles ...
+
+  anonymousOptionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  checkbox: {
+    height: 20,
+    width: 20,
+    borderWidth: 2,
+    borderColor: '#ccc',
+    borderRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+    backgroundColor: 'white',
+  },
+  checkmark: {
+    color: 'black',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  anonymousText: {
+    fontSize: 16,
+    color: '#333',
+  },
+});
