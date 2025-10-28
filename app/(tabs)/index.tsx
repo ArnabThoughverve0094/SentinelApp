@@ -550,6 +550,7 @@ export default function SentinelFeed(): React.JSX.Element {
   const [currentUserDocId, setCurrentUserDocId] = useState('');
   const [notificationDetails, setNotificationDetails] = useState<any[]>([]);
   const [postUserDocId, setPostUserDocId] = useState('');
+  const [postUserDeviceToken, setPostUserDeviceToken] = useState('');
 
   const [isCommentModalVisible, setIsCommentModalVisible] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
@@ -625,6 +626,7 @@ export default function SentinelFeed(): React.JSX.Element {
             notificationDetails.push({
               docID: postId,
               userID: postData.userID,
+              docDeviceToken: postData.deviceToken,
             })
           }
 
@@ -1331,7 +1333,7 @@ export default function SentinelFeed(): React.JSX.Element {
     }
 
     try {
-      await handleApprovalToggle(rejectionPostId, false, false);
+      await handleApprovalToggle(rejectionPostId, false, false, "");
       
       await updateDoc(doc(db, 'SentinelPosts', rejectionPostId), {
         isApproved: false,
@@ -1383,6 +1385,36 @@ export default function SentinelFeed(): React.JSX.Element {
         });
         console.log(`✅ Created new user document and notification`);
       }
+
+      // Create a new Expo client instance
+      // let expo = new Expo();
+
+      // // Assume this token was retrieved from your database
+      // let targetToken = postUserDeviceToken; 
+
+      // // Check that the push token is valid
+      // if (!Expo.isExpoPushToken(targetToken)) {
+      //   console.error(`Push token ${targetToken} is not a valid Expo push token`);
+      // }
+
+      // // Construct the notification message
+      // let messages = [{
+      //   to: targetToken,
+      //   sound: 'default',
+      //   title: 'Post Rejected',
+      //   body: 'Post has been rejected successfully with '+ selectedRejectionReasons.length + ' reason(s).',
+      //   data: { withSome: 'data' }, // Data for your app to handle when the user taps
+      // }];
+
+      // // Send the message
+      // try {
+      //   let ticket = await expo.sendPushNotificationsAsync(messages);
+      //   console.log("Push notification sent, ticket:", ticket);
+
+      //   // You should save the 'ticket' ID to check the receipt later for errors.
+      // } catch (error) {
+      // console.error(error);
+      // }
       
     } catch (error) {
       console.error('Error rejecting post:', error);
@@ -1452,7 +1484,7 @@ export default function SentinelFeed(): React.JSX.Element {
   }, [isFlipped, isFlipping]);
 
   // APPROVAL TOGGLE WITH TOAST
-  const handleApprovalToggle = useCallback(async (postId: string, newApprovedStatus: boolean, newIsNew: boolean = false) => {
+  const handleApprovalToggle = useCallback(async (postId: string, newApprovedStatus: boolean, newIsNew: boolean = false, postUserID: string) => {
     console.log("Toggling post:", postId, "to approved:", newApprovedStatus, "isNew:", newIsNew);
 
     setFetchedData(prevData => 
@@ -1485,6 +1517,78 @@ export default function SentinelFeed(): React.JSX.Element {
           position: 'top',
           visibilityTime: 3000,
         });
+
+        for (const doc of notificationDetails){
+          if (doc.userID == postUserID) {
+            setPostUserDocId(doc.docID);
+            // setPostUserDeviceToken(doc.docDeviceToken);
+          }
+        }
+  
+        // Create Notification
+        if (postUserDocId) {
+          const userRef = doc(db, "SentinelUsers", postUserDocId);
+          await updateDoc(userRef, {
+            Notification: arrayUnion({
+              AuthorImageURL: await AsyncStorage.getItem('profilePicUrl') || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+              AuthorName: await AsyncStorage.getItem('userName'),
+              AuthorUserID: userId,
+              ContentDate: new Date(),
+              NotifyType: 'post_approved',
+              ShowButtons: false,
+              Status: 'approved',
+              Description: 'Great news! Your recent post has been approved and is now live.'
+            }),
+          });
+          console.log(`✅ Approved post`);
+        } else {
+          // Create new document if it doesn't exist
+          await addDoc(collection(db, 'SentinelUsers'), {
+            userID: userId,
+            Notification: [{
+              AuthorImageURL: await AsyncStorage.getItem('profilePicUrl') || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+              AuthorName: await AsyncStorage.getItem('userName'),
+              AuthorUserID: userId,
+              ContentDate: new Date(),
+              NotifyType: 'post_approved',
+              ShowButtons: false,
+              Status: 'approved',
+              Description: 'Great news! Your recent post has been approved and is now live.'
+            }],
+          });
+          console.log(`✅ Created new user document and notification`);
+        }
+
+        // Create a new Expo client instance
+        // let expo = new Expo();
+
+        // // Assume this token was retrieved from your database
+        // let targetToken = postUserDeviceToken; 
+
+        // // Check that the push token is valid
+        // if (!Expo.isExpoPushToken(targetToken)) {
+        //   console.error(`Push token ${targetToken} is not a valid Expo push token`);
+        // }
+
+        // // Construct the notification message
+        // let messages = [{
+        //   to: targetToken,
+        //   sound: 'default',
+        //   title: 'Post Approved',
+        //   body: 'Great news! Your recent post has been approved and is now live.',
+        //   data: { withSome: 'data' }, // Data for your app to handle when the user taps
+        // }];
+
+        // // Send the message
+        // try {
+        //   let ticket = await expo.sendPushNotificationsAsync(messages);
+        //   console.log("Push notification sent, ticket:", ticket);
+
+        //   // You should save the 'ticket' ID to check the receipt later for errors.
+        // } catch (error) {
+        // console.error(error);
+        // }
+
       }
       
     } catch (error) {
@@ -2171,52 +2275,13 @@ export default function SentinelFeed(): React.JSX.Element {
   }) => {
     const handleApproveClick = async () => {
       onToggle(true, false);
-
-      for (const doc of notificationDetails){
-        if (doc.userID == postItem.AuthorUserID) {
-          setPostUserDocId(doc.docID);
-        }
-      }
-
-      // Create Notification
-      if (postUserDocId) {
-        const userRef = doc(db, "SentinelUsers", postUserDocId);
-        await updateDoc(userRef, {
-          Notification: arrayUnion({
-            AuthorImageURL: await AsyncStorage.getItem('profilePicUrl') || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
-            AuthorName: await AsyncStorage.getItem('userName'),
-            AuthorUserID: userId,
-            ContentDate: new Date(),
-            NotifyType: 'post_approved',
-            ShowButtons: false,
-            Status: 'approved',
-            Description: 'Great news! Your recent post has been approved and is now live.'
-          }),
-        });
-        console.log(`✅ Approved post`);
-      } else {
-        // Create new document if it doesn't exist
-        await addDoc(collection(db, 'SentinelUsers'), {
-          userID: userId,
-          Notification: [{
-            AuthorImageURL: await AsyncStorage.getItem('profilePicUrl') || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
-            AuthorName: await AsyncStorage.getItem('userName'),
-            AuthorUserID: userId,
-            ContentDate: new Date(),
-            NotifyType: 'post_approved',
-            ShowButtons: false,
-            Status: 'approved',
-            Description: 'Great news! Your recent post has been approved and is now live.'
-          }],
-        });
-        console.log(`✅ Created new user document and notification`);
-      }
     };
 
     const handleRejectClick = () => {
       for (const doc of notificationDetails){
         if (doc.userID == postItem.AuthorUserID) {
           setPostUserDocId(doc.docID);
+          // setPostUserDeviceToken(doc.docDeviceToken);
         }
       }
       openRejectionModal(postId);
@@ -2508,7 +2573,7 @@ export default function SentinelFeed(): React.JSX.Element {
                   <ApprovalToggle
                     isApproved={item.isApproved}
                     isNew={item.isNew}
-                    onToggle={(approved, isNew) => handleApprovalToggle(item.id, approved, isNew)}
+                    onToggle={(approved, isNew) => handleApprovalToggle(item.id, approved, isNew, item.AuthorUserID)}
                     postId={item.id}
                     postItem={item}
                     isFullScreen={false}
