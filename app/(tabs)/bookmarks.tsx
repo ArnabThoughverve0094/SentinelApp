@@ -47,6 +47,7 @@ interface PostItem {
   createdAt?: any;
   bookmarkedAt?: any;
   CommentTemplate: string;
+  isAnonymous: boolean;
 }
 
 export default function BookmarksPage(): React.JSX.Element {
@@ -254,9 +255,16 @@ export default function BookmarksPage(): React.JSX.Element {
       // no image, just share text / link
       // you might use React Native's Share API
       
-      await Share.share({
-        message: `SENTINEL POST\n\nShared by Anonymous\n${postItem.ContentDesc}\n${postItem.ContentURL}\n\nPlease take a look.`,
-    });
+      if (postItem.isAnonymous) {
+        await Share.share({
+          message: `SENTINEL POST\n\nShared by Anonymous\n${postItem.ContentDesc}\n${postItem.ContentURL}\n\nPlease take a look.`,
+        });  
+      } else {
+        await Share.share({
+          message: `SENTINEL POST\n\nShared by ${postItem.AuthorName}\n${postItem.ContentDesc}\n${postItem.ContentURL}\n\nPlease take a look.`,
+        });
+      }
+      
       
     } catch (error) {
       console.log("Error sharing ", error);
@@ -749,138 +757,149 @@ export default function BookmarksPage(): React.JSX.Element {
     );
   }, [cardAnimations]);
 
-  const renderBookmarkedPost = useCallback((item: PostItem, index: number) => (
-    <TouchableOpacity 
-      activeOpacity={0.95}
-      onPress={() => openCommentsModal(item)}
-    >
-        <EnhancedCard postId={item.uniqueId}>
-      <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
-        <View className="flex-row items-center justify-between">
-          <View className="flex-row items-center flex-1">
-            <View className="relative">
-              <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
-                <Image
-                  // source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
-                  source={{ uri: dummyAuthorImage }}
-                  className="w-full h-full"
-                  resizeMode="cover"
-                />
+  const renderBookmarkedPost = useCallback((item: PostItem, index: number) =>{
+    let AuthorName = "";
+    let AuthorImage = "";
+    if (item.isAnonymous) {
+      AuthorName = "Anonymous";
+      AuthorImage = dummyAuthorImage;
+    } else {
+      AuthorName = item.AuthorName;
+      AuthorImage = item.AuthorImageURL;
+    }
+
+    return (
+      <TouchableOpacity 
+        activeOpacity={0.95}
+        onPress={() => openCommentsModal(item)}
+      >
+          <EnhancedCard postId={item.uniqueId}>
+        <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
+          <View className="flex-row items-center justify-between">
+            <View className="flex-row items-center flex-1">
+              <View className="relative">
+                <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
+                  <Image
+                    // source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
+                    source={{ uri: AuthorImage || dummyAuthorImage }}
+                    className="w-full h-full"
+                    resizeMode="cover"
+                  />
+                </View>
+              </View>
+              <View className="flex-1">
+                <Text className="font-bold text-gray-900 text-sm">{AuthorName}</Text>
+                <View className="flex-row items-center mt-0.5">
+                  <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
+                </View>
               </View>
             </View>
-            <View className="flex-1">
-              {/* <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text> */}
-              <Text className="font-bold text-gray-900 text-sm">Anonymous</Text>
-              <View className="flex-row items-center mt-0.5">
-                <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
-              </View>
-            </View>
-          </View>
-          <TouchableOpacity 
-            className="p-1.5"
-            onPress={() => handleRemoveBookmark(item)}
-          >
-            <Ionicons name="bookmark" size={14} color="#000" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View className="px-3 py-2.5">
-        <Text className="text-gray-800 text-sm leading-5 mb-2 font-normal">{item.ContentDesc}</Text>
-
-        {renderMediaContent(item, index)}
-
-        <View className="flex-row items-center justify-between pt-1.5">
-          <TouchableOpacity
-            className="flex-row items-center px-1.5 py-1"
-            onPress={(e) => {
-              e.stopPropagation();
-              toggleLike(item);
-            }}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={item.Liked ? "heart" : "heart-outline"}
-              size={14}
-              color={item.Liked ? "#ef4444" : "#64748b"}
-            />
-            <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
-              {item.ContentLikeCount}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            className="flex-row items-center px-1.5 py-1"
-            onPress={(e) => {
-              e.stopPropagation();
-              openCommentsModal(item);
-            }}
-            activeOpacity={0.7}
-          >
-            <MaterialCommunityIcons
-              name="thumbs-up-down"
-              size={14}
-              color="#000000"
-            />
-            <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            className="flex-row items-center px-1.5 py-1 "
-            onPress={(e) => {
-              e.stopPropagation();
-              handleRepost(item);
-            }}
-            activeOpacity={0.7}
-          >
-            <Ionicons 
-              name="repeat-outline" 
-              size={14} 
-              color={item.Reposted ? "#0ea5e9" : "#64748b"} 
-            />
-            <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
-              {item.ContentRepostCount}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
+            <TouchableOpacity 
               className="p-1.5"
-              onPress={() => console.log("Graph pressed:", item.id)}
+              onPress={() => handleRemoveBookmark(item)}
+            >
+              <Ionicons name="bookmark" size={14} color="#000" />
+            </TouchableOpacity>
+          </View>
+        </View>
+  
+        <View className="px-3 py-2.5">
+          <Text className="text-gray-800 text-sm leading-5 mb-2 font-normal">{item.ContentDesc}</Text>
+  
+          {renderMediaContent(item, index)}
+  
+          <View className="flex-row items-center justify-between pt-1.5">
+            <TouchableOpacity
+              className="flex-row items-center px-1.5 py-1"
+              onPress={(e) => {
+                e.stopPropagation();
+                toggleLike(item);
+              }}
               activeOpacity={0.7}
             >
-              <Feather name="bar-chart-2" size={16} color="#64748b" />
+              <Ionicons
+                name={item.Liked ? "heart" : "heart-outline"}
+                size={14}
+                color={item.Liked ? "#ef4444" : "#64748b"}
+              />
+              <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
+                {item.ContentLikeCount}
+              </Text>
             </TouchableOpacity>
-
-          <TouchableOpacity
-            className="flex-row items-center px-1.5 py-1"
-            onPress={(e) => {
-              e.stopPropagation();
-              handleRemoveBookmark(item);
-            }}
-            activeOpacity={0.7}
-          >
-            <Ionicons 
-              name="bookmark" 
-              size={14} 
-              color="#000" 
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            className="p-1"
-            onPress={(e) => {
-              e.stopPropagation();
-              handleShare(item);
-            }}
-            activeOpacity={0.7}
-          >
-            <Feather name="share-2" size={12} color="#64748b" />
-          </TouchableOpacity>
+  
+            <TouchableOpacity
+              className="flex-row items-center px-1.5 py-1"
+              onPress={(e) => {
+                e.stopPropagation();
+                openCommentsModal(item);
+              }}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name="thumbs-up-down"
+                size={14}
+                color="#000000"
+              />
+              <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
+            </TouchableOpacity>
+  
+            <TouchableOpacity
+              className="flex-row items-center px-1.5 py-1 "
+              onPress={(e) => {
+                e.stopPropagation();
+                handleRepost(item);
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons 
+                name="repeat-outline" 
+                size={14} 
+                color={item.Reposted ? "#0ea5e9" : "#64748b"} 
+              />
+              <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
+                {item.ContentRepostCount}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+                className="p-1.5"
+                onPress={() => console.log("Graph pressed:", item.id)}
+                activeOpacity={0.7}
+              >
+                <Feather name="bar-chart-2" size={16} color="#64748b" />
+              </TouchableOpacity>
+  
+            <TouchableOpacity
+              className="flex-row items-center px-1.5 py-1"
+              onPress={(e) => {
+                e.stopPropagation();
+                handleRemoveBookmark(item);
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons 
+                name="bookmark" 
+                size={14} 
+                color="#000" 
+              />
+            </TouchableOpacity>
+  
+            <TouchableOpacity 
+              className="p-1"
+              onPress={(e) => {
+                e.stopPropagation();
+                handleShare(item);
+              }}
+              activeOpacity={0.7}
+            >
+              <Feather name="share-2" size={12} color="#64748b" />
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </EnhancedCard>
-    </TouchableOpacity>
-    
-  ), [EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleRemoveBookmark, dummyAuthorImage, openCommentsModal]);
+      </EnhancedCard>
+      </TouchableOpacity>
+      
+    )
+  } , [EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleRemoveBookmark, dummyAuthorImage, openCommentsModal]);
 
   const listItems = useMemo(() => {
     return filteredAndSortedPosts.map((item, index) => {

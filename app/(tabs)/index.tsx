@@ -5,7 +5,7 @@ import * as Application from 'expo-application';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from "expo-sharing";
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { addDoc, arrayRemove, arrayUnion, collection, doc, getDocs, onSnapshot, orderBy, query, updateDoc, where } from 'firebase/firestore';
+import { addDoc, arrayRemove, arrayUnion, collection, doc, getDocs, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
@@ -65,6 +65,7 @@ interface PostItem {
   repostedBy?: string;
   repostedAt?: any;
   CommentTemplate: string;
+  isAnonymous: boolean;
 }
 
 // Tab Header Component
@@ -198,6 +199,16 @@ const RepostModal: React.FC<RepostModalProps> = ({
 
   if (!visible || !post) return null;
 
+  let AuthorName = "";
+  let AuthorImage = "";
+  if (post.isAnonymous) {
+    AuthorName = "Anonymous";
+    AuthorImage = dummyAuthorImage;
+  } else {
+    AuthorName = post.AuthorName;
+    AuthorImage = post.AuthorImageURL;
+  }
+
   return (
     <Modal
       visible={visible}
@@ -230,12 +241,11 @@ const RepostModal: React.FC<RepostModalProps> = ({
               <View className="flex-row items-center mb-2">
                 <Image
                   // source={{ uri: post.AuthorImageURL }}
-                  source={{uri: dummyAuthorImage}}
+                  source={{uri: AuthorImage || dummyAuthorImage}}
                   className="w-8 h-8 rounded-full mr-2"
                   resizeMode="cover"
                 />
-                {/* <Text className="font-semibold text-gray-900 text-sm">{post.AuthorName}</Text> */}
-                <Text className="font-semibold text-gray-900 text-sm">Anonymous</Text>
+                <Text className="font-semibold text-gray-900 text-sm">{AuthorName}</Text>
               </View>
               <Text className="text-gray-700 text-sm" numberOfLines={3}>
                 {post.ContentDesc}
@@ -538,6 +548,8 @@ export default function SentinelFeed(): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<'forYou' | 'following'>('forYou');
   const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
   const [currentUserDocId, setCurrentUserDocId] = useState('');
+  const [notificationDetails, setNotificationDetails] = useState<any[]>([]);
+  const [postUserDocId, setPostUserDocId] = useState('');
 
   const [isCommentModalVisible, setIsCommentModalVisible] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
@@ -590,21 +602,34 @@ export default function SentinelFeed(): React.JSX.Element {
         console.log('🔄 Fetching following list for user:', fetchuserID);
         
         const sentinelUsersRef = collection(db, 'SentinelUsers');
-        const q = query(sentinelUsersRef, where('userID', '==', fetchuserID));
+        const q = query(sentinelUsersRef);
         
         const unsubscribe = onSnapshot(q, (snapshot) => {
-          if (!snapshot.empty) {
-            const userDoc = snapshot.docs[0];
-            const userData = userDoc.data();
-            setCurrentUserDocId(userDoc.id);
-            const following = userData.Following || [];
-            setFollowingUserIds(following);
-            console.log('✅ Following list updated:', following);
-          } else {
-            console.log('📱 No user document found');
-            setFollowingUserIds([]);
-            setCurrentUserDocId('');
+          const snapshotDataArr = snapshot.docs.map(doc => ({
+            id: doc.id,
+            data: doc.data(),
+          }))
+
+          for (const doc of snapshotDataArr) {
+            const postData = doc.data;
+            const postId = doc.id;
+
+            if (postData.userID == fetchuserID) {
+              setCurrentUserDocId(postId);
+                
+              const following = postData.Following || [];
+              setFollowingUserIds(following);
+              console.log('✅ Following list updated:', following);
+            }
+
+            notificationDetails.push({
+              docID: postId,
+              userID: postData.userID,
+            })
           }
+
+          setNotificationDetails(notificationDetails);
+          
         });
 
         return unsubscribe;
@@ -814,6 +839,12 @@ export default function SentinelFeed(): React.JSX.Element {
             Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
             createdAt: postData.createdAt || postData.ContentDate,
             CommentTemplate: postData.CommentTemplate || "Sentinel Default Template",
+            isRepost: postData.isRepost || false,
+            originalPost: postData.originalPost || null,
+            repostComment: postData.repostComment || '',
+            repostedBy: postData.repostedBy || '',
+            repostedAt: postData.repostedAt || null,
+            isAnonymous: false,
           });
         }
 
@@ -864,6 +895,7 @@ export default function SentinelFeed(): React.JSX.Element {
             repostComment: postData.repostComment || '',
             repostedBy: postData.repostedBy || '',
             repostedAt: postData.repostedAt || null,
+            isAnonymous: postData.isAnonymous || false,
           });
         }
 
@@ -1317,6 +1349,40 @@ export default function SentinelFeed(): React.JSX.Element {
         position: 'top',
         visibilityTime: 3000,
       });
+
+      // Create Notification
+      if (postUserDocId) {
+        const userRef = doc(db, "SentinelUsers", postUserDocId);
+        await updateDoc(userRef, {
+          Notification: arrayUnion({
+            AuthorImageURL: await AsyncStorage.getItem('profilePicUrl') || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+            AuthorName: await AsyncStorage.getItem('userName'),
+            AuthorUserID: await AsyncStorage.getItem('userId'),
+            ContentDate: new Date(),
+            NotifyType: 'post_rejected',
+            ShowButtons: false,
+            Status: 'rejected',
+            Description: 'Post has been rejected successfully with '+ selectedRejectionReasons.length + ' reason(s).'
+          }),
+        });
+        console.log(`✅ Rejected post`);
+      } else {
+        // Create new document if it doesn't exist
+        await addDoc(collection(db, 'SentinelUsers'), {
+          userID: await AsyncStorage.getItem('userId'),
+          Notification: [{
+            AuthorImageURL: await AsyncStorage.getItem('profilePicUrl') || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+            AuthorName: await AsyncStorage.getItem('userName'),
+            AuthorUserID: await AsyncStorage.getItem('userId'),
+            ContentDate: new Date(),
+            NotifyType: 'post_rejected',
+            ShowButtons: false,
+            Status: 'rejected',
+            Description: 'Post has been rejected successfully with '+ selectedRejectionReasons.length + ' reason(s).'
+          }],
+        });
+        console.log(`✅ Created new user document and notification`);
+      }
       
     } catch (error) {
       console.error('Error rejecting post:', error);
@@ -1806,9 +1872,16 @@ export default function SentinelFeed(): React.JSX.Element {
     }
 
     try {
-      await Share.share({
-        message: `SENTINEL POST\n\nShared by Anonymous\n${postItem.ContentDesc}\n${postItem.ContentURL}\n\nPlease take a look.`,
-      });
+      if (postItem.isAnonymous) {
+        await Share.share({
+          message: `SENTINEL POST\n\nShared by Anonymous\n${postItem.ContentDesc}\n${postItem.ContentURL}\n\nPlease take a look.`,
+        });
+      } else {
+        await Share.share({
+          message: `SENTINEL POST\n\nShared by ${postItem.AuthorName}\n${postItem.ContentDesc}\n${postItem.ContentURL}\n\nPlease take a look.`,
+        });
+      }
+      
       
     } catch (error) {
       console.log("Error sharing ", error);
@@ -1996,17 +2069,26 @@ export default function SentinelFeed(): React.JSX.Element {
   const renderRepostContent = useCallback((item: PostItem) => {
     if (!item.isRepost || !item.originalPost) return null;
 
+    let AuthorName = "";
+    let AuthorImage = "";
+    if (item.originalPost.isAnonymous) {
+      AuthorName = "Anonymous";
+      AuthorImage = dummyAuthorImage;
+    } else {
+      AuthorName = item.AuthorName;
+      AuthorImage = item.AuthorImageURL;
+    }
+
     return (
       <View className="border border-gray-200 rounded-xl p-3 mt-2 bg-gray-50">
         <View className="flex-row items-center mb-2">
           <Image
             // source={{ uri: item.originalPost.AuthorImageURL || dummyAuthorImage }}
-            source={{ uri: dummyAuthorImage }}
+            source={{ uri: AuthorImage || dummyAuthorImage }}
             className="w-6 h-6 rounded-full mr-2"
             resizeMode="cover"
           />
-          {/* <Text className="font-semibold text-gray-900 text-sm">{item.originalPost.AuthorName}</Text> */}
-          <Text className="font-semibold text-gray-900 text-sm">Anonymous</Text>
+          <Text className="font-semibold text-gray-900 text-sm">{AuthorName}</Text>
           <Text className="text-gray-500 text-xs ml-2">
             {getTimeAgo(item.originalPost.ContentDate)}
           </Text>
@@ -2079,18 +2161,64 @@ export default function SentinelFeed(): React.JSX.Element {
     });
   }, [filteredData, getMediaType, currentVideoIndex]);
 
-  const ApprovalToggle = useCallback(({ isApproved, isNew, onToggle, postId, isFullScreen = false }: { 
+  const ApprovalToggle = useCallback(({ isApproved, isNew, onToggle, postId, postItem, isFullScreen = false }: { 
     isApproved: boolean; 
     isNew: boolean;
     onToggle: (approved: boolean, isNew: boolean) => void;
     postId: string;
+    postItem: PostItem;
     isFullScreen?: boolean;
   }) => {
-    const handleApproveClick = () => {
+    const handleApproveClick = async () => {
       onToggle(true, false);
+
+      for (const doc of notificationDetails){
+        if (doc.userID == postItem.AuthorUserID) {
+          setPostUserDocId(doc.docID);
+        }
+      }
+
+      // Create Notification
+      if (postUserDocId) {
+        const userRef = doc(db, "SentinelUsers", postUserDocId);
+        await updateDoc(userRef, {
+          Notification: arrayUnion({
+            AuthorImageURL: await AsyncStorage.getItem('profilePicUrl') || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+            AuthorName: await AsyncStorage.getItem('userName'),
+            AuthorUserID: userId,
+            ContentDate: new Date(),
+            NotifyType: 'post_approved',
+            ShowButtons: false,
+            Status: 'approved',
+            Description: 'Great news! Your recent post has been approved and is now live.'
+          }),
+        });
+        console.log(`✅ Approved post`);
+      } else {
+        // Create new document if it doesn't exist
+        await addDoc(collection(db, 'SentinelUsers'), {
+          userID: userId,
+          Notification: [{
+            AuthorImageURL: await AsyncStorage.getItem('profilePicUrl') || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+            AuthorName: await AsyncStorage.getItem('userName'),
+            AuthorUserID: userId,
+            ContentDate: new Date(),
+            NotifyType: 'post_approved',
+            ShowButtons: false,
+            Status: 'approved',
+            Description: 'Great news! Your recent post has been approved and is now live.'
+          }],
+        });
+        console.log(`✅ Created new user document and notification`);
+      }
     };
 
     const handleRejectClick = () => {
+      for (const doc of notificationDetails){
+        if (doc.userID == postItem.AuthorUserID) {
+          setPostUserDocId(doc.docID);
+        }
+      }
       openRejectionModal(postId);
     };
 
@@ -2202,360 +2330,383 @@ export default function SentinelFeed(): React.JSX.Element {
     }
   }, []);
 
-  const renderPostContent = useCallback((item: PostItem, index: number) => (
-    <TouchableOpacity 
-      activeOpacity={0.95}
-      onPress={() => openCommentsModal(item)}
-    >
-      <EnhancedCard postId={item.uniqueId}>
-        <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
-          <View className="flex-row items-center">
-            <View className="relative">
-              <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
-                <Image
-                  // source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
-                  source={{ uri: dummyAuthorImage }}
-                  className="w-full h-full"
-                  resizeMode="cover"
-                />
-              </View>
-            </View>
-            <View className="flex-1">
-              {/* <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text> */}
-              <Text className="font-bold text-gray-900 text-sm">Anonymous</Text>
-              <View className="flex-row items-center mt-0.5">
-                <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
-                {item.postType === 'X-Data' && (
-                  <View className="bg-blue-100 px-1.5 py-0.5 rounded-full mr-1.5">
-                    <Text className="text-blue-600 text-xs font-semibold">𝕏 POST</Text>
-                  </View>
-                )}
-                {item.postType === 'SentinelPosts' && (
-                  <View className={`px-1.5 py-0.5 rounded-full ${getPostStatus(item).bgColor}`}>
-                    <Text className="text-xs font-semibold" style={{ color: getPostStatus(item).color }}>
-                      {getPostStatus(item).text}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
-            <TouchableOpacity className="p-1.5 rounded-full bg-gray-100">
-              <Ionicons name="ellipsis-horizontal" size={12} color="#64748b" />
-            </TouchableOpacity>
-          </View>
-        </View>
+  const renderPostContent = useCallback((item: PostItem, index: number) => {
+    let AuthorName = "";
+    let AuthorImage = "";
+    if (item.isAnonymous) {
+      AuthorName = "Anonymous";
+      AuthorImage = dummyAuthorImage;
+    } else {
+      AuthorName = item.AuthorName;
+      AuthorImage = item.AuthorImageURL;
+    }
 
-        <View className="px-3 py-2.5">
-          <Text className="text-gray-800 text-sm leading-5 mb-2 font-normal">{item.ContentDesc}</Text>
-
-          {renderRepostContent(item)}
-
-          {(!item.isRepost || item.repostComment) && renderMediaContent(item, index)}
-
-          <View className="flex-row items-center justify-between pt-1.5">
-            <TouchableOpacity
-              className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-              onPress={(e) => {
-                e.stopPropagation();
-                toggleLike(item);
-              }}
-              activeOpacity={0.7}
-              disabled={areInteractionsDisabled(item)}
-            >
-              <Ionicons
-                name={item.Liked ? "heart" : "heart-outline"}
-                size={14}
-                color={item.Liked ? "#ef4444" : "#64748b"}
-              />
-              <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
-                {item.ContentLikeCount}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-              onPress={(e) => {
-                e.stopPropagation();
-                openCommentsModal(item);
-              }}
-              activeOpacity={0.7}
-              disabled={areInteractionsDisabled(item)}
-            >
-              <MaterialCommunityIcons
-                name="thumbs-up-down"
-                size={14}
-                color="#000000"
-              />
-              <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-              onPress={(e) => {
-                e.stopPropagation();
-                handleRepost(item);
-              }}
-              activeOpacity={0.7}
-              disabled={areInteractionsDisabled(item)}
-            >
-              <Ionicons 
-                name="repeat-outline" 
-                size={14} 
-                color={item.Reposted ? "#0ea5e9" : "#64748b"} 
-              />
-              <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
-                {item.ContentRepostCount}
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              className={`p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-              onPress={(e) => {
-                e.stopPropagation();
-                openGraphModal(item);
-              }}
-              activeOpacity={0.7}
-              disabled={areInteractionsDisabled(item)}
-            >
-              <Feather name="bar-chart-2" size={16} color="#64748b" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-              onPress={(e) => {
-                e.stopPropagation();
-                handleBookmark(item);
-              }}
-              activeOpacity={0.7}
-              disabled={areInteractionsDisabled(item)}
-            >
-              <Ionicons 
-                name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
-                size={14} 
-                color={item.Bookmarked ? "#000000" : "#64748b"} 
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              className={`p-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-              onPress={(e) => {
-                e.stopPropagation();
-                handleShare(item);
-              }}
-              activeOpacity={0.7}
-              disabled={areInteractionsDisabled(item)}
-            >
-              <Feather name="share-2" size={12} color="#64748b" />
-            </TouchableOpacity>
-          </View>
-
-          {userRole !== "User" && item.postType === "SentinelPosts" && (
-            <TouchableOpacity
-              onPress={(e) => e.stopPropagation()}
-              activeOpacity={1}
-            >
-              <View className="mt-2 p-2.5 bg-gray-50 rounded-lg border border-gray-200">
-                <View className="mb-2">
-                  <Text className="font-bold text-gray-900 text-sm">Post Status</Text>
-                  <Text className="text-gray-500 text-xs mt-0.5">
-                    {item.isNew 
-                      ? 'This post is new and awaiting review' 
-                      : item.isApproved
-                      ? 'This post is approved and visible to users' 
-                      : 'This post is rejected and not visible to users'
-                    }
-                  </Text>
-                </View>
-                
-                <ApprovalToggle
-                  isApproved={item.isApproved}
-                  isNew={item.isNew}
-                  onToggle={(approved, isNew) => handleApprovalToggle(item.id, approved, isNew)}
-                  postId={item.id}
-                  isFullScreen={false}
-                />
-              </View>
-            </TouchableOpacity>
-          )}
-          {userRole !== "User" && item.postType === "SentinelPosts" && (
-            <TouchableOpacity
-              onPress={(e) => e.stopPropagation()}
-              activeOpacity={1}
-            >
-              <View className="mt-2 p-2.5 bg-gray-50 rounded-lg border border-gray-200">
-                <View style={styles.container}>
-                  <View style={[styles.labelContainer, { maxWidth: width * 0.6 }]}>
-                    <Text style={styles.label}>Vote Option:</Text>
-                  </View>
-                  <Dropdown
-                    data={fetchedCommentTemplate}
-                    labelField="name"
-                    valueField="name"
-                    value={item.CommentTemplate}
-                    onChange={itemValue => handleDropdownChange(itemValue, item)}
-                    style={styles.dropdown}
+    return (
+      <TouchableOpacity 
+        activeOpacity={0.95}
+        onPress={() => openCommentsModal(item)}
+      >
+        <EnhancedCard postId={item.uniqueId}>
+          <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
+            <View className="flex-row items-center">
+              <View className="relative">
+                <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
+                  <Image
+                    // source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
+                    source={{ uri: AuthorImage || dummyAuthorImage }}
+                    className="w-full h-full"
+                    resizeMode="cover"
                   />
                 </View>
               </View>
-            </TouchableOpacity>
-          )}
-        </View>
-      </EnhancedCard>
-    </TouchableOpacity>
-  ), [openCommentsModal, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, ApprovalToggle, handleApprovalToggle, dummyAuthorImage, userRole, getPostStatus, areInteractionsDisabled, openGraphModal, renderRepostContent]);
-
-  const renderPostUserContent = useCallback((item: PostItem, index: number) => (
-    <TouchableOpacity 
-      activeOpacity={0.95}
-      onPress={() => openCommentsModal(item)}
-    >
-      <EnhancedCard postId={item.uniqueId}>
-        <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
-          <View className="flex-row items-center">
-            <View className="relative">
-              <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
-                <Image
-                  // source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
-                  source={{ uri: dummyAuthorImage }}
-                  className="w-full h-full"
-                  resizeMode="cover"
+              <View className="flex-1">
+                <Text className="font-bold text-gray-900 text-sm">{AuthorName}</Text>
+                <View className="flex-row items-center mt-0.5">
+                  <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
+                  {item.postType === 'X-Data' && (
+                    <View className="bg-blue-100 px-1.5 py-0.5 rounded-full mr-1.5">
+                      <Text className="text-blue-600 text-xs font-semibold">𝕏 POST</Text>
+                    </View>
+                  )}
+                  {item.postType === 'SentinelPosts' && (
+                    <View className={`px-1.5 py-0.5 rounded-full ${getPostStatus(item).bgColor}`}>
+                      <Text className="text-xs font-semibold" style={{ color: getPostStatus(item).color }}>
+                        {getPostStatus(item).text}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+              <TouchableOpacity className="p-1.5 rounded-full bg-gray-100">
+                <Ionicons name="ellipsis-horizontal" size={12} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+          </View>
+  
+          <View className="px-3 py-2.5">
+            <Text className="text-gray-800 text-sm leading-5 mb-2 font-normal">{item.ContentDesc}</Text>
+  
+            {renderRepostContent(item)}
+  
+            {(!item.isRepost || item.repostComment) && renderMediaContent(item, index)}
+  
+            <View className="flex-row items-center justify-between pt-1.5">
+              <TouchableOpacity
+                className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  toggleLike(item);
+                }}
+                activeOpacity={0.7}
+                disabled={areInteractionsDisabled(item)}
+              >
+                <Ionicons
+                  name={item.Liked ? "heart" : "heart-outline"}
+                  size={14}
+                  color={item.Liked ? "#ef4444" : "#64748b"}
                 />
-              </View>
+                <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
+                  {item.ContentLikeCount}
+                </Text>
+              </TouchableOpacity>
+  
+              <TouchableOpacity
+                className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  openCommentsModal(item);
+                }}
+                activeOpacity={0.7}
+                disabled={areInteractionsDisabled(item)}
+              >
+                <MaterialCommunityIcons
+                  name="thumbs-up-down"
+                  size={14}
+                  color="#000000"
+                />
+                <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
+              </TouchableOpacity>
+  
+              <TouchableOpacity
+                className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleRepost(item);
+                }}
+                activeOpacity={0.7}
+                disabled={areInteractionsDisabled(item)}
+              >
+                <Ionicons 
+                  name="repeat-outline" 
+                  size={14} 
+                  color={item.Reposted ? "#0ea5e9" : "#64748b"} 
+                />
+                <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
+                  {item.ContentRepostCount}
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                className={`p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  openGraphModal(item);
+                }}
+                activeOpacity={0.7}
+                disabled={areInteractionsDisabled(item)}
+              >
+                <Feather name="bar-chart-2" size={16} color="#64748b" />
+              </TouchableOpacity>
+  
+              <TouchableOpacity
+                className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleBookmark(item);
+                }}
+                activeOpacity={0.7}
+                disabled={areInteractionsDisabled(item)}
+              >
+                <Ionicons 
+                  name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
+                  size={14} 
+                  color={item.Bookmarked ? "#000000" : "#64748b"} 
+                />
+              </TouchableOpacity>
+  
+              <TouchableOpacity 
+                className={`p-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleShare(item);
+                }}
+                activeOpacity={0.7}
+                disabled={areInteractionsDisabled(item)}
+              >
+                <Feather name="share-2" size={12} color="#64748b" />
+              </TouchableOpacity>
             </View>
-            <View className="flex-1">
-              {/* <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text> */}
-              <Text className="font-bold text-gray-900 text-sm">Anonymous</Text>
-              <View className="flex-row items-center mt-0.5">
-                <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
-                {item.postType === 'X-Data' && (
-                  <View className="bg-blue-100 px-1.5 py-0.5 rounded-full">
-                    <Text className="text-blue-600 text-xs font-medium">𝕏 POST</Text>
+  
+            {userRole !== "User" && item.postType === "SentinelPosts" && (
+              <TouchableOpacity
+                onPress={(e) => e.stopPropagation()}
+                activeOpacity={1}
+              >
+                <View className="mt-2 p-2.5 bg-gray-50 rounded-lg border border-gray-200">
+                  <View className="mb-2">
+                    <Text className="font-bold text-gray-900 text-sm">Post Status</Text>
+                    <Text className="text-gray-500 text-xs mt-0.5">
+                      {item.isNew 
+                        ? 'This post is new and awaiting review' 
+                        : item.isApproved
+                        ? 'This post is approved and visible to users' 
+                        : 'This post is rejected and not visible to users'
+                      }
+                    </Text>
                   </View>
-                )}
+                  
+                  <ApprovalToggle
+                    isApproved={item.isApproved}
+                    isNew={item.isNew}
+                    onToggle={(approved, isNew) => handleApprovalToggle(item.id, approved, isNew)}
+                    postId={item.id}
+                    postItem={item}
+                    isFullScreen={false}
+                  />
+                </View>
+              </TouchableOpacity>
+            )}
+            {userRole !== "User" && item.postType === "SentinelPosts" && (
+              <TouchableOpacity
+                onPress={(e) => e.stopPropagation()}
+                activeOpacity={1}
+              >
+                <View className="mt-2 p-2.5 bg-gray-50 rounded-lg border border-gray-200">
+                  <View style={styles.container}>
+                    <View style={[styles.labelContainer, { maxWidth: width * 0.6 }]}>
+                      <Text style={styles.label}>Vote Option:</Text>
+                    </View>
+                    <Dropdown
+                      data={fetchedCommentTemplate}
+                      labelField="name"
+                      valueField="name"
+                      value={item.CommentTemplate}
+                      onChange={itemValue => handleDropdownChange(itemValue, item)}
+                      style={styles.dropdown}
+                    />
+                  </View>
+                </View>
+              </TouchableOpacity>
+            )}
+          </View>
+        </EnhancedCard>
+      </TouchableOpacity>
+    )
+  }, [openCommentsModal, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, ApprovalToggle, handleApprovalToggle, dummyAuthorImage, userRole, getPostStatus, areInteractionsDisabled, openGraphModal, renderRepostContent]);
+
+  const renderPostUserContent = useCallback((item: PostItem, index: number) => {
+    let AuthorName = "";
+    let AuthorImage = "";
+    if (item.isAnonymous) {
+      AuthorName = "Anonymous";
+      AuthorImage = dummyAuthorImage;
+    } else {
+      AuthorName = item.AuthorName;
+      AuthorImage = item.AuthorImageURL;
+    }
+
+    return (
+      <TouchableOpacity 
+        activeOpacity={0.95}
+        onPress={() => openCommentsModal(item)}
+      >
+        <EnhancedCard postId={item.uniqueId}>
+          <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
+            <View className="flex-row items-center">
+              <View className="relative">
+                <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
+                  <Image
+                    // source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
+                    source={{ uri: AuthorImage || dummyAuthorImage }}
+                    className="w-full h-full"
+                    resizeMode="cover"
+                  />
+                </View>
               </View>
+              <View className="flex-1">
+              <Text className="font-bold text-gray-900 text-sm">{AuthorName}</Text>
+                <View className="flex-row items-center mt-0.5">
+                  <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
+                  {item.postType === 'X-Data' && (
+                    <View className="bg-blue-100 px-1.5 py-0.5 rounded-full">
+                      <Text className="text-blue-600 text-xs font-medium">𝕏 POST</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+              <TouchableOpacity className="p-1.5 rounded-full bg-gray-100">
+                <Ionicons name="ellipsis-horizontal" size={12} color="#64748b" />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity className="p-1.5 rounded-full bg-gray-100">
-              <Ionicons name="ellipsis-horizontal" size={12} color="#64748b" />
-            </TouchableOpacity>
           </View>
-        </View>
-
-        <View className="px-3 py-2.5">
-          {item.isRepost && (
-            <View className="flex-row items-center mb-2 pb-2 border-b border-gray-100">
-              <Ionicons name="repeat" size={14} color="#64748b" />
-              <Text className="ml-1 text-gray-600 text-xs">
-                {item.repostComment ? 'Quote repost' : 'Reposted'}
-              </Text>
+  
+          <View className="px-3 py-2.5">
+            {item.isRepost && (
+              <View className="flex-row items-center mb-2 pb-2 border-b border-gray-100">
+                <Ionicons name="repeat" size={14} color="#64748b" />
+                <Text className="ml-1 text-gray-600 text-xs">
+                  {item.repostComment ? 'Quote repost' : 'Reposted'}
+                </Text>
+              </View>
+            )}
+  
+            <Text className="text-gray-800 text-sm leading-5 mb-2">{item.ContentDesc}</Text>
+  
+            {renderRepostContent(item)}
+  
+            {(!item.isRepost || item.repostComment) && renderMediaContent(item, index)}
+  
+            <View className="flex-row items-center justify-between pt-1.5">
+              <TouchableOpacity
+                className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  toggleLike(item);
+                }}
+                activeOpacity={0.7}
+                disabled={areInteractionsDisabled(item)}
+              >
+                <Ionicons
+                  name={item.Liked ? "heart" : "heart-outline"}
+                  size={14}
+                  color={item.Liked ? "#ef4444" : "#64748b"}
+                />
+                <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
+                  {item.ContentLikeCount}
+                </Text>
+              </TouchableOpacity>
+  
+              <TouchableOpacity
+                className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  openCommentsModal(item);
+                }}
+                activeOpacity={0.7}
+                disabled={areInteractionsDisabled(item)}
+              >
+                <MaterialCommunityIcons
+                  name="thumbs-up-down"
+                  size={14}
+                  color="#000000"
+                />
+                <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
+              </TouchableOpacity>
+  
+              <TouchableOpacity
+                className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleRepost(item);
+                }}
+                activeOpacity={0.7}
+                disabled={areInteractionsDisabled(item)}
+              >
+                <Ionicons 
+                  name="repeat-outline" 
+                  size={14} 
+                  color={item.Reposted ? "#0ea5e9" : "#64748b"} 
+                />
+                <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
+                  {item.ContentRepostCount}
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                className={`p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  openGraphModal(item);
+                }}
+                activeOpacity={0.7}
+                disabled={areInteractionsDisabled(item)}
+              >
+                <Feather name="bar-chart-2" size={16} color="#64748b" />
+              </TouchableOpacity>
+  
+              <TouchableOpacity
+                className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleBookmark(item);
+                }}
+                activeOpacity={0.7}
+                disabled={areInteractionsDisabled(item)}
+              >
+                <Ionicons 
+                  name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
+                  size={14} 
+                  color={item.Bookmarked ? "#000000" : "#64748b"} 
+                />
+              </TouchableOpacity>
+  
+              <TouchableOpacity 
+                className={`p-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleShare(item);
+                }}
+                activeOpacity={0.7}
+                disabled={areInteractionsDisabled(item)}
+              >
+                <Feather name="share-2" size={12} color="#64748b" />
+              </TouchableOpacity>
             </View>
-          )}
-
-          <Text className="text-gray-800 text-sm leading-5 mb-2">{item.ContentDesc}</Text>
-
-          {renderRepostContent(item)}
-
-          {(!item.isRepost || item.repostComment) && renderMediaContent(item, index)}
-
-          <View className="flex-row items-center justify-between pt-1.5">
-            <TouchableOpacity
-              className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-              onPress={(e) => {
-                e.stopPropagation();
-                toggleLike(item);
-              }}
-              activeOpacity={0.7}
-              disabled={areInteractionsDisabled(item)}
-            >
-              <Ionicons
-                name={item.Liked ? "heart" : "heart-outline"}
-                size={14}
-                color={item.Liked ? "#ef4444" : "#64748b"}
-              />
-              <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
-                {item.ContentLikeCount}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-              onPress={(e) => {
-                e.stopPropagation();
-                openCommentsModal(item);
-              }}
-              activeOpacity={0.7}
-              disabled={areInteractionsDisabled(item)}
-            >
-              <MaterialCommunityIcons
-                name="thumbs-up-down"
-                size={14}
-                color="#000000"
-              />
-              <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-              onPress={(e) => {
-                e.stopPropagation();
-                handleRepost(item);
-              }}
-              activeOpacity={0.7}
-              disabled={areInteractionsDisabled(item)}
-            >
-              <Ionicons 
-                name="repeat-outline" 
-                size={14} 
-                color={item.Reposted ? "#0ea5e9" : "#64748b"} 
-              />
-              <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
-                {item.ContentRepostCount}
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              className={`p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-              onPress={(e) => {
-                e.stopPropagation();
-                openGraphModal(item);
-              }}
-              activeOpacity={0.7}
-              disabled={areInteractionsDisabled(item)}
-            >
-              <Feather name="bar-chart-2" size={16} color="#64748b" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-              onPress={(e) => {
-                e.stopPropagation();
-                handleBookmark(item);
-              }}
-              activeOpacity={0.7}
-              disabled={areInteractionsDisabled(item)}
-            >
-              <Ionicons 
-                name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
-                size={14} 
-                color={item.Bookmarked ? "#000000" : "#64748b"} 
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              className={`p-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-              onPress={(e) => {
-                e.stopPropagation();
-                handleShare(item);
-              }}
-              activeOpacity={0.7}
-              disabled={areInteractionsDisabled(item)}
-            >
-              <Feather name="share-2" size={12} color="#64748b" />
-            </TouchableOpacity>
           </View>
-        </View>
-      </EnhancedCard>
-    </TouchableOpacity>
-  ), [openCommentsModal, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, dummyAuthorImage, areInteractionsDisabled, openGraphModal, renderRepostContent]);
+        </EnhancedCard>
+      </TouchableOpacity>
+    )
+  }, [openCommentsModal, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, dummyAuthorImage, areInteractionsDisabled, openGraphModal, renderRepostContent]);
 
   const listItems = useMemo(() => {
     console.log(`🔄 Rendering ${filteredData.length} items for ${activeTab} tab`);
