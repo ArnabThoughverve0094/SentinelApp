@@ -1,7 +1,12 @@
+import { db } from '@/FirebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+// import Constants from 'expo-constants';
+// import * as Device from 'expo-device';
+// import * as Notifications from 'expo-notifications';
 import { Link, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { addDoc, collection, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
+import React, { useCallback, useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -35,6 +40,66 @@ export default function EmailLogin(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
+  const [currentUserDocId, setCurrentUserDocId] = useState('');
+
+  // 1. Set how notifications behave when the app is in the foreground
+  // Notifications.setNotificationHandler({
+  //   handleNotification: async () => ({
+  //     // Your original settings:
+  //     shouldShowAlert: true,
+  //     shouldPlaySound: false,
+  //     shouldSetBadge: false,
+      
+  //     // ADDED to satisfy the 'NotificationBehavior' type:
+  //     shouldShowBanner: false, // You may set this to false if you don't want a banner
+  //     shouldShowList: false,   // You may set this to false if you don't want it in the list
+  //   }),
+  // });
+
+  // --- MAIN FUNCTION TO GET THE TOKEN ---
+// async function registerForPushNotificationsAsync() {
+//   let token;
+//   const projectId = Constants.expoConfig?.extra?.eas?.projectId; // Get the project ID
+
+//   if (Platform.OS === 'android') {
+//     // Required on Android to create a notification channel
+//     await Notifications.setNotificationChannelAsync('default', {
+//       name: 'default',
+//       importance: Notifications.AndroidImportance.MAX,
+//       vibrationPattern: [0, 250, 250, 250],
+//       lightColor: '#FF231F7C',
+//     });
+//   }
+
+//   if (Device.isDevice) {
+//     // 1. Request User Permission
+//     const { status: existingStatus } = await Notifications.getPermissionsAsync();
+//     let finalStatus = existingStatus;
+    
+//     if (existingStatus !== 'granted') {
+//       const { status } = await Notifications.requestPermissionsAsync();
+//       finalStatus = status;
+//     }
+
+//     if (finalStatus !== 'granted') {
+//       alert('Failed to get push token for push notification!');
+//       return;
+//     }
+
+//     // 2. Get the Expo Push Token
+//     // Pass the projectId to ensure the token is correctly attributed to your project
+//     token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+    
+//     console.log('Expo Push Token:', token);
+
+//   } else {
+//     // Only physical devices can register for a token
+//     alert('Must use physical device for Push Notifications');
+//   }
+
+//   return token;
+// }
 
   // Email regex validation
   const validateEmail = (email: string): boolean => {
@@ -120,6 +185,7 @@ export default function EmailLogin(): React.JSX.Element {
         }
         if (data.userAttributes.sub) {
           items.push(['userId', data.userAttributes.sub]);
+          fetchUserData(data.userAttributes.sub);
         }
         if (data.userAttributes.role) {
           items.push(['userRole', data.userAttributes.role]);
@@ -195,6 +261,46 @@ export default function EmailLogin(): React.JSX.Element {
       setPasswordError(null);
     }
   };
+
+  const fetchUserData = useCallback(async (userId: string) => {
+    try {
+      if (userId) {
+        console.log('🔄 Fetching following list for user:', userId);
+        
+        const sentinelUsersRef = collection(db, 'SentinelUsers');
+        const q = query(sentinelUsersRef, where('userID', '==', userId));
+        
+        const unsubscribe = onSnapshot(q, async (snapshot) => {
+          if (!snapshot.empty) {
+            const userDoc = snapshot.docs[0];
+            
+            const userRef = doc(db, "SentinelUsers", userDoc.id);
+            await updateDoc(userRef, {
+              deviceToken: expoPushToken,
+            });
+            console.log('✅ Current user doc updated');
+
+          } else {
+            await addDoc(collection(db, 'SentinelUsers'), {
+              userID: userId,
+              deviceToken: expoPushToken,
+            });
+            console.log('📱 No user document found');
+          }
+        });
+
+        return unsubscribe;
+      }
+    } catch (error) {
+      console.error('Error fetching following list:', error);
+    }
+  }, []);
+
+  // useEffect(() => {
+  //   registerForPushNotificationsAsync().then(token => {
+  //     setExpoPushToken(token);
+  //   });
+  // }, []);
 
   return (
     <SafeAreaView className="flex-1">

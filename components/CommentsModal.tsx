@@ -77,6 +77,7 @@ interface PostData {
   Liked: boolean;
   Reposted: boolean;
   CommentTemplate: string,
+  isAnonymous: boolean,
 }
 
 interface CommentScreenProps {
@@ -125,6 +126,9 @@ export default function CommentScreen({
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+
+  const [changedAuthorImage, setChangedAuthorImage] = useState<string | null>(null);
+  const [changedAuthorName, setChangedAuthorName] = useState<string | null>(null);
   
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
 
@@ -302,8 +306,17 @@ export default function CommentScreen({
           Liked: false,
           Reposted: false,
           CommentTemplate: data.CommentTemplate || 'Sentinel Default Template',
+          isAnonymous: data.isAnonymous || false,
         });
         fetchCommentTemplate(data.CommentTemplate || 'Sentinel Default Template');
+
+        if (data.isAnonymous || false) {
+          setChangedAuthorImage(dummyAuthorImage);
+          setChangedAuthorName("Anonymous");
+        } else {
+          setChangedAuthorImage(data.AuthorImageURL || dummyAuthorImage);
+          setChangedAuthorName(data.AuthorName || "Anonymous");
+        }
       }
     } catch (error) {
       console.error('Error fetching post data:', error);
@@ -328,9 +341,20 @@ export default function CommentScreen({
       postType: postType || '',
       Liked: passedPostData.Liked || false,
       Reposted: passedPostData.Reposted || false,
-      CommentTemplate: passedPostData.CommentTemplate || 'Sentinel Default Template'
+      CommentTemplate: passedPostData.CommentTemplate || 'Sentinel Default Template',
+      isAnonymous: passedPostData.isAnonymous || false,
+
     });
     fetchCommentTemplate(passedPostData.CommentTemplate || 'Sentinel Default Template');
+
+    if (passedPostData.isAnonymous || false) {
+      setChangedAuthorImage(dummyAuthorImage);
+      setChangedAuthorName("Anonymous");
+    } else {
+      setChangedAuthorImage(passedPostData.AuthorImageURL || dummyAuthorImage);
+      setChangedAuthorName(passedPostData.AuthorName || "Anonymous");
+    }
+
   };
 
   const getItem = async () => {
@@ -840,7 +864,7 @@ export default function CommentScreen({
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
                   <Image
                     // source={{ uri: postDataState.AuthorImageURL || dummyAuthorImage }}
-                    source={{ uri: dummyAuthorImage }}
+                    source={{ uri: changedAuthorImage }}
                     style={{ 
                       width: 48, 
                       height: 48, 
@@ -853,7 +877,7 @@ export default function CommentScreen({
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontWeight: 'bold', fontSize: 16, color: '#000' }}>
                       {/* {postDataState.AuthorName} */}
-                      Anonymous
+                      {changedAuthorName}
                     </Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
                       {/* <Text style={{ fontSize: 14, color: '#8e8e93' }}>
