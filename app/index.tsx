@@ -11,6 +11,8 @@ export default function Index() {
     checkAuthStatus();
   }, []);
 
+  
+
   const checkAuthStatus = async () => {
     try {
       const [userToken, tokenExpiry] = await AsyncStorage.multiGet([
