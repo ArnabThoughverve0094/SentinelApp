@@ -2400,13 +2400,13 @@ export default function ProfilePage(): React.JSX.Element {
       <Modal
         visible={showFAQModal}
         animationType="slide"
-        presentationStyle="fullScreen"
+        // presentationStyle="fullScreen"
         onRequestClose={() => setShowFAQModal(false)}
       >
         <SafeAreaView className="flex-1 bg-white">
           <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
           {/* FAQ Header with close icon and FAQ title */}
-          <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
+          <View className="flex-row items-center justify-between px-5 pt-20 border-b border-gray-100">
             <Text className="text-2xl font-bold text-black">F A Q</Text>
             <TouchableOpacity 
               onPress={() => setShowFAQModal(false)}
@@ -2430,10 +2430,11 @@ export default function ProfilePage(): React.JSX.Element {
               <TouchableOpacity 
                 className="bg-black py-3 px-6 rounded-lg items-center mb-8"
                 onPress={() => {
+                  setShowFAQModal(false);
                   showCustomAlert(
                     'info',
                     'Contact Support',
-                    'You can reach our support team at support@sentinel.com or through our in-app chat feature.',
+                    'You can reach our support team at support@sentinel.com',
                     [
                       {
                         text: 'OK',
