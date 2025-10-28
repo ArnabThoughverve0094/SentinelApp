@@ -2,8 +2,6 @@ import { db } from '@/FirebaseConfig';
 import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VideoView, useVideoPlayer } from 'expo-video';
-
-
 import {
   addDoc,
   collection,
@@ -21,6 +19,7 @@ import { useCallback, useEffect, useReducer, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   Image,
   Modal,
   Platform,
@@ -32,6 +31,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TotalSentiment from './TotalSentiment';
+
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 interface Comment {
   id: string;
@@ -87,13 +88,7 @@ interface CommentScreenProps {
   commentTemplate: string | null;
 }
 
-// Response options matching the image design
-let RESPONSE_OPTIONS = [
-  // { id: 'agree', label: 'Agree', icon: '👍', color: '#34C759' },
-  // { id: 'disagree', label: 'Disagree', icon: '🚫', color: '#FF3B30' },
-  // { id: 'support', label: 'I Support This', icon: '⭐', color: '#FF9500' },
-  // { id: 'hate', label: 'Hate Speech', icon: '😡', color: '#FF3B30' }
-];
+let RESPONSE_OPTIONS: any[] = [];
 
 export default function CommentScreen({ 
   visible, 
@@ -117,11 +112,14 @@ export default function CommentScreen({
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [showResponseModal, setShowResponseModal] = useState(false);
   const [showSentimentPage, setShowSentimentPage] = useState(false);
-  const [fullScreenVideo, setFullScreenVideo] = useState<string | null>(null);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(-1);
-
   
-  // New states for user comment management
+  // NEW: Full screen media states - SAME AS LANDING PAGE
+  const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+  const [isImageModalVisible, setIsImageModalVisible] = useState(false);
+  const [fullScreenVideo, setFullScreenVideo] = useState<string | null>(null);
+  const [isVideoModalVisible, setIsVideoModalVisible] = useState(false);
+
   const [userExistingComment, setUserExistingComment] = useState<Comment | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [showMenuModal, setShowMenuModal] = useState(false);
@@ -130,7 +128,33 @@ export default function CommentScreen({
   
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
 
-  // Time calculation utility function
+  // NEW: Full screen video player - SAME AS LANDING PAGE
+  const fullScreenVideoPlayer = useVideoPlayer(fullScreenVideo || '', (player) => {
+    player.loop = false;
+    player.play();
+  });
+
+  // NEW: Full screen handlers - SAME AS LANDING PAGE
+  const openFullScreenImage = useCallback((imageUrl: string) => {
+    setFullScreenImage(imageUrl);
+    setIsImageModalVisible(true);
+  }, []);
+
+  const closeFullScreenImage = useCallback(() => {
+    setIsImageModalVisible(false);
+    setFullScreenImage(null);
+  }, []);
+
+  const openFullScreenVideo = useCallback((videoUrl: string) => {
+    setFullScreenVideo(videoUrl);
+    setIsVideoModalVisible(true);
+  }, []);
+
+  const closeFullScreenVideo = useCallback(() => {
+    setIsVideoModalVisible(false);
+    setFullScreenVideo(null);
+  }, []);
+
   const getTimeAgo = (timestamp: any): string => {
     if (!timestamp) return '2h';
     
@@ -149,7 +173,6 @@ export default function CommentScreen({
     return `${days}d`;
   };
 
-  // Media type detection
   const getMediaType = (url: string) => {
     if (!url) return 'unknown';
     
@@ -171,7 +194,6 @@ export default function CommentScreen({
     return urlPath.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt)$/) ? 'doc' : 'image';
   };
 
-  // Check if user already has a comment on this post
   const checkUserExistingComment = async (itemId: string, itemType: string, currentUserId: string) => {
     try {
       const commentsRef = collection(db, itemType, itemId, 'Comments');
@@ -210,10 +232,8 @@ export default function CommentScreen({
       return null;
     }
   };
-   const fullScreenVideoPlayer = useVideoPlayer(fullScreenVideo || '', (player) => {
-    player.loop = false;
-    player.play();
-  });
+
+  // UPDATED: VideoPlayer component - SAME AS LANDING PAGE
   const VideoPlayer = useCallback(({ videoUrl, index }: { videoUrl: string; index?: number }) => {
     const player = useVideoPlayer(videoUrl, (player) => {
       player.loop = true;
@@ -225,7 +245,6 @@ export default function CommentScreen({
       }
     });
 
-    // Update play/pause when currentVideoIndex changes
     useEffect(() => {
       if (currentVideoIndex === index) {
         player.play();
@@ -235,28 +254,32 @@ export default function CommentScreen({
     }, [currentVideoIndex, index, player]);
 
     return (
-      <View className="relative rounded-xl overflow-hidden bg-black">
-        <VideoView
-          player={player}
-          style={{ width: '100%', height: 200 }}
-          contentFit="contain"
-          nativeControls={false}
-        />
-        <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
-          <Ionicons name="play-outline" size={14} color="white" />
-        </View>
-        {currentVideoIndex !== index && (
-          <View className="absolute inset-0 bg-black/20 items-center justify-center">
-            <View className="w-10 h-10 bg-black/60 rounded-full items-center justify-center">
-              <Ionicons name="play" size={20} color="white" />
-            </View>
+      <TouchableOpacity 
+        onPress={() => openFullScreenVideo(videoUrl)}
+        activeOpacity={0.95}
+      >
+        <View style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', backgroundColor: '#000' }}>
+          <VideoView
+            player={player}
+            style={{ width: '100%', height: 200 }}
+            contentFit="contain"
+            nativeControls={false}
+          />
+          <View style={{ position: 'absolute', top: 8, right: 8, padding: 6, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.5)' }}>
+            <Ionicons name="play-outline" size={14} color="white" />
           </View>
-        )}
-      </View>
+          {currentVideoIndex !== index && (
+            <View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 40, height: 40, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="play" size={20} color="white" />
+              </View>
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
     );
-  }, [currentVideoIndex]);
+  }, [currentVideoIndex, openFullScreenVideo]);
 
-  // Fetch post data (only used as fallback if postData is not provided)
   const fetchPostData = async (itemId: string, itemType: string) => {
     setPostLoading(true);
     try {
@@ -289,7 +312,6 @@ export default function CommentScreen({
     }
   };
 
-  // Convert passed postData to local state format
   const convertPostData = (passedPostData: PostData) => {
     setPostDataState({
       id: passedPostData.id,
@@ -339,7 +361,6 @@ export default function CommentScreen({
           await fetchPostData(postId, postType);
         }
         
-        // Check if user already has a comment
         if (fetchuserID) {
           await checkUserExistingComment(postId, postType, fetchuserID);
         }
@@ -349,7 +370,7 @@ export default function CommentScreen({
     } catch (error) {
       console.log("Error retrieving item", error);
     }
-  }
+  };
 
   const fetchCommentTemplate = useCallback(async (passedCommentTemplate: any) => {
     try {
@@ -374,49 +395,25 @@ export default function CommentScreen({
           if(passedCommentTemplate == postData.name) {
             const optionsField = postData.options;
 
-            optionsField.map((nestedOption, index) => {
-              // Get the key (e.g., "option1") and the value (the {icon, title} map)
-              const optionKey = Object.keys(nestedOption)[0];
-              const optionDetails = nestedOption[optionKey];
-
-              console.log("Comment optionKey Fetched: ", optionKey);
-              console.log("Comment optionDetails Fetched: ", optionDetails);
-              console.log("Comment icon Fetched: ", optionDetails.icon);
-              console.log("Comment title Fetched: ", optionDetails.title);
-
-              RESPONSE_OPTIONS.push({
-                id: typeof optionDetails.title === "string" ? optionDetails.title : "",
-                label: typeof optionDetails.title === "string" ? optionDetails.title : "",
-                icon: typeof optionDetails.icon === "string" ? optionDetails.icon : "",
-                color: '#34C759'
-              })
-            })
-
+            // Convert map to array:
+            for (const key in optionsField) {
+              if (Object.prototype.hasOwnProperty.call(optionsField, key)) {
+                const maybeOption = (optionsField as any)[key];
+                if (maybeOption && typeof maybeOption === "object") {
+                  const icon = (maybeOption as any).icon;
+                  const title = (maybeOption as any).title;
+                  RESPONSE_OPTIONS.push({
+                    id: typeof title === "string" ? title : "",
+                    label: typeof title === "string" ? title : "",
+                    icon: typeof icon === "string" ? icon : "",
+                    color: '#34C759'
+                  })
+                }
+              }
+            }    
           }
-
-          // if(passedCommentTemplate == postId){
-          //   const optionsField = postData.options;
-
-          //   // Convert map to array:
-          //   for (const key in optionsField) {
-          //     if (Object.prototype.hasOwnProperty.call(optionsField, key)) {
-          //       const maybeOption = (optionsField as any)[key];
-          //       if (maybeOption && typeof maybeOption === "object") {
-          //         const icon = (maybeOption as any).icon;
-          //         const title = (maybeOption as any).title;
-          //         RESPONSE_OPTIONS.push({
-          //           id: typeof title === "string" ? title : "",
-          //           label: typeof title === "string" ? title : "",
-          //           icon: typeof icon === "string" ? icon : "",
-          //           color: '#34C759'
-          //         })
-          //       }
-          //     }
-          //   }    
-          // }
           
         }
-
       })
 
       return () => {
@@ -466,52 +463,6 @@ export default function CommentScreen({
         }
 
         setComments(commentData);
-
-        // Set up listeners for replies per comment
-        // commentData.forEach((comment) => {
-        //   const collReplyRefPost = collection(db, type, item, 'Comments', comment.id, 'Replies');
-        //   const queryReply = query(
-        //     collReplyRefPost,
-        //     orderBy('CommentDate', 'desc')
-        //   );
-        //   console.log("Replies OnSnapshot");
-          
-        //   onSnapshot(queryReply, replySnapshot => {
-        //     const replydataArr = replySnapshot.docs.map(doc => ({
-        //       id: doc.id,
-        //       data: doc.data(),
-        //     }));
-    
-        //     const replyData: Reply[] = [];
-        //     for (const doc of replydataArr) {
-        //       const postData = doc.data;
-        //       const postId = doc.id;
-        //       replyData.push({
-        //         id: postId,
-        //         AuthorName: postData.AuthorName ?? "",
-        //         AuthorImageURL: postData.AuthorImageURL ?? "",
-        //         Comment: postData.Comment ?? "",
-        //         CommentDate: postData.CommentDate ?? new Date(),
-        //         likes: 0,
-        //         isLiked: false,
-        //         selectedOptions: postData.selectedOptions || [],
-        //         commentType: postData.commentType || 'text',
-        //         userId: postData.userId
-        //       });
-        //     }
-
-        //     setComments(prevComments =>
-        //       prevComments.map(c =>
-        //         c.id === comment.id
-        //           ? {
-        //               ...c,
-        //               replies: replyData,
-        //             }
-        //           : c
-        //       )
-        //     );
-        //   })
-        // })
       })
 
       return () => {
@@ -524,12 +475,10 @@ export default function CommentScreen({
     }
   }
 
-  // Handle option selection
   const handleOptionSelect = (optionId: string) => {
     setSelectedOption(selectedOption === optionId ? null : optionId);
   };
 
-  // Handle structured comment submission (new or edit)
   const handleSubmitResponse = async () => {
     if (!selectedOption || !postId || !postType) return;
 
@@ -540,7 +489,6 @@ export default function CommentScreen({
       const commentText = selectedOptionData?.label || '';
       
       if (isEditMode && userExistingComment) {
-        // Edit existing comment
         const commentRef = doc(db, postType, postId, 'Comments', userExistingComment.id);
         await updateDoc(commentRef, {
           Comment: commentText,
@@ -550,10 +498,9 @@ export default function CommentScreen({
         console.log('Comment updated successfully');
         setIsEditMode(false);
       } else if (replyingTo) {
-        // Add reply
         const repliesRef = collection(db, postType, postId, 'Comments', replyingTo, 'Replies');
         const postDocRef = await addDoc(repliesRef, {
-          AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+          AuthorImageURL: userImage || dummyAuthorImage,
           AuthorName: userName,
           CommentDate: new Date(),
           Comment: commentText,
@@ -563,10 +510,9 @@ export default function CommentScreen({
         });
         console.log('Structured Reply Post ID: ', postDocRef.id);
       } else {
-        // Add new comment
         const commentRef = collection(db, postType, postId, 'Comments');
         const postDocRef = await addDoc(commentRef, {
-          AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+          AuthorImageURL: userImage || dummyAuthorImage,
           AuthorName: userName,
           CommentDate: new Date(),
           Comment: commentText,
@@ -577,12 +523,10 @@ export default function CommentScreen({
         console.log('Response submitted with ID: ', postDocRef.id);
       }
       
-      // Reset and close
       setSelectedOption(null);
       setShowResponseModal(false);
       setReplyingTo(null);
       
-      // Refresh user existing comment check
       if (postId && postType) {
         await checkUserExistingComment(postId, postType, userId);
       }
@@ -593,7 +537,6 @@ export default function CommentScreen({
     }
   };
 
-  // Handle delete comment
   const handleDeleteComment = async (commentId: string) => {
     if (!postId || !postType) return;
 
@@ -614,7 +557,6 @@ export default function CommentScreen({
               await deleteDoc(commentRef);
               console.log('Comment deleted successfully');
               
-              // Reset user existing comment
               setUserExistingComment(null);
               setShowMenuModal(false);
               setSelectedCommentId(null);
@@ -628,7 +570,6 @@ export default function CommentScreen({
     );
   };
 
-  // Handle edit comment
   const handleEditComment = (comment: Comment) => {
     setSelectedOption(comment.selectedOptions?.[0] || null);
     setIsEditMode(true);
@@ -636,11 +577,10 @@ export default function CommentScreen({
     setShowResponseModal(true);
   };
 
-  // Handle three dots menu press with position
   const handleThreeDotsPress = (commentId: string, event: any) => {
     const { pageX, pageY } = event.nativeEvent;
     setSelectedCommentId(commentId);
-    setMenuPosition({ x: pageX - 120, y: pageY + 10 }); // Adjust position
+    setMenuPosition({ x: pageX - 120, y: pageY + 10 });
     setShowMenuModal(true);
   };
 
@@ -691,7 +631,6 @@ export default function CommentScreen({
   const handleAddResponseFromSentiment = () => {
     setShowSentimentPage(false);
     
-    // Check if user already has a comment
     if (userExistingComment) {
       Alert.alert(
         "Edit Your Response",
@@ -709,7 +648,7 @@ export default function CommentScreen({
     }
   };
 
-  // Render media content for the post
+  // UPDATED: Render media content with click to fullscreen - SAME AS LANDING PAGE
   const renderMediaContent = (post: PostData) => {
     const mediaUrls = post.ContentURLs && post.ContentURLs.length > 0 ? post.ContentURLs : 
                      (post.ContentURL ? [post.ContentURL] : []);
@@ -719,38 +658,59 @@ export default function CommentScreen({
     const primaryMediaUrl = mediaUrls[0];
     const mediaType = getMediaType(primaryMediaUrl);
 
-    if (mediaType === 'image') {
+    if (mediaType === 'image' || mediaType === 'gif') {
       return (
         <View style={{ marginTop: 12, marginBottom: 16 }}>
-          <Image
-            source={{ uri: primaryMediaUrl }}
-            style={{ 
-              width: '100%', 
-              height: 240, 
-              borderRadius: 16, 
-              backgroundColor: '#e8e8e8' 
-            }}
-            resizeMode="cover"
-          />
+          <TouchableOpacity 
+            onPress={() => openFullScreenImage(primaryMediaUrl)}
+            activeOpacity={0.95}
+          >
+            <View style={{ position: 'relative', borderRadius: 16, overflow: 'hidden' }}>
+              {/* Background Image (faded) */}
+              <Image
+                source={{ uri: primaryMediaUrl }}
+                style={{
+                  width: '100%',
+                  height: 200,
+                  position: 'absolute',
+                  opacity: 0.4,
+                }}
+                className="bg-white"
+                resizeMode="cover"
+                blurRadius={5}
+              />
+              
+              {/* Foreground Image (main) */}
+              <Image
+                source={{ uri: primaryMediaUrl }}
+                style={{
+                  width: '100%',
+                  height: 200,
+                }}
+                resizeMode="contain"
+                onError={(error) => {
+                  console.log("Image load error:", error.nativeEvent.error);
+                }}
+              />
+              
+              <View style={{ 
+                position: 'absolute', 
+                top: 8, 
+                right: 8, 
+                padding: 6, 
+                borderRadius: 20, 
+                backgroundColor: 'rgba(0,0,0,0.5)' 
+              }}>
+                <Ionicons name="expand-outline" size={14} color="white" />
+              </View>
+            </View>
+          </TouchableOpacity>
         </View>
       );
     } else if (mediaType === 'video') {
       return (
-         <VideoPlayer videoUrl={primaryMediaUrl} />
-      );
-    } else if (mediaType === 'gif') {
-      return (
         <View style={{ marginTop: 12, marginBottom: 16 }}>
-          <Image
-            source={{ uri: primaryMediaUrl }}
-            style={{ 
-              width: '100%', 
-              height: 240, 
-              borderRadius: 16, 
-              backgroundColor: '#e8e8e8' 
-            }}
-            resizeMode="cover"
-          />
+          <VideoPlayer videoUrl={primaryMediaUrl} />
         </View>
       );
     }
@@ -758,7 +718,6 @@ export default function CommentScreen({
     return null;
   };
 
-  // Render structured comment content
   const renderStructuredComment = (comment: Comment | Reply) => {
     if (comment.commentType === 'structured' && comment.selectedOptions && comment.selectedOptions.length > 0) {
       return (
@@ -780,14 +739,11 @@ export default function CommentScreen({
                   alignItems: 'center'
                 }}
               >
-                {/* <Text style={{ fontSize: 16, marginRight: 8 }}>
-                  {optionData?.icon || '✓'}
-                </Text> */}
                 <Image
-                    source={{ uri: optionData?.icon}}
-                    className="w-16 h-10"
-                    resizeMode="contain"
-                  />
+                  source={{ uri: optionData?.icon}}
+                  style={{ width: 64, height: 40 }}
+                  resizeMode="contain"
+                />
                 <Text style={{ fontSize: 13, color: '#007aff', fontWeight: '500' }}>
                   {optionData?.label || option}
                 </Text>
@@ -821,6 +777,9 @@ export default function CommentScreen({
       setIsEditMode(false);
       setShowMenuModal(false);
       setSelectedCommentId(null);
+      // NEW: Close full screen modals
+      closeFullScreenImage();
+      closeFullScreenVideo();
     }
   }, [visible, postId, postType, postData]);
 
@@ -837,7 +796,7 @@ export default function CommentScreen({
         <View style={{ flex: 1, backgroundColor: '#fff' }}>
           <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
-          {/* Header with close button */}
+          {/* Header */}
           <View 
             style={{
               flexDirection: 'row',
@@ -965,44 +924,17 @@ export default function CommentScreen({
                             {getTimeAgo(comment.CommentDate)}
                           </Text>
                           
-                          {/* Three dots menu for user's own comments */}
-                          {comment.userId === userId ? (
+                          {comment.userId === userId && (
                             <TouchableOpacity 
                               onPress={(event) => handleThreeDotsPress(comment.id, event)}
                               style={{ marginLeft: 'auto', padding: 4 }}
                             >
                               <MaterialIcons name="more-vert" size={16} color="#8e8e93" />
                             </TouchableOpacity>
-                          ) : (
-                            <TouchableOpacity 
-                              // onPress={() => handleLikeComment(comment.id, false)}
-                              style={{ marginLeft: 'auto' }}
-                            >
-                              {/* <Ionicons 
-                                name={comment.isLiked ? "heart" : "heart-outline"} 
-                                size={16} 
-                                color={comment.isLiked ? "#ff3040" : "#8e8e93"} 
-                              /> */}
-                            </TouchableOpacity>
                           )}
                         </View>
                         
                         {renderStructuredComment(comment)}
-                        
-                        {/* <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          {(comment.likes || 0) > 0 && (
-                            <Text style={{ fontSize: 12, color: '#8e8e93', marginRight: 16 }}>
-                              {comment.likes} likes
-                            </Text>
-                          )}
-                          <TouchableOpacity 
-                            onPress={() => handleReplyToComment(comment.id, comment.AuthorName)}
-                          >
-                            <Text style={{ fontSize: 12, color: '#8e8e93', fontWeight: '500' }}>
-                              Reply
-                            </Text>
-                          </TouchableOpacity>
-                        </View> */}
                       </View>
                     </View>
 
@@ -1039,34 +971,9 @@ export default function CommentScreen({
                                 <Text style={{ fontSize: 11, color: '#8e8e93' }}>
                                   {getTimeAgo(reply.CommentDate)}
                                 </Text>
-                                <TouchableOpacity 
-                                  onPress={() => handleLikeComment(reply.id, true, comment.id)}
-                                  style={{ marginLeft: 'auto' }}
-                                >
-                                  <Ionicons 
-                                    name={reply.isLiked ? "heart" : "heart-outline"} 
-                                    size={14} 
-                                    color={reply.isLiked ? "#ff3040" : "#8e8e93"} 
-                                  />
-                                </TouchableOpacity>
                               </View>
                               
                               {renderStructuredComment(reply)}
-                              
-                              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                {(reply.likes || 0) > 0 && (
-                                  <Text style={{ fontSize: 11, color: '#8e8e93', marginRight: 12 }}>
-                                    {reply.likes} likes
-                                  </Text>
-                                )}
-                                <TouchableOpacity 
-                                  onPress={() => handleReplyToComment(comment.id, reply.AuthorName)}
-                                >
-                                  <Text style={{ fontSize: 11, color: '#8e8e93', fontWeight: '500' }}>
-                                    Reply
-                                  </Text>
-                                </TouchableOpacity>
-                              </View>
                             </View>
                           </View>
                         ))}
@@ -1078,7 +985,7 @@ export default function CommentScreen({
             )}
           </ScrollView>
 
-          {/* Add Response Button Fixed at Bottom */}
+          {/* Add Response Button */}
           <View style={{
             position: 'absolute',
             bottom: 0,
@@ -1134,7 +1041,7 @@ export default function CommentScreen({
             </TouchableOpacity>
           </View>
 
-          {/* Compact Three Dots Menu Modal - positioned on comment */}
+          {/* Three Dots Menu Modal */}
           {showMenuModal && (
             <Modal
               visible={showMenuModal}
@@ -1207,6 +1114,88 @@ export default function CommentScreen({
         </View>
       </Modal>
 
+      {/* NEW: IMAGE MODAL - SAME AS LANDING PAGE */}
+      <Modal
+        visible={isImageModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeFullScreenImage}
+        statusBarTranslucent
+      >
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+          <TouchableOpacity 
+            style={{ 
+              position: 'absolute', 
+              top: Platform.OS === 'ios' ? 50 : 20, 
+              right: 24, 
+              zIndex: 10, 
+              padding: 12, 
+              borderRadius: 25, 
+              backgroundColor: 'rgba(0,0,0,0.6)' 
+            }}
+            onPress={closeFullScreenImage}
+          >
+            <Ionicons name="close" size={24} color="white" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
+            activeOpacity={1}
+            onPress={closeFullScreenImage}
+          >
+            {fullScreenImage && (
+              <Image
+                source={{ uri: fullScreenImage }}
+                style={{ 
+                  width: '100%', 
+                  maxWidth: '100%',
+                  height: screenHeight - 100, 
+                  maxHeight: screenHeight - 100 
+                }}
+                resizeMode="contain"
+              />
+            )}
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* NEW: VIDEO MODAL - SAME AS LANDING PAGE */}
+      <Modal
+        visible={isVideoModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeFullScreenVideo}
+        statusBarTranslucent
+      >
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+          <TouchableOpacity 
+            style={{ 
+              position: 'absolute', 
+              top: Platform.OS === 'ios' ? 50 : 20, 
+              right: 24, 
+              zIndex: 10, 
+              padding: 12, 
+              borderRadius: 25, 
+              backgroundColor: 'rgba(0,0,0,0.6)' 
+            }}
+            onPress={closeFullScreenVideo}
+          >
+            <Ionicons name="close" size={24} color="white" />
+          </TouchableOpacity>
+          
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            {fullScreenVideo && (
+              <VideoView
+                player={fullScreenVideoPlayer}
+                style={{ width: screenWidth, height: screenHeight - 100 }}
+                contentFit="contain"
+                nativeControls={true}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
+
       {/* Response Selection Modal */}
       <Modal
         visible={showResponseModal}
@@ -1249,7 +1238,6 @@ export default function CommentScreen({
                 {isEditMode ? 'Edit Your Response' : (replyingTo ? 'Reply with Response' : 'Select Your Response')}
               </Text>
               
-              {/* Graph Icon */}
               <TouchableOpacity 
                 style={{ padding: 4, marginLeft: 60 }}
                 onPress={() => {
@@ -1261,7 +1249,6 @@ export default function CommentScreen({
                 <Feather name="bar-chart-2" size={21} color="#000" />
               </TouchableOpacity>
               
-              {/* Close Icon */}
               <TouchableOpacity 
                 onPress={() => {
                   setShowResponseModal(false);
@@ -1304,12 +1291,9 @@ export default function CommentScreen({
                     elevation: selectedOption === option.id ? 4 : 0,
                   }}
                 >
-                  {/* <Text style={{ fontSize: 40, marginBottom: 8 }}>
-                    {option.icon}
-                  </Text> */}
                   <Image
                     source={{ uri: option.icon}}
-                    className="w-16 h-10"
+                    style={{ width: 64, height: 40 }}
                     resizeMode="contain"
                   />
                   <Text style={{

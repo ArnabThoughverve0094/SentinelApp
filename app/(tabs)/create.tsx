@@ -27,7 +27,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const { width: screenWidth } = Dimensions.get('window');
 
 // **ENHANCED: File size limits and helpers**
-const FILE_SIZE_LIMIT_BYTES = 10 * 1024 * 1024; // 10MB
+const FILE_SIZE_LIMIT_BYTES = 5 * 1024 * 1024; // 5MB
+const FILE_SIZE_LIMIT_MB = 5; // For display purposes
 
 const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return '0 Bytes';
@@ -46,7 +47,7 @@ const getErrorDetails = (error: any, fileName: string = ''): { title: string; me
   if (errorString.includes('413') || errorString.includes('content length exceeded')) {
     const sizeLimit = formatFileSize(FILE_SIZE_LIMIT_BYTES);
     return {
-      title: 'File Too Large',
+      title: 'File Too Large ⚠️',
       message: `${fileNameDisplay} is too large. Please choose a file smaller than ${sizeLimit}.\n\nTip: Try compressing your video or image before uploading.`,
       icon: 'warning'
     };
@@ -145,33 +146,33 @@ const CustomModal: React.FC<CustomModalProps> = ({
   }, [visible, scaleAnim]);
 
   const getModalStyle = () => {
-  switch (type) {
-    case 'success':
-      return {
-        iconName: (customIcon || 'checkmark-circle') as any,
-        iconColor: '#22C55E',
-        iconBg: '#F0FDF4',
-      };
-    case 'error':
-      return {
-        iconName: (customIcon || 'close-circle') as any,
-        iconColor: '#EF4444',
-        iconBg: '#FEF2F2',
-      };
-    case 'warning':
-      return {
-        iconName: (customIcon || 'warning') as any,
-        iconColor: '#F59E0B',
-        iconBg: '#FFFBEB',
-      };
-    default:
-      return {
-        iconName: (customIcon || 'information-circle') as any,
-        iconColor: '#3B82F6',
-        iconBg: '#EFF6FF',
-      };
-  }
-};
+    switch (type) {
+      case 'success':
+        return {
+          iconName: (customIcon || 'checkmark-circle') as any,
+          iconColor: '#22C55E',
+          iconBg: '#F0FDF4',
+        };
+      case 'error':
+        return {
+          iconName: (customIcon || 'close-circle') as any,
+          iconColor: '#EF4444',
+          iconBg: '#FEF2F2',
+        };
+      case 'warning':
+        return {
+          iconName: (customIcon || 'warning') as any,
+          iconColor: '#F59E0B',
+          iconBg: '#FFFBEB',
+        };
+      default:
+        return {
+          iconName: (customIcon || 'information-circle') as any,
+          iconColor: '#3B82F6',
+          iconBg: '#EFF6FF',
+        };
+    }
+  };
 
   const modalStyle = getModalStyle();
 
@@ -256,7 +257,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
                   alignItems: 'center',
                   width: '100%',
                   marginBottom: index < buttons.length - 1 ? 10 : 0,
-                  backgroundColor: '#000000', // All buttons now have black background
+                  backgroundColor: button.style === 'cancel' ? '#F3F4F6' : '#000000',
                   shadowColor: '#000',
                   shadowOffset: { width: 0, height: 2 },
                   shadowOpacity: 0.1,
@@ -343,16 +344,27 @@ export default function CreatePost() {
     setModalConfig(prev => ({ ...prev, visible: false }));
   };
 
-  // **ENHANCED: File size validation**
-  const validateFileSize = (size: number, fileName: string): boolean => {
+  // **ENHANCED: File size validation with detailed messaging**
+  const validateFileSize = (size: number, fileName: string, fileType: 'image' | 'video' | 'document'): boolean => {
     if (size > FILE_SIZE_LIMIT_BYTES) {
-      const errorDetails = getErrorDetails(`File size ${size} exceeds limit`, fileName);
+      const actualSize = formatFileSize(size);
+      const maxSize = formatFileSize(FILE_SIZE_LIMIT_BYTES);
+      
+      let fileTypeText = fileType;
+      let compressionTip = '';
+      
+      if (fileType === 'video') {
+        compressionTip = '\n\n💡 Tips for videos:\n• Use a video compressor app\n• Reduce video quality/resolution\n• Trim unnecessary parts\n• Convert to MP4 format';
+      } else if (fileType === 'image') {
+        compressionTip = '\n\n💡 Tips for images:\n• Use an image compressor\n• Reduce image resolution\n• Convert to JPG format';
+      }
+      
       showCustomAlert(
         'warning',
-        errorDetails.title,
-        errorDetails.message,
-        [{ text: 'OK', onPress: hideModal }],
-        errorDetails.icon
+        `${fileType.charAt(0).toUpperCase() + fileType.slice(1)} Too Large ⚠️`,
+        `File: "${fileName}"\nSize: ${actualSize}\nMax allowed: ${maxSize}\n\nYour ${fileType} exceeds the maximum file size limit of ${FILE_SIZE_LIMIT_MB}MB.${compressionTip}\n\nPlease choose or compress to a smaller file.`,
+        [{ text: 'OK', onPress: hideModal, style: 'default' }],
+        'alert-circle-outline'
       );
       return false;
     }
@@ -421,8 +433,9 @@ export default function CreatePost() {
           const fileSize = asset.fileSize || 0;
           const fileName = asset.fileName || 'image.jpg';
 
-          if (fileSize > 0 && fileSize > FILE_SIZE_LIMIT_BYTES) {
+          if (fileSize > 0 && !validateFileSize(fileSize, fileName, 'image')) {
             invalidFiles.push(`${fileName} (${formatFileSize(fileSize)})`);
+            // Don't add to validAssets, validation already showed error
           } else {
             validAssets.push({
               uri: asset.uri,
@@ -433,12 +446,12 @@ export default function CreatePost() {
           }
         }
 
-        if (invalidFiles.length > 0) {
-          const errorDetails = getErrorDetails('413 content length exceeded', 'selected images');
+        // Only show bulk error if multiple files and some were invalid
+        if (invalidFiles.length > 1) {
           showCustomAlert(
             'warning',
-            'Some Files Too Large',
-            `The following files exceed the ${formatFileSize(FILE_SIZE_LIMIT_BYTES)} limit:\n\n${invalidFiles.join('\n')}\n\nPlease compress these images or choose smaller ones.`,
+            'Multiple Files Too Large',
+            `${invalidFiles.length} images exceed the ${FILE_SIZE_LIMIT_MB}MB limit:\n\n${invalidFiles.join('\n')}\n\n💡 Please compress or choose smaller images.`,
             [{ text: 'OK', onPress: hideModal }],
             'warning'
           );
@@ -456,7 +469,7 @@ export default function CreatePost() {
     }
   };
 
-  // **ENHANCED: Pick video with validation**
+  // **ENHANCED: Pick video with detailed validation**
   const pickVideo = async () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -481,8 +494,10 @@ export default function CreatePost() {
         const fileSize = asset.fileSize || 0;
         const fileName = asset.fileName || 'video.mp4';
 
-        if (!validateFileSize(fileSize, fileName)) {
-          return; // validateFileSize shows the error
+        console.log(`📹 Selected video: ${fileName}, Size: ${formatFileSize(fileSize)}`);
+
+        if (!validateFileSize(fileSize, fileName, 'video')) {
+          return; // validateFileSize shows the detailed error
         }
 
         setSelectedMedia((curr) => [...curr, {
@@ -491,6 +506,8 @@ export default function CreatePost() {
           type: asset.mimeType || 'video/mp4',
           size: fileSize,
         }]);
+        
+        console.log(`✅ Video added successfully: ${fileName}`);
       }
     } catch (error) {
       const errorDetails = getErrorDetails(error, 'video');
@@ -513,7 +530,9 @@ export default function CreatePost() {
         const fileSize = asset.size || 0;
         const fileName = asset.name || 'file';
 
-        if (!validateFileSize(fileSize, fileName)) {
+        console.log(`📄 Selected document: ${fileName}, Size: ${formatFileSize(fileSize)}`);
+
+        if (!validateFileSize(fileSize, fileName, 'document')) {
           return; // validateFileSize shows the error
         }
 
@@ -526,6 +545,8 @@ export default function CreatePost() {
             size: fileSize,
           },
         ]);
+        
+        console.log(`✅ Document added successfully: ${fileName}`);
       }
     } catch (error) {
       const errorDetails = getErrorDetails(error, 'document');
@@ -581,7 +602,7 @@ export default function CreatePost() {
         // Create detailed error based on status
         let errorMessage = `HTTP status ${res.status}: ${errText}`;
         if (res.status === 413) {
-          errorMessage = `File size ${formatFileSize(file.size || 0)} exceeds 10MB limit`;
+          errorMessage = `File "${file.name}" size ${formatFileSize(file.size || 0)} exceeds ${FILE_SIZE_LIMIT_MB}MB limit`;
         }
         throw new Error(errorMessage);
       }
@@ -954,15 +975,17 @@ export default function CreatePost() {
                             marginTop: 8, 
                             fontSize: 12, 
                             color: "#333", 
-                            textAlign: "center" 
-                          }}>
+                            textAlign: "center",
+                            paddingHorizontal: 8
+                          }} numberOfLines={2}>
                             {obj.name}
                           </Text>
                           {obj.size && (
                             <Text style={{ 
                               fontSize: 10, 
                               color: "#666", 
-                              textAlign: "center" 
+                              textAlign: "center",
+                              marginTop: 4
                             }}>
                               {formatFileSize(obj.size)}
                             </Text>
