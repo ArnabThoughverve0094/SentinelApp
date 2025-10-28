@@ -455,7 +455,8 @@ export default function NotificationPage() {
         <FlatList
           // data={notifications}
           data={notificationDetails}
-          keyExtractor={(item) => item.id}
+          // keyExtractor={(item) => item.id}
+          keyExtractor={(_item, index) => index.toString()}
           renderItem={({ item }) => <NotificationItem notification={item} />}
           showsVerticalScrollIndicator={false}
           ItemSeparatorComponent={() => (
