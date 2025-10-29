@@ -818,13 +818,13 @@ export default function Index(): React.JSX.Element {
           className="px-4 py-3 flex-row items-center justify-between"
           style={{ paddingTop: Platform.OS === 'ios' ? 10 : 10 }}
         >
-          <Text className="text-xl font-bold text-gray-900">Sentinel</Text>
+          <Text className="text-3xl font-bold text-black-900">Sentinel</Text>
           
           <TouchableOpacity 
             className="p-2 rounded-full"
             onPress={navigateToAuthScreen}
           >
-            <Ionicons name="search" size={24} color="#000" />
+            <Ionicons name="search" size={30} color="#000000" />
           </TouchableOpacity>
         </View>
       </View>
