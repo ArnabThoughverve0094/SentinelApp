@@ -2,7 +2,6 @@ import { db } from '@/FirebaseConfig';
 import { LoadingComponent } from '@/components/LoadingComponent';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { VideoView, useVideoPlayer } from 'expo-video';
-
 import { router } from 'expo-router';
 import { collection, doc, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -54,10 +53,6 @@ export default function Index(): React.JSX.Element {
   const [isFlipped, setIsFlipped] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(-1);
-  
-  // ✅ NEW: State for confirmation modal
-  const [isConfirmationModalVisible, setIsConfirmationModalVisible] = useState(false);
-  
   const flipCardRef = useRef<any>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -89,6 +84,7 @@ export default function Index(): React.JSX.Element {
       }
     });
 
+    // Update play/pause when currentVideoIndex changes
     useEffect(() => {
       if (currentVideoIndex === index) {
         player.play();
@@ -118,6 +114,15 @@ export default function Index(): React.JSX.Element {
       </View>
     );
   }, [currentVideoIndex]);
+
+  // ✅ Navigate to login/popup screen
+  const navigateToAuthScreen = useCallback(() => {
+    try {
+      router.push("/popup");
+    } catch (error) {
+      console.error("Navigation error:", error);
+    }
+  }, []);
 
   // ✅ FIXED: Fetch comments from correct subcollection structure
   const fetchCommentsCount = useCallback(async (posts: PostItem[]) => {
@@ -160,27 +165,11 @@ export default function Index(): React.JSX.Element {
     }
   }, []);
 
-  // ✅ ADDED: Bookmark function
+  // ✅ ADDED: Bookmark function - redirects to auth
   const handleBookmark = useCallback(async (postItem: PostItem) => {
-    console.log("Bookmark pressed:", postItem.id);
-    
-    setFetchedData(prevData => 
-      prevData.map(item => 
-        item.uniqueId === postItem.uniqueId 
-          ? { ...item, Bookmarked: !item.Bookmarked } 
-          : item
-      )
-    );
-
-    if (fullScreenCard && fullScreenCard.uniqueId === postItem.uniqueId) {
-      setFullScreenCard((prev: PostItem | null) => prev ? ({
-        ...prev,
-        Bookmarked: !prev.Bookmarked
-      }) : null);
-    }
-
-    await new Promise(r => setTimeout(r, 200));
-  }, [fullScreenCard]);
+    console.log("Bookmark pressed - redirecting to auth:", postItem.id);
+    navigateToAuthScreen();
+  }, [navigateToAuthScreen]);
 
   // OPTIMIZED DATA FETCHING
   const handleFetchAllData = useCallback(async (forceRefresh: boolean = false) => {
@@ -269,6 +258,7 @@ export default function Index(): React.JSX.Element {
             Bookmarked: false,
             createdAt: postData.createdAt || postData.ContentDate,
           });
+
         }
 
         const allData = postsData.concat(postsXData);
@@ -311,32 +301,6 @@ export default function Index(): React.JSX.Element {
   const getCommentsCount = useCallback((postId: string) => {
     return commentsData[postId] || 0;
   }, [commentsData]);
-  
-  // ✅ NEW: Show confirmation modal
-  const showConfirmationModal = useCallback(() => {
-    setIsConfirmationModalVisible(true);
-  }, []);
-
-  // ✅ NEW: Handle confirmation modal "Yes" button
-  const handleConfirmYes = useCallback(() => {
-    setIsConfirmationModalVisible(false);
-    // Redirect to registration screen
-    try {
-      router.push("/(auth)/email-login");
-    } catch (error) {
-      console.error("error, ", error);
-    }
-  }, []);
-
-  // ✅ NEW: Handle confirmation modal "No" button
-  const handleConfirmNo = useCallback(() => {
-    setIsConfirmationModalVisible(false);
-  }, []);
-
-  // Navigate to login screen (kept for backward compatibility, but now uses confirmation modal)
-  const loginScreen = async () => {
-    showConfirmationModal();
-  }
 
   useEffect(() => {
     handleFetchAllData();
@@ -501,23 +465,9 @@ export default function Index(): React.JSX.Element {
             <View className="relative rounded-xl overflow-hidden">
               <Image
                 source={{ uri: primaryMediaUrl }}
-                style={{
-                  width: '100%',
-                  height: 200,
-                  position: 'absolute',
-                  opacity: 0.4,
-                }}
-                className="bg-white"
+                style={{ width: '100%', height: 200 }}
+                className="bg-gray-100"
                 resizeMode="cover"
-                blurRadius={5}
-              />
-              <Image
-                source={{ uri: primaryMediaUrl }}
-                style={{
-                  width: '100%',
-                  height: 200,
-                }}
-                resizeMode="contain"
                 onError={(error) => {
                   console.log("Image load error:", error.nativeEvent.error);
                 }}
@@ -599,12 +549,6 @@ export default function Index(): React.JSX.Element {
       return null;
     }
   }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, VideoPlayer]);
-
-  // ✅ ADDED: Graph/Analytics modal function
-  const openGraphModal = useCallback((item: PostItem) => {
-    console.log("Graph/Analytics pressed:", item.id);
-    loginScreen();
-  }, [loginScreen]);
 
   // AUTO PLAY VIDEO ON SCROLL
   const handleScroll = useCallback((event: any) => {
@@ -715,7 +659,7 @@ export default function Index(): React.JSX.Element {
               className="flex-row items-center px-1.5 py-1 "
               onPress={(e) => {
                 e.stopPropagation();
-                loginScreen();
+                navigateToAuthScreen();
               }}
               activeOpacity={0.7}
             >
@@ -733,12 +677,12 @@ export default function Index(): React.JSX.Element {
               className="flex-row items-center px-1.5 py-1 "
               onPress={(e) => {
                 e.stopPropagation();
-                loginScreen();
+                navigateToAuthScreen();
               }}
               activeOpacity={0.7}
             >
               <MaterialCommunityIcons
-                name="thumbs-up-down"
+                name="comment-outline"
                 size={14}
                 color="#64748b"
               />
@@ -749,7 +693,7 @@ export default function Index(): React.JSX.Element {
               className="flex-row items-center px-1.5 py-1 "
               onPress={(e) => {
                 e.stopPropagation();
-                loginScreen();
+                navigateToAuthScreen();
               }}
               activeOpacity={0.7}
             >
@@ -762,11 +706,12 @@ export default function Index(): React.JSX.Element {
                 {item.ContentRepostCount}
               </Text>
             </TouchableOpacity>
+            
             <TouchableOpacity 
               className="p-1.5"
-              onPress={() => {
-                closeFullScreenCard();
-                loginScreen();
+              onPress={(e) => {
+                e.stopPropagation();
+                navigateToAuthScreen();
               }}
               activeOpacity={0.7}
             >
@@ -777,7 +722,7 @@ export default function Index(): React.JSX.Element {
               className="flex-row items-center px-1.5 py-1"
               onPress={(e) => {
                 e.stopPropagation();
-                loginScreen();
+                navigateToAuthScreen();
               }}
               activeOpacity={0.7}
             >
@@ -792,7 +737,7 @@ export default function Index(): React.JSX.Element {
               className="p-1"
               onPress={(e) => {
                 e.stopPropagation();
-                loginScreen();
+                navigateToAuthScreen();
               }}
               activeOpacity={0.7}
             >
@@ -802,7 +747,7 @@ export default function Index(): React.JSX.Element {
         </View>
       </EnhancedCard>
     </TouchableOpacity>
-  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, dummyAuthorImage, loginScreen]);
+  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, dummyAuthorImage, navigateToAuthScreen]);
 
   const initializeCardAnimation = useCallback((postId: string) => {
     if (!cardAnimations[postId]) {
@@ -827,21 +772,13 @@ export default function Index(): React.JSX.Element {
     return filteredData.map((item, index) => {
       initializeCardAnimation(item.uniqueId);
       
-      if (userRole === "User") {
-        return (
-          <React.Fragment key={item.uniqueId}>
-            {renderPostUserContent(item, index)}
-          </React.Fragment>
-        );
-      } else {
-        return (
-          <React.Fragment key={item.uniqueId}>
-            {renderPostUserContent(item, index)}
-          </React.Fragment>
-        );
-      }
+      return (
+        <React.Fragment key={item.uniqueId}>
+          {renderPostUserContent(item, index)}
+        </React.Fragment>
+      );
     });
-  }, [filteredData, userRole, initializeCardAnimation, renderPostUserContent]);
+  }, [filteredData, initializeCardAnimation, renderPostUserContent]);
 
   const handleFlipCard = useCallback(() => {
     if (isFlipping) return;
@@ -906,7 +843,7 @@ export default function Index(): React.JSX.Element {
           <View className="flex-row items-center justify-between pt-3  mb-3">
             <TouchableOpacity
               className="flex-row items-center px-2 py-1.5 "
-              onPress={() => loginScreen()}
+              onPress={() => navigateToAuthScreen()}
               activeOpacity={0.7}
             >
               <Ionicons
@@ -923,12 +860,12 @@ export default function Index(): React.JSX.Element {
               className="flex-row items-center px-2 py-1.5 "
               onPress={() => {
                 closeFullScreenCard();
-                loginScreen();
+                navigateToAuthScreen();
               }}
               activeOpacity={0.7}
             >
               <MaterialCommunityIcons
-                name="thumbs-up-down"
+                name="comment-outline"
                 size={18}
                 color="#64748b"
               />
@@ -937,7 +874,7 @@ export default function Index(): React.JSX.Element {
 
             <TouchableOpacity
               className="flex-row items-center px-2 py-1.5 "
-              onPress={() => loginScreen()}
+              onPress={() => navigateToAuthScreen()}
               activeOpacity={0.7}
             >
               <Ionicons 
@@ -949,11 +886,12 @@ export default function Index(): React.JSX.Element {
                 {item.ContentRepostCount}
               </Text>
             </TouchableOpacity>
+            
             <TouchableOpacity 
               className="p-1.5"
               onPress={() => {
                 closeFullScreenCard();
-                loginScreen();
+                navigateToAuthScreen();
               }}
               activeOpacity={0.7}
             >
@@ -962,7 +900,7 @@ export default function Index(): React.JSX.Element {
 
             <TouchableOpacity
               className="flex-row items-center px-2 py-1.5"
-              onPress={() => loginScreen()}
+              onPress={() => navigateToAuthScreen()}
               activeOpacity={0.7}
             >
               <Ionicons 
@@ -974,7 +912,7 @@ export default function Index(): React.JSX.Element {
 
             <TouchableOpacity 
               className="p-1.5"
-              onPress={() => loginScreen()}
+              onPress={() => navigateToAuthScreen()}
               activeOpacity={0.7}
             >
               <Feather name="share-2" size={16} color="#64748b" />
@@ -983,7 +921,7 @@ export default function Index(): React.JSX.Element {
         </View>
       </ScrollView>
     </View>
-  ), [getTimeAgo, handleFlipCard, isFlipping, renderMediaContent, getCommentsCount, dummyAuthorImage, loginScreen, closeFullScreenCard]);
+  ), [getTimeAgo, handleFlipCard, isFlipping, renderMediaContent, dummyAuthorImage, navigateToAuthScreen, closeFullScreenCard]);
 
   const renderFlipCardBack = useCallback((item: PostItem) => (
     <View style={{ 
@@ -1043,7 +981,7 @@ export default function Index(): React.JSX.Element {
               </View>
               <View className="flex-row justify-between items-center">
                 <View className="flex-row items-center">
-                  <MaterialCommunityIcons name="thumbs-up-down" size={16} color="#45b7d1" />
+                  <MaterialCommunityIcons name="comment" size={16} color="#45b7d1" />
                   <Text className="text-white ml-2 text-sm">Comments</Text>
                 </View>
                 <Text className="text-white font-bold text-base">{item.ContentCommentCount}</Text>
@@ -1102,10 +1040,10 @@ export default function Index(): React.JSX.Element {
                   }}
                   onPress={() => {
                     closeFullScreenCard();
-                    loginScreen();
+                    navigateToAuthScreen();
                   }}
                 >
-                  <MaterialCommunityIcons name="thumbs-up-down" size={18} color="white" />
+                  <MaterialCommunityIcons name="comment-plus" size={18} color="white" />
                   <Text className="text-white text-xs mt-1 font-medium">Comment</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
@@ -1118,7 +1056,7 @@ export default function Index(): React.JSX.Element {
                   }}
                   onPress={() => {
                     closeFullScreenCard();
-                    loginScreen();
+                    navigateToAuthScreen();
                   }}
                 >
                   <Ionicons name="create-outline" size={18} color="white" />
@@ -1134,7 +1072,7 @@ export default function Index(): React.JSX.Element {
                   }}
                   onPress={() => {
                     closeFullScreenCard();
-                    loginScreen();
+                    navigateToAuthScreen();
                   }}
                 >
                   <Ionicons name="share-outline" size={18} color="white" />
@@ -1146,7 +1084,7 @@ export default function Index(): React.JSX.Element {
         </View>
       </ScrollView>
     </View>
-  ), [handleFlipCard, isFlipping, getTimeAgo, userRole, getCommentsCount, closeFullScreenCard, loginScreen]);
+  ), [handleFlipCard, isFlipping, getTimeAgo, closeFullScreenCard, navigateToAuthScreen]);
 
   const renderFullScreenFlipCard = useCallback((item: PostItem) => (
     <View className="flex-1 bg-gray-900">
@@ -1203,10 +1141,10 @@ export default function Index(): React.JSX.Element {
             />
           </View>
           
-          <TouchableOpacity className="p-2 rounded-full bg-gray-100 shadow-sm"
-          onPress={(e) => {
-            loginScreen();
-          }}>
+          <TouchableOpacity 
+            className="p-2 rounded-full bg-gray-100 shadow-sm"
+            onPress={navigateToAuthScreen}
+          >
             <Image
               source={require("../../assets/images/Union.png")}
               className="w-5 h-5"
@@ -1250,61 +1188,6 @@ export default function Index(): React.JSX.Element {
         )}
       </ScrollView>
       
-      {/* ✅ NEW: CONFIRMATION MODAL */}
-      <Modal
-        visible={isConfirmationModalVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={handleConfirmNo}
-        statusBarTranslucent
-      >
-        <View className="flex-1 bg-black/50 justify-center items-center px-6">
-          <View className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
-            {/* Icon */}
-            <View className="items-center mb-4">
-              <View className="w-16 h-16 bg-blue-100 rounded-full items-center justify-center">
-                <Ionicons name="lock-closed" size={32} color="#3b82f6" />
-              </View>
-            </View>
-
-            {/* Title */}
-            <Text className="text-xl font-bold text-gray-900 text-center mb-3">
-              Registration Required
-            </Text>
-
-            {/* Message */}
-            <Text className="text-base text-gray-600 text-center mb-6 leading-6">
-              You must be a registered user to interact with this post. Please register to proceed.
-            </Text>
-
-            {/* Buttons */}
-            <View className="flex-row gap-3">
-              {/* No Button */}
-              <TouchableOpacity
-                className="flex-1 bg-gray-200 py-3.5 rounded-xl"
-                onPress={handleConfirmNo}
-                activeOpacity={0.8}
-              >
-                <Text className="text-gray-700 font-semibold text-center text-base">
-                  No
-                </Text>
-              </TouchableOpacity>
-
-              {/* Yes Button */}
-              <TouchableOpacity
-                className="flex-1 bg-red-700 py-3.5 rounded-xl shadow-lg"
-                onPress={handleConfirmYes}
-                activeOpacity={0.8}
-              >
-                <Text className="text-white font-semibold text-center text-base">
-                  Yes, Register
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
       {/* IMAGE MODAL */}
       <Modal
         visible={isImageModalVisible}
@@ -1408,7 +1291,7 @@ export default function Index(): React.JSX.Element {
         </View>
       </Modal>
 
-      {/* CARD MODAL */}
+      {/* CARD MODAL - Uncomment if needed */}
       {/* <Modal
         visible={isCardModalVisible}
         transparent={false}
