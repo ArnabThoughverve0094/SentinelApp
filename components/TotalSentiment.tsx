@@ -51,6 +51,7 @@ interface PostData {
   Liked: boolean;
   Reposted: boolean;
   CommentTemplate: string;
+  isAnonymous: boolean;
 }
 
 interface TotalSentimentProps {
@@ -258,11 +259,6 @@ export default function TotalSentiment({
               const optionKey = Object.keys(nestedOption)[0];
               const optionDetails = nestedOption[optionKey];
 
-              console.log("Comment optionKey Fetched: ", optionKey);
-              console.log("Comment optionDetails Fetched: ", optionDetails);
-              console.log("Comment icon Fetched: ", optionDetails.icon);
-              console.log("Comment title Fetched: ", optionDetails.title);
-
               RESPONSE_OPTIONS.push({
                 id: typeof optionDetails.title === "string" ? optionDetails.title : "",
                 label: typeof optionDetails.title === "string" ? optionDetails.title : "",
@@ -273,30 +269,7 @@ export default function TotalSentiment({
 
           }
 
-          // const postData = doc.data;
-          // const postId = doc.id;
-          // console.log("Graph Template Passed: ", commentTemplate);
-
-          // if(commentTemplate == postId){
-          //   const optionsField = postData.options;
-
-          //   // Convert map to array:
-          //   for (const key in optionsField) {
-          //     if (Object.prototype.hasOwnProperty.call(optionsField, key)) {
-          //       const maybeOption = (optionsField as any)[key];
-          //       if (maybeOption && typeof maybeOption === "object") {
-          //         const icon = (maybeOption as any).icon;
-          //         const title = (maybeOption as any).title;
-          //         RESPONSE_OPTIONS.push({
-          //           id: typeof title === "string" ? title : "",
-          //           label: typeof title === "string" ? title : "",
-          //           icon: typeof icon === "string" ? icon : "",
-          //           color: '#34C759'
-          //         })
-          //       }
-          //     }
-          //   }    
-          // }
+         
         }
         console.log("RESPONSE_OPTIONS loaded:", RESPONSE_OPTIONS);
       })
@@ -675,7 +648,7 @@ export default function TotalSentiment({
                       />
                       <View style={{ flex: 1 }}>
                         <Text style={{ fontWeight: 'bold', fontSize: 16, color: '#000' }}>
-                          {postData.AuthorName}
+                          {(postData.isAnonymous) ? 'Anonymous' : postData.AuthorName}
                         </Text>
                         {/* UPDATED: Real-time timestamp */}
                         <Text style={{ fontSize: 14, color: '#8e8e93' }}>
