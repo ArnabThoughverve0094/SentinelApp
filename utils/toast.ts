@@ -1,15 +1,15 @@
 import Toast from 'react-native-toast-message';
 
 export const showToast = {
-  success: (message: string, title: string = 'Success') => {
+  success: (message: string, title: string = 'Bookmark Saved') => {
     Toast.show({
       type: 'success',
       text1: title,
       text2: message,
-      position: 'top',
-      visibilityTime: 3000,
+      position: 'bottom',
+      visibilityTime: 4000,
       autoHide: true,
-      topOffset: 60,
+      bottomOffset: 90, // Above bottom navigation
     });
   },
   
@@ -18,10 +18,10 @@ export const showToast = {
       type: 'error',
       text1: title,
       text2: message,
-      position: 'top',
+      position: 'bottom',
       visibilityTime: 4000,
       autoHide: true,
-      topOffset: 60,
+      bottomOffset: 90,
     });
   },
   
@@ -30,10 +30,10 @@ export const showToast = {
       type: 'warning',
       text1: title,
       text2: message,
-      position: 'top',
+      position: 'bottom',
       visibilityTime: 4000,
       autoHide: true,
-      topOffset: 60,
+      bottomOffset: 90,
     });
   },
   
@@ -42,10 +42,10 @@ export const showToast = {
       type: 'info',
       text1: title,
       text2: message,
-      position: 'top',
+      position: 'bottom',
       visibilityTime: 3000,
       autoHide: true,
-      topOffset: 60,
+      bottomOffset: 90,
     });
   },
 
@@ -54,9 +54,9 @@ export const showToast = {
     Toast.show({
       type: 'success',
       text1: message,
-      position: 'top',
+      position: 'bottom',
       visibilityTime: 2000,
-      topOffset: 60,
+      bottomOffset: 90,
     });
   },
 
@@ -64,9 +64,9 @@ export const showToast = {
     Toast.show({
       type: 'error',
       text1: message,
-      position: 'top',
+      position: 'bottom',
       visibilityTime: 3000,
-      topOffset: 60,
+      bottomOffset: 90,
     });
   },
 
@@ -76,10 +76,10 @@ export const showToast = {
       type,
       text1: title,
       text2: message,
-      position: 'top',
+      position: 'bottom',
       visibilityTime: 3000,
       autoHide: true,
-      topOffset: 60,
+      bottomOffset: 90,
       ...options,
     });
   },
@@ -90,9 +90,9 @@ export const showToast = {
       type: 'info',
       text1: 'Loading...',
       text2: message,
-      visibilityTime: 0, // Won't auto-hide
+      visibilityTime: 0,
       autoHide: false,
-      topOffset: 60,
+      bottomOffset: 90,
     });
   },
 
@@ -101,4 +101,3 @@ export const showToast = {
     Toast.hide();
   },
 };
-//Utils/toast

@@ -1,13 +1,11 @@
 import { db } from '@/FirebaseConfig';
 import { LoadingComponent } from '@/components/LoadingComponent';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
-import { VideoView, useVideoPlayer } from 'expo-video';
-
 import { router } from 'expo-router';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { collection, doc, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Dimensions, Image, Linking, Modal, Platform, RefreshControl, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
-import FlipCard from 'react-native-flip-card';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface PostItem {
@@ -55,15 +53,17 @@ export default function Index(): React.JSX.Element {
   const [isFlipping, setIsFlipping] = useState(false);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(-1);
   
-  // ✅ NEW: State for confirmation modal
-  const [isConfirmationModalVisible, setIsConfirmationModalVisible] = useState(false);
+  // ✅ NEW: Scroll tracking and auth popup states
+  const [scrollCount, setScrollCount] = useState(0);
+  const [showAuthPopup, setShowAuthPopup] = useState(false);
+  const [lastScrollY, setLastScrollY] = useState(0);
+  const popupAnimation = useRef(new Animated.Value(0)).current;
   
   const flipCardRef = useRef<any>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
 
-  // ✅ MOVE filteredData EARLY - Before any usage
   const filteredData = useMemo(() => {
     return fetchedData.filter(item => {
       if (userRole === "User") {
@@ -119,7 +119,32 @@ export default function Index(): React.JSX.Element {
     );
   }, [currentVideoIndex]);
 
-  // ✅ FIXED: Fetch comments from correct subcollection structure
+  const navigateToAuthScreen = useCallback(() => {
+    try {
+      router.push("/popup");
+    } catch (error) {
+      console.error("Navigation error:", error);
+    }
+  }, []);
+
+  // ✅ NEW: Show popup animation
+  useEffect(() => {
+    if (showAuthPopup) {
+      Animated.spring(popupAnimation, {
+        toValue: 1,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(popupAnimation, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [showAuthPopup]);
+
   const fetchCommentsCount = useCallback(async (posts: PostItem[]) => {
     try {
       console.log('Starting to fetch comments for', posts.length, 'posts');
@@ -160,29 +185,11 @@ export default function Index(): React.JSX.Element {
     }
   }, []);
 
-  // ✅ ADDED: Bookmark function
   const handleBookmark = useCallback(async (postItem: PostItem) => {
-    console.log("Bookmark pressed:", postItem.id);
-    
-    setFetchedData(prevData => 
-      prevData.map(item => 
-        item.uniqueId === postItem.uniqueId 
-          ? { ...item, Bookmarked: !item.Bookmarked } 
-          : item
-      )
-    );
+    console.log("Bookmark pressed - redirecting to auth:", postItem.id);
+    navigateToAuthScreen();
+  }, [navigateToAuthScreen]);
 
-    if (fullScreenCard && fullScreenCard.uniqueId === postItem.uniqueId) {
-      setFullScreenCard((prev: PostItem | null) => prev ? ({
-        ...prev,
-        Bookmarked: !prev.Bookmarked
-      }) : null);
-    }
-
-    await new Promise(r => setTimeout(r, 200));
-  }, [fullScreenCard]);
-
-  // OPTIMIZED DATA FETCHING
   const handleFetchAllData = useCallback(async (forceRefresh: boolean = false) => {
     const currentTime = Date.now();
     const cacheValidTime = 5 * 60 * 1000;
@@ -269,6 +276,7 @@ export default function Index(): React.JSX.Element {
             Bookmarked: false,
             createdAt: postData.createdAt || postData.ContentDate,
           });
+
         }
 
         const allData = postsData.concat(postsXData);
@@ -311,38 +319,11 @@ export default function Index(): React.JSX.Element {
   const getCommentsCount = useCallback((postId: string) => {
     return commentsData[postId] || 0;
   }, [commentsData]);
-  
-  // ✅ NEW: Show confirmation modal
-  const showConfirmationModal = useCallback(() => {
-    setIsConfirmationModalVisible(true);
-  }, []);
-
-  // ✅ NEW: Handle confirmation modal "Yes" button
-  const handleConfirmYes = useCallback(() => {
-    setIsConfirmationModalVisible(false);
-    // Redirect to registration screen
-    try {
-      router.push("/(auth)/email-login");
-    } catch (error) {
-      console.error("error, ", error);
-    }
-  }, []);
-
-  // ✅ NEW: Handle confirmation modal "No" button
-  const handleConfirmNo = useCallback(() => {
-    setIsConfirmationModalVisible(false);
-  }, []);
-
-  // Navigate to login screen (kept for backward compatibility, but now uses confirmation modal)
-  const loginScreen = async () => {
-    showConfirmationModal();
-  }
 
   useEffect(() => {
     handleFetchAllData();
   }, []);
 
-  // MEDIA MODAL CONTROLS
   const openFullScreenImage = useCallback((imageUrl: string) => {
     setFullScreenImage(imageUrl);
     setIsImageModalVisible(true);
@@ -387,7 +368,6 @@ export default function Index(): React.JSX.Element {
     setIsFlipping(false);
   }, []);
 
-  // OPTIMIZED REFRESH
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     console.log('Manual refresh triggered');
@@ -395,7 +375,6 @@ export default function Index(): React.JSX.Element {
     setRefreshing(false);
   }, [handleFetchAllData]);
   
-  // IMPROVED TIME AGO FUNCTION
   const getTimeAgo = useCallback((dateString: any) => {
     if (!dateString) return 'Just now';
     
@@ -478,7 +457,6 @@ export default function Index(): React.JSX.Element {
     return urlPath.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt)$/) ? 'doc' : 'image';
   }, []);
 
-  // OPTIMIZED MEDIA CONTENT - REDUCED SIZES
   const renderMediaContent = useCallback((item: PostItem, index?: number) => {
     const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
                      (item.ContentURL ? [item.ContentURL] : []);
@@ -509,15 +487,6 @@ export default function Index(): React.JSX.Element {
                 }}
                 className="bg-white"
                 resizeMode="cover"
-                blurRadius={5}
-              />
-              <Image
-                source={{ uri: primaryMediaUrl }}
-                style={{
-                  width: '100%',
-                  height: 200,
-                }}
-                resizeMode="contain"
                 onError={(error) => {
                   console.log("Image load error:", error.nativeEvent.error);
                 }}
@@ -600,18 +569,24 @@ export default function Index(): React.JSX.Element {
     }
   }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, VideoPlayer]);
 
-  // ✅ ADDED: Graph/Analytics modal function
-  const openGraphModal = useCallback((item: PostItem) => {
-    console.log("Graph/Analytics pressed:", item.id);
-    loginScreen();
-  }, [loginScreen]);
-
-  // AUTO PLAY VIDEO ON SCROLL
+  // ✅ NEW: Handle scroll with counter for popup trigger
   const handleScroll = useCallback((event: any) => {
     const { contentOffset, layoutMeasurement } = event.nativeEvent;
     const currentScrollY = contentOffset.y;
     const viewHeight = layoutMeasurement.height;
     const viewCenter = currentScrollY + viewHeight / 2;
+
+    // Track scroll direction and count
+    if (currentScrollY > lastScrollY + 100) {
+      setScrollCount(prev => {
+        const newCount = prev + 1;
+        if (newCount >= 2 && !showAuthPopup) { // Trigger after 2 scrolls
+          setShowAuthPopup(true);
+        }
+        return newCount;
+      });
+      setLastScrollY(currentScrollY);
+    }
 
     filteredData.forEach((item, index) => {
       const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
@@ -628,7 +603,7 @@ export default function Index(): React.JSX.Element {
         }
       }
     });
-  }, [filteredData, getMediaType, currentVideoIndex]);
+  }, [filteredData, getMediaType, currentVideoIndex, lastScrollY, showAuthPopup]);
 
   const EnhancedCard = useCallback(({ children, postId }: { children: React.ReactNode, postId: string }) => {
     const animValue = cardAnimations[postId] || new Animated.Value(0);
@@ -717,13 +692,13 @@ export default function Index(): React.JSX.Element {
               className="flex-row items-center px-1.5 py-1 "
               onPress={(e) => {
                 e.stopPropagation();
-                loginScreen();
+                navigateToAuthScreen();
               }}
               activeOpacity={0.7}
             >
               <Ionicons
                 name={item.Liked ? "heart" : "heart-outline"}
-                size={14}
+                size={20}
                 color={item.Liked ? "#ef4444" : "#64748b"}
               />
               <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
@@ -735,13 +710,13 @@ export default function Index(): React.JSX.Element {
               className="flex-row items-center px-1.5 py-1 "
               onPress={(e) => {
                 e.stopPropagation();
-                loginScreen();
+                navigateToAuthScreen();
               }}
               activeOpacity={0.7}
             >
               <MaterialCommunityIcons
                 name="thumbs-up-down"
-                size={14}
+                size={20}
                 color="#64748b"
               />
               <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
@@ -751,41 +726,42 @@ export default function Index(): React.JSX.Element {
               className="flex-row items-center px-1.5 py-1 "
               onPress={(e) => {
                 e.stopPropagation();
-                loginScreen();
+                navigateToAuthScreen();
               }}
               activeOpacity={0.7}
             >
               <Ionicons 
                 name="repeat-outline" 
-                size={14} 
+                size={20} 
                 color={item.Reposted ? "#0ea5e9" : "#64748b"} 
               />
               <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
                 {item.ContentRepostCount}
               </Text>
             </TouchableOpacity>
+            
             <TouchableOpacity 
               className="p-1.5"
-              onPress={() => {
-                closeFullScreenCard();
-                loginScreen();
+              onPress={(e) => {
+                e.stopPropagation();
+                navigateToAuthScreen();
               }}
               activeOpacity={0.7}
             >
-              <Feather name="bar-chart-2" size={16} color="#64748b" />
+              <Feather name="bar-chart-2" size={20} color="#64748b" />
             </TouchableOpacity>
 
             <TouchableOpacity
               className="flex-row items-center px-1.5 py-1"
               onPress={(e) => {
                 e.stopPropagation();
-                loginScreen();
+                navigateToAuthScreen();
               }}
               activeOpacity={0.7}
             >
               <Ionicons 
                 name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
-                size={14} 
+                size={20} 
                 color={item.Bookmarked ? "#f59e0b" : "#64748b"} 
               />
             </TouchableOpacity>
@@ -794,17 +770,17 @@ export default function Index(): React.JSX.Element {
               className="p-1"
               onPress={(e) => {
                 e.stopPropagation();
-                loginScreen();
+                navigateToAuthScreen();
               }}
               activeOpacity={0.7}
             >
-              <Feather name="share-2" size={12} color="#64748b" />
+              <Feather name="share-2" size={20} color="#64748b" />
             </TouchableOpacity>
           </View>
         </View>
       </EnhancedCard>
     </TouchableOpacity>
-  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, dummyAuthorImage, loginScreen]);
+  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, dummyAuthorImage, navigateToAuthScreen]);
 
   const initializeCardAnimation = useCallback((postId: string) => {
     if (!cardAnimations[postId]) {
@@ -829,393 +805,30 @@ export default function Index(): React.JSX.Element {
     return filteredData.map((item, index) => {
       initializeCardAnimation(item.uniqueId);
       
-      if (userRole === "User") {
-        return (
-          <React.Fragment key={item.uniqueId}>
-            {renderPostUserContent(item, index)}
-          </React.Fragment>
-        );
-      } else {
-        return (
-          <React.Fragment key={item.uniqueId}>
-            {renderPostUserContent(item, index)}
-          </React.Fragment>
-        );
-      }
+      return (
+        <React.Fragment key={item.uniqueId}>
+          {renderPostUserContent(item, index)}
+        </React.Fragment>
+      );
     });
-  }, [filteredData, userRole, initializeCardAnimation, renderPostUserContent]);
-
-  const handleFlipCard = useCallback(() => {
-    if (isFlipping) return;
-    
-    setIsFlipping(true);
-    setIsFlipped(!isFlipped);
-    
-    setTimeout(() => {
-      setIsFlipping(false);
-    }, 800);
-  }, [isFlipped, isFlipping]);
-
-  const renderFlipCardFront = useCallback((item: PostItem) => (
-    <View style={{ 
-      flex: 1, 
-      backgroundColor: 'white', 
-      borderRadius: 24, 
-      overflow: 'hidden' 
-    }}>
-      <View className="px-4 py-3 bg-gray-50 border-b border-gray-100">
-        <View className="flex-row items-center">
-          <View className="relative">
-            <View className="w-10 h-10 rounded-full mr-2.5 overflow-hidden border-2 border-white shadow-lg">
-              <Image
-                // source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
-                source={{ uri: dummyAuthorImage }}
-                className="w-full h-full"
-                resizeMode="cover"
-              />
-            </View>
-          </View>
-          <View className="flex-1">
-            {/* <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text> */}
-            <Text className="font-bold text-gray-900 text-sm">Anonymous</Text>
-            <View className="flex-row items-center mt-0.5">
-              <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
-              {item.postType === 'X-Data' && (
-                <View className="bg-blue-100 px-2 py-0.5 rounded-full">
-                  <Text className="text-blue-600 text-xs font-semibold">𝕏 POST</Text>
-                </View>
-              )}
-            </View>
-          </View>
-          <View className="flex-col items-center">
-            <TouchableOpacity 
-              className="p-1.5 rounded-full bg-blue-100 mb-1"
-              onPress={handleFlipCard}
-              disabled={isFlipping}
-              style={{ opacity: isFlipping ? 0.6 : 1 }}
-            >
-              <Ionicons name="repeat" size={14} color="#3b82f6" />
-            </TouchableOpacity>
-            <Text className="text-xs text-blue-600 font-medium">Flip</Text>
-          </View>
-        </View>
-      </View>
-
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-        <View className="px-4 py-3">
-          <Text className="text-gray-800 text-sm leading-5 mb-3 font-normal">{item.ContentDesc}</Text>
-          
-          {renderMediaContent(item)}
-
-          <View className="flex-row items-center justify-between pt-3  mb-3">
-            <TouchableOpacity
-              className="flex-row items-center px-2 py-1.5 "
-              onPress={() => loginScreen()}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={item.Liked ? "heart" : "heart-outline"}
-                size={18}
-                color={item.Liked ? "#ef4444" : "#64748b"}
-              />
-              <Text className={`ml-2 text-sm font-semibold ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
-                {item.ContentLikeCount}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className="flex-row items-center px-2 py-1.5 "
-              onPress={() => {
-                closeFullScreenCard();
-                loginScreen();
-              }}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name="thumbs-up-down"
-                size={18}
-                color="#64748b"
-              />
-              <Text className="text-gray-600 ml-2 text-sm font-semibold">{item.ContentCommentCount}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className="flex-row items-center px-2 py-1.5 "
-              onPress={() => loginScreen()}
-              activeOpacity={0.7}
-            >
-              <Ionicons 
-                name="repeat-outline" 
-                size={18} 
-                color={item.Reposted ? "#0ea5e9" : "#64748b"} 
-              />
-              <Text className={`ml-2 text-sm font-semibold ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
-                {item.ContentRepostCount}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              className="p-1.5"
-              onPress={() => {
-                closeFullScreenCard();
-                loginScreen();
-              }}
-              activeOpacity={0.7}
-            >
-              <Feather name="bar-chart-2" size={16} color="#64748b" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className="flex-row items-center px-2 py-1.5"
-              onPress={() => loginScreen()}
-              activeOpacity={0.7}
-            >
-              <Ionicons 
-                name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
-                size={18} 
-                color={item.Bookmarked ? "#f59e0b" : "#64748b"} 
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              className="p-1.5"
-              onPress={() => loginScreen()}
-              activeOpacity={0.7}
-            >
-              <Feather name="share-2" size={16} color="#64748b" />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </ScrollView>
-    </View>
-  ), [getTimeAgo, handleFlipCard, isFlipping, renderMediaContent, getCommentsCount, dummyAuthorImage, loginScreen, closeFullScreenCard]);
-
-  const renderFlipCardBack = useCallback((item: PostItem) => (
-    <View style={{ 
-      flex: 1, 
-      backgroundColor: '#667eea', 
-      borderRadius: 24, 
-      overflow: 'hidden'
-    }}>
-      <View style={{ 
-        paddingHorizontal: 16, 
-        paddingVertical: 12, 
-        backgroundColor: 'rgba(0,0,0,0.2)', 
-        borderBottomWidth: 1, 
-        borderBottomColor: 'rgba(255,255,255,0.2)' 
-      }}>
-        <View className="flex-row items-center">
-          <View className="flex-1">
-            <Text className="font-bold text-white text-base">Post Analytics</Text>
-            <Text className="text-white/80 text-sm mt-0.5">Detailed insights</Text>
-          </View>
-          <View className="flex-col items-center">
-            <TouchableOpacity 
-              className="p-1.5 rounded-full mb-1" 
-              style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
-              onPress={handleFlipCard}
-              disabled={isFlipping}
-            >
-              <Ionicons name="repeat" size={14} color="white" />
-            </TouchableOpacity>
-            <Text className="text-xs text-white font-medium">Flip</Text>
-          </View>
-        </View>
-      </View>
-
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-        <View style={{ paddingHorizontal: 16, paddingVertical: 16 }}>
-          <View style={{ gap: 12 }}>
-            <View style={{ 
-              backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-              borderRadius: 14, 
-              padding: 16 
-            }}>
-              <Text className="text-white font-bold text-sm mb-3">Engagement</Text>
-              <View className="flex-row justify-between items-center mb-2">
-                <View className="flex-row items-center">
-                  <Ionicons name="heart" size={16} color="#ff6b6b" />
-                  <Text className="text-white ml-2 text-sm">Likes</Text>
-                </View>
-                <Text className="text-white font-bold text-base">{item.ContentLikeCount}</Text>
-              </View>
-              <View className="flex-row justify-between items-center mb-2">
-                <View className="flex-row items-center">
-                  <Ionicons name="repeat" size={16} color="#4ecdc4" />
-                  <Text className="text-white ml-2 text-sm">Reposts</Text>
-                </View>
-                <Text className="text-white font-bold text-base">{item.ContentRepostCount}</Text>
-              </View>
-              <View className="flex-row justify-between items-center">
-                <View className="flex-row items-center">
-                  <MaterialCommunityIcons name="thumbs-up-down" size={16} color="#45b7d1" />
-                  <Text className="text-white ml-2 text-sm">Comments</Text>
-                </View>
-                <Text className="text-white font-bold text-base">{item.ContentCommentCount}</Text>
-              </View>
-            </View>
-
-            <View style={{ 
-              backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-              borderRadius: 14, 
-              padding: 16 
-            }}>
-              <Text className="text-white font-bold text-sm mb-3">Post Details</Text>
-              <View style={{ gap: 8 }}>
-                <View>
-                  <Text className="text-white/70 text-xs">Post Type</Text>
-                  <Text className="text-white font-semibold text-sm">{item.postType}</Text>
-                </View>
-                <View>
-                  <Text className="text-white/70 text-xs">Status</Text>
-                  <View className="flex-row items-center mt-1">
-                    <View 
-                      style={{ 
-                        width: 6, 
-                        height: 6, 
-                        borderRadius: 3, 
-                        marginRight: 6,
-                        backgroundColor: item.isApproved ? '#4ade80' : '#f87171'
-                      }} 
-                    />
-                    <Text className="text-white font-semibold text-sm">
-                      {item.isApproved ? 'Approved' : 'Pending'}
-                    </Text>
-                  </View>
-                </View>
-                <View>
-                  <Text className="text-white/70 text-xs">Published</Text>
-                  <Text className="text-white font-semibold text-sm">{getTimeAgo(item.ContentDate)}</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={{ 
-              backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-              borderRadius: 14, 
-              padding: 16 
-            }}>
-              <Text className="text-white font-bold text-sm mb-3">Quick Actions</Text>
-              <View className="flex-row justify-between" style={{ gap: 8 }}>
-                <TouchableOpacity 
-                  style={{ 
-                    flex: 1, 
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                    borderRadius: 8, 
-                    paddingVertical: 10, 
-                    alignItems: 'center' 
-                  }}
-                  onPress={() => {
-                    closeFullScreenCard();
-                    loginScreen();
-                  }}
-                >
-                  <MaterialCommunityIcons name="thumbs-up-down" size={18} color="white" />
-                  <Text className="text-white text-xs mt-1 font-medium">Comment</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={{ 
-                    flex: 1, 
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                    borderRadius: 8, 
-                    paddingVertical: 10, 
-                    alignItems: 'center' 
-                  }}
-                  onPress={() => {
-                    closeFullScreenCard();
-                    loginScreen();
-                  }}
-                >
-                  <Ionicons name="create-outline" size={18} color="white" />
-                  <Text className="text-white text-xs mt-1 font-medium">Edit</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={{ 
-                    flex: 1, 
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                    borderRadius: 8, 
-                    paddingVertical: 10, 
-                    alignItems: 'center' 
-                  }}
-                  onPress={() => {
-                    closeFullScreenCard();
-                    loginScreen();
-                  }}
-                >
-                  <Ionicons name="share-outline" size={18} color="white" />
-                  <Text className="text-white text-xs mt-1 font-medium">Share</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </View>
-      </ScrollView>
-    </View>
-  ), [handleFlipCard, isFlipping, getTimeAgo, userRole, getCommentsCount, closeFullScreenCard, loginScreen]);
-
-  const renderFullScreenFlipCard = useCallback((item: PostItem) => (
-    <View className="flex-1 bg-gray-900">
-      <View style={{ paddingTop: Platform.OS === 'ios' ? 50 : 30 }} className="px-6 py-4 bg-gray-900/95 border-b border-gray-700">
-        <View className="flex-row items-center justify-between">
-          <Text className="text-white font-bold text-xl">Post Details</Text>
-          <TouchableOpacity 
-            className="p-3 rounded-full bg-red-500"
-            onPress={closeFullScreenCard}
-          >
-            <Ionicons name="close" size={24} color="white" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View className="flex-1 justify-center px-4">
-        <FlipCard
-          ref={flipCardRef}
-          style={{ width: screenWidth - 32, height: screenHeight * 0.75 }}
-          friction={6}
-          perspective={1000}
-          flipHorizontal={true}
-          flipVertical={false}
-          flip={isFlipped}
-          clickable={false}
-        >
-          {renderFlipCardFront(item)}
-          {renderFlipCardBack(item)}
-        </FlipCard>
-
-        <View className="mt-6 bg-black/50 rounded-2xl p-4">
-          <Text className="text-white text-center text-sm opacity-80">
-            Use the flip button to see more details
-          </Text>
-        </View>
-      </View>
-    </View>
-  ), [closeFullScreenCard, isFlipped, renderFlipCardFront, renderFlipCardBack]);
+  }, [filteredData, initializeCardAnimation, renderPostUserContent]);
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
       
-      <View className="bg-white border-b border-gray-200 pt-5">
+      <View className="bg-white border-b border-gray-200">
         <View 
-          className="px-4 py-2 flex-row items-center justify-between"
-          style={{ paddingTop: Platform.OS === 'ios' ? 12 : 12 }}
+          className="px-4 py-3 flex-row items-center justify-between"
+          style={{ paddingTop: Platform.OS === 'ios' ? 10 : 10 }}
         >
-          <View>
-            <Image
-              source={require("../../assets/images/sentinel_logo.png")}
-              className="w-16 h-10"
-              resizeMode="contain"
-            />
-          </View>
+          <Text className="text-xl font-bold text-gray-900">Sentinel</Text>
           
-          <TouchableOpacity className="p-2 rounded-full bg-gray-100 shadow-sm"
-          onPress={(e) => {
-            loginScreen();
-          }}>
-            <Image
-              source={require("../../assets/images/Union.png")}
-              className="w-5 h-5"
-              resizeMode="contain"
-            />
+          <TouchableOpacity 
+            className="p-2 rounded-full"
+            onPress={navigateToAuthScreen}
+          >
+            <Ionicons name="search" size={24} color="#000" />
           </TouchableOpacity>
         </View>
       </View>
@@ -1226,7 +839,7 @@ export default function Index(): React.JSX.Element {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ 
           paddingTop: 6, 
-          paddingBottom: 16,
+          paddingBottom: 90, // Space for bottom nav + popup
         }}
         onScroll={handleScroll}
         scrollEventThrottle={16}
@@ -1254,61 +867,135 @@ export default function Index(): React.JSX.Element {
         )}
       </ScrollView>
       
-      {/* ✅ NEW: CONFIRMATION MODAL */}
-      <Modal
-        visible={isConfirmationModalVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={handleConfirmNo}
-        statusBarTranslucent
+      {/* ✅ FIXED BOTTOM NAVIGATION */}
+      <View 
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          backgroundColor: 'white',
+          borderTopWidth: 1,
+          borderTopColor: '#e5e7eb',
+          paddingBottom: Platform.OS === 'ios' ? 20 : 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
+          elevation: 10,
+        }}
       >
-        <View className="flex-1 bg-black/50 justify-center items-center px-6">
-          <View className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
-            {/* Icon */}
-            <View className="items-center mb-4">
-              <View className="w-16 h-16 bg-blue-100 rounded-full items-center justify-center">
-                <Ionicons name="lock-closed" size={32} color="#3b82f6" />
+        <View className="flex-row items-center justify-around px-2 py-2">
+          <TouchableOpacity 
+            className="items-center justify-center"
+            onPress={navigateToAuthScreen}
+            style={{ flex: 1 }}
+          >
+            {/* <Ionicons name="home" size={26} color="#000" /> */}
+            <MaterialIcons
+              name="home"
+              size={28}
+              color="#000000"
+            />
+            <Text className="text-xs text-black mt-1 font-medium">Home</Text>
+                        
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            className="items-center justify-center"
+            onPress={navigateToAuthScreen}
+            style={{ flex: 1 }}
+          >
+            <Ionicons name="bookmark-outline" size={26} color="#64748b" />
+            <Text className="text-xs text-gray-500 mt-1">Bookmark</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            className="items-center justify-center"
+            onPress={navigateToAuthScreen}
+            style={{ flex: 1 }}
+          >
+            <Ionicons name="add-circle-outline" size={26} color="#64748b" />
+            <Text className="text-xs text-gray-500 mt-1">Create</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            className="items-center justify-center"
+            onPress={navigateToAuthScreen}
+            style={{ flex: 1 }}
+          >
+            <Ionicons name="notifications-outline" size={26} color="#64748b" />
+            <Text className="text-xs text-gray-500 mt-1">Notifications</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            className="items-center justify-center"
+            onPress={navigateToAuthScreen}
+            style={{ flex: 1 }}
+          >
+            <Ionicons name="person-circle-outline" size={26} color="#64748b" />
+            <Text className="text-xs text-gray-500 mt-1">Profile</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* ✅ AUTH POPUP - Appears after 2-3 scrolls */}
+      {showAuthPopup && (
+        <Animated.View
+          style={{
+            position: 'absolute',
+            bottom: Platform.OS === 'ios' ? 95 : 85,
+            left: 16,
+            right: 16,
+            transform: [
+              {
+                translateY: popupAnimation.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [200, 0],
+                }),
+              },
+            ],
+            opacity: popupAnimation,
+          }}
+        >
+          <View className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
+            <View className="bg-pink-50 px-5 py-4">
+              <View className="flex-row items-center justify-between mb-2">
+                <Text className="text-base font-bold text-gray-900">Welcome to Sentinel</Text>
+                <TouchableOpacity onPress={() => setShowAuthPopup(false)}>
+                  <Ionicons name="close" size={22} color="#64748b" />
+                </TouchableOpacity>
               </View>
+              <Text className="text-sm text-gray-600 leading-5">
+                Login now to stay updated with all the latest information near you
+              </Text>
             </View>
-
-            {/* Title */}
-            <Text className="text-xl font-bold text-gray-900 text-center mb-3">
-              Registration Required
-            </Text>
-
-            {/* Message */}
-            <Text className="text-base text-gray-600 text-center mb-6 leading-6">
-              You must be a registered user to interact with this post. Please register to proceed.
-            </Text>
-
-            {/* Buttons */}
-            <View className="flex-row gap-3">
-              {/* No Button */}
-              <TouchableOpacity
-                className="flex-1 bg-gray-200 py-3.5 rounded-xl"
-                onPress={handleConfirmNo}
-                activeOpacity={0.8}
+            
+            <View className="px-5 py-4 flex-row gap-3">
+              <TouchableOpacity 
+                className="flex-1 bg-black py-3 rounded-xl items-center"
+                onPress={() => {
+                  setShowAuthPopup(false);
+                  router.push("/(auth)/register");
+                }}
               >
-                <Text className="text-gray-700 font-semibold text-center text-base">
-                  No
-                </Text>
+                <Text className="text-white font-semibold text-sm">Sign Up</Text>
               </TouchableOpacity>
 
-              {/* Yes Button */}
-              <TouchableOpacity
-                className="flex-1 bg-red-700 py-3.5 rounded-xl shadow-lg"
-                onPress={handleConfirmYes}
-                activeOpacity={0.8}
+              <TouchableOpacity 
+                className="flex-1 bg-red-600 py-3 rounded-xl items-center"
+                onPress={() => {
+                  setShowAuthPopup(false);
+                  router.push("/(auth)/email-login");
+                }}
               >
-                <Text className="text-white font-semibold text-center text-base">
-                  Yes, Register
-                </Text>
+                <Text className="text-white font-semibold text-sm">Login</Text>
               </TouchableOpacity>
             </View>
           </View>
-        </View>
-      </Modal>
-
+        </Animated.View>
+      )}
+      
       {/* IMAGE MODAL */}
       <Modal
         visible={isImageModalVisible}
@@ -1368,7 +1055,7 @@ export default function Index(): React.JSX.Element {
                 style={{ width: screenWidth, height: screenHeight - 100 }}
                 contentFit="contain"
                 nativeControls={true}
-                />
+              />
             )}
           </View>
         </View>
@@ -1411,17 +1098,6 @@ export default function Index(): React.JSX.Element {
           </View>
         </View>
       </Modal>
-
-      {/* CARD MODAL */}
-      {/* <Modal
-        visible={isCardModalVisible}
-        transparent={false}
-        animationType="slide"
-        onRequestClose={closeFullScreenCard}
-        statusBarTranslucent
-      >
-        {fullScreenCard && renderFullScreenFlipCard(fullScreenCard)}
-      </Modal> */}
     </SafeAreaView>
   );
 }
