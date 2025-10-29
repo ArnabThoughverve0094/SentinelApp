@@ -308,30 +308,39 @@ export default function ForgotPassword(): React.JSX.Element {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           
           {/* Header with Back Button */}
-          {/* <View className="px-6 pt-16 pb-8">
-            <Link href="/(auth)/email-login" asChild>
-              <TouchableOpacity className="w-10 h-10 rounded-full bg-white/95 items-center justify-center shadow-lg border border-white/30">
-                <Ionicons name="arrow-back" size={20} color="#374151" />
-              </TouchableOpacity>
-            </Link>
-          </View> */}
-
-        <View className="px-4 py-2 flex-row items-center justify-between">
-          <View className="px-0 pt-6 pb-8">
-            <Link href="/(auth)/email-login" asChild>
-              <TouchableOpacity className="w-10 h-10 rounded-full bg-white/95 items-center justify-center shadow-sm border border-white/30">
-                <Ionicons name="arrow-back" size={20} color="#374151" />
-              </TouchableOpacity>
-            </Link>
-          </View>
-          <View>
-            <Image
-              source={require("../../assets/images/sentinel_logo.png")}
-              className="w-16 h-10"
-              resizeMode="contain"
-            />
-          </View>
-        </View>
+          <View className="px-6 pt-5 pb-4 flex-row items-center justify-between">
+                    {/* Left: Logo and Text */}
+                    <Link href="/(auth)/email-login" asChild>
+                      <TouchableOpacity className="flex-row items-center">
+                        {/* Gear Icon */}
+                        <View className="w-8 h-8 mr-2">
+                          <Image
+                            source={require("../../assets/images/sentinel_logo.png")}
+                            className="w-full h-full"
+                            resizeMode="contain"
+                          />
+                        </View>
+          
+                        {/* Sentinel Text */}
+                        <Text className="text-2xl font-extrabold text-[#281C20]">
+                          Sentinel
+                        </Text>
+                      </TouchableOpacity>
+                    </Link>
+          
+                    {/* Right: Close Button */}
+                    <TouchableOpacity
+                      onPress={() => router.back()}
+                      style={{
+                        width: 32,
+                        height: 32,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Ionicons name="close" size={26} color="#000" />
+                    </TouchableOpacity>
+                  </View>
 
           {/* Main content */}
           <View className="flex-1 px-6">
