@@ -11,18 +11,25 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { Link, router } from "expo-router";
 
+
 export default function Index(): React.JSX.Element {
-  // ✅ Move useState INSIDE the component function
   const [agreeToTerms, setAgreeToTerms] = useState<boolean>(false);
+
 
   const handleTermsPress = () => {
     router.push('/(auth)/termsandconditions');
   };
 
-  // Navigate to Privacy Policy page  
+
   const handlePrivacyPress = () => {
     router.push('/(auth)/privacypolicy');
   };
+
+
+  const handleClosePress = () => {
+    router.back();
+  };
+
 
   return (
     <SafeAreaView className="flex-1">
@@ -32,26 +39,32 @@ export default function Index(): React.JSX.Element {
         translucent
       />
       
-
-      {/* Background Image */}
       <ImageBackground
-        source={require("../../assets/images/page-bg.jpg")}
+        source={require("../../assets/images/redbg.png")}
         className="flex-1"
         resizeMode="cover"
       >
-        {/* Main content - NO OVERLAY */}
-        <View className="px-6 pt-10 pb-8">
-            <Link href="/(auth)" asChild>
-              <TouchableOpacity className="w-14 h-14">
-                <Ionicons name="arrow-back" size={25} color="#000000" />
-              </TouchableOpacity>
-            </Link>
-          </View>
+        {/* Header with back button and close icon */}
+        <View className="px-6 pt-10 pb-8 flex-row justify-between items-center">
+          {/* <Link href="/(auth)" asChild>
+            <TouchableOpacity className="w-14 h-14">
+              <Ionicons name="arrow-back" size={25} color="#000000" />
+            </TouchableOpacity>
+          </Link> */}
+          <View className="flex-1" />
+          {/* Close icon on the right */}
+          <TouchableOpacity 
+            className="w-10 h-10 justify-center items-right"
+            onPress={handleClosePress}
+          >
+            <Ionicons name="close" size={30} color="#ffffff" />
+          </TouchableOpacity>
+        </View>
+
         <View className="flex-1 px-6 justify-center pt-56">
           {/* Logo positioned above welcome text */}
           <View className="items-start mb-8">
-            
-            <View className="w-14 h-14 rounded-xl bg-transparent justify-center items-center ">
+            <View className="w-14 h-14 rounded-xl bg-transparent justify-center items-center">
               <Image
                 source={require("../../assets/images/sentinel_logo.png")}
                 className="w-14 h-14"
@@ -63,7 +76,7 @@ export default function Index(): React.JSX.Element {
           {/* Welcome text section */}
           <View className="mb-16">
             <Text className="text-3xl font-bold text-black mb-3 leading-tight">
-              Welcome to{"\n"}Sentinel
+              Welcome{"\n"}to Sentinel
             </Text>
             <Text className="text-base text-black/80 leading-6">
               Connect with your community and stay updated every time,
@@ -73,7 +86,7 @@ export default function Index(): React.JSX.Element {
 
           {/* Authentication buttons */}
           <View className="gap-3">
-            <TouchableOpacity className="flex-row items-center justify-center bg-white/95 py-4 px-6 rounded-xl border border-white/30 shadow-lg">
+            <TouchableOpacity className="flex-row items-center justify-center bg-white/95 py-4 px-6 rounded-xl border border-white/10 shadow-lg">
               <Image
                 source={{
                   uri: "https://developers.google.com/identity/images/g-logo.png",
@@ -86,7 +99,8 @@ export default function Index(): React.JSX.Element {
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity className="flex-row items-center justify-center bg-white/95 py-4 px-6 rounded-xl border border-white/30 shadow-lg">
+
+            <TouchableOpacity className="flex-row items-center justify-center bg-white/95 py-4 px-6 rounded-xl border border-white/10 shadow-lg">
               <Ionicons name="logo-apple" size={20} color="#000" />
               <Text className="text-base text-gray-700 font-medium ml-3">
                 Continue with Apple
