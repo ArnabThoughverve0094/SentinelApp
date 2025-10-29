@@ -27,6 +27,7 @@ interface PostItem {
   Reposted: boolean;
   Bookmarked?: boolean;
   createdAt?: any;
+  isAnonymous: boolean;
 }
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -232,6 +233,7 @@ export default function Index(): React.JSX.Element {
             Reposted: false,
             Bookmarked: false,
             createdAt: postData.createdAt || postData.ContentDate,
+            isAnonymous: false,
           });
         }
 
@@ -275,6 +277,7 @@ export default function Index(): React.JSX.Element {
             Reposted: false,
             Bookmarked: false,
             createdAt: postData.createdAt || postData.ContentDate,
+            isAnonymous: postData.isAnonymous || false,
           });
 
         }
@@ -479,13 +482,8 @@ export default function Index(): React.JSX.Element {
             <View className="relative rounded-xl overflow-hidden">
               <Image
                 source={{ uri: primaryMediaUrl }}
-                style={{
-                  width: '100%',
-                  height: 200, // Fills the parent View
-                  position: 'absolute', // Allows other content to layer on top
-                  opacity: 0.2, // Adjust for desired transparency (0.0 to 1.0)
-                }}
-                className="bg-white"
+                style={{ width: '100%', height: 200 }}
+                className="bg-gray-100"
                 resizeMode="cover"
                 onError={(error) => {
                   console.log("Image load error:", error.nativeEvent.error);
@@ -658,15 +656,13 @@ export default function Index(): React.JSX.Element {
               <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
                 <Image
                   source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
-                  // source={{ uri: dummyAuthorImage }}
                   className="w-full h-full"
                   resizeMode="cover"
                 />
               </View>
             </View>
             <View className="flex-1">
-              <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text>
-              {/* <Text className="font-bold text-gray-900 text-sm">Anonymous</Text> */}
+              <Text className="font-bold text-gray-900 text-sm">{(item.isAnonymous) ? 'Anonymous' : item.AuthorName}</Text>
               <View className="flex-row items-center mt-0.5">
                 <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
                 {item.postType === 'X-Data' && (

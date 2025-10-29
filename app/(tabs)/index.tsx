@@ -1532,7 +1532,7 @@ export default function SentinelFeed(): React.JSX.Element {
             Notification: arrayUnion({
               AuthorImageURL: await AsyncStorage.getItem('profilePicUrl') || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
               AuthorName: await AsyncStorage.getItem('userName'),
-              AuthorUserID: userId,
+              AuthorUserID: await AsyncStorage.getItem('userId'),
               ContentDate: new Date(),
               NotifyType: 'post_approved',
               ShowButtons: false,
@@ -1544,11 +1544,11 @@ export default function SentinelFeed(): React.JSX.Element {
         } else {
           // Create new document if it doesn't exist
           await addDoc(collection(db, 'SentinelUsers'), {
-            userID: userId,
+            userID: await AsyncStorage.getItem('userId'),
             Notification: [{
               AuthorImageURL: await AsyncStorage.getItem('profilePicUrl') || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
               AuthorName: await AsyncStorage.getItem('userName'),
-              AuthorUserID: userId,
+              AuthorUserID: await AsyncStorage.getItem('userId'),
               ContentDate: new Date(),
               NotifyType: 'post_approved',
               ShowButtons: false,
@@ -2467,7 +2467,7 @@ export default function SentinelFeed(): React.JSX.Element {
               >
                 <Ionicons
                   name={item.Liked ? "heart" : "heart-outline"}
-                  size={14}
+                  size={20}
                   color={item.Liked ? "#ef4444" : "#64748b"}
                 />
                 <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
@@ -2486,7 +2486,7 @@ export default function SentinelFeed(): React.JSX.Element {
               >
                 <MaterialCommunityIcons
                   name="thumbs-up-down"
-                  size={14}
+                  size={20}
                   color="#000000"
                 />
                 <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
@@ -2503,7 +2503,7 @@ export default function SentinelFeed(): React.JSX.Element {
               >
                 <Ionicons 
                   name="repeat-outline" 
-                  size={14} 
+                  size={20} 
                   color={item.Reposted ? "#0ea5e9" : "#64748b"} 
                 />
                 <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
@@ -2520,7 +2520,7 @@ export default function SentinelFeed(): React.JSX.Element {
                 activeOpacity={0.7}
                 disabled={areInteractionsDisabled(item)}
               >
-                <Feather name="bar-chart-2" size={16} color="#64748b" />
+                <Feather name="bar-chart-2" size={20} color="#64748b" />
               </TouchableOpacity>
   
               <TouchableOpacity
@@ -2534,7 +2534,7 @@ export default function SentinelFeed(): React.JSX.Element {
               >
                 <Ionicons 
                   name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
-                  size={14} 
+                  size={20} 
                   color={item.Bookmarked ? "#000000" : "#64748b"} 
                 />
               </TouchableOpacity>
@@ -2548,7 +2548,7 @@ export default function SentinelFeed(): React.JSX.Element {
                 activeOpacity={0.7}
                 disabled={areInteractionsDisabled(item)}
               >
-                <Feather name="share-2" size={12} color="#64748b" />
+                <Feather name="share-2" size={20} color="#64748b" />
               </TouchableOpacity>
             </View>
   
@@ -2557,27 +2557,85 @@ export default function SentinelFeed(): React.JSX.Element {
                 onPress={(e) => e.stopPropagation()}
                 activeOpacity={1}
               >
-                <View className="mt-2 p-2.5 bg-gray-50 rounded-lg border border-gray-200">
-                  <View className="mb-2">
-                    <Text className="font-bold text-gray-900 text-sm">Post Status</Text>
-                    <Text className="text-gray-500 text-xs mt-0.5">
-                      {item.isNew 
-                        ? 'This post is new and awaiting review' 
-                        : item.isApproved
-                        ? 'This post is approved and visible to users' 
-                        : 'This post is rejected and not visible to users'
-                      }
-                    </Text>
+                <View className="mt-3 px-3 py-2.5 bg-white rounded-lg border border-gray-200">
+                  {/* Single row with icon, text, and buttons */}
+                  <View className="flex-row items-center justify-between">
+                    {/* Left side: Icon + Post Status + Description */}
+                    <View className="flex-1 mr-3">
+                      <View className="flex-row items-center mb-1">
+                        <Ionicons
+                          name="information-circle-outline"
+                          size={18}
+                          color="#64748b"
+                        />
+                        <Text className="font-semibold text-gray-900 text-sm ml-1.5">
+                          Post Status
+                        </Text>
+                      </View>
+                      <Text className="text-gray-500 text-xs leading-4">
+                        {item.isNew
+                          ? "This post is new and awaiting review"
+                          : item.isApproved
+                          ? "This post is approved and visible to users"
+                          : "This post is rejected and not visible to users"}
+                      </Text>
+                    </View>
+
+                    {/* Right side: Buttons in a row */}
+                    <View className="flex-row items-center gap-2">
+                      {/* ✅ APPROVE BUTTON - Direct approval */}
+                      <TouchableOpacity
+                        onPress={() => handleApprovalToggle(item.id, true, false, item.AuthorUserID)}
+                        className={`flex-row items-center justify-center px-3 py-1.5 rounded-lg ${
+                          item.isApproved && !item.isNew
+                            ? "bg-green-500"
+                            : "bg-white border border-green-500"
+                        }`}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={14}
+                          color={item.isApproved && !item.isNew ? "#fff" : "#22c55e"}
+                        />
+                        <Text
+                          className={`ml-1 text-xs font-semibold ${
+                            item.isApproved && !item.isNew
+                              ? "text-white"
+                              : "text-green-500"
+                          }`}
+                        >
+                          Approve
+                        </Text>
+                      </TouchableOpacity>
+
+                      {/* ✅ REJECT BUTTON - Opens rejection modal */}
+                      <TouchableOpacity
+                        onPress={() => openRejectionModal(item.id)}
+                        className={`flex-row items-center justify-center px-3 py-1.5 rounded-lg ${
+                          !item.isApproved && !item.isNew
+                            ? "bg-red-500"
+                            : "bg-white border border-red-500"
+                        }`}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons
+                          name="close-circle"
+                          size={14}
+                          color={!item.isApproved && !item.isNew ? "#fff" : "#ef4444"}
+                        />
+                        <Text
+                          className={`ml-1 text-xs font-semibold ${
+                            !item.isApproved && !item.isNew
+                              ? "text-white"
+                              : "text-red-500"
+                          }`}
+                        >
+                          Reject
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                  
-                  <ApprovalToggle
-                    isApproved={item.isApproved}
-                    isNew={item.isNew}
-                    onToggle={(approved, isNew) => handleApprovalToggle(item.id, approved, isNew, item.AuthorUserID)}
-                    postId={item.id}
-                    postItem={item}
-                    isFullScreen={false}
-                  />
                 </View>
               </TouchableOpacity>
             )}
@@ -2586,7 +2644,7 @@ export default function SentinelFeed(): React.JSX.Element {
                 onPress={(e) => e.stopPropagation()}
                 activeOpacity={1}
               >
-                <View className="mt-2 p-2.5 bg-gray-50 rounded-lg border border-gray-200">
+                {/* <View className="mt-2 p-2.5 bg-gray-50 rounded-lg border border-gray-200">
                   <View style={styles.container}>
                     <View style={[styles.labelContainer, { maxWidth: width * 0.6 }]}>
                       <Text style={styles.label}>Vote Option:</Text>
@@ -2599,6 +2657,69 @@ export default function SentinelFeed(): React.JSX.Element {
                       onChange={itemValue => handleDropdownChange(itemValue, item)}
                       style={styles.dropdown}
                     />
+                  </View>
+                </View> */}
+                <View className="mt-2 px-3 py-2.5 bg-white rounded-lg border border-gray-200">
+                  {/* Header Row */}
+                  <View className="flex-row items-center justify-between">
+                    {/* Left: Label with icon */}
+                    <View className="flex-row items-center flex-1">
+                      <Ionicons
+                        name="checkbox-outline"
+                        size={18}
+                        color="#64748b"
+                      />
+                      <Text className="font-semibold text-gray-900 text-sm ml-1.5">
+                        Vote Option:
+                      </Text>
+                    </View>
+
+                    {/* Right: Dropdown */}
+                    <View className="flex-1 ml-3">
+                      <Dropdown
+                        data={fetchedCommentTemplate}
+                        labelField="name"
+                        valueField="name"
+                        value={item.CommentTemplate}
+                        onChange={(itemValue) =>
+                          handleDropdownChange(itemValue, item)
+                        }
+                        placeholder="Select template"
+                        placeholderStyle={{
+                          fontSize: 13,
+                          color: "#9CA3AF",
+                        }}
+                        selectedTextStyle={{
+                          fontSize: 13,
+                          color: "#1F2937",
+                          fontWeight: "500",
+                        }}
+                        style={{
+                          backgroundColor: "#F9FAFB",
+                          borderRadius: 8,
+                          paddingHorizontal: 12,
+                          paddingVertical: 8,
+                          borderWidth: 1,
+                          borderColor: "#E5E7EB",
+                        }}
+                        containerStyle={{
+                          borderRadius: 8,
+                          marginTop: 4,
+                          borderWidth: 1,
+                          borderColor: "#E5E7EB",
+                        }}
+                        itemTextStyle={{
+                          fontSize: 13,
+                          color: "#374151",
+                        }}
+                        iconStyle={{
+                          width: 20,
+                          height: 20,
+                          tintColor: "#6B7280",
+                        }}
+                        activeColor="#F3F4F6"
+                      />
+                    </View>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -2683,7 +2804,7 @@ export default function SentinelFeed(): React.JSX.Element {
               >
                 <Ionicons
                   name={item.Liked ? "heart" : "heart-outline"}
-                  size={14}
+                  size={20}
                   color={item.Liked ? "#ef4444" : "#64748b"}
                 />
                 <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
@@ -2702,7 +2823,7 @@ export default function SentinelFeed(): React.JSX.Element {
               >
                 <MaterialCommunityIcons
                   name="thumbs-up-down"
-                  size={14}
+                  size={20}
                   color="#000000"
                 />
                 <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
@@ -2719,7 +2840,7 @@ export default function SentinelFeed(): React.JSX.Element {
               >
                 <Ionicons 
                   name="repeat-outline" 
-                  size={14} 
+                  size={20} 
                   color={item.Reposted ? "#0ea5e9" : "#64748b"} 
                 />
                 <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
@@ -2736,7 +2857,7 @@ export default function SentinelFeed(): React.JSX.Element {
                 activeOpacity={0.7}
                 disabled={areInteractionsDisabled(item)}
               >
-                <Feather name="bar-chart-2" size={16} color="#64748b" />
+                <Feather name="bar-chart-2" size={20} color="#64748b" />
               </TouchableOpacity>
   
               <TouchableOpacity
@@ -2750,7 +2871,7 @@ export default function SentinelFeed(): React.JSX.Element {
               >
                 <Ionicons 
                   name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
-                  size={14} 
+                  size={20} 
                   color={item.Bookmarked ? "#000000" : "#64748b"} 
                 />
               </TouchableOpacity>
@@ -2764,7 +2885,7 @@ export default function SentinelFeed(): React.JSX.Element {
                 activeOpacity={0.7}
                 disabled={areInteractionsDisabled(item)}
               >
-                <Feather name="share-2" size={12} color="#64748b" />
+                <Feather name="share-2" size={20} color="#64748b" />
               </TouchableOpacity>
             </View>
           </View>
