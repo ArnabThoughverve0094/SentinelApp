@@ -31,6 +31,7 @@ export default function Index(): React.JSX.Element {
         backgroundColor="transparent"
         translucent
       />
+      
 
       {/* Background Image */}
       <ImageBackground
@@ -39,9 +40,17 @@ export default function Index(): React.JSX.Element {
         resizeMode="cover"
       >
         {/* Main content - NO OVERLAY */}
-        <View className="flex-1 px-6 justify-center pt-64">
+        <View className="px-6 pt-10 pb-8">
+            <Link href="/(auth)" asChild>
+              <TouchableOpacity className="w-14 h-14">
+                <Ionicons name="arrow-back" size={25} color="#000000" />
+              </TouchableOpacity>
+            </Link>
+          </View>
+        <View className="flex-1 px-6 justify-center pt-56">
           {/* Logo positioned above welcome text */}
           <View className="items-start mb-8">
+            
             <View className="w-14 h-14 rounded-xl bg-transparent justify-center items-center ">
               <Image
                 source={require("../../assets/images/sentinel_logo.png")}
