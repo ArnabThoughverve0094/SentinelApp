@@ -1246,7 +1246,7 @@ export default function SentinelFeed(): React.JSX.Element {
         type: 'error',
         text1: 'Post Not Available',
         text2: 'This post has been rejected and interactions are disabled.',
-        position: 'top',
+        position: 'bottom',
         visibilityTime: 3000,
       });
       return;
@@ -1271,7 +1271,7 @@ export default function SentinelFeed(): React.JSX.Element {
         type: 'error',
         text1: 'Post Not Available',
         text2: 'This post has been rejected and interactions are disabled.',
-        position: 'top',
+        position: 'bottom',
         visibilityTime: 3000,
       });
       return;
@@ -1326,7 +1326,7 @@ export default function SentinelFeed(): React.JSX.Element {
         type: 'error',
         text1: 'Selection Required',
         text2: 'Please select at least one reason for rejection.',
-        position: 'top',
+        position: 'bottom',
         visibilityTime: 3000,
       });
       return;
@@ -1348,7 +1348,7 @@ export default function SentinelFeed(): React.JSX.Element {
         type: 'success',
         text1: 'Post Rejected',
         text2: `Post has been rejected successfully with ${selectedRejectionReasons.length} reason(s).`,
-        position: 'top',
+        position: 'bottom',
         visibilityTime: 3000,
       });
 
@@ -1422,7 +1422,7 @@ export default function SentinelFeed(): React.JSX.Element {
         type: 'error',
         text1: 'Rejection Failed',
         text2: 'Failed to reject post. Please try again.',
-        position: 'top',
+        position: 'bottom',
         visibilityTime: 3000,
       });
     }
@@ -1514,7 +1514,7 @@ export default function SentinelFeed(): React.JSX.Element {
           type: 'success',
           text1: 'Post Approved',
           text2: 'Post has been approved and is now visible to users!',
-          position: 'top',
+          position: 'bottom',
           visibilityTime: 3000,
         });
 
@@ -1597,7 +1597,7 @@ export default function SentinelFeed(): React.JSX.Element {
         type: 'error',
         text1: 'Update Failed',
         text2: 'Failed to update post status. Please try again.',
-        position: 'top',
+        position: 'bottom',
         visibilityTime: 3000,
       });
       
@@ -1622,7 +1622,7 @@ export default function SentinelFeed(): React.JSX.Element {
         type: 'error',
         text1: 'Action Not Available',
         text2: 'This post has been rejected and interactions are disabled.',
-        position: 'top',
+        position: 'bottom',
         visibilityTime: 3000,
       });
       return;
@@ -1670,7 +1670,7 @@ export default function SentinelFeed(): React.JSX.Element {
         type: 'error',
         text1: 'Action Not Available',
         text2: 'This post has been rejected and interactions are disabled.',
-        position: 'top',
+        position: 'bottom',
         visibilityTime: 3000,
       });
       return;
@@ -1722,7 +1722,7 @@ export default function SentinelFeed(): React.JSX.Element {
           type: 'success',
           text1: 'Repost Removed',
           text2: 'Post has been removed from your reposts.',
-          position: 'top',
+          position: 'bottom',
           visibilityTime: 2000,
         });
       } else {
@@ -1780,7 +1780,7 @@ export default function SentinelFeed(): React.JSX.Element {
           type: 'success',
           text1: 'Reposted Successfully',
           text2: 'Post has been shared to your followers.',
-          position: 'top',
+          position: 'bottom',
           visibilityTime: 2000,
         });
       }
@@ -1800,7 +1800,7 @@ export default function SentinelFeed(): React.JSX.Element {
         type: 'error',
         text1: 'Repost Failed',
         text2: 'Failed to repost. Please try again.',
-        position: 'top',
+        position: 'bottom',
         visibilityTime: 3000,
       });
     }
@@ -1874,7 +1874,7 @@ export default function SentinelFeed(): React.JSX.Element {
         type: 'success',
         text1: 'Quote Repost Created',
         text2: 'Your quote repost has been shared to your followers.',
-        position: 'top',
+        position: 'bottom',
         visibilityTime: 2000,
       });
 
@@ -1891,7 +1891,7 @@ export default function SentinelFeed(): React.JSX.Element {
         type: 'error',
         text1: 'Quote Repost Failed',
         text2: 'Failed to create quote repost. Please try again.',
-        position: 'top',
+        position: 'bottom',
         visibilityTime: 3000,
       });
     }
@@ -1907,7 +1907,7 @@ export default function SentinelFeed(): React.JSX.Element {
         type: 'error',
         text1: 'Action Not Available',
         text2: 'This post has been rejected and interactions are disabled.',
-        position: 'top',
+        position: 'bottom',
         visibilityTime: 3000,
       });
       return;
@@ -1932,7 +1932,7 @@ export default function SentinelFeed(): React.JSX.Element {
         type: 'info',
         text1: 'Bookmark Removed',
         text2: 'Post removed from bookmarks',
-        position: 'top',
+        position: 'bottom',
         visibilityTime: 2000,
       });
     } else {
@@ -1945,7 +1945,7 @@ export default function SentinelFeed(): React.JSX.Element {
         type: 'success',
         text1: 'Bookmarked',
         text2: 'Post saved to bookmarks',
-        position: 'top',
+        position: 'bottom',
         visibilityTime: 2000,
       });
     }
@@ -1969,7 +1969,7 @@ export default function SentinelFeed(): React.JSX.Element {
         type: 'error',
         text1: 'Sharing Not Available',
         text2: 'Sharing is not available on this device',
-        position: 'top',
+        position: 'bottom',
         visibilityTime: 2000,
       });
       return;
@@ -1993,7 +1993,7 @@ export default function SentinelFeed(): React.JSX.Element {
         type: 'error',
         text1: 'Share Failed',
         text2: 'Failed to share post',
-        position: 'top',
+        position: 'bottom',
         visibilityTime: 2000,
       });
     }
@@ -2837,13 +2837,14 @@ export default function SentinelFeed(): React.JSX.Element {
           className="px-4 py-2 flex-row items-center justify-between"
           style={{ paddingTop: Platform.OS === 'ios' ? 12 : 12 }}
         >
-          <View>
+          {/* <View>
             <Image
               source={require("../../assets/images/sentinel_logo.png")}
               className="w-16 h-10"
               resizeMode="contain"
             />
-          </View>
+          </View> */}
+          <Text className="text-3xl font-bold text-black-900">Sentinel</Text>
           
           <TouchableOpacity 
               className="p-2 "
@@ -2852,7 +2853,7 @@ export default function SentinelFeed(): React.JSX.Element {
               <MaterialCommunityIcons 
                 name="magnify" 
                 size={30} 
-                color="#374151" 
+                color="#000000" 
               />
             </TouchableOpacity>
         </View>
