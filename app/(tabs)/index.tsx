@@ -2327,13 +2327,14 @@ export default function SentinelFeed(): React.JSX.Element {
           className="px-4 py-2 flex-row items-center justify-between"
           style={{ paddingTop: Platform.OS === 'ios' ? 12 : 12 }}
         >
-          <View>
+          {/* <View>
             <Image
               source={require("../../assets/images/sentinel_logo.png")}
               className="w-16 h-10"
               resizeMode="contain"
             />
-          </View>
+          </View> */}
+          <Text className="text-3xl font-bold text-black-900">Sentinel</Text>
           
           <TouchableOpacity 
               className="p-2 "
@@ -2342,7 +2343,7 @@ export default function SentinelFeed(): React.JSX.Element {
               <MaterialCommunityIcons 
                 name="magnify" 
                 size={30} 
-                color="#374151" 
+                color="#000000" 
               />
             </TouchableOpacity>
         </View>
