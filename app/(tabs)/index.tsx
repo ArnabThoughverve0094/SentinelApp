@@ -1951,33 +1951,92 @@ export default function SentinelFeed(): React.JSX.Element {
           </View>
 
           {userRole !== "User" && item.postType === "SentinelPosts" && (
-            <TouchableOpacity
-              onPress={(e) => e.stopPropagation()}
-              activeOpacity={1}
-            >
-              <View className="mt-3 px-3 py-2.5 bg-white rounded-lg border border-gray-200">
-                <View className="mb-2">
-                  <Text className="font-bold text-gray-900 text-sm">Post Status</Text>
-                  <Text className="text-gray-500 text-xs mt-0.5">
-                    {item.isNew 
-                      ? 'This post is new and awaiting review' 
-                      : item.isApproved
-                      ? 'This post is approved and visible to users' 
-                      : 'This post is rejected and not visible to users'
-                    }
-                  </Text>
+              <TouchableOpacity
+                onPress={(e) => e.stopPropagation()}
+                activeOpacity={1}
+              >
+                <View className="mt-3 px-3 py-2.5 bg-white rounded-lg border border-gray-200">
+                  {/* Single row with icon, text, and buttons */}
+                  <View className="flex-row items-center justify-between">
+                    {/* Left side: Icon + Post Status + Description */}
+                    <View className="flex-1 mr-3">
+                      <View className="flex-row items-center mb-1">
+                        <Ionicons
+                          name="information-circle-outline"
+                          size={18}
+                          color="#64748b"
+                        />
+                        <Text className="font-semibold text-gray-900 text-sm ml-1.5">
+                          Post Status
+                        </Text>
+                      </View>
+                      <Text className="text-gray-500 text-xs leading-4">
+                        {item.isNew
+                          ? "This post is new and awaiting review"
+                          : item.isApproved
+                          ? "This post is approved and visible to users"
+                          : "This post is rejected and not visible to users"}
+                      </Text>
+                    </View>
+
+                    {/* Right side: Buttons in a row */}
+                    <View className="flex-row items-center gap-2">
+                      {/* ✅ APPROVE BUTTON - Direct approval */}
+                      <TouchableOpacity
+                        onPress={() => handleApprovalToggle(item.id, true, false)}
+                        className={`flex-row items-center justify-center px-3 py-1.5 rounded-lg ${
+                          item.isApproved && !item.isNew
+                            ? "bg-green-500"
+                            : "bg-white border border-green-500"
+                        }`}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={14}
+                          color={item.isApproved && !item.isNew ? "#fff" : "#22c55e"}
+                        />
+                        <Text
+                          className={`ml-1 text-xs font-semibold ${
+                            item.isApproved && !item.isNew
+                              ? "text-white"
+                              : "text-green-500"
+                          }`}
+                        >
+                          Approve
+                        </Text>
+                      </TouchableOpacity>
+
+                      {/* ✅ REJECT BUTTON - Opens rejection modal */}
+                      <TouchableOpacity
+                        onPress={() => openRejectionModal(item.id)}
+                        className={`flex-row items-center justify-center px-3 py-1.5 rounded-lg ${
+                          !item.isApproved && !item.isNew
+                            ? "bg-red-500"
+                            : "bg-white border border-red-500"
+                        }`}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons
+                          name="close-circle"
+                          size={14}
+                          color={!item.isApproved && !item.isNew ? "#fff" : "#ef4444"}
+                        />
+                        <Text
+                          className={`ml-1 text-xs font-semibold ${
+                            !item.isApproved && !item.isNew
+                              ? "text-white"
+                              : "text-red-500"
+                          }`}
+                        >
+                          Reject
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                 </View>
-                
-                <ApprovalToggle
-                  isApproved={item.isApproved}
-                  isNew={item.isNew}
-                  onToggle={(approved, isNew) => handleApprovalToggle(item.id, approved, isNew)}
-                  postId={item.id}
-                  isFullScreen={false}
-                />
-              </View>
-            </TouchableOpacity>
-          )}
+              </TouchableOpacity>
+            )}
           {userRole !== "User" && item.postType === "SentinelPosts" && (
               <TouchableOpacity
                 onPress={(e) => e.stopPropagation()}
