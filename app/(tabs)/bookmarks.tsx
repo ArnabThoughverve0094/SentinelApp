@@ -778,7 +778,7 @@ export default function BookmarksPage(): React.JSX.Element {
             className="p-1.5"
             onPress={() => handleRemoveBookmark(item)}
           >
-            <Ionicons name="bookmark" size={14} color="#000" />
+            <Ionicons name="bookmark" size={20} color="#000" />
           </TouchableOpacity>
         </View>
       </View>
@@ -799,7 +799,7 @@ export default function BookmarksPage(): React.JSX.Element {
           >
             <Ionicons
               name={item.Liked ? "heart" : "heart-outline"}
-              size={14}
+              size={20}
               color={item.Liked ? "#ef4444" : "#64748b"}
             />
             <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
@@ -817,7 +817,7 @@ export default function BookmarksPage(): React.JSX.Element {
           >
             <MaterialCommunityIcons
               name="thumbs-up-down"
-              size={14}
+              size={20}
               color="#000000"
             />
             <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
@@ -833,7 +833,7 @@ export default function BookmarksPage(): React.JSX.Element {
           >
             <Ionicons 
               name="repeat-outline" 
-              size={14} 
+              size={20} 
               color={item.Reposted ? "#0ea5e9" : "#64748b"} 
             />
             <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
@@ -845,7 +845,7 @@ export default function BookmarksPage(): React.JSX.Element {
               onPress={() => console.log("Graph pressed:", item.id)}
               activeOpacity={0.7}
             >
-              <Feather name="bar-chart-2" size={16} color="#64748b" />
+              <Feather name="bar-chart-2" size={20} color="#64748b" />
             </TouchableOpacity>
 
           <TouchableOpacity
@@ -858,8 +858,8 @@ export default function BookmarksPage(): React.JSX.Element {
           >
             <Ionicons 
               name="bookmark" 
-              size={14} 
-              color="#000" 
+              size={20} 
+              color="#000000" 
             />
           </TouchableOpacity>
 
@@ -871,7 +871,7 @@ export default function BookmarksPage(): React.JSX.Element {
             }}
             activeOpacity={0.7}
           >
-            <Feather name="share-2" size={12} color="#64748b" />
+            <Feather name="share-2" size={20} color="#64748b" />
           </TouchableOpacity>
         </View>
       </View>
@@ -904,14 +904,14 @@ export default function BookmarksPage(): React.JSX.Element {
         >
           <View className="flex-row items-center">
             <View>
-              <Text className="text-2xl font-bold text-gray-900 pt-3">Bookmarks</Text>
+              <Text className="text-3xl font-extrabold text-gray-900 pt-3">Bookmarks</Text>
               <Text className="text-sm text-gray-500 mt-1">
                 {bookmarkedPosts.length} saved post{bookmarkedPosts.length !== 1 ? 's' : ''}
               </Text>
             </View>
           </View>
           <TouchableOpacity className="p-2">
-            <Ionicons name="bookmark" size={20} color="#000" />
+            <Ionicons name="bookmark" size={25} color="#000" />
           </TouchableOpacity>
         </View>
 
