@@ -611,6 +611,8 @@ export default function SentinelFeed(): React.JSX.Element {
             data: doc.data(),
           }))
 
+          const notificationlist = [];
+
           for (const doc of snapshotDataArr) {
             const postData = doc.data;
             const postId = doc.id;
@@ -623,14 +625,13 @@ export default function SentinelFeed(): React.JSX.Element {
               console.log('✅ Following list updated:', following);
             }
 
-            notificationDetails.push({
+            notificationlist.push({
               docID: postId,
               userID: postData.userID,
-              docDeviceToken: postData.deviceToken,
             })
           }
 
-          setNotificationDetails(notificationDetails);
+          setNotificationDetails(notificationlist);
           
         });
 
@@ -962,7 +963,7 @@ export default function SentinelFeed(): React.JSX.Element {
 
           const optionsField = postData.options;
 
-            const result: Array<{ key: string; icon: string; title: string }> = [];
+            const result: Array<{ index: string; id: string; icon: string; label: string; color: string }> = [];
             
             optionsField.map((nestedOption, index) => {
               // Get the key (e.g., "option1") and the value (the {icon, title} map)
@@ -970,9 +971,11 @@ export default function SentinelFeed(): React.JSX.Element {
               const optionDetails = nestedOption[optionKey];
 
               result.push({
-                key: optionKey,
+                index: optionKey,
+                id: typeof optionDetails.title === "string" ? optionDetails.title : "",
                 icon: typeof optionDetails.icon === "string" ? optionDetails.icon : "",
-                title: typeof optionDetails.title === "string" ? optionDetails.title : "",
+                label: typeof optionDetails.title === "string" ? optionDetails.title : "",
+                color: '#34C759'
               })
             })
 
@@ -1364,7 +1367,7 @@ export default function SentinelFeed(): React.JSX.Element {
             NotifyType: 'post_rejected',
             ShowButtons: false,
             Status: 'rejected',
-            Description: 'Post has been rejected successfully with '+ selectedRejectionReasons.length + ' reason(s).'
+            Description: 'Post has been rejected with '+ selectedRejectionReasons.length + ' reason(s).'
           }),
         });
         console.log(`✅ Rejected post`);
@@ -1380,7 +1383,7 @@ export default function SentinelFeed(): React.JSX.Element {
             NotifyType: 'post_rejected',
             ShowButtons: false,
             Status: 'rejected',
-            Description: 'Post has been rejected successfully with '+ selectedRejectionReasons.length + ' reason(s).'
+            Description: 'Post has been rejected with '+ selectedRejectionReasons.length + ' reason(s).'
           }],
         });
         console.log(`✅ Created new user document and notification`);
@@ -1518,42 +1521,44 @@ export default function SentinelFeed(): React.JSX.Element {
           visibilityTime: 3000,
         });
 
-        for (const doc of notificationDetails){
-          if (doc.userID == postUserID) {
-            setPostUserDocId(doc.docID);
-            // setPostUserDeviceToken(doc.docDeviceToken);
-          }
-        }
-  
-        // Create Notification
-        if (postUserDocId) {
-          const userRef = doc(db, "SentinelUsers", postUserDocId);
-          await updateDoc(userRef, {
+        let tempFound=false;
+        for (const docNoti of notificationDetails){
+          if (docNoti.userID == postUserID) {
+            tempFound = true;
+            setPostUserDocId(docNoti.docID);
+
+            //Create Notification
+            const userRef = doc(db, "SentinelUsers", docNoti.docID);
+            await updateDoc(userRef, {
             Notification: arrayUnion({
               AuthorImageURL: await AsyncStorage.getItem('profilePicUrl') || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
               AuthorName: await AsyncStorage.getItem('userName'),
               AuthorUserID: await AsyncStorage.getItem('userId'),
               ContentDate: new Date(),
+              Description: 'Great news! Your recent post has been approved and is now live.',
               NotifyType: 'post_approved',
               ShowButtons: false,
               Status: 'approved',
-              Description: 'Great news! Your recent post has been approved and is now live.'
             }),
           });
           console.log(`✅ Approved post`);
-        } else {
+          }
+        }
+  
+        // Create Notification
+        if (!tempFound) {
           // Create new document if it doesn't exist
           await addDoc(collection(db, 'SentinelUsers'), {
-            userID: await AsyncStorage.getItem('userId'),
+            userID: AsyncStorage.getItem('userId'),
             Notification: [{
               AuthorImageURL: await AsyncStorage.getItem('profilePicUrl') || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
               AuthorName: await AsyncStorage.getItem('userName'),
               AuthorUserID: await AsyncStorage.getItem('userId'),
               ContentDate: new Date(),
+              Description: 'Great news! Your recent post has been approved and is now live.',
               NotifyType: 'post_approved',
               ShowButtons: false,
               Status: 'approved',
-              Description: 'Great news! Your recent post has been approved and is now live.'
             }],
           });
           console.log(`✅ Created new user document and notification`);
