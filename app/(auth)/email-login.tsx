@@ -225,7 +225,7 @@ export default function EmailLogin(): React.JSX.Element {
                   </View>
                   
                   {/* Sentinel Text */}
-                  <Text className="text-base font-extrabold text-[#281C20]">
+                  <Text className="text-2xl font-extrabold text-[#281C20]">
                     Sentinel
                   </Text>
                 </TouchableOpacity>
