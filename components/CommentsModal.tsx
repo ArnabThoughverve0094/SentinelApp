@@ -419,22 +419,19 @@ export default function CommentScreen({
           if(passedCommentTemplate == postData.name) {
             const optionsField = postData.options;
 
-            // Convert map to array:
-            for (const key in optionsField) {
-              if (Object.prototype.hasOwnProperty.call(optionsField, key)) {
-                const maybeOption = (optionsField as any)[key];
-                if (maybeOption && typeof maybeOption === "object") {
-                  const icon = (maybeOption as any).icon;
-                  const title = (maybeOption as any).title;
-                  RESPONSE_OPTIONS.push({
-                    id: typeof title === "string" ? title : "",
-                    label: typeof title === "string" ? title : "",
-                    icon: typeof icon === "string" ? icon : "",
-                    color: '#34C759'
-                  })
-                }
-              }
-            }    
+            optionsField.map((nestedOption, index) => {
+              // Get the key (e.g., "option1") and the value (the {icon, title} map)
+              const optionKey = Object.keys(nestedOption)[0];
+              const optionDetails = nestedOption[optionKey];
+
+              RESPONSE_OPTIONS.push({
+                index: index,
+                id: typeof optionDetails.title === "string" ? optionDetails.title : "",
+                icon: typeof optionDetails.icon === "string" ? optionDetails.icon : "",
+                label: typeof optionDetails.title === "string" ? optionDetails.title : "",
+                color: '#34C759'
+              })
+            }) 
           }
           
         }
@@ -1295,7 +1292,7 @@ export default function CommentScreen({
             }}>
               {RESPONSE_OPTIONS.map((option) => (
                 <TouchableOpacity
-                  key={option.id}
+                  key={option.index}
                   onPress={() => handleOptionSelect(option.id)}
                   style={{
                     width: '48%',
