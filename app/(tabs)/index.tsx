@@ -1549,7 +1549,7 @@ export default function SentinelFeed(): React.JSX.Element {
         if (!tempFound) {
           // Create new document if it doesn't exist
           await addDoc(collection(db, 'SentinelUsers'), {
-            userID: AsyncStorage.getItem('userId'),
+            userID: await AsyncStorage.getItem('userId'),
             Notification: [{
               AuthorImageURL: await AsyncStorage.getItem('profilePicUrl') || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
               AuthorName: await AsyncStorage.getItem('userName'),
