@@ -53,12 +53,18 @@ export default function Index(): React.JSX.Element {
   const [isFlipped, setIsFlipped] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(-1);
+  
+  // ✅ NEW: Scroll tracking and auth popup states
+  const [scrollCount, setScrollCount] = useState(0);
+  const [showAuthPopup, setShowAuthPopup] = useState(false);
+  const [lastScrollY, setLastScrollY] = useState(0);
+  const popupAnimation = useRef(new Animated.Value(0)).current;
+  
   const flipCardRef = useRef<any>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
 
-  // ✅ MOVE filteredData EARLY - Before any usage
   const filteredData = useMemo(() => {
     return fetchedData.filter(item => {
       if (userRole === "User") {
@@ -84,7 +90,6 @@ export default function Index(): React.JSX.Element {
       }
     });
 
-    // Update play/pause when currentVideoIndex changes
     useEffect(() => {
       if (currentVideoIndex === index) {
         player.play();
@@ -115,7 +120,6 @@ export default function Index(): React.JSX.Element {
     );
   }, [currentVideoIndex]);
 
-  // ✅ Navigate to login/popup screen
   const navigateToAuthScreen = useCallback(() => {
     try {
       router.push("/popup");
@@ -124,7 +128,24 @@ export default function Index(): React.JSX.Element {
     }
   }, []);
 
-  // ✅ FIXED: Fetch comments from correct subcollection structure
+  // ✅ NEW: Show popup animation
+  useEffect(() => {
+    if (showAuthPopup) {
+      Animated.spring(popupAnimation, {
+        toValue: 1,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(popupAnimation, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [showAuthPopup]);
+
   const fetchCommentsCount = useCallback(async (posts: PostItem[]) => {
     try {
       console.log('Starting to fetch comments for', posts.length, 'posts');
@@ -165,13 +186,11 @@ export default function Index(): React.JSX.Element {
     }
   }, []);
 
-  // ✅ ADDED: Bookmark function - redirects to auth
   const handleBookmark = useCallback(async (postItem: PostItem) => {
     console.log("Bookmark pressed - redirecting to auth:", postItem.id);
     navigateToAuthScreen();
   }, [navigateToAuthScreen]);
 
-  // OPTIMIZED DATA FETCHING
   const handleFetchAllData = useCallback(async (forceRefresh: boolean = false) => {
     const currentTime = Date.now();
     const cacheValidTime = 5 * 60 * 1000;
@@ -306,7 +325,6 @@ export default function Index(): React.JSX.Element {
     handleFetchAllData();
   }, []);
 
-  // MEDIA MODAL CONTROLS
   const openFullScreenImage = useCallback((imageUrl: string) => {
     setFullScreenImage(imageUrl);
     setIsImageModalVisible(true);
@@ -351,7 +369,6 @@ export default function Index(): React.JSX.Element {
     setIsFlipping(false);
   }, []);
 
-  // OPTIMIZED REFRESH
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     console.log('Manual refresh triggered');
@@ -359,7 +376,6 @@ export default function Index(): React.JSX.Element {
     setRefreshing(false);
   }, [handleFetchAllData]);
   
-  // IMPROVED TIME AGO FUNCTION
   const getTimeAgo = useCallback((dateString: any) => {
     if (!dateString) return 'Just now';
     
@@ -442,7 +458,6 @@ export default function Index(): React.JSX.Element {
     return urlPath.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt)$/) ? 'doc' : 'image';
   }, []);
 
-  // OPTIMIZED MEDIA CONTENT - REDUCED SIZES
   const renderMediaContent = useCallback((item: PostItem, index?: number) => {
     const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
                      (item.ContentURL ? [item.ContentURL] : []);
@@ -550,12 +565,24 @@ export default function Index(): React.JSX.Element {
     }
   }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, VideoPlayer]);
 
-  // AUTO PLAY VIDEO ON SCROLL
+  // ✅ NEW: Handle scroll with counter for popup trigger
   const handleScroll = useCallback((event: any) => {
     const { contentOffset, layoutMeasurement } = event.nativeEvent;
     const currentScrollY = contentOffset.y;
     const viewHeight = layoutMeasurement.height;
     const viewCenter = currentScrollY + viewHeight / 2;
+
+    // Track scroll direction and count
+    if (currentScrollY > lastScrollY + 100) {
+      setScrollCount(prev => {
+        const newCount = prev + 1;
+        if (newCount >= 2 && !showAuthPopup) { // Trigger after 2 scrolls
+          setShowAuthPopup(true);
+        }
+        return newCount;
+      });
+      setLastScrollY(currentScrollY);
+    }
 
     filteredData.forEach((item, index) => {
       const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
@@ -572,7 +599,7 @@ export default function Index(): React.JSX.Element {
         }
       }
     });
-  }, [filteredData, getMediaType, currentVideoIndex]);
+  }, [filteredData, getMediaType, currentVideoIndex, lastScrollY, showAuthPopup]);
 
   const EnhancedCard = useCallback(({ children, postId }: { children: React.ReactNode, postId: string }) => {
     const animValue = cardAnimations[postId] || new Animated.Value(0);
@@ -780,376 +807,22 @@ export default function Index(): React.JSX.Element {
     });
   }, [filteredData, initializeCardAnimation, renderPostUserContent]);
 
-  const handleFlipCard = useCallback(() => {
-    if (isFlipping) return;
-    
-    setIsFlipping(true);
-    setIsFlipped(!isFlipped);
-    
-    setTimeout(() => {
-      setIsFlipping(false);
-    }, 800);
-  }, [isFlipped, isFlipping]);
-
-  const renderFlipCardFront = useCallback((item: PostItem) => (
-    <View style={{ 
-      flex: 1, 
-      backgroundColor: 'white', 
-      borderRadius: 24, 
-      overflow: 'hidden' 
-    }}>
-      <View className="px-4 py-3 bg-gray-50 border-b border-gray-100">
-        <View className="flex-row items-center">
-          <View className="relative">
-            <View className="w-10 h-10 rounded-full mr-2.5 overflow-hidden border-2 border-white shadow-lg">
-              <Image
-                source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
-                className="w-full h-full"
-                resizeMode="cover"
-              />
-            </View>
-          </View>
-          <View className="flex-1">
-            <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text>
-            <View className="flex-row items-center mt-0.5">
-              <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
-              {item.postType === 'X-Data' && (
-                <View className="bg-blue-100 px-2 py-0.5 rounded-full">
-                  <Text className="text-blue-600 text-xs font-semibold">𝕏 POST</Text>
-                </View>
-              )}
-            </View>
-          </View>
-          <View className="flex-col items-center">
-            <TouchableOpacity 
-              className="p-1.5 rounded-full bg-blue-100 mb-1"
-              onPress={handleFlipCard}
-              disabled={isFlipping}
-              style={{ opacity: isFlipping ? 0.6 : 1 }}
-            >
-              <Ionicons name="repeat" size={14} color="#3b82f6" />
-            </TouchableOpacity>
-            <Text className="text-xs text-blue-600 font-medium">Flip</Text>
-          </View>
-        </View>
-      </View>
-
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-        <View className="px-4 py-3">
-          <Text className="text-gray-800 text-sm leading-5 mb-3 font-normal">{item.ContentDesc}</Text>
-          
-          {renderMediaContent(item)}
-
-          <View className="flex-row items-center justify-between pt-3  mb-3">
-            <TouchableOpacity
-              className="flex-row items-center px-2 py-1.5 "
-              onPress={() => navigateToAuthScreen()}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={item.Liked ? "heart" : "heart-outline"}
-                size={18}
-                color={item.Liked ? "#ef4444" : "#64748b"}
-              />
-              <Text className={`ml-2 text-sm font-semibold ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
-                {item.ContentLikeCount}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className="flex-row items-center px-2 py-1.5 "
-              onPress={() => {
-                closeFullScreenCard();
-                navigateToAuthScreen();
-              }}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name="comment-outline"
-                size={18}
-                color="#64748b"
-              />
-              <Text className="text-gray-600 ml-2 text-sm font-semibold">{item.ContentCommentCount}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className="flex-row items-center px-2 py-1.5 "
-              onPress={() => navigateToAuthScreen()}
-              activeOpacity={0.7}
-            >
-              <Ionicons 
-                name="repeat-outline" 
-                size={18} 
-                color={item.Reposted ? "#0ea5e9" : "#64748b"} 
-              />
-              <Text className={`ml-2 text-sm font-semibold ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
-                {item.ContentRepostCount}
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              className="p-1.5"
-              onPress={() => {
-                closeFullScreenCard();
-                navigateToAuthScreen();
-              }}
-              activeOpacity={0.7}
-            >
-              <Feather name="bar-chart-2" size={16} color="#64748b" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className="flex-row items-center px-2 py-1.5"
-              onPress={() => navigateToAuthScreen()}
-              activeOpacity={0.7}
-            >
-              <Ionicons 
-                name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
-                size={18} 
-                color={item.Bookmarked ? "#f59e0b" : "#64748b"} 
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              className="p-1.5"
-              onPress={() => navigateToAuthScreen()}
-              activeOpacity={0.7}
-            >
-              <Feather name="share-2" size={16} color="#64748b" />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </ScrollView>
-    </View>
-  ), [getTimeAgo, handleFlipCard, isFlipping, renderMediaContent, dummyAuthorImage, navigateToAuthScreen, closeFullScreenCard]);
-
-  const renderFlipCardBack = useCallback((item: PostItem) => (
-    <View style={{ 
-      flex: 1, 
-      backgroundColor: '#667eea', 
-      borderRadius: 24, 
-      overflow: 'hidden'
-    }}>
-      <View style={{ 
-        paddingHorizontal: 16, 
-        paddingVertical: 12, 
-        backgroundColor: 'rgba(0,0,0,0.2)', 
-        borderBottomWidth: 1, 
-        borderBottomColor: 'rgba(255,255,255,0.2)' 
-      }}>
-        <View className="flex-row items-center">
-          <View className="flex-1">
-            <Text className="font-bold text-white text-base">Post Analytics</Text>
-            <Text className="text-white/80 text-sm mt-0.5">Detailed insights</Text>
-          </View>
-          <View className="flex-col items-center">
-            <TouchableOpacity 
-              className="p-1.5 rounded-full mb-1" 
-              style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
-              onPress={handleFlipCard}
-              disabled={isFlipping}
-            >
-              <Ionicons name="repeat" size={14} color="white" />
-            </TouchableOpacity>
-            <Text className="text-xs text-white font-medium">Flip</Text>
-          </View>
-        </View>
-      </View>
-
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-        <View style={{ paddingHorizontal: 16, paddingVertical: 16 }}>
-          <View style={{ gap: 12 }}>
-            <View style={{ 
-              backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-              borderRadius: 14, 
-              padding: 16 
-            }}>
-              <Text className="text-white font-bold text-sm mb-3">Engagement</Text>
-              <View className="flex-row justify-between items-center mb-2">
-                <View className="flex-row items-center">
-                  <Ionicons name="heart" size={16} color="#ff6b6b" />
-                  <Text className="text-white ml-2 text-sm">Likes</Text>
-                </View>
-                <Text className="text-white font-bold text-base">{item.ContentLikeCount}</Text>
-              </View>
-              <View className="flex-row justify-between items-center mb-2">
-                <View className="flex-row items-center">
-                  <Ionicons name="repeat" size={16} color="#4ecdc4" />
-                  <Text className="text-white ml-2 text-sm">Reposts</Text>
-                </View>
-                <Text className="text-white font-bold text-base">{item.ContentRepostCount}</Text>
-              </View>
-              <View className="flex-row justify-between items-center">
-                <View className="flex-row items-center">
-                  <MaterialCommunityIcons name="comment" size={16} color="#45b7d1" />
-                  <Text className="text-white ml-2 text-sm">Comments</Text>
-                </View>
-                <Text className="text-white font-bold text-base">{item.ContentCommentCount}</Text>
-              </View>
-            </View>
-
-            <View style={{ 
-              backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-              borderRadius: 14, 
-              padding: 16 
-            }}>
-              <Text className="text-white font-bold text-sm mb-3">Post Details</Text>
-              <View style={{ gap: 8 }}>
-                <View>
-                  <Text className="text-white/70 text-xs">Post Type</Text>
-                  <Text className="text-white font-semibold text-sm">{item.postType}</Text>
-                </View>
-                <View>
-                  <Text className="text-white/70 text-xs">Status</Text>
-                  <View className="flex-row items-center mt-1">
-                    <View 
-                      style={{ 
-                        width: 6, 
-                        height: 6, 
-                        borderRadius: 3, 
-                        marginRight: 6,
-                        backgroundColor: item.isApproved ? '#4ade80' : '#f87171'
-                      }} 
-                    />
-                    <Text className="text-white font-semibold text-sm">
-                      {item.isApproved ? 'Approved' : 'Pending'}
-                    </Text>
-                  </View>
-                </View>
-                <View>
-                  <Text className="text-white/70 text-xs">Published</Text>
-                  <Text className="text-white font-semibold text-sm">{getTimeAgo(item.ContentDate)}</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={{ 
-              backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-              borderRadius: 14, 
-              padding: 16 
-            }}>
-              <Text className="text-white font-bold text-sm mb-3">Quick Actions</Text>
-              <View className="flex-row justify-between" style={{ gap: 8 }}>
-                <TouchableOpacity 
-                  style={{ 
-                    flex: 1, 
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                    borderRadius: 8, 
-                    paddingVertical: 10, 
-                    alignItems: 'center' 
-                  }}
-                  onPress={() => {
-                    closeFullScreenCard();
-                    navigateToAuthScreen();
-                  }}
-                >
-                  <MaterialCommunityIcons name="comment-plus" size={18} color="white" />
-                  <Text className="text-white text-xs mt-1 font-medium">Comment</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={{ 
-                    flex: 1, 
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                    borderRadius: 8, 
-                    paddingVertical: 10, 
-                    alignItems: 'center' 
-                  }}
-                  onPress={() => {
-                    closeFullScreenCard();
-                    navigateToAuthScreen();
-                  }}
-                >
-                  <Ionicons name="create-outline" size={18} color="white" />
-                  <Text className="text-white text-xs mt-1 font-medium">Edit</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={{ 
-                    flex: 1, 
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                    borderRadius: 8, 
-                    paddingVertical: 10, 
-                    alignItems: 'center' 
-                  }}
-                  onPress={() => {
-                    closeFullScreenCard();
-                    navigateToAuthScreen();
-                  }}
-                >
-                  <Ionicons name="share-outline" size={18} color="white" />
-                  <Text className="text-white text-xs mt-1 font-medium">Share</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </View>
-      </ScrollView>
-    </View>
-  ), [handleFlipCard, isFlipping, getTimeAgo, closeFullScreenCard, navigateToAuthScreen]);
-
-  const renderFullScreenFlipCard = useCallback((item: PostItem) => (
-    <View className="flex-1 bg-gray-900">
-      <View style={{ paddingTop: Platform.OS === 'ios' ? 50 : 30 }} className="px-6 py-4 bg-gray-900/95 border-b border-gray-700">
-        <View className="flex-row items-center justify-between">
-          <Text className="text-white font-bold text-xl">Post Details</Text>
-          <TouchableOpacity 
-            className="p-3 rounded-full bg-red-500"
-            onPress={closeFullScreenCard}
-          >
-            <Ionicons name="close" size={24} color="white" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View className="flex-1 justify-center px-4">
-        <FlipCard
-          ref={flipCardRef}
-          style={{ width: screenWidth - 32, height: screenHeight * 0.75 }}
-          friction={6}
-          perspective={1000}
-          flipHorizontal={true}
-          flipVertical={false}
-          flip={isFlipped}
-          clickable={false}
-        >
-          {renderFlipCardFront(item)}
-          {renderFlipCardBack(item)}
-        </FlipCard>
-
-        <View className="mt-6 bg-black/50 rounded-2xl p-4">
-          <Text className="text-white text-center text-sm opacity-80">
-            Use the flip button to see more details
-          </Text>
-        </View>
-      </View>
-    </View>
-  ), [closeFullScreenCard, isFlipped, renderFlipCardFront, renderFlipCardBack]);
-
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
       
-      <View className="bg-white border-b border-gray-200 pt-5">
+      <View className="bg-white border-b border-gray-200">
         <View 
-          className="px-4 py-2 flex-row items-center justify-between"
-          style={{ paddingTop: Platform.OS === 'ios' ? 12 : 12 }}
+          className="px-4 py-3 flex-row items-center justify-between"
+          style={{ paddingTop: Platform.OS === 'ios' ? 10 : 10 }}
         >
-          <View>
-            <Image
-              source={require("../../assets/images/sentinel_logo.png")}
-              className="w-16 h-10"
-              resizeMode="contain"
-            />
-          </View>
+          <Text className="text-xl font-bold text-gray-900">Sentinel</Text>
           
           <TouchableOpacity 
-            className="p-2 rounded-full bg-gray-100 shadow-sm"
+            className="p-2 rounded-full"
             onPress={navigateToAuthScreen}
           >
-            <Image
-              source={require("../../assets/images/Union.png")}
-              className="w-5 h-5"
-              resizeMode="contain"
-            />
+            <Ionicons name="search" size={24} color="#000" />
           </TouchableOpacity>
         </View>
       </View>
@@ -1160,7 +833,7 @@ export default function Index(): React.JSX.Element {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ 
           paddingTop: 6, 
-          paddingBottom: 16,
+          paddingBottom: 90, // Space for bottom nav + popup
         }}
         onScroll={handleScroll}
         scrollEventThrottle={16}
@@ -1187,6 +860,135 @@ export default function Index(): React.JSX.Element {
           </View>
         )}
       </ScrollView>
+      
+      {/* ✅ FIXED BOTTOM NAVIGATION */}
+      <View 
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          backgroundColor: 'white',
+          borderTopWidth: 1,
+          borderTopColor: '#e5e7eb',
+          paddingBottom: Platform.OS === 'ios' ? 20 : 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
+          elevation: 10,
+        }}
+      >
+        <View className="flex-row items-center justify-around px-2 py-2">
+          <TouchableOpacity 
+            className="items-center justify-center"
+            onPress={navigateToAuthScreen}
+            style={{ flex: 1 }}
+          >
+            {/* <Ionicons name="home" size={26} color="#000" /> */}
+            <MaterialIcons
+              name="home"
+              size={28}
+              color="#000000"
+            />
+            <Text className="text-xs text-black mt-1 font-medium">Home</Text>
+                        
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            className="items-center justify-center"
+            onPress={navigateToAuthScreen}
+            style={{ flex: 1 }}
+          >
+            <Ionicons name="bookmark-outline" size={26} color="#64748b" />
+            <Text className="text-xs text-gray-500 mt-1">Bookmark</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            className="items-center justify-center"
+            onPress={navigateToAuthScreen}
+            style={{ flex: 1 }}
+          >
+            <Ionicons name="add-circle-outline" size={26} color="#64748b" />
+            <Text className="text-xs text-gray-500 mt-1">Create</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            className="items-center justify-center"
+            onPress={navigateToAuthScreen}
+            style={{ flex: 1 }}
+          >
+            <Ionicons name="notifications-outline" size={26} color="#64748b" />
+            <Text className="text-xs text-gray-500 mt-1">Notifications</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            className="items-center justify-center"
+            onPress={navigateToAuthScreen}
+            style={{ flex: 1 }}
+          >
+            <Ionicons name="person-circle-outline" size={26} color="#64748b" />
+            <Text className="text-xs text-gray-500 mt-1">Profile</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* ✅ AUTH POPUP - Appears after 2-3 scrolls */}
+      {showAuthPopup && (
+        <Animated.View
+          style={{
+            position: 'absolute',
+            bottom: Platform.OS === 'ios' ? 95 : 85,
+            left: 16,
+            right: 16,
+            transform: [
+              {
+                translateY: popupAnimation.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [200, 0],
+                }),
+              },
+            ],
+            opacity: popupAnimation,
+          }}
+        >
+          <View className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
+            <View className="bg-pink-50 px-5 py-4">
+              <View className="flex-row items-center justify-between mb-2">
+                <Text className="text-base font-bold text-gray-900">Welcome to Sentinel</Text>
+                <TouchableOpacity onPress={() => setShowAuthPopup(false)}>
+                  <Ionicons name="close" size={22} color="#64748b" />
+                </TouchableOpacity>
+              </View>
+              <Text className="text-sm text-gray-600 leading-5">
+                Login now to stay updated with all the latest information near you
+              </Text>
+            </View>
+            
+            <View className="px-5 py-4 flex-row gap-3">
+              <TouchableOpacity 
+                className="flex-1 bg-black py-3 rounded-xl items-center"
+                onPress={() => {
+                  setShowAuthPopup(false);
+                  router.push("/(auth)/register");
+                }}
+              >
+                <Text className="text-white font-semibold text-sm">Sign Up</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                className="flex-1 bg-red-600 py-3 rounded-xl items-center"
+                onPress={() => {
+                  setShowAuthPopup(false);
+                  router.push("/(auth)/email-login");
+                }}
+              >
+                <Text className="text-white font-semibold text-sm">Login</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Animated.View>
+      )}
       
       {/* IMAGE MODAL */}
       <Modal
@@ -1247,7 +1049,7 @@ export default function Index(): React.JSX.Element {
                 style={{ width: screenWidth, height: screenHeight - 100 }}
                 contentFit="contain"
                 nativeControls={true}
-                />
+              />
             )}
           </View>
         </View>
@@ -1290,17 +1092,6 @@ export default function Index(): React.JSX.Element {
           </View>
         </View>
       </Modal>
-
-      {/* CARD MODAL - Uncomment if needed */}
-      {/* <Modal
-        visible={isCardModalVisible}
-        transparent={false}
-        animationType="slide"
-        onRequestClose={closeFullScreenCard}
-        statusBarTranslucent
-      >
-        {fullScreenCard && renderFullScreenFlipCard(fullScreenCard)}
-      </Modal> */}
     </SafeAreaView>
   );
 }
