@@ -692,7 +692,7 @@ export default function Index(): React.JSX.Element {
             >
               <Ionicons
                 name={item.Liked ? "heart" : "heart-outline"}
-                size={14}
+                size={20}
                 color={item.Liked ? "#ef4444" : "#64748b"}
               />
               <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
@@ -709,8 +709,8 @@ export default function Index(): React.JSX.Element {
               activeOpacity={0.7}
             >
               <MaterialCommunityIcons
-                name="comment-outline"
-                size={14}
+                name="thumbs-up-down"
+                size={20}
                 color="#64748b"
               />
               <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
@@ -726,7 +726,7 @@ export default function Index(): React.JSX.Element {
             >
               <Ionicons 
                 name="repeat-outline" 
-                size={14} 
+                size={20} 
                 color={item.Reposted ? "#0ea5e9" : "#64748b"} 
               />
               <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
@@ -742,7 +742,7 @@ export default function Index(): React.JSX.Element {
               }}
               activeOpacity={0.7}
             >
-              <Feather name="bar-chart-2" size={16} color="#64748b" />
+              <Feather name="bar-chart-2" size={20} color="#64748b" />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -755,7 +755,7 @@ export default function Index(): React.JSX.Element {
             >
               <Ionicons 
                 name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
-                size={14} 
+                size={20} 
                 color={item.Bookmarked ? "#f59e0b" : "#64748b"} 
               />
             </TouchableOpacity>
@@ -768,7 +768,7 @@ export default function Index(): React.JSX.Element {
               }}
               activeOpacity={0.7}
             >
-              <Feather name="share-2" size={12} color="#64748b" />
+              <Feather name="share-2" size={20} color="#64748b" />
             </TouchableOpacity>
           </View>
         </View>
