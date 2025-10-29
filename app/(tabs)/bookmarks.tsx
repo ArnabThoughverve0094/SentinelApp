@@ -324,6 +324,7 @@ export default function BookmarksPage(): React.JSX.Element {
               Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
               createdAt: postData.createdAt || postData.ContentDate,
               CommentTemplate: postData.CommentTemplate || "Sentinel Default Template",
+              isAnonymous: postData.isAnonymous || false,
             });
           }
         }
@@ -378,6 +379,7 @@ export default function BookmarksPage(): React.JSX.Element {
               Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
               createdAt: postData.createdAt || postData.ContentDate,
               CommentTemplate: postData.CommentTemplate || "Sentinel Default Template",
+              isAnonymous: postData.isAnonymous || false,
             });
           }
 
