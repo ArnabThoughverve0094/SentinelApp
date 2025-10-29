@@ -1,6 +1,7 @@
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import React from "react";
+import { Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const TabsLayout = () => {
@@ -9,14 +10,16 @@ const TabsLayout = () => {
   return (
     <Tabs
       screenOptions={{
-        tabBarShowLabel: false,
+        tabBarShowLabel: true, // ✅ Changed from false to true
         tabBarActiveTintColor: "#000", // Black active
         tabBarInactiveTintColor: "#9CA3AF", // Gray inactive
         tabBarStyle: {
           backgroundColor: "#FFFFFF",
-          borderTopWidth: 0,
-          height: 55 + insets.bottom,
-          paddingTop: 5,
+          borderTopWidth: 1,
+          borderTopColor: "#E5E7EB",
+          height: 65 + insets.bottom,
+          paddingTop: 8,
+          paddingBottom: 8,
         },
         headerShown: false,
       }}
@@ -25,61 +28,110 @@ const TabsLayout = () => {
       <Tabs.Screen
         name="index"
         options={{
-          tabBarIcon: ({ color, size, focused }) => (
+          tabBarIcon: ({ color, focused }) => (
             <MaterialIcons
-              name={focused ? "home" : "home"}
-              size={size}
-              color={color}
+              name="home"
+              size={28}
+              color={focused ? "#000" : "#9CA3AF"}
             />
+          ),
+          tabBarLabel: ({ focused }) => (
+            <Text
+              style={{
+                fontSize: 10,
+                color: focused ? "#000" : "#9CA3AF",
+                marginTop: 4,
+                fontWeight: focused ? "600" : "400",
+              }}
+            >
+              Home
+            </Text>
           ),
         }}
       />
+
       {/* Bookmarks */}
       <Tabs.Screen
         name="bookmarks"
         options={{
-          tabBarIcon: ({ color, size, focused }) => (
+          tabBarIcon: ({ focused }) => (
             <Ionicons
               name={focused ? "bookmark" : "bookmark-outline"}
-              size={size}
-              color={color}
+              size={26}
+              color={focused ? "#000" : "#9CA3AF"}
             />
+          ),
+          tabBarLabel: ({ focused }) => (
+            <Text
+              style={{
+                fontSize: 10,
+                color: focused ? "#000" : "#9CA3AF",
+                marginTop: 4,
+                fontWeight: focused ? "600" : "400",
+              }}
+            >
+              Bookmark
+            </Text>
           ),
         }}
       />
+
+      {/* Search (Hidden) */}
       <Tabs.Screen
         name="search"
         options={{
-          href: null, // This hides it from the tab bar navigation
-          // Remove tabBarStyle: { display: 'none' } to keep tab bar visible
+          href: null, // Hidden from tab bar
         }}
       />
 
-      {/* Add */}
+      {/* Create */}
       <Tabs.Screen
         name="create"
         options={{
-          tabBarIcon: ({ color, size, focused }) => (
+          tabBarIcon: ({ focused }) => (
             <Ionicons
               name={focused ? "add-circle" : "add-circle-outline"}
-              size={size + 2}
-              color={color}
+              size={28}
+              color={focused ? "#000" : "#9CA3AF"}
             />
+          ),
+          tabBarLabel: ({ focused }) => (
+            <Text
+              style={{
+                fontSize: 10,
+                color: focused ? "#000" : "#9CA3AF",
+                marginTop: 4,
+                fontWeight: focused ? "600" : "400",
+              }}
+            >
+              Create
+            </Text>
           ),
         }}
       />
-
 
       {/* Notifications */}
       <Tabs.Screen
         name="alerts"
         options={{
-          tabBarIcon: ({ color, size, focused }) => (
+          tabBarIcon: ({ focused }) => (
             <Ionicons
               name={focused ? "notifications" : "notifications-outline"}
-              size={size}
-              color={color}
+              size={26}
+              color={focused ? "#000" : "#9CA3AF"}
             />
+          ),
+          tabBarLabel: ({ focused }) => (
+            <Text
+              style={{
+                fontSize: 10,
+                color: focused ? "#000" : "#9CA3AF",
+                marginTop: 4,
+                fontWeight: focused ? "600" : "400",
+              }}
+            >
+              Notifications
+            </Text>
           ),
         }}
       />
@@ -88,12 +140,24 @@ const TabsLayout = () => {
       <Tabs.Screen
         name="profile"
         options={{
-          tabBarIcon: ({ color, size, focused }) => (
+          tabBarIcon: ({ focused }) => (
             <Ionicons
               name={focused ? "person-circle" : "person-circle-outline"}
-              size={size + 2}
-              color={color}
+              size={28}
+              color={focused ? "#000" : "#9CA3AF"}
             />
+          ),
+          tabBarLabel: ({ focused }) => (
+            <Text
+              style={{
+                fontSize: 10,
+                color: focused ? "#000" : "#9CA3AF",
+                marginTop: 4,
+                fontWeight: focused ? "600" : "400",
+              }}
+            >
+              Profile
+            </Text>
           ),
         }}
       />
