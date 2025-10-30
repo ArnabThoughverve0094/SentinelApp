@@ -51,6 +51,7 @@ interface PostItem {
   Bookmarked?: boolean;
   createdAt?: any;
   CommentTemplate: string;
+  isAnonymous: boolean;
 }
 
 // Your Custom LoadingComponent with Sentinel Logo (Smaller Size)
@@ -555,6 +556,86 @@ const CustomModal: React.FC<CustomModalProps> = ({
       </View>
     </Modal>
   );
+};
+
+// **ENHANCED: File size limits and helpers**
+const FILE_SIZE_LIMIT_BYTES = 5 * 1024 * 1024; // 5MB
+const FILE_SIZE_LIMIT_MB = 5; // For display purposes
+
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+// **ENHANCED: Comprehensive error message handler**
+const getErrorDetails = (error: any, fileName: string = ''): { title: string; message: string; icon: string } => {
+  const errorString = String(error).toLowerCase();
+  const fileNameDisplay = fileName ? `"${fileName}"` : 'your file';
+  
+  // File size errors (HTTP 413)
+  if (errorString.includes('413') || errorString.includes('content length exceeded')) {
+    const sizeLimit = formatFileSize(FILE_SIZE_LIMIT_BYTES);
+    return {
+      title: 'File Too Large ⚠️',
+      message: `${fileNameDisplay} is too large. Please choose a file smaller than ${sizeLimit}.\n\nTip: Try compressing your video or image before uploading.`,
+      icon: 'warning'
+    };
+  }
+  
+  // Network timeout errors
+  if (errorString.includes('timeout') || errorString.includes('network request timed out')) {
+    return {
+      title: 'Upload Timeout',
+      message: `Upload of ${fileNameDisplay} timed out. This usually happens with large files or slow connections.\n\nTry:\n• Using a smaller file\n• Checking your internet connection\n• Trying again later`,
+      icon: 'time-outline'
+    };
+  }
+  
+  // Network connection errors
+  if (errorString.includes('network') || errorString.includes('fetch') || errorString.includes('connection')) {
+    return {
+      title: 'Connection Error',
+      message: `Unable to connect to the server while uploading ${fileNameDisplay}.\n\nPlease:\n• Check your internet connection\n• Try again in a few moments`,
+      icon: 'wifi-outline'
+    };
+  }
+  
+  // File format/corruption errors
+  if (errorString.includes('format') || errorString.includes('corrupt') || errorString.includes('invalid')) {
+    return {
+      title: 'Invalid File',
+      message: `${fileNameDisplay} appears to be corrupted or in an unsupported format.\n\nTry:\n• Choosing a different file\n• Converting to a common format (JPG, PNG, MP4)`,
+      icon: 'document-text-outline'
+    };
+  }
+  
+  // Server errors (5xx)
+  if (errorString.includes('500') || errorString.includes('502') || errorString.includes('503') || errorString.includes('server error')) {
+    return {
+      title: 'Server Temporarily Unavailable',
+      message: `Our servers are experiencing issues processing ${fileNameDisplay}.\n\nPlease try uploading again in a few minutes.`,
+      icon: 'server-outline'
+    };
+  }
+  
+  // Permission/authorization errors
+  if (errorString.includes('401') || errorString.includes('403') || errorString.includes('unauthorized')) {
+    return {
+      title: 'Upload Permission Error',
+      message: `You don't have permission to upload ${fileNameDisplay}.\n\nTry logging out and back in, then try again.`,
+      icon: 'lock-closed-outline'
+    };
+  }
+  
+  // Generic upload error
+  return {
+    title: 'Upload Failed',
+    message: `Failed to upload ${fileNameDisplay}. This could be due to:\n\n• File size too large\n• Network connectivity issues\n• Temporary server problems\n\nPlease try again with a smaller file.`,
+    icon: 'cloud-upload-outline'
+  };
 };
 
 export default function ProfilePage(): React.JSX.Element {
@@ -1250,20 +1331,47 @@ export default function ProfilePage(): React.JSX.Element {
 
   // Open image picker
   const openImagePicker = async () => {
+    // try {
+    //   const result = await ImagePicker.launchImageLibraryAsync({
+    //     mediaTypes: ['images'],
+    //     allowsEditing: true,
+    //     aspect: [1, 1],
+    //     quality: 0.8,
+    //   });
+
+    //   if (!result.canceled && result.assets[0]) {
+    //     await processSelectedImage(result.assets[0].uri);
+    //   }
+    // } catch (error) {
+    //   console.error('❌ Error opening image picker:', error);
+    //   showToast('Failed to open gallery', 'error');
+    // }
     try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        showCustomAlert(
+          'warning',
+          'Permission Required',
+          'Please grant camera roll permissions to select images.',
+          [{ text: 'OK', onPress: hideModal }]
+        );
+        return;
+      }
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
+        allowsMultipleSelection: true,
         quality: 0.8,
       });
 
-      if (!result.canceled && result.assets[0]) {
+      if (!result.canceled && result.assets) {
         await processSelectedImage(result.assets[0].uri);
       }
     } catch (error) {
-      console.error('❌ Error opening image picker:', error);
-      showToast('Failed to open gallery', 'error');
+      const errorDetails = getErrorDetails(error, 'images');
+      showCustomAlert('error', errorDetails.title, errorDetails.message, [
+        { text: 'OK', onPress: hideModal }
+      ]);
     }
   };
 
