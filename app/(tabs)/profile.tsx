@@ -2012,29 +2012,41 @@ export default function ProfilePage(): React.JSX.Element {
   };
 
   const handleHelpSupport = () => {
-    setShowAccountModal(false);
-    showCustomAlert(
-      'info',
-      'Help & Support',
-      'Need help? Please contact our support team at support@sentinel.com or visit our FAQ section.',
-      [
-        {
-          text: 'Contact Support',
-          onPress: () => {
-            hideModal();
-            console.log('Contact support');
-          }
-        },
-        {
-          text: 'View FAQ',
-          onPress: () => {
-            hideModal();
-            handleFAQ();
-          }
+  setShowAccountModal(false);
+  showCustomAlert(
+    'info',
+    'Help & Support',
+    'Need help? Please contact our support team at support@sentinel.com or visit our FAQ section.',
+    [
+      {
+        text: 'Contact Support',
+        onPress: () => {
+          hideModal();
+          // Show the contact support alert
+          showCustomAlert(
+            'info',
+            'Contact Support',
+            'You can reach our support team at support@sentinel.com',
+            [
+              {
+                text: 'OK',
+                onPress: hideModal
+              }
+            ]
+          );
         }
-      ]
-    );
-  };
+      },
+      {
+        text: 'View FAQ',
+        onPress: () => {
+          hideModal();
+          handleFAQ();
+        }
+      }
+    ]
+  );
+};
+
 
   const handleFAQ = () => {
     setShowAccountModal(false);
@@ -2057,9 +2069,9 @@ export default function ProfilePage(): React.JSX.Element {
 
   const handleShareProfile = () => {
     showCustomAlert(
-      'success',
+      'info',
       'Share Profile',
-      'Your profile link has been copied to clipboard! You can now share it with others.',
+      'Sharing feature is coming soon! You will be able to share your profile with others via social media and messaging apps.',
       [
         {
           text: 'OK',
