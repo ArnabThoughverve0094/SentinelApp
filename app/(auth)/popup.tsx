@@ -66,7 +66,7 @@ export default function Index(): React.JSX.Element {
           <View className="items-start mb-8">
             <View className="w-14 h-14 rounded-xl bg-transparent justify-center items-center">
               <Image
-                source={require("../../assets/images/sentinel_logo.png")}
+                source={require("../../assets/images/new_logo.png")}
                 className="w-14 h-14"
                 resizeMode="contain"
               />

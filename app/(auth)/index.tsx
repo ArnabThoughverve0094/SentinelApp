@@ -822,9 +822,9 @@ export default function Index(): React.JSX.Element {
           <Link href="/" asChild>
                                     <TouchableOpacity className="flex-row items-center">
                                       {/* Gear Icon */}
-                                      <View className="w-14 h-14 mr-2">
+                                      <View className="w-8 h-8 mr-2">
                                         <Image
-                                          source={require("../../assets/images/sentinel_logo.png")}
+                                          source={require("../../assets/images/new_logo.png")}
                                           className="w-full h-full"
                                           resizeMode="contain"
                                         />
