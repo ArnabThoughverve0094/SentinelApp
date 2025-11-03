@@ -1,6 +1,7 @@
 import { db } from '@/FirebaseConfig';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import * as Sharing from "expo-sharing";
 import { VideoView, useVideoPlayer } from 'expo-video';
@@ -9,7 +10,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Animated,
   Dimensions,
-  Image,
   Linking,
   Modal,
   Platform,
@@ -604,7 +604,7 @@ export default function BookmarksPage(): React.JSX.Element {
                 // No className here, as the background image is now handled by the other Image
                 resizeMode="contain" // Ensures the full foreground image is visible
                 onError={(error) => {
-                  console.log("Image load error:", error.nativeEvent.error);
+                  console.log("Image load error:", error.error);
                 }}
               />
               <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
@@ -1046,12 +1046,16 @@ export default function BookmarksPage(): React.JSX.Element {
             {fullScreenImage && (
               <Image
                 source={{ uri: fullScreenImage }}
-                className="w-full max-w-full"
-                style={{ 
-                  height: screenHeight - 100, 
-                  maxHeight: screenHeight - 100 
+                style={{
+                  width: '100%',
+                  height: '100%', // Fills the parent View
                 }}
-                resizeMode="contain"
+                // No className here, as the background image is now handled by the other Image
+                resizeMode="contain" // Ensures the full foreground image is visible
+                onError={(error) => {
+                  // console.log("Image load error:", error.nativeEvent.error);
+                  console.log("Image load error:", error.error);
+                }}
               />
             )}
           </TouchableOpacity>

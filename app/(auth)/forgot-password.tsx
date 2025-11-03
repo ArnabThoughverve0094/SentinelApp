@@ -371,6 +371,7 @@ export default function ForgotPassword(): React.JSX.Element {
                 onChangeText={handleEmailChange}
                 onBlur={handleEmailBlur}
                 editable={!isLoading}
+                style={{ fontSize: 16, lineHeight: 20 }}
               />
               {emailError ? (
                 <Text className="text-red-500 text-sm mt-1 ml-1">{emailError}</Text>

@@ -821,12 +821,13 @@ export default function CreatePost() {
           Notification: arrayUnion({
             AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
             AuthorName: userName,
-            AuthorUserID: userId,
+            AuthorUserID: await AsyncStorage.getItem('userId'),
             ContentDate: new Date(),
             Description: 'Congrats! Your post has been submitted successfully and awaiting admin approval',
             NotifyType: 'post_submitted',
             ShowButtons: false,
             Status: 'submitted',
+            isRead: true,
           }),
         });
         console.log(`✅ Submitted post`);
@@ -837,12 +838,13 @@ export default function CreatePost() {
           Notification: [{
             AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
             AuthorName: userName,
-            AuthorUserID: userId,
+            AuthorUserID: await AsyncStorage.getItem('userId'),
             ContentDate: new Date(),
             Description: 'Congrats! Your post has been submitted successfully and awaiting admin approval',
             NotifyType: 'post_submitted',
             ShowButtons: false,
             Status: 'submitted',
+            isRead: true,
           }],
         });
         console.log(`✅ Created new user document and notification`);

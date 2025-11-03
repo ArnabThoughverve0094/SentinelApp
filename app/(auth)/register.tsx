@@ -728,6 +728,7 @@ export default function Register(): React.JSX.Element {
                   }}
                   autoCapitalize="words"
                   autoCorrect={false}
+                  style={{ fontSize: 16, lineHeight: 20 }}
                 />
                 {errors.name && (
                   <Text className="text-red-500 text-xs mt-1">
@@ -752,6 +753,7 @@ export default function Register(): React.JSX.Element {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
+                  style={{ fontSize: 16, lineHeight: 20 }}
                 />
                 {errors.email && (
                   <Text className="text-red-500 text-xs mt-1">
@@ -783,6 +785,7 @@ export default function Register(): React.JSX.Element {
                     secureTextEntry={!showPassword}
                     autoCapitalize="none"
                     autoCorrect={false}
+                    style={{ fontSize: 16, lineHeight: 20 }}
                   />
                   <TouchableOpacity
                     className="absolute right-4 top-3.5"
@@ -828,6 +831,7 @@ export default function Register(): React.JSX.Element {
                     secureTextEntry={!showConfirmPassword}
                     autoCapitalize="none"
                     autoCorrect={false}
+                    style={{ fontSize: 16, lineHeight: 20 }}
                   />
                   <TouchableOpacity
                     className="absolute right-4 top-3.5"
@@ -865,6 +869,7 @@ export default function Register(): React.JSX.Element {
                   }}
                   autoCapitalize="none"
                   autoCorrect={false}
+                  style={{ fontSize: 16, lineHeight: 20 }}
                 />
                 {errors.username && (
                   <Text className="text-red-500 text-xs mt-1">
