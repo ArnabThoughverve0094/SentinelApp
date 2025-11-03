@@ -550,6 +550,7 @@ export default function SentinelFeed(): React.JSX.Element {
   const [currentUserDocId, setCurrentUserDocId] = useState('');
   const [notificationDetails, setNotificationDetails] = useState<any[]>([]);
   const [postUserDocId, setPostUserDocId] = useState('');
+  const [postUserIdNotify, setPostUserIdNotify] = useState('');
   const [postUserDeviceToken, setPostUserDeviceToken] = useState('');
 
   const [isCommentModalVisible, setIsCommentModalVisible] = useState(false);
@@ -613,10 +614,14 @@ export default function SentinelFeed(): React.JSX.Element {
             const following = userData.Following || [];
             setFollowingUserIds(following);
             console.log('✅ Following list updated:', following);
+            const notification = userData.Notification || [];
+            setNotificationDetails(notification);
+            console.log('✅ Notification list updated:', notification);
           } else {
             console.log('📱 No user document found');
             setFollowingUserIds([]);
             setCurrentUserDocId('');
+            setNotificationDetails([]);
           }
         });
 
@@ -1352,14 +1357,15 @@ export default function SentinelFeed(): React.JSX.Element {
             NotifyType: 'post_rejected',
             ShowButtons: false,
             Status: 'rejected',
-            Description: 'Post has been rejected with '+ selectedRejectionReasons.length + ' reason(s).'
+            Description: 'Post has been rejected with '+ selectedRejectionReasons.length + ' reason(s).',
+            isRead: false,
           }),
         });
         console.log(`✅ Rejected post`);
       } else {
         // Create new document if it doesn't exist
         await addDoc(collection(db, 'SentinelUsers'), {
-          userID: await AsyncStorage.getItem('userId'),
+          userID: postUserIdNotify,
           Notification: [{
             AuthorImageURL: await AsyncStorage.getItem('profilePicUrl') || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
             AuthorName: await AsyncStorage.getItem('userName'),
@@ -1368,7 +1374,8 @@ export default function SentinelFeed(): React.JSX.Element {
             NotifyType: 'post_rejected',
             ShowButtons: false,
             Status: 'rejected',
-            Description: 'Post has been rejected with '+ selectedRejectionReasons.length + ' reason(s).'
+            Description: 'Post has been rejected with '+ selectedRejectionReasons.length + ' reason(s).',
+            isRead: false,
           }],
         });
         console.log(`✅ Created new user document and notification`);
@@ -1511,6 +1518,7 @@ export default function SentinelFeed(): React.JSX.Element {
           if (docNoti.userID == postUserID) {
             tempFound = true;
             setPostUserDocId(docNoti.docID);
+            setPostUserIdNotify(postUserID);
 
             //Create Notification
             const userRef = doc(db, "SentinelUsers", docNoti.docID);
@@ -1524,6 +1532,7 @@ export default function SentinelFeed(): React.JSX.Element {
               NotifyType: 'post_approved',
               ShowButtons: false,
               Status: 'approved',
+              isRead: false,
             }),
           });
           console.log(`✅ Approved post`);
@@ -1534,7 +1543,7 @@ export default function SentinelFeed(): React.JSX.Element {
         if (!tempFound) {
           // Create new document if it doesn't exist
           await addDoc(collection(db, 'SentinelUsers'), {
-            userID: await AsyncStorage.getItem('userId'),
+            userID: postUserID,
             Notification: [{
               AuthorImageURL: await AsyncStorage.getItem('profilePicUrl') || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
               AuthorName: await AsyncStorage.getItem('userName'),
@@ -1544,40 +1553,11 @@ export default function SentinelFeed(): React.JSX.Element {
               NotifyType: 'post_approved',
               ShowButtons: false,
               Status: 'approved',
+              isRead: false,
             }],
           });
           console.log(`✅ Created new user document and notification`);
         }
-
-        // Create a new Expo client instance
-        // let expo = new Expo();
-
-        // // Assume this token was retrieved from your database
-        // let targetToken = postUserDeviceToken; 
-
-        // // Check that the push token is valid
-        // if (!Expo.isExpoPushToken(targetToken)) {
-        //   console.error(`Push token ${targetToken} is not a valid Expo push token`);
-        // }
-
-        // // Construct the notification message
-        // let messages = [{
-        //   to: targetToken,
-        //   sound: 'default',
-        //   title: 'Post Approved',
-        //   body: 'Great news! Your recent post has been approved and is now live.',
-        //   data: { withSome: 'data' }, // Data for your app to handle when the user taps
-        // }];
-
-        // // Send the message
-        // try {
-        //   let ticket = await expo.sendPushNotificationsAsync(messages);
-        //   console.log("Push notification sent, ticket:", ticket);
-
-        //   // You should save the 'ticket' ID to check the receipt later for errors.
-        // } catch (error) {
-        // console.error(error);
-        // }
 
       }
       
@@ -2273,6 +2253,7 @@ export default function SentinelFeed(): React.JSX.Element {
       for (const doc of notificationDetails){
         if (doc.userID == postItem.AuthorUserID) {
           setPostUserDocId(doc.docID);
+          setPostUserIdNotify(postItem.AuthorUserID);
           // setPostUserDeviceToken(doc.docDeviceToken);
         }
       }
@@ -2959,22 +2940,22 @@ export default function SentinelFeed(): React.JSX.Element {
           </View> */}
           {/* <Text className="text-3xl font-bold text-black-900">Sentinel</Text> */}
           <Link href="/" asChild>
-                          <TouchableOpacity className="flex-row items-center">
-                            {/* Gear Icon */}
-                            <View className="w-14 h-14 mr-2">
-                              <Image
-                                source={require("../../assets/images/sentinel_logo.png")}
-                                className="w-full h-full"
-                                resizeMode="contain"
-                              />
-                            </View>
-                            
-                            {/* Sentinel Text */}
-                            <Text className="text-3xl font-extrabold text-[#281C20]">
-                              Sentinel
-                            </Text>
-                          </TouchableOpacity>
-                        </Link>
+            <TouchableOpacity className="flex-row items-center">
+              {/* Gear Icon */}
+              <View className="w-14 h-14 mr-2">
+                <Image
+                  source={require("../../assets/images/sentinel_logo.png")}
+                  style={{ width: 50, height: 50 }} // 14 * 4 = 56 (for Tailwind 'w-14 h-14')
+                  resizeMode="contain"
+                />
+              </View>
+                                      
+              {/* Sentinel Text */}
+              <Text className="text-3xl font-extrabold text-[#281C20]">
+                Sentinel
+              </Text>
+            </TouchableOpacity>
+          </Link>
           
           <TouchableOpacity 
               className="p-2 "
@@ -3057,12 +3038,16 @@ export default function SentinelFeed(): React.JSX.Element {
             {fullScreenImage && (
               <Image
                 source={{ uri: fullScreenImage }}
-                className="w-full max-w-full"
-                style={{ 
-                  height: screenHeight - 100, 
-                  maxHeight: screenHeight - 100 
+                style={{
+                  width: '100%',
+                  height: '100%', // Fills the parent View
                 }}
-                resizeMode="contain"
+                // No className here, as the background image is now handled by the other Image
+                resizeMode="contain" // Ensures the full foreground image is visible
+                onError={(error) => {
+                  // console.log("Image load error:", error.nativeEvent.error);
+                  console.log("Image load error:", error.error);
+                }}
               />
             )}
           </TouchableOpacity>

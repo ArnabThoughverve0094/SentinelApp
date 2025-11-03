@@ -498,38 +498,41 @@ export default function CommentScreen({
 
   const handleOptionSelect = (optionId: string) => {
     setSelectedOption(selectedOption === optionId ? null : optionId);
+    handleSubmitResponse(optionId);
   };
 
-  const handleSubmitResponse = async () => {
-    if (!selectedOption || !postId || !postType) return;
+  const handleSubmitResponse = async (optionId: string) => {
+    // if (!selectedOption || !postId || !postType) return;
 
     setIsSubmitting(true);
     
     try {
-      const selectedOptionData = RESPONSE_OPTIONS.find(opt => opt.id === selectedOption);
+      // const selectedOptionData = RESPONSE_OPTIONS.find(opt => opt.id === selectedOption);
+      const selectedOptionData = RESPONSE_OPTIONS.find(opt => opt.id === optionId);
       const commentText = selectedOptionData?.label || '';
       
       if (isEditMode && userExistingComment) {
         const commentRef = doc(db, postType, postId, 'Comments', userExistingComment.id);
         await updateDoc(commentRef, {
           Comment: commentText,
-          selectedOptions: [selectedOption],
+          // selectedOptions: [selectedOption],
+          selectedOptions: [optionId],
           commentType: 'structured'
         });
         console.log('Comment updated successfully');
         setIsEditMode(false);
-      } else if (replyingTo) {
-        const repliesRef = collection(db, postType, postId, 'Comments', replyingTo, 'Replies');
-        const postDocRef = await addDoc(repliesRef, {
-          AuthorImageURL: userImage || dummyAuthorImage,
-          AuthorName: userName,
-          CommentDate: new Date(),
-          Comment: commentText,
-          selectedOptions: [selectedOption],
-          commentType: 'structured',
-          userId: userId
-        });
-        console.log('Structured Reply Post ID: ', postDocRef.id);
+      // } else if (replyingTo) {
+      //   const repliesRef = collection(db, postType, postId, 'Comments', replyingTo, 'Replies');
+      //   const postDocRef = await addDoc(repliesRef, {
+      //     AuthorImageURL: userImage || dummyAuthorImage,
+      //     AuthorName: userName,
+      //     CommentDate: new Date(),
+      //     Comment: commentText,
+      //     selectedOptions: [selectedOption],
+      //     commentType: 'structured',
+      //     userId: userId
+      //   });
+      //   console.log('Structured Reply Post ID: ', postDocRef.id);
       } else {
         const commentRef = collection(db, postType, postId, 'Comments');
         const postDocRef = await addDoc(commentRef, {
@@ -537,7 +540,8 @@ export default function CommentScreen({
           AuthorName: userName,
           CommentDate: new Date(),
           Comment: commentText,
-          selectedOptions: [selectedOption],
+          // selectedOptions: [selectedOption],
+          selectedOptions: [optionId],
           commentType: 'structured',
           userId: userId
         });
@@ -1092,10 +1096,11 @@ export default function CommentScreen({
                   shadowRadius: 8,
                   elevation: 8,
                 }}>
-                  <TouchableOpacity
+                  {/* <TouchableOpacity
                     onPress={() => {
-                      const comment = comments.find(c => c.id === selectedCommentId);
-                      if (comment) handleEditComment(comment);
+                      // const comment = comments.find(c => c.id === selectedCommentId);
+                      // if (comment) handleEditComment(comment);
+                      if(userExistingComment) handleEditComment(userExistingComment);
                     }}
                     style={{
                       paddingHorizontal: 16,
@@ -1108,7 +1113,7 @@ export default function CommentScreen({
                     <Text style={{ marginLeft: 10, fontSize: 14, color: '#007AFF' }}>
                       Edit
                     </Text>
-                  </TouchableOpacity>
+                  </TouchableOpacity> */}
                   
                   <View style={{ height: 0.5, backgroundColor: '#e5e5e5', marginHorizontal: 8 }} />
                   
@@ -1284,53 +1289,58 @@ export default function CommentScreen({
             </View>
 
             {/* Response Options Grid */}
-            <View style={{
-              flexDirection: 'row',
-              flexWrap: 'wrap',
-              justifyContent: 'space-between',
-              marginBottom: 24
-            }}>
-              {RESPONSE_OPTIONS.map((option) => (
-                <TouchableOpacity
-                  key={option.index}
-                  onPress={() => handleOptionSelect(option.id)}
-                  style={{
-                    width: '48%',
-                    backgroundColor: '#f5f5f5',
-                    borderRadius: 16,
-                    paddingVertical: 24,
-                    paddingHorizontal: 16,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: 12,
-                    borderWidth: selectedOption === option.id ? 3 : 0,
-                    borderColor: selectedOption === option.id ? '#000000' : 'transparent',
-                    shadowColor: selectedOption === option.id ? '#000000' : 'transparent',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: selectedOption === option.id ? 0.1 : 0,
-                    shadowRadius: 4,
-                    elevation: selectedOption === option.id ? 4 : 0,
-                  }}
-                >
-                  <Image
-                    source={{ uri: option.icon}}
-                    style={{ width: 64, height: 40 }}
-                    resizeMode="contain"
-                  />
-                  <Text style={{
-                    fontSize: 16,
-                    fontWeight: '600',
-                    color: '#000',
-                    textAlign: 'center'
-                  }}>
-                    {option.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            {isSubmitting ? (
+                    <ActivityIndicator size="large" color="#000" />
+                  ) : (
+                    <View style={{
+                      flexDirection: 'row',
+                      flexWrap: 'wrap',
+                      justifyContent: 'space-between',
+                      marginBottom: 24
+                    }}>
+                      {RESPONSE_OPTIONS.map((option) => (
+                        <TouchableOpacity
+                          key={option.index}
+                          onPress={() => handleOptionSelect(option.id)}
+                          style={{
+                            width: '48%',
+                            backgroundColor: '#f5f5f5',
+                            borderRadius: 16,
+                            paddingVertical: 24,
+                            paddingHorizontal: 16,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginBottom: 12,
+                            borderWidth: selectedOption === option.id ? 3 : 0,
+                            borderColor: selectedOption === option.id ? '#000000' : 'transparent',
+                            shadowColor: selectedOption === option.id ? '#000000' : 'transparent',
+                            shadowOffset: { width: 0, height: 2 },
+                            shadowOpacity: selectedOption === option.id ? 0.1 : 0,
+                            shadowRadius: 4,
+                            elevation: selectedOption === option.id ? 4 : 0,
+                          }}
+                        >
+                          <Image
+                            source={{ uri: option.icon}}
+                            style={{ width: 64, height: 40 }}
+                            resizeMode="contain"
+                          />
+                          <Text style={{
+                            fontSize: 16,
+                            fontWeight: '600',
+                            color: '#000',
+                            textAlign: 'center'
+                          }}>
+                            {option.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+            
 
             {/* Submit Button */}
-            <TouchableOpacity
+            {/* <TouchableOpacity
               onPress={handleSubmitResponse}
               disabled={isSubmitting || !selectedOption}
               style={{
@@ -1355,7 +1365,7 @@ export default function CommentScreen({
                   }
                 </Text>
               )}
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
         </View>
       </Modal>
