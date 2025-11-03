@@ -2,7 +2,6 @@ import { db } from '@/FirebaseConfig';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Application from 'expo-application';
-import { Image } from 'expo-image';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from "expo-sharing";
 import { VideoView, useVideoPlayer } from 'expo-video';
@@ -11,6 +10,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Animated,
   Dimensions,
+  Image,
   Linking,
   Modal,
   Platform,
@@ -2046,7 +2046,6 @@ export default function SentinelFeed(): React.JSX.Element {
                 className="bg-white" // This background will be visible if the image doesn't fill
                 resizeMode="cover" // The background image usually covers the entire area
                 blurRadius={5} // Optional: Add a blur effect to the background
-                cachePolicy="disk" // 'memory-and-disk' is usually the best default
               />
 
               {/* Foreground Image (main) */}
@@ -2059,8 +2058,7 @@ export default function SentinelFeed(): React.JSX.Element {
                 // No className here, as the background image is now handled by the other Image
                 resizeMode="contain" // Ensures the full foreground image is visible
                 onError={(error) => {
-                  // console.log("Image load error:", error.nativeEvent.error);
-                  console.log("Image load error:", error.error);
+                  console.log("Image load error:", error.nativeEvent.error);
                 }}
               />
               
@@ -3045,8 +3043,7 @@ export default function SentinelFeed(): React.JSX.Element {
                 // No className here, as the background image is now handled by the other Image
                 resizeMode="contain" // Ensures the full foreground image is visible
                 onError={(error) => {
-                  // console.log("Image load error:", error.nativeEvent.error);
-                  console.log("Image load error:", error.error);
+                  console.log("Image load error:", error.nativeEvent.error);
                 }}
               />
             )}
