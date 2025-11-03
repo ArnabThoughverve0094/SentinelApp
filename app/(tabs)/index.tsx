@@ -2952,29 +2952,31 @@ export default function SentinelFeed(): React.JSX.Element {
         >
           {/* <View>
             <Image
-              source={require("../../assets/images/sentinel_logo.png")}
+              source={require("../../assets/images/new_logo.png")}
               className="w-16 h-10"
               resizeMode="contain"
             />
           </View> */}
           {/* <Text className="text-3xl font-bold text-black-900">Sentinel</Text> */}
           <Link href="/" asChild>
-                          <TouchableOpacity className="flex-row items-center">
-                            {/* Gear Icon */}
-                            <View className="w-14 h-14 mr-2">
-                              <Image
-                                source={require("../../assets/images/sentinel_logo.png")}
-                                className="w-full h-full"
-                                resizeMode="contain"
-                              />
-                            </View>
-                            
-                            {/* Sentinel Text */}
-                            <Text className="text-3xl font-extrabold text-[#281C20]">
-                              Sentinel
-                            </Text>
-                          </TouchableOpacity>
-                        </Link>
+              <TouchableOpacity className="flex-row items-center">
+                {/* Logo Icon */}
+                <View className="w-8 h-8 mr-2">
+                  <Image
+                    source={require("../../assets/images/new_logo.png")}
+                    style={{ flex: 1, width: undefined, height: undefined }}
+                    resizeMode="contain"
+                  />
+                </View>
+                
+                {/* Sentinel Text */}
+                <Text className="text-3xl font-extrabold text-[#281C20]">
+                  Sentinel
+                </Text>
+              </TouchableOpacity>
+            </Link>
+
+
           
           <TouchableOpacity 
               className="p-2 "
