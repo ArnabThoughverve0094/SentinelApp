@@ -1,7 +1,7 @@
 import { db } from '@/FirebaseConfig';
 import { LoadingComponent } from '@/components/LoadingComponent';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, Link } from 'expo-router';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { collection, doc, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -818,13 +818,30 @@ export default function Index(): React.JSX.Element {
           className="px-4 py-3 flex-row items-center justify-between"
           style={{ paddingTop: Platform.OS === 'ios' ? 10 : 10 }}
         >
-          <Text className="text-xl font-bold text-gray-900">Sentinel</Text>
+          {/* <Text className="text-3xl font-bold text-black-900">Sentinel</Text> */}
+          <Link href="/" asChild>
+                                    <TouchableOpacity className="flex-row items-center">
+                                      {/* Gear Icon */}
+                                      <View className="w-14 h-14 mr-2">
+                                        <Image
+                                          source={require("../../assets/images/sentinel_logo.png")}
+                                          className="w-full h-full"
+                                          resizeMode="contain"
+                                        />
+                                      </View>
+                                      
+                                      {/* Sentinel Text */}
+                                      <Text className="text-3xl font-extrabold text-[#281C20]">
+                                        Sentinel
+                                      </Text>
+                                    </TouchableOpacity>
+                                  </Link>
           
           <TouchableOpacity 
             className="p-2 rounded-full"
             onPress={navigateToAuthScreen}
           >
-            <Ionicons name="search" size={24} color="#000" />
+            <Ionicons name="search" size={30} color="#000000" />
           </TouchableOpacity>
         </View>
       </View>
