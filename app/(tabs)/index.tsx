@@ -3,10 +3,10 @@ import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Application from 'expo-application';
 import { Image } from 'expo-image';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { Link, useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from "expo-sharing";
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { addDoc, arrayRemove, arrayUnion, collection, doc, getDocs, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
+import { addDoc, arrayRemove, arrayUnion, collection, doc, getDocs, onSnapshot, orderBy, query, updateDoc, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
@@ -603,36 +603,21 @@ export default function SentinelFeed(): React.JSX.Element {
         console.log('🔄 Fetching following list for user:', fetchuserID);
         
         const sentinelUsersRef = collection(db, 'SentinelUsers');
-        const q = query(sentinelUsersRef);
+        const q = query(sentinelUsersRef, where('userID', '==', fetchuserID));
         
         const unsubscribe = onSnapshot(q, (snapshot) => {
-          const snapshotDataArr = snapshot.docs.map(doc => ({
-            id: doc.id,
-            data: doc.data(),
-          }))
-
-          const notificationlist = [];
-
-          for (const doc of snapshotDataArr) {
-            const postData = doc.data;
-            const postId = doc.id;
-
-            if (postData.userID == fetchuserID) {
-              setCurrentUserDocId(postId);
-                
-              const following = postData.Following || [];
-              setFollowingUserIds(following);
-              console.log('✅ Following list updated:', following);
-            }
-
-            notificationlist.push({
-              docID: postId,
-              userID: postData.userID,
-            })
+          if (!snapshot.empty) {
+            const userDoc = snapshot.docs[0];
+            const userData = userDoc.data();
+            setCurrentUserDocId(userDoc.id);
+            const following = userData.Following || [];
+            setFollowingUserIds(following);
+            console.log('✅ Following list updated:', following);
+          } else {
+            console.log('📱 No user document found');
+            setFollowingUserIds([]);
+            setCurrentUserDocId('');
           }
-
-          setNotificationDetails(notificationlist);
-          
         });
 
         return unsubscribe;
@@ -2972,7 +2957,24 @@ export default function SentinelFeed(): React.JSX.Element {
               resizeMode="contain"
             />
           </View> */}
-          <Text className="text-3xl font-bold text-black-900">Sentinel</Text>
+          {/* <Text className="text-3xl font-bold text-black-900">Sentinel</Text> */}
+          <Link href="/" asChild>
+                          <TouchableOpacity className="flex-row items-center">
+                            {/* Gear Icon */}
+                            <View className="w-14 h-14 mr-2">
+                              <Image
+                                source={require("../../assets/images/sentinel_logo.png")}
+                                className="w-full h-full"
+                                resizeMode="contain"
+                              />
+                            </View>
+                            
+                            {/* Sentinel Text */}
+                            <Text className="text-3xl font-extrabold text-[#281C20]">
+                              Sentinel
+                            </Text>
+                          </TouchableOpacity>
+                        </Link>
           
           <TouchableOpacity 
               className="p-2 "
