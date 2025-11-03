@@ -1,11 +1,56 @@
+import { db } from "@/FirebaseConfig";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Tabs } from "expo-router";
-import React from "react";
-import { Text, View } from "react-native";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { useCallback, useEffect, useState } from "react";
+import { Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const TabsLayout = () => {
   const insets = useSafeAreaInsets();
+
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+
+  const hasNotifications = unreadCount > 0;
+
+  const fetchUserNotification = useCallback(async () => {
+    try {
+      const fetchuserID = await AsyncStorage.getItem('userId') || "";
+      const sentinelUsersRef = collection(db, 'SentinelUsers');
+      const q = query(sentinelUsersRef, where('userID', '==', fetchuserID));
+          
+          const unsubscribe = onSnapshot(q, (snapshot) => {
+            if (!snapshot.empty) {
+              const userDoc = snapshot.docs[0];
+              const userData = userDoc.data();
+              const notification = userData.Notification || [];
+              console.log('✅ Notification list updated:', notification);
+
+              let unreadNotificationCount = 0;
+  
+              for (const docNotification of notification) {
+                if(!docNotification.isRead){
+                  unreadNotificationCount++;
+                }
+              }
+
+              // setUnreadCount(unreadNotificationCount);
+  
+            } else {
+              console.log('📱 No user document found');
+            }
+          });
+  
+          return unsubscribe;
+    } catch (error) {
+      console.error('Error fetching following list:', error);
+    }
+  }, []);
+  
+  useEffect(() => {
+    fetchUserNotification();
+  }, []);
 
   return (
     <Tabs
@@ -133,6 +178,20 @@ const TabsLayout = () => {
               Notifications
             </Text>
           ),
+          // 1. Conditionally show the badge
+          // Set to an empty string to force the dot shape without a number
+          tabBarBadge: hasNotifications ? unreadCount : undefined, 
+          
+          // 2. Style the badge to look like a small red dot
+          tabBarBadgeStyle: {
+            backgroundColor: 'red',
+            minWidth: 0,      // Make the badge very small
+            minHeight: 0,     // Ensure it's square for perfect circle
+            borderRadius: 10,  // Half of the width/height makes it a perfect circle
+            padding: 0,       // Remove any padding
+            top: 1,           // Adjust vertical position
+            right: 0,         // Adjust horizontal position
+          },
         }}
       />
 

@@ -1,11 +1,12 @@
 import { db } from '@/FirebaseConfig';
 import { LoadingComponent } from '@/components/LoadingComponent';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
-import { router, Link } from 'expo-router';
+import { Image } from 'expo-image';
+import { Link, router } from 'expo-router';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { collection, doc, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Dimensions, Image, Linking, Modal, Platform, RefreshControl, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, Linking, Modal, Platform, RefreshControl, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface PostItem {
@@ -480,13 +481,33 @@ export default function Index(): React.JSX.Element {
             activeOpacity={0.95}
           >
             <View className="relative rounded-xl overflow-hidden">
+              {/* Background Image (faded) */}
               <Image
                 source={{ uri: primaryMediaUrl }}
-                style={{ width: '100%', height: 200 }}
-                className="bg-gray-100"
-                resizeMode="cover"
+                style={{
+                  width: '100%',
+                  height: 200, // Fills the parent View
+                  position: 'absolute', // Allows other content to layer on top
+                  opacity: 0.2, // Adjust for desired transparency (0.0 to 1.0)
+                }}
+                className="bg-white" // This background will be visible if the image doesn't fill
+                resizeMode="cover" // The background image usually covers the entire area
+                blurRadius={5} // Optional: Add a blur effect to the background
+                cachePolicy="disk" // 'memory-and-disk' is usually the best default
+              />
+
+              {/* Foreground Image (main) */}
+              <Image
+                source={{ uri: primaryMediaUrl }}
+                style={{
+                  width: '100%',
+                  height: 200, // Fills the parent View
+                }}
+                // No className here, as the background image is now handled by the other Image
+                resizeMode="contain" // Ensures the full foreground image is visible
                 onError={(error) => {
-                  console.log("Image load error:", error.nativeEvent.error);
+                  // console.log("Image load error:", error.nativeEvent.error);
+                  console.log("Image load error:", error.error);
                 }}
               />
               <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
@@ -820,22 +841,22 @@ export default function Index(): React.JSX.Element {
         >
           {/* <Text className="text-3xl font-bold text-black-900">Sentinel</Text> */}
           <Link href="/" asChild>
-                                    <TouchableOpacity className="flex-row items-center">
-                                      {/* Gear Icon */}
-                                      <View className="w-14 h-14 mr-2">
-                                        <Image
-                                          source={require("../../assets/images/sentinel_logo.png")}
-                                          className="w-full h-full"
-                                          resizeMode="contain"
-                                        />
-                                      </View>
+            <TouchableOpacity className="flex-row items-center">
+              {/* Gear Icon */}
+              <View className="w-14 h-14 mr-2">
+                <Image
+                  source={require("../../assets/images/sentinel_logo.png")}
+                  className="w-full h-full"
+                  resizeMode="contain"
+                />
+              </View>
                                       
-                                      {/* Sentinel Text */}
-                                      <Text className="text-3xl font-extrabold text-[#281C20]">
-                                        Sentinel
-                                      </Text>
-                                    </TouchableOpacity>
-                                  </Link>
+              {/* Sentinel Text */}
+              <Text className="text-3xl font-extrabold text-[#281C20]">
+                Sentinel
+              </Text>
+            </TouchableOpacity>
+          </Link>
           
           <TouchableOpacity 
             className="p-2 rounded-full"

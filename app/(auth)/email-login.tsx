@@ -391,6 +391,7 @@ export default function EmailLogin(): React.JSX.Element {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
+                  style={{ fontSize: 16, lineHeight: 20 }}
                 />
                 {emailError && (
                   <Text className="text-red-500 text-sm mt-1">{emailError}</Text>
@@ -414,6 +415,7 @@ export default function EmailLogin(): React.JSX.Element {
                     secureTextEntry={!showPassword}
                     autoCapitalize="none"
                     autoCorrect={false}
+                    style={{ fontSize: 16, lineHeight: 20 }}
                   />
                   <TouchableOpacity
                     className="absolute right-4 top-3.5"
