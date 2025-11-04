@@ -315,7 +315,7 @@ export default function ForgotPassword(): React.JSX.Element {
                         {/* Gear Icon */}
                         <View className="w-8 h-8 mr-2">
                           <Image
-                            source={require("../../assets/images/sentinel_logo.png")}
+                            source={require("../../assets/images/new_logo.png")}
                             className="w-full h-full"
                             resizeMode="contain"
                           />
