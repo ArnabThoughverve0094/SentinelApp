@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // import * as Device from 'expo-device';
 // import * as Notifications from 'expo-notifications';
 import { Link, useRouter } from 'expo-router';
-import { addDoc, collection, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
+import { addDoc, collection, onSnapshot, query, where } from 'firebase/firestore';
 import React, { useCallback, useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -274,16 +274,16 @@ export default function EmailLogin(): React.JSX.Element {
           if (!snapshot.empty) {
             const userDoc = snapshot.docs[0];
             
-            const userRef = doc(db, "SentinelUsers", userDoc.id);
-            await updateDoc(userRef, {
-              deviceToken: expoPushToken,
-            });
+            // const userRef = doc(db, "SentinelUsers", userDoc.id);
+            // await updateDoc(userRef, {
+            //   deviceToken: expoPushToken,
+            // });
             console.log('✅ Current user doc updated');
 
           } else {
             await addDoc(collection(db, 'SentinelUsers'), {
               userID: userId,
-              deviceToken: expoPushToken,
+              // deviceToken: expoPushToken,
             });
             console.log('📱 No user document found');
           }

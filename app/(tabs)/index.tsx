@@ -5,9 +5,10 @@ import * as Application from 'expo-application';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from "expo-sharing";
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { addDoc, arrayRemove, arrayUnion, collection, doc, getDocs, onSnapshot, orderBy, query, updateDoc, where } from 'firebase/firestore';
+import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   Animated,
   Dimensions,
   Image,
@@ -571,6 +572,9 @@ export default function SentinelFeed(): React.JSX.Element {
   const [isRepostModalVisible, setIsRepostModalVisible] = useState(false);
   const [selectedRepostPost, setSelectedRepostPost] = useState<PostItem | null>(null);
 
+  const [showMenuModal, setShowMenuModal] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+
   // UPDATED: Create video player for fullscreen modal
   const fullScreenVideoPlayer = useVideoPlayer(fullScreenVideo || '', (player) => {
     player.loop = false;
@@ -603,26 +607,59 @@ export default function SentinelFeed(): React.JSX.Element {
       if (fetchuserID) {
         console.log('🔄 Fetching following list for user:', fetchuserID);
         
-        const sentinelUsersRef = collection(db, 'SentinelUsers');
-        const q = query(sentinelUsersRef, where('userID', '==', fetchuserID));
+        // const sentinelUsersRef = collection(db, 'SentinelUsers');
+        // const q = query(sentinelUsersRef, where('userID', '==', fetchuserID));
         
+        // const unsubscribe = onSnapshot(q, (snapshot) => {
+        //   if (!snapshot.empty) {
+        //     const userDoc = snapshot.docs[0];
+        //     const userData = userDoc.data();
+        //     setCurrentUserDocId(userDoc.id);
+        //     const following = userData.Following || [];
+        //     setFollowingUserIds(following);
+        //     console.log('✅ Following list updated:', following);
+        //     const notification = userData.Notification || [];
+        //     setNotificationDetails(notification);
+        //     console.log('✅ Notification list updated:', notification);
+        //   } else {
+        //     console.log('📱 No user document found');
+        //     setFollowingUserIds([]);
+        //     setCurrentUserDocId('');
+        //   }
+        // });
+
+        const sentinelUsersRef = collection(db, 'SentinelUsers');
+        const q = query(sentinelUsersRef);
+
         const unsubscribe = onSnapshot(q, (snapshot) => {
-          if (!snapshot.empty) {
-            const userDoc = snapshot.docs[0];
-            const userData = userDoc.data();
-            setCurrentUserDocId(userDoc.id);
-            const following = userData.Following || [];
-            setFollowingUserIds(following);
-            console.log('✅ Following list updated:', following);
-            const notification = userData.Notification || [];
-            setNotificationDetails(notification);
-            console.log('✅ Notification list updated:', notification);
-          } else {
-            console.log('📱 No user document found');
-            setFollowingUserIds([]);
-            setCurrentUserDocId('');
-            setNotificationDetails([]);
+          const snapshotDataArr = snapshot.docs.map(doc => ({
+            id: doc.id,
+            data: doc.data(),
+          }))
+
+          const notificationlist = [];
+
+          for (const doc of snapshotDataArr) {
+            const postData = doc.data;
+            const postId = doc.id;
+
+            if (postData.userID == fetchuserID) {
+              setCurrentUserDocId(postId);
+                
+              const following = postData.Following || [];
+              setFollowingUserIds(following);
+              console.log('✅ Following list updated:', following);
+            }
+
+            notificationlist.push({
+              docID: postId,
+              userID: postData.userID,
+            })
           }
+
+          console.log('✅ Notification list updated:', notificationlist);
+          setNotificationDetails(notificationlist);
+          
         });
 
         return unsubscribe;
@@ -1328,14 +1365,14 @@ export default function SentinelFeed(): React.JSX.Element {
     try {
       await handleApprovalToggle(rejectionPostId, false, false, "");
       
+      closeRejectionModal();
+
       await updateDoc(doc(db, 'SentinelPosts', rejectionPostId), {
         isApproved: false,
         isNew: false,
         rejectionReasons: selectedRejectionReasons,
         rejectedAt: new Date()
       });
-
-      closeRejectionModal();
       
       Toast.show({
         type: 'success',
@@ -1478,6 +1515,45 @@ export default function SentinelFeed(): React.JSX.Element {
     }, 800);
   }, [isFlipped, isFlipping]);
 
+  //Post options
+  const handleThreeDotsPress = (item: PostItem, event: any) => {
+    const { pageX, pageY } = event.nativeEvent;
+    setSelectedPostId(item.id);
+    setMenuPosition({ x: pageX - 120, y: pageY + 10 });
+    setShowMenuModal(true);
+  };
+
+  const handleDeletePost = async (postId: string) => {
+     Alert.alert(
+      "Delete Post",
+      "Are you sure you want to delete your post? This action cannot be undone.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const postRef = doc(db, "SentinelPosts", postId);
+              await deleteDoc(postRef);
+              console.log('Comment deleted successfully');
+              
+              setUserExistingComment(null);
+              setShowMenuModal(false);
+              setSelectedPostId(null);
+            } catch (error) {
+              console.error('Error deleting comment:', error);
+              Alert.alert("Error", "Failed to delete response. Please try again.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
   // APPROVAL TOGGLE WITH TOAST
   const handleApprovalToggle = useCallback(async (postId: string, newApprovedStatus: boolean, newIsNew: boolean = false, postUserID: string) => {
     console.log("Toggling post:", postId, "to approved:", newApprovedStatus, "isNew:", newIsNew);
@@ -1503,6 +1579,18 @@ export default function SentinelFeed(): React.JSX.Element {
       });
       console.log("Post status updated successfully");
       
+      let postDocID = '';
+      for (const docUserID of notificationDetails){
+        console.log('PostAuthorUserID: ', postUserID);
+        console.log('doc PostAuthorUserID: ', docUserID.userID);
+        if (docUserID.userID == postUserID) {
+          postDocID = docUserID.docID;
+          setPostUserDocId(docUserID.docID);
+          setPostUserIdNotify(postUserID);
+          // setPostUserDeviceToken(doc.docDeviceToken);
+        }
+      }
+
       // Show toast for approval
       if (newApprovedStatus && !newIsNew) {
         Toast.show({
@@ -1514,14 +1602,15 @@ export default function SentinelFeed(): React.JSX.Element {
         });
 
         let tempFound=false;
-        for (const docNoti of notificationDetails){
-          if (docNoti.userID == postUserID) {
+        // for (const docNoti of notificationDetails){
+          // if (docNoti.userID == postUserID) {
+          if (postDocID != '') {
             tempFound = true;
-            setPostUserDocId(docNoti.docID);
+            setPostUserDocId(postDocID);
             setPostUserIdNotify(postUserID);
 
             //Create Notification
-            const userRef = doc(db, "SentinelUsers", docNoti.docID);
+            const userRef = doc(db, "SentinelUsers", postDocID);
             await updateDoc(userRef, {
             Notification: arrayUnion({
               AuthorImageURL: await AsyncStorage.getItem('profilePicUrl') || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
@@ -1537,7 +1626,7 @@ export default function SentinelFeed(): React.JSX.Element {
           });
           console.log(`✅ Approved post`);
           }
-        }
+        // }
   
         // Create Notification
         if (!tempFound) {
@@ -2248,9 +2337,11 @@ export default function SentinelFeed(): React.JSX.Element {
     };
 
     const handleRejectClick = () => {
-      for (const doc of notificationDetails){
-        if (doc.userID == postItem.AuthorUserID) {
-          setPostUserDocId(doc.docID);
+      for (const docUserID of notificationDetails){
+        console.log('PostAuthorUserID: ', postItem.AuthorUserID);
+        console.log('doc PostAuthorUserID: ', docUserID.userID);
+        if (docUserID.userID == postItem.AuthorUserID) {
+          setPostUserDocId(docUserID.docID);
           setPostUserIdNotify(postItem.AuthorUserID);
           // setPostUserDeviceToken(doc.docDeviceToken);
         }
@@ -2413,9 +2504,13 @@ export default function SentinelFeed(): React.JSX.Element {
                   )}
                 </View>
               </View>
-              <TouchableOpacity className="p-1.5 rounded-full bg-gray-100">
+              
+              {item.AuthorUserID === userId && (
+                <TouchableOpacity className="p-1.5 rounded-full bg-gray-100"
+                onPress={(event) => handleThreeDotsPress(item, event)}>
                 <Ionicons name="ellipsis-horizontal" size={12} color="#64748b" />
               </TouchableOpacity>
+              )}
             </View>
           </View>
   
@@ -2741,9 +2836,12 @@ export default function SentinelFeed(): React.JSX.Element {
                   )}
                 </View>
               </View>
-              <TouchableOpacity className="p-1.5 rounded-full bg-gray-100">
+              {item.AuthorUserID === userId && (
+                <TouchableOpacity className="p-1.5 rounded-full bg-gray-100"
+                onPress={(event) => handleThreeDotsPress(item, event)}>
                 <Ionicons name="ellipsis-horizontal" size={12} color="#64748b" />
               </TouchableOpacity>
+              )}
             </View>
           </View>
   
@@ -3302,6 +3400,78 @@ export default function SentinelFeed(): React.JSX.Element {
         buttons={modalConfig.buttons}
         onClose={hideModal}
       />
+
+      {/* Three Dots Menu Modal */}
+      {showMenuModal && (
+            <Modal
+              visible={showMenuModal}
+              transparent={true}
+              animationType="fade"
+              onRequestClose={() => setShowMenuModal(false)}
+            >
+              <TouchableOpacity 
+                style={{ 
+                  flex: 1, 
+                  backgroundColor: 'rgba(0, 0, 0, 0.3)'
+                }}
+                activeOpacity={1}
+                onPress={() => setShowMenuModal(false)}
+              >
+                <View style={{
+                  position: 'absolute',
+                  top: menuPosition.y,
+                  left: menuPosition.x,
+                  backgroundColor: '#fff',
+                  borderRadius: 8,
+                  paddingVertical: 4,
+                  minWidth: 140,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 8,
+                  elevation: 8,
+                }}>
+                  {/* <TouchableOpacity
+                    onPress={() => {
+                      // const comment = comments.find(c => c.id === selectedCommentId);
+                      // if (comment) handleEditComment(comment);
+                      if(userExistingComment) handleEditComment(userExistingComment);
+                    }}
+                    style={{
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      flexDirection: 'row',
+                      alignItems: 'center'
+                    }}
+                  >
+                    <Ionicons name="pencil" size={16} color="#007AFF" />
+                    <Text style={{ marginLeft: 10, fontSize: 14, color: '#007AFF' }}>
+                      Edit
+                    </Text>
+                  </TouchableOpacity> */}
+                  
+                  <View style={{ height: 0.5, backgroundColor: '#e5e5e5', marginHorizontal: 8 }} />
+                  
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (selectedPostId) handleDeletePost(selectedPostId);
+                    }}
+                    style={{
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      flexDirection: 'row',
+                      alignItems: 'center'
+                    }}
+                  >
+                    <Ionicons name="trash" size={16} color="#FF3B30" />
+                    <Text style={{ marginLeft: 10, fontSize: 14, color: '#FF3B30' }}>
+                      Delete
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </TouchableOpacity>
+            </Modal>
+          )}
      
     </SafeAreaView>
   );
