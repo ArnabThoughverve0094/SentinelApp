@@ -592,6 +592,7 @@ export default function BookmarksPage(): React.JSX.Element {
                 className="bg-white" // This background will be visible if the image doesn't fill
                 resizeMode="cover" // The background image usually covers the entire area
                 blurRadius={5} // Optional: Add a blur effect to the background
+                resizeMethod="resize"
               />
 
               {/* Foreground Image (main) */}
@@ -603,6 +604,7 @@ export default function BookmarksPage(): React.JSX.Element {
                 }}
                 // No className here, as the background image is now handled by the other Image
                 resizeMode="contain" // Ensures the full foreground image is visible
+                resizeMethod="resize"
                 onError={(error) => {
                   console.log("Image load error:", error.nativeEvent.error);
                 }}
@@ -1052,6 +1054,7 @@ export default function BookmarksPage(): React.JSX.Element {
                 }}
                 // No className here, as the background image is now handled by the other Image
                 resizeMode="contain" // Ensures the full foreground image is visible
+                resizeMethod="resize"
                 onError={(error) => {
                   console.log("Image load error:", error.nativeEvent.error);
                 }}
