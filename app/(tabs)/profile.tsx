@@ -5,10 +5,11 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { arrayRemove, arrayUnion, collection, doc, getDocs, updateDoc } from 'firebase/firestore';
+import { arrayRemove, arrayUnion, collection, deleteDoc, doc, getDocs, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Dimensions,
   Image,
@@ -673,6 +674,10 @@ export default function ProfilePage(): React.JSX.Element {
   const [isGraphModalVisible, setIsGraphModalVisible] = useState(false);
   const [selectedGraphPostId, setSelectedGraphPostId] = useState<string | null>(null);
   const [selectedGraphPostType, setSelectedGraphPostType] = useState<string | null>(null);
+
+  //Post menu options
+  const [showMenuModal, setShowMenuModal] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
 
   // Toast state
   const [toast, setToast] = useState<{
@@ -1710,6 +1715,44 @@ export default function ProfilePage(): React.JSX.Element {
     }
   }, [areInteractionsDisabled]);
 
+  //Post options
+  const handleThreeDotsPress = (item: PostItem, event: any) => {
+    const { pageX, pageY } = event.nativeEvent;
+    setSelectedPostId(item.id);
+    setMenuPosition({ x: pageX - 120, y: pageY + 10 });
+    setShowMenuModal(true);
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    Alert.alert(
+     "Delete Post",
+     "Are you sure you want to delete your post? This action cannot be undone.",
+     [
+       {
+         text: "Cancel",
+         style: "cancel"
+       },
+       {
+         text: "Delete",
+         style: "destructive",
+         onPress: async () => {
+           try {
+             const postRef = doc(db, "SentinelPosts", postId);
+             await deleteDoc(postRef);
+             console.log('Comment deleted successfully');
+             
+             setShowMenuModal(false);
+             setSelectedPostId(null);
+           } catch (error) {
+             console.error('Error deleting comment:', error);
+             Alert.alert("Error", "Failed to delete response. Please try again.");
+           }
+         }
+       }
+     ]
+   );
+ };
+
   // OPTIMIZED MEDIA CONTENT - REDUCED SIZES
   const renderMediaContent = useCallback((item: PostItem, index?: number) => {
     const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
@@ -1739,6 +1782,7 @@ export default function ProfilePage(): React.JSX.Element {
                 className="bg-white" // This background will be visible if the image doesn't fill
                 resizeMode="cover" // The background image usually covers the entire area
                 blurRadius={5} // Optional: Add a blur effect to the background
+                resizeMethod="resize"
               />
 
               {/* Foreground Image (main) */}
@@ -1750,6 +1794,7 @@ export default function ProfilePage(): React.JSX.Element {
                 }}
                 // No className here, as the background image is now handled by the other Image
                 resizeMode="contain" // Ensures the full foreground image is visible
+                resizeMethod="resize"
                 onError={(error) => {
                   console.log("Image load error:", error.nativeEvent.error);
                 }}
@@ -1886,9 +1931,10 @@ export default function ProfilePage(): React.JSX.Element {
               )}
             </View>
           </View>
-          <TouchableOpacity className="p-1.5 rounded-full bg-gray-100">
-            <Ionicons name="ellipsis-horizontal" size={12} color="#64748b" />
-          </TouchableOpacity>
+          <TouchableOpacity className="p-1.5 rounded-full bg-gray-100"
+                onPress={(event) => handleThreeDotsPress(item, event)}>
+                <Ionicons name="ellipsis-horizontal" size={12} color="#64748b" />
+              </TouchableOpacity>
         </View>
       </View>
 
@@ -2589,6 +2635,78 @@ export default function ProfilePage(): React.JSX.Element {
         type={toast.type}
         onHide={hideToast}
       />
+
+      {/* Three Dots Menu Modal */}
+      {showMenuModal && (
+            <Modal
+              visible={showMenuModal}
+              transparent={true}
+              animationType="fade"
+              onRequestClose={() => setShowMenuModal(false)}
+            >
+              <TouchableOpacity 
+                style={{ 
+                  flex: 1, 
+                  backgroundColor: 'rgba(0, 0, 0, 0.3)'
+                }}
+                activeOpacity={1}
+                onPress={() => setShowMenuModal(false)}
+              >
+                <View style={{
+                  position: 'absolute',
+                  top: menuPosition.y,
+                  left: menuPosition.x,
+                  backgroundColor: '#fff',
+                  borderRadius: 8,
+                  paddingVertical: 4,
+                  minWidth: 140,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 8,
+                  elevation: 8,
+                }}>
+                  {/* <TouchableOpacity
+                    onPress={() => {
+                      // const comment = comments.find(c => c.id === selectedCommentId);
+                      // if (comment) handleEditComment(comment);
+                      if(userExistingComment) handleEditComment(userExistingComment);
+                    }}
+                    style={{
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      flexDirection: 'row',
+                      alignItems: 'center'
+                    }}
+                  >
+                    <Ionicons name="pencil" size={16} color="#007AFF" />
+                    <Text style={{ marginLeft: 10, fontSize: 14, color: '#007AFF' }}>
+                      Edit
+                    </Text>
+                  </TouchableOpacity> */}
+                  
+                  <View style={{ height: 0.5, backgroundColor: '#e5e5e5', marginHorizontal: 8 }} />
+                  
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (selectedPostId) handleDeletePost(selectedPostId);
+                    }}
+                    style={{
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      flexDirection: 'row',
+                      alignItems: 'center'
+                    }}
+                  >
+                    <Ionicons name="trash" size={16} color="#FF3B30" />
+                    <Text style={{ marginLeft: 10, fontSize: 14, color: '#FF3B30' }}>
+                      Delete
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </TouchableOpacity>
+            </Modal>
+          )}
     </SafeAreaView>
   );
 }
