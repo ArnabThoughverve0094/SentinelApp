@@ -4,7 +4,7 @@
     "slug": "frontend",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/sentinel_logo.png",
+    "icon": "./assets/images/new_logo.png",
     "scheme": "frontend",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -14,7 +14,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/sentinel_logo.png",
+        "foregroundImage": "./assets/images/new_logo.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -30,7 +30,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/sentinel_logo.png",
+          "image": "./assets/images/new_logo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"

@@ -148,7 +148,7 @@ const LoadingComponent: React.FC<{ visible?: boolean; size?: 'small' | 'medium' 
           }}
         >
           <Image
-            source={require('../../assets/images/sentinel_logo.png')}
+            source={require('../../assets/images/new_logo.png')}
             style={{ width: '100%', height: '100%' }}
             resizeMode="cover"
           />
