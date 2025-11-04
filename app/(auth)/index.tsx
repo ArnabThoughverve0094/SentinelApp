@@ -838,15 +838,15 @@ export default function Index(): React.JSX.Element {
         >
           {/* <Text className="text-3xl font-bold text-black-900">Sentinel</Text> */}
           <Link href="/" asChild>
-            <TouchableOpacity className="flex-row items-center">
-              {/* Gear Icon */}
-              <View className="w-14 h-14 mr-2">
-                <Image
-                  source={require("../../assets/images/sentinel_logo.png")}
-                  className="w-full h-full"
-                  resizeMode="contain"
-                />
-              </View>
+                                    <TouchableOpacity className="flex-row items-center">
+                                      {/* Gear Icon */}
+                                      <View className="w-8 h-8 mr-2">
+                                        <Image
+                                          source={require("../../assets/images/new_logo.png")}
+                                          className="w-full h-full"
+                                          resizeMode="contain"
+                                        />
+                                      </View>
                                       
               {/* Sentinel Text */}
               <Text className="text-3xl font-extrabold text-[#281C20]">
