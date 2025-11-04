@@ -111,7 +111,7 @@ const TabHeader: React.FC<{
               activeTab === 'forYou' ? 'text-black' : 'text-gray-500'
             }`}
           >
-            For you
+            Published Posts
           </Text>
         </TouchableOpacity>
 
@@ -127,7 +127,7 @@ const TabHeader: React.FC<{
               activeTab === 'following' ? 'text-black' : 'text-gray-500'
             }`}
           >
-            Following
+            Educational
           </Text>
         </TouchableOpacity>
       </View>
@@ -1541,7 +1541,6 @@ export default function SentinelFeed(): React.JSX.Element {
               await deleteDoc(postRef);
               console.log('Comment deleted successfully');
               
-              setUserExistingComment(null);
               setShowMenuModal(false);
               setSelectedPostId(null);
             } catch (error) {
@@ -2135,6 +2134,7 @@ export default function SentinelFeed(): React.JSX.Element {
                 className="bg-white" // This background will be visible if the image doesn't fill
                 resizeMode="cover" // The background image usually covers the entire area
                 blurRadius={5} // Optional: Add a blur effect to the background
+                resizeMethod="resize"
               />
 
               {/* Foreground Image (main) */}
@@ -2146,6 +2146,7 @@ export default function SentinelFeed(): React.JSX.Element {
                 }}
                 // No className here, as the background image is now handled by the other Image
                 resizeMode="contain" // Ensures the full foreground image is visible
+                resizeMethod="resize"
                 onError={(error) => {
                   console.log("Image load error:", error.nativeEvent.error);
                 }}
@@ -3038,7 +3039,7 @@ export default function SentinelFeed(): React.JSX.Element {
           <Link href="/" asChild>
               <TouchableOpacity className="flex-row items-center">
                 {/* Logo Icon */}
-                <View className="w-8 h-8 mr-2">
+                <View className="w-8 h-8 mr-0">
                   <Image
                     source={require("../../assets/images/new_logo.png")}
                     style={{ flex: 1, width: undefined, height: undefined }}
@@ -3047,8 +3048,12 @@ export default function SentinelFeed(): React.JSX.Element {
                 </View>
                 
                 {/* Sentinel Text */}
-                <Text className="text-3xl font-extrabold text-[#281C20]">
-                  Sentinel
+                <Text className="text-3xl mr-5 font-extrabold text-[#281C20]">
+                  entinel
+                </Text>
+
+                <Text className="text-1xl text-[#281C20]">
+                  Exposing Antisemitism
                 </Text>
               </TouchableOpacity>
             </Link>
@@ -3142,6 +3147,7 @@ export default function SentinelFeed(): React.JSX.Element {
                 }}
                 // No className here, as the background image is now handled by the other Image
                 resizeMode="contain" // Ensures the full foreground image is visible
+                resizeMethod="resize"
                 onError={(error) => {
                   console.log("Image load error:", error.nativeEvent.error);
                 }}
