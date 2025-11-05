@@ -3,7 +3,7 @@ import { Stack, useRootNavigationState } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect, useState } from 'react';
 import { Text } from 'react-native';
-import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
+import Toast from 'react-native-toast-message';
 import '../global.css';
 import { toastConfig } from '../utils/toastConfig';
 
