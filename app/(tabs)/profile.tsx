@@ -5,7 +5,7 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { arrayRemove, arrayUnion, collection, deleteDoc, doc, getDocs, updateDoc } from 'firebase/firestore';
+import { arrayRemove, arrayUnion, collection, deleteDoc, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -814,142 +814,242 @@ export default function ProfilePage(): React.JSX.Element {
   }, []);
 
   // FIXED: Fetch ONLY the current user's posts WITHOUT complex Firebase queries
-  const fetchUserPosts = useCallback(async (loadMore = false) => {
-    if (!userName && !userNickName) {
-      console.log('No user name available for filtering posts');
-      return;
-    }
+  // const fetchUserPosts = useCallback(async (loadMore = false) => {
+  //   if (!userName && !userNickName) {
+  //     console.log('No user name available for filtering posts');
+  //     return;
+  //   }
 
-    // Set loading states
-    if (loadMore) {
-      setLoadingMore(true);
-    } else {
-      setLoading(true);
-    }
+  //   // Set loading states
+  //   if (loadMore) {
+  //     setLoadingMore(true);
+  //   } else {
+  //     setLoading(true);
+  //   }
 
-    try {
-      console.log('🔍 Fetching posts for current user:', userName || userNickName);
+  //   try {
+  //     console.log('🔍 Fetching posts for current user:', userName || userNickName);
       
-      const allUserPosts: PostItem[] = [];
+  //     const allUserPosts: PostItem[] = [];
 
-      // FIXED: Use simple getDocs without complex queries to avoid Firebase index requirements
-      try {
-        const sentinelSnapshot = await getDocs(collection(db, 'SentinelPosts'));
-        const sentinelPosts = sentinelSnapshot.docs
-          .map(doc => {
-            const postData = doc.data();
-            return {
-              uniqueId: `sentinel-${doc.id}`,
-              id: doc.id,
-              AuthorImageURL: postData.AuthorImageURL || profilePicUrl,
-              AuthorName: postData.AuthorName,
-              ContentDate: postData.ContentDate,
-              ContentDesc: postData.ContentDesc,
-              ContentURL: postData.ContentURL,
-              ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
-              ContentLikeCount: postData.ContentLikeCount || 0,
-              ContentRepostCount: postData.ContentRepostCount || 0,
-              ContentCommentCount: postData.ContentCommentCount || 0,
-              isApproved: postData.isApproved || false,
-              isNew: postData.isNew !== undefined ? postData.isNew : true,
-              postType: "SentinelPosts",
-              Liked: (postData.LikedBy?.includes(userId) || false),
-              Reposted: false,
-              Bookmarked: (postData.BookmarkedBy?.includes(userId) || false),
-              createdAt: postData.createdAt || postData.ContentDate,
-              CommentTemplate: postData.CommentTemplate || "Template1",
-            } as PostItem;
-          })
-          .filter(post => {
-            // Client-side filtering to avoid Firebase index requirements
-            const isCurrentUser = post.AuthorName === userName || post.AuthorName === userNickName;
-            return isCurrentUser;
-          })
-          .sort((a, b) => {
-            // Client-side sorting by date
-            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
-            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
-            return dateB.getTime() - dateA.getTime();
+  //     // FIXED: Use simple getDocs without complex queries to avoid Firebase index requirements
+  //     try {
+  //       const sentinelSnapshot = await getDocs(collection(db, 'SentinelPosts'));
+  //       const sentinelPosts = sentinelSnapshot.docs
+  //         .map(doc => {
+  //           const postData = doc.data();
+  //           return {
+  //             uniqueId: `sentinel-${doc.id}`,
+  //             id: doc.id,
+  //             AuthorImageURL: postData.AuthorImageURL || profilePicUrl,
+  //             AuthorName: postData.AuthorName,
+  //             ContentDate: postData.ContentDate,
+  //             ContentDesc: postData.ContentDesc,
+  //             ContentURL: postData.ContentURL,
+  //             ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+  //             ContentLikeCount: postData.ContentLikeCount || 0,
+  //             ContentRepostCount: postData.ContentRepostCount || 0,
+  //             ContentCommentCount: postData.ContentCommentCount || 0,
+  //             isApproved: postData.isApproved || false,
+  //             isNew: postData.isNew !== undefined ? postData.isNew : true,
+  //             postType: "SentinelPosts",
+  //             Liked: (postData.LikedBy?.includes(userId) || false),
+  //             Reposted: false,
+  //             Bookmarked: (postData.BookmarkedBy?.includes(userId) || false),
+  //             createdAt: postData.createdAt || postData.ContentDate,
+  //             CommentTemplate: postData.CommentTemplate || "Template1",
+  //           } as PostItem;
+  //         })
+  //         .filter(post => {
+  //           // Client-side filtering to avoid Firebase index requirements
+  //           const isCurrentUser = post.AuthorName === userName || post.AuthorName === userNickName;
+  //           return isCurrentUser;
+  //         })
+  //         .sort((a, b) => {
+  //           // Client-side sorting by date
+  //           const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+  //           const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+  //           return dateB.getTime() - dateA.getTime();
+  //         });
+
+  //       allUserPosts.push(...sentinelPosts);
+  //       console.log(`✅ Found ${sentinelPosts.length} SentinelPosts for current user`);
+  //     } catch (sentinelError) {
+  //       console.warn('⚠️ Error fetching SentinelPosts:', sentinelError);
+  //     }
+
+  //     // Fetch from X-Data
+  //     try {
+  //       const xDataSnapshot = await getDocs(collection(db, 'X-Data'));
+  //       const xDataPosts = xDataSnapshot.docs
+  //         .map(doc => {
+  //           const postData = doc.data();
+  //           return {
+  //             uniqueId: `xdata-${doc.id}`,
+  //             id: doc.id,
+  //             AuthorImageURL: postData.AuthorImageURL || profilePicUrl,
+  //             AuthorName: postData.AuthorName,
+  //             ContentDate: postData.ContentDate,
+  //             ContentDesc: postData.ContentDesc,
+  //             ContentURL: postData.ContentURL,
+  //             ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+  //             ContentLikeCount: postData.ContentLikeCount || 0,
+  //             ContentRepostCount: postData.ContentRepostCount || 0,
+  //             ContentCommentCount: postData.ContentCommentCount || 0,
+  //             isApproved: true,
+  //             isNew: false,
+  //             postType: "X-Data",
+  //             Liked: (postData.LikedBy?.includes(userId) || false),
+  //             Reposted: false,
+  //             Bookmarked: (postData.BookmarkedBy?.includes(userId) || false),
+  //             createdAt: postData.createdAt || postData.ContentDate,
+  //             CommentTemplate: postData.CommentTemplate || "Template1",
+  //           } as PostItem;
+  //         })
+  //         .filter(post => {
+  //           // Client-side filtering to avoid Firebase index requirements
+  //           const isCurrentUser = post.AuthorName === userName || post.AuthorName === userNickName;
+  //           return isCurrentUser;
+  //         })
+  //         .sort((a, b) => {
+  //           // Client-side sorting by date
+  //           const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+  //           const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+  //           return dateB.getTime() - dateA.getTime();
+  //         });
+
+  //       allUserPosts.push(...xDataPosts);
+  //       console.log(`✅ Found ${xDataPosts.length} X-Data posts for current user`);
+  //     } catch (xDataError) {
+  //       console.warn('⚠️ Error fetching X-Data:', xDataError);
+  //     }
+
+      // // Final sort of all combined posts
+      // const sortedPosts = allUserPosts.sort((a, b) => {
+      //   const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+      //   const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+      //   return dateB.getTime() - dateA.getTime();
+      // });
+
+  //     if (loadMore) {
+  //       setUserPosts(prev => [...prev, ...sortedPosts]);
+  //     } else {
+  //       setUserPosts(sortedPosts);
+  //     }
+      
+  //     console.log(`🎉 Total posts found for "${userName || userNickName}": ${sortedPosts.length}`);
+
+  //     // Check if there are more posts (simplified logic)
+  //     setHasMorePosts(sortedPosts.length > 0);
+
+  //   } catch (error) {
+  //     console.error('❌ Error fetching user posts:', error);
+  //     showToast('Failed to load posts', 'error');
+  //   } finally {
+  //     setLoading(false);
+  //     setLoadingMore(false);
+  //   }
+  // }, [userId, userName, userNickName, profilePicUrl]);
+
+  const fetchUserPosts = useCallback(async (forceRefresh: boolean = false) => {
+    const currentTime = Date.now();
+    
+    let fetchuserID = userId;
+    if(fetchuserID === ""){
+      fetchuserID = await AsyncStorage.getItem('userId') || "";
+      setUserId(fetchuserID);
+    }
+
+    setLoading(true);
+    try {
+      const collSentinelRefPost = collection(db, 'SentinelPosts');
+      const querySentinel = query(
+        collSentinelRefPost,
+        where('AuthorUserID', '==', fetchuserID),
+        // orderBy('ContentDate', 'desc')
+      );
+
+      console.log("Sentinel OnSnapshot");
+      const unsubscribeSentinel = onSnapshot(querySentinel, async sentinelSnapshot => {
+        const sentineldataArr = sentinelSnapshot.docs.map(doc => ({
+          id: doc.id,
+          data: doc.data(),
+        }))
+
+        const postsData = [];
+        for (const doc of sentineldataArr) {
+          const postData = doc.data;
+          const postId = doc.id;
+
+          postsData.push({
+            uniqueId: `sentinel-${postId}`,
+            id: postId,
+            AuthorImageURL: postData.AuthorImageURL,
+            AuthorName: postData.AuthorName,
+            AuthorUserID: postData.AuthorUserID || postData.repostedBy || '',
+            ContentDate: postData.ContentDate,
+            ContentDesc: postData.ContentDesc,
+            ContentURL: postData.ContentURL,
+            ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+            ContentLikeCount: postData.ContentLikeCount || 0,
+            ContentRepostCount: postData.ContentRepostCount || 0,
+            ContentCommentCount: postData.ContentCommentCount || 0,
+            isApproved: postData.isApproved || false,
+            isNew: postData.isNew !== undefined ? postData.isNew : true,
+            postType: "SentinelPosts",
+            Liked: (postData.LikedBy?.includes(fetchuserID) || false),
+            Reposted: (postData.RepostedBy?.includes(fetchuserID) || false),
+            Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
+            createdAt: postData.createdAt || postData.ContentDate,
+            CommentTemplate: postData.CommentTemplate || "Sentinel Default Template",
+            isRepost: postData.isRepost || false,
+            originalPost: postData.originalPost || null,
+            repostComment: postData.repostComment || '',
+            repostedBy: postData.repostedBy || '',
+            repostedAt: postData.repostedAt || null,
+            isAnonymous: postData.isAnonymous || false,
           });
+        }
 
-        allUserPosts.push(...sentinelPosts);
-        console.log(`✅ Found ${sentinelPosts.length} SentinelPosts for current user`);
-      } catch (sentinelError) {
-        console.warn('⚠️ Error fetching SentinelPosts:', sentinelError);
-      }
-
-      // Fetch from X-Data
-      try {
-        const xDataSnapshot = await getDocs(collection(db, 'X-Data'));
-        const xDataPosts = xDataSnapshot.docs
-          .map(doc => {
-            const postData = doc.data();
-            return {
-              uniqueId: `xdata-${doc.id}`,
-              id: doc.id,
-              AuthorImageURL: postData.AuthorImageURL || profilePicUrl,
-              AuthorName: postData.AuthorName,
-              ContentDate: postData.ContentDate,
-              ContentDesc: postData.ContentDesc,
-              ContentURL: postData.ContentURL,
-              ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
-              ContentLikeCount: postData.ContentLikeCount || 0,
-              ContentRepostCount: postData.ContentRepostCount || 0,
-              ContentCommentCount: postData.ContentCommentCount || 0,
-              isApproved: true,
-              isNew: false,
-              postType: "X-Data",
-              Liked: (postData.LikedBy?.includes(userId) || false),
-              Reposted: false,
-              Bookmarked: (postData.BookmarkedBy?.includes(userId) || false),
-              createdAt: postData.createdAt || postData.ContentDate,
-              CommentTemplate: postData.CommentTemplate || "Template1",
-            } as PostItem;
-          })
-          .filter(post => {
-            // Client-side filtering to avoid Firebase index requirements
-            const isCurrentUser = post.AuthorName === userName || post.AuthorName === userNickName;
-            return isCurrentUser;
-          })
-          .sort((a, b) => {
-            // Client-side sorting by date
-            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
-            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
-            return dateB.getTime() - dateA.getTime();
-          });
-
-        allUserPosts.push(...xDataPosts);
-        console.log(`✅ Found ${xDataPosts.length} X-Data posts for current user`);
-      } catch (xDataError) {
-        console.warn('⚠️ Error fetching X-Data:', xDataError);
-      }
-
-      // Final sort of all combined posts
-      const sortedPosts = allUserPosts.sort((a, b) => {
+        // Final sort of all combined posts
+      const sortedPosts = postsData.sort((a, b) => {
         const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
         const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
         return dateB.getTime() - dateA.getTime();
       });
 
-      if (loadMore) {
-        setUserPosts(prev => [...prev, ...sortedPosts]);
-      } else {
         setUserPosts(sortedPosts);
-      }
+        console.log('OnSnapshot Fetched and Sorted', `Total: ${postsData.length} documents`);
+
+        postsData.forEach(post => {
+          onSnapshot(
+            collection(doc(db, post.postType, post.id), 'Comments'),
+            commentsSnap => {
+              let totalComments = 0;
+              totalComments = commentsSnap.size;
+
+              setUserPosts(prev =>
+                prev.map(p =>
+                  p.id === post.id
+                  ? { ...p, ContentCommentCount: totalComments }
+                  : p
+                )
+              );
+            }
+          )
+        });
+      });
+
+      return () => {
+        unsubscribeSentinel();
+      };
       
-      console.log(`🎉 Total posts found for "${userName || userNickName}": ${sortedPosts.length}`);
-
-      // Check if there are more posts (simplified logic)
-      setHasMorePosts(sortedPosts.length > 0);
-
     } catch (error) {
-      console.error('❌ Error fetching user posts:', error);
-      showToast('Failed to load posts', 'error');
+      console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
-      setLoadingMore(false);
     }
-  }, [userId, userName, userNickName, profilePicUrl]);
+  }, [userPosts.length, userId]);
 
   // Load more posts when scrolling
   const handleLoadMore = useCallback(() => {
@@ -1491,8 +1591,8 @@ export default function ProfilePage(): React.JSX.Element {
     setSelectedPostType(null);
     setSelectedCommentTemplate(null);
     // Refresh posts to get updated comment counts
-    fetchUserPosts();
-  }, [fetchUserPosts]);
+    // fetchUserPosts();
+  }, []);
 
   // TO OPEN GRAPH MODAL
   const openGraphModal = useCallback((item: PostItem) => {
@@ -2199,7 +2299,7 @@ export default function ProfilePage(): React.JSX.Element {
       }
     ]
   );
-};
+  };
 
 
   const handleFAQ = () => {
