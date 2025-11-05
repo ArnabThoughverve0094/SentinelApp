@@ -21,6 +21,7 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View
 } from "react-native";
@@ -28,8 +29,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import CommentsModal from '../../components/CommentsModal';
 import SentinelFAQ from '../../components/SentinelFAQ';
 import TotalSentiment from '../../components/TotalSentiment';
+import Toast from 'react-native-toast-message';
+ // Adjust path to your toastConfig file
 
-const { width: screenWidth } = Dimensions.get('window');
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+// const { width: screenWidth } = Dimensions.get('window');
 
 // PostItem interface from landing page
 interface PostItem {
@@ -317,7 +321,7 @@ interface ToastProps {
   onHide: () => void;
 }
 
-const Toast: React.FC<ToastProps> = ({ visible, message, type, onHide }) => {
+const AppToast: React.FC<ToastProps> = ({ visible, message, type, onHide }) => {
   const translateY = useRef(new Animated.Value(100)).current;
 
   useEffect(() => {
@@ -679,6 +683,114 @@ export default function ProfilePage(): React.JSX.Element {
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
 
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [editPostData, setEditPostData] = useState<PostItem | null>(null);
+  const [editPostContent, setEditPostContent] = useState("");
+  const [fetchedData, setFetchedData] = useState<PostItem[]>([]);
+  const currentPost = userPosts.find(item => item.id === selectedPostId);
+
+
+  const handleCancelEdit = () => {
+  setIsEditModalVisible(false);
+  setEditPostData(null);
+  setEditPostContent("");
+};
+
+  const handleEditPost = (postId: string) => {
+  const post = userPosts.find(item => item.id === postId);
+  
+  if (!post) {
+    Toast.show({
+      type: 'error',
+      text1: 'Post Not Found',
+      text2: 'Unable to find the post to edit.',
+      position: 'bottom',
+      visibilityTime: 2000,
+    });
+    return;
+  }
+
+  // Check if post is in "new" status
+  if (!post.isNew) {
+    Toast.show({
+      type: 'warning',
+      text1: 'Cannot Edit Post',
+      text2: 'You can only edit posts with "New" status.',
+      position: 'bottom',
+      visibilityTime: 3000,
+    });
+    return;
+  }
+
+  // Open edit modal with current post data
+  setEditPostData(post);
+  setEditPostContent(post.ContentDesc);
+  setIsEditModalVisible(true);
+  setShowMenuModal(false);
+  setSelectedPostId(null);
+};
+
+
+
+const handleSaveEditPost = async () => {
+  if (!editPostData) return;
+
+  if (editPostContent.trim() === "") {
+    Toast.show({
+      type: 'error',
+      text1: 'Empty Content',
+      text2: 'Post content cannot be empty.',
+      position: 'bottom',
+      visibilityTime: 2000,
+    });
+    return;
+  }
+
+  try {
+    const postRef = doc(db, editPostData.postType, editPostData.id);
+    
+    await updateDoc(postRef, {
+      ContentDesc: editPostContent.trim(),
+      updatedAt: new Date(),
+    });
+
+    // Update local state - using userPosts instead of fetchedData
+    setUserPosts(prevData =>
+      prevData.map(item =>
+        item.id === editPostData.id
+          ? { ...item, ContentDesc: editPostContent.trim() }
+          : item
+      )
+    );
+
+    Toast.show({
+      type: 'success',
+      text1: 'Post Updated',
+      text2: 'Your post has been updated successfully.',
+      position: 'bottom',
+      visibilityTime: 2000,
+    });
+
+    // Close modal and reset
+    setIsEditModalVisible(false);
+    setEditPostData(null);
+    setEditPostContent("");
+
+  } catch (error) {
+    console.error("Error updating post:", error);
+    Toast.show({
+      type: 'error',
+      text1: 'Update Failed',
+      text2: 'Failed to update post. Please try again.',
+      position: 'bottom',
+      visibilityTime: 2000,
+    });
+  }
+};
+
+
+
+
   // Toast state
   const [toast, setToast] = useState<{
     visible: boolean;
@@ -712,10 +824,12 @@ export default function ProfilePage(): React.JSX.Element {
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
 
   // Helper function to check if interactions should be disabled
-  const areInteractionsDisabled = useCallback((item: PostItem) => {
-    // Disable interactions for rejected posts (not approved and not new)
-    return !item.isApproved && !item.isNew;
-  }, []);
+const areInteractionsDisabled = useCallback((item: PostItem) => {
+  // Disable interactions for rejected posts (not approved and not new)
+  // AND disable interactions for new posts (waiting for approval)
+  return (!item.isApproved && !item.isNew) || item.isNew;
+}, []);
+
 
   // Load user data from stored tokens
   useEffect(() => {
@@ -1562,27 +1676,35 @@ export default function ProfilePage(): React.JSX.Element {
 
   // TO OPEN COMMENTS MODAL
   const openCommentsModal = useCallback((item: PostItem) => {
-    // Check if interactions are disabled for rejected posts
-    if (areInteractionsDisabled(item)) {
-      showCustomAlert(
-        'warning',
-        'Post Not Available',
-        'This post has been rejected and interactions are disabled.',
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
-      );
-      return;
-    }
+  // Check if post is new (waiting for approval)
+  if (item.isNew) {
+    Toast.show({
+      type: 'warning',
+      text1: 'Pending Approval',
+      text2: 'This post is waiting for admin approval. You can perform actions after approval.',
+      position: 'bottom',
+      visibilityTime: 3000,
+    });
+    return;
+  }
 
-    setSelectedPostId(item.id);
-    setSelectedPostType(item.postType);
-    setSelectedCommentTemplate(item.CommentTemplate);
-    setIsCommentModalVisible(true);
-  }, [areInteractionsDisabled]);
+  // Check if interactions are disabled for rejected posts
+  if (areInteractionsDisabled(item)) {
+    Toast.show({
+      type: 'warning',
+      text1: 'Post Not Available',
+      text2: 'This post has been rejected and interactions are disabled.',
+      position: 'bottom',
+      visibilityTime: 2000,
+    });
+    return;
+  }
+
+  setSelectedPostId(item.id);
+  setSelectedPostType(item.postType);
+  setSelectedCommentTemplate(item.CommentTemplate);
+  setIsCommentModalVisible(true);
+}, [areInteractionsDisabled]);
 
   // TO CLOSE COMMENTS MODAL
   const closeCommentsModal = useCallback(() => {
@@ -1596,31 +1718,39 @@ export default function ProfilePage(): React.JSX.Element {
 
   // TO OPEN GRAPH MODAL
   const openGraphModal = useCallback((item: PostItem) => {
-    // Check if interactions are disabled for rejected posts
-    if (areInteractionsDisabled(item)) {
-      showCustomAlert(
-        'warning',
-        'Post Not Available',
-        'This post has been rejected and interactions are disabled.',
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
-      );
-      return;
-    }
+  // Check if post is new (waiting for approval)
+  if (item.isNew) {
+    Toast.show({
+      type: 'warning',
+      text1: 'Pending Approval',
+      text2: 'This post is waiting for admin approval. You can perform actions after approval.',
+      position: 'bottom',
+      visibilityTime: 3000,
+    });
+    return;
+  }
 
-    console.log("Graph ID: ", item.id);
-    setSelectedGraphPostId(item.id);
-    setSelectedGraphPostType(item.postType);
-    setIsGraphModalVisible(true);
-    setSelectedPostId(item.id);
-    setSelectedPostType(item.postType);
-    setSelectedCommentTemplate(item.CommentTemplate);
-    setIsCommentModalVisible(false);
-  }, [areInteractionsDisabled]);
+  // Check if interactions are disabled for rejected posts
+  if (areInteractionsDisabled(item)) {
+    Toast.show({
+      type: 'warning',
+      text1: 'Post Not Available',
+      text2: 'This post has been rejected and interactions are disabled.',
+      position: 'bottom',
+      visibilityTime: 2000,
+    });
+    return;
+  }
+
+  console.log('Graph ID ', item.id);
+  setSelectedGraphPostId(item.id);
+  setSelectedGraphPostType(item.postType);
+  setIsGraphModalVisible(true);
+  setSelectedPostId(item.id);
+  setSelectedPostType(item.postType);
+  setSelectedCommentTemplate(item.CommentTemplate);
+  setIsCommentModalVisible(false);
+}, [areInteractionsDisabled]);
 
   // TO CLOSE GRAPH MODAL
   const closeGraphModal = useCallback(() => {
@@ -1635,185 +1765,241 @@ export default function ProfilePage(): React.JSX.Element {
   }, []);
 
   const toggleLike = useCallback(async (postItem: PostItem) => {
-    // Check if interactions are disabled for rejected posts
-    if (areInteractionsDisabled(postItem)) {
-      showCustomAlert(
-        'warning',
-        'Action Not Available',
-        'This post has been rejected and interactions are disabled.',
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
-      );
-      return;
+  // Check if post is new (waiting for approval)
+  if (postItem.isNew) {
+    Toast.show({
+      type: 'warning',
+      text1: 'Pending Approval',
+      text2: 'This post is waiting for admin approval. You can perform actions after approval.',
+      position: 'bottom',
+      visibilityTime: 3000,
+    });
+    return;
+  }
+
+  // Check if interactions are disabled for rejected posts
+  if (areInteractionsDisabled(postItem)) {
+    Toast.show({
+      type: 'warning',
+      text1: 'Action Not Available',
+      text2: 'This post has been rejected and interactions are disabled.',
+      position: 'bottom',
+      visibilityTime: 2000,
+    });
+    return;
+  }
+
+  try {
+    let fetchuserID = userId;
+    if(!fetchuserID){
+      fetchuserID = await AsyncStorage.getItem('userId');
+      setUserId(fetchuserID);
     }
 
-    try {
-      let fetchuserID = userId;
-      if(fetchuserID == ""){
-        fetchuserID = await AsyncStorage.getItem('userId') || "";
-        setUserId(fetchuserID);
-      }
+    const postRef = doc(db, postItem.postType, postItem.id);
+    
+    if(postItem.Liked) {
+      console.log('Unliking post', postItem.id);
+      await updateDoc(postRef, {
+        ContentLikeCount: Math.max(0, postItem.ContentLikeCount - 1),
+        LikedBy: arrayRemove(fetchuserID),
+      });
+    } else {
+      console.log('Liking post', postItem.id);
+      await updateDoc(postRef, {
+        ContentLikeCount: postItem.ContentLikeCount + 1,
+        LikedBy: arrayUnion(fetchuserID),
+      });
+    }
 
-      const postRef = doc(db, postItem.postType, postItem.id);
-      if(postItem.Liked) {
-        console.log("Unliking post:", postItem.id);
-        await updateDoc(postRef, {
-          ContentLikeCount: Math.max(0, postItem.ContentLikeCount - 1),
-          LikedBy: arrayRemove(fetchuserID),
-        });
-      } else {
-        console.log("Liking post:", postItem.id);
-        await updateDoc(postRef, {
-          ContentLikeCount: postItem.ContentLikeCount + 1,
-          LikedBy: arrayUnion(fetchuserID),
-        });
-      }
-
-      // Update local state immediately for better UX
-      setUserPosts(prevPosts => prevPosts.map(post => 
-        post.uniqueId === postItem.uniqueId 
-          ? { 
-              ...post, 
+    setUserPosts((prevPosts) =>
+      prevPosts.map((post) =>
+        post.uniqueId === postItem.uniqueId
+          ? {
+              ...post,
               Liked: !post.Liked,
-              ContentLikeCount: post.Liked 
+              ContentLikeCount: post.Liked
                 ? Math.max(0, post.ContentLikeCount - 1)
-                : post.ContentLikeCount + 1
+                : post.ContentLikeCount + 1,
             }
           : post
-      ));
-
-      await new Promise(r => setTimeout(r, 200));
-    } catch (error) {
-      console.error('Error toggling like:', error);
-      showToast('Failed to update like', 'error');
-    }
-  }, [userId, areInteractionsDisabled]);
-
-  const handleRepost = useCallback(async (postItem: PostItem) => {
-    // Check if interactions are disabled for rejected posts
-    if (areInteractionsDisabled(postItem)) {
-      showCustomAlert(
-        'warning',
-        'Action Not Available',
-        'This post has been rejected and interactions are disabled.',
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
-      );
-      return;
-    }
-
-    console.log("Repost pressed:", postItem.id);
-    
-    setUserPosts(prevData => 
-      prevData.map(item => 
-        item.uniqueId === postItem.uniqueId 
-          ? { 
-              ...item, 
-              Reposted: !item.Reposted, 
-              ContentRepostCount: item.Reposted 
-                ? Math.max(0, item.ContentRepostCount - 1)
-                : item.ContentRepostCount + 1
-            } 
-          : item
       )
     );
 
-    await new Promise(r => setTimeout(r, 200));
-  }, [areInteractionsDisabled]);
+    await new Promise((r) => setTimeout(r, 200));
+  } catch (error) {
+    console.error('Error toggling like:', error);
+    Toast.show({
+      type: 'error',
+      text1: 'Action Failed',
+      text2: 'Failed to update like. Please try again.',
+      position: 'bottom',
+      visibilityTime: 2000,
+    });
+  }
+}, [userId, areInteractionsDisabled]);
 
-  const handleBookmark = useCallback(async (postItem: PostItem) => {
-    // Check if interactions are disabled for rejected posts
-    if (areInteractionsDisabled(postItem)) {
-      showCustomAlert(
-        'warning',
-        'Action Not Available',
-        'This post has been rejected and interactions are disabled.',
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
+const handleRepost = useCallback(async (postItem: PostItem) => {
+  // Check if post is new (waiting for approval)
+  if (postItem.isNew) {
+    Toast.show({
+      type: 'warning',
+      text1: 'Pending Approval',
+      text2: 'This post is waiting for admin approval. You can perform actions after approval.',
+      position: 'bottom',
+      visibilityTime: 3000,
+    });
+    return;
+  }
+
+  // Check if interactions are disabled for rejected posts
+  if (areInteractionsDisabled(postItem)) {
+    Toast.show({
+      type: 'warning',
+      text1: 'Action Not Available',
+      text2: 'This post has been rejected and interactions are disabled.',
+      position: 'bottom',
+      visibilityTime: 2000,
+    });
+    return;
+  }
+
+  console.log('Repost pressed', postItem.id);
+  setUserPosts((prevData) =>
+    prevData.map((item) =>
+      item.uniqueId === postItem.uniqueId
+        ? {
+            ...item,
+            Reposted: !item.Reposted,
+            ContentRepostCount: item.Reposted
+              ? Math.max(0, item.ContentRepostCount - 1)
+              : item.ContentRepostCount + 1,
           }
-        ]
-      );
-      return;
+        : item
+    )
+  );
+  await new Promise((r) => setTimeout(r, 200));
+}, [areInteractionsDisabled]);
+
+const handleBookmark = useCallback(async (postItem: PostItem) => {
+  // Check if post is new (waiting for approval)
+  if (postItem.isNew) {
+    Toast.show({
+      type: 'warning',
+      text1: 'Pending Approval',
+      text2: 'This post is waiting for admin approval. You can perform actions after approval.',
+      position: 'bottom',
+      visibilityTime: 3000,
+    });
+    return;
+  }
+
+  // Check if interactions are disabled for rejected posts
+  if (areInteractionsDisabled(postItem)) {
+    Toast.show({
+      type: 'warning',
+      text1: 'Action Not Available',
+      text2: 'This post has been rejected and interactions are disabled.',
+      position: 'bottom',
+      visibilityTime: 2000,
+    });
+    return;
+  }
+
+  try {
+    console.log('Bookmark pressed', postItem.id);
+    let fetchuserID = userId;
+    if(!fetchuserID){
+      fetchuserID = await AsyncStorage.getItem('userId');
+      setUserId(fetchuserID);
     }
 
-    try {
-      console.log("Bookmark pressed:", postItem.id);
-      
-      let fetchuserID = userId;
-      if(fetchuserID == ""){
-        fetchuserID = await AsyncStorage.getItem('userId') || "";
-        setUserId(fetchuserID);
-      }
+    const postRef = doc(db, postItem.postType, postItem.id);
+    
+    if(postItem.Bookmarked) {
+      console.log('Removing bookmark', postItem.id);
+      await updateDoc(postRef, {
+        BookmarkedBy: arrayRemove(fetchuserID),
+      });
+    } else {
+      console.log('Adding bookmark', postItem.id);
+      await updateDoc(postRef, {
+        BookmarkedBy: arrayUnion(fetchuserID),
+      });
+    }
 
-      const postRef = doc(db, postItem.postType, postItem.id);
-      if(postItem.Bookmarked) {
-        console.log("Removing bookmark:", postItem.id);
-        await updateDoc(postRef, {
-          BookmarkedBy: arrayRemove(fetchuserID),
-        });
-      } else {
-        console.log("Adding bookmark:", postItem.id);
-        await updateDoc(postRef, {
-          BookmarkedBy: arrayUnion(fetchuserID),
-        });
-      }
-
-      // Update local state immediately for better UX
-      setUserPosts(prevPosts => prevPosts.map(post => 
-        post.uniqueId === postItem.uniqueId 
+    setUserPosts((prevPosts) =>
+      prevPosts.map((post) =>
+        post.uniqueId === postItem.uniqueId
           ? { ...post, Bookmarked: !post.Bookmarked }
           : post
-      ));
+      )
+    );
 
-      await new Promise(r => setTimeout(r, 200));
-    } catch (error) {
-      console.error('Error toggling bookmark:', error);
-      showToast('Failed to update bookmark', 'error');
-    }
-  }, [userId, areInteractionsDisabled]);
+    await new Promise((r) => setTimeout(r, 200));
+  } catch (error) {
+    console.error('Error toggling bookmark:', error);
+    Toast.show({
+      type: 'error',
+      text1: 'Action Failed',
+      text2: 'Failed to update bookmark. Please try again.',
+      position: 'bottom',
+      visibilityTime: 2000,
+    });
+  }
+}, [userId, areInteractionsDisabled]);
 
-  // NEW: Handle Share Post
-  const handleSharePost = useCallback(async (postItem: PostItem) => {
-    // Check if interactions are disabled for rejected posts
-    if (areInteractionsDisabled(postItem)) {
-      showCustomAlert(
-        'warning',
-        'Action Not Available',
-        'This post has been rejected and interactions are disabled.',
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
-      );
-      return;
-    }
+const handleSharePost = useCallback(async (postItem: PostItem) => {
+  // Check if post is new (waiting for approval)
+  if (postItem.isNew) {
+    Toast.show({
+      type: 'warning',
+      text1: 'Pending Approval',
+      text2: 'This post is waiting for admin approval. You can perform actions after approval.',
+      position: 'bottom',
+      visibilityTime: 3000,
+    });
+    return;
+  }
 
-    try {
-      const shareContent = {
-        title: `Post by ${postItem.AuthorName}`,
-        message: `Check out this post: "${postItem.ContentDesc.substring(0, 100)}${postItem.ContentDesc.length > 100 ? '...' : ''}"`,
-        url: postItem.ContentURL || undefined,
-      };
+  // Check if interactions are disabled for rejected posts
+  if (areInteractionsDisabled(postItem)) {
+    Toast.show({
+      type: 'warning',
+      text1: 'Action Not Available',
+      text2: 'This post has been rejected and interactions are disabled.',
+      position: 'bottom',
+      visibilityTime: 2000,
+    });
+    return;
+  }
 
-      await Share.share(shareContent);
-      showToast('Post shared successfully!', 'success');
-    } catch (error) {
-      console.error('Error sharing post:', error);
-      showToast('Failed to share post', 'error');
-    }
-  }, [areInteractionsDisabled]);
+  try {
+    const shareContent = {
+      title: `Post by ${postItem.AuthorName}`,
+      message: `Check out this post: ${postItem.ContentDesc.substring(0, 100)}${postItem.ContentDesc.length > 100 ? '...' : ''}`,
+      url: postItem.ContentURL || undefined,
+    };
+    await Share.share(shareContent);
+    Toast.show({
+      type: 'success',
+      text1: 'Post Shared',
+      text2: 'Post shared successfully!',
+      position: 'bottom',
+      visibilityTime: 2000,
+    });
+  } catch (error) {
+    console.error('Error sharing post:', error);
+    Toast.show({
+      type: 'error',
+      text1: 'Share Failed',
+      text2: 'Failed to share post. Please try again.',
+      position: 'bottom',
+      visibilityTime: 2000,
+    });
+  }
+}, [areInteractionsDisabled]);
+
 
   //Post options
   const handleThreeDotsPress = (item: PostItem, event: any) => {
@@ -2729,7 +2915,7 @@ export default function ProfilePage(): React.JSX.Element {
       />
 
       {/* Toast Notification */}
-      <Toast
+      <AppToast
         visible={toast.visible}
         message={toast.message}
         type={toast.type}
@@ -2737,76 +2923,220 @@ export default function ProfilePage(): React.JSX.Element {
       />
 
       {/* Three Dots Menu Modal */}
+      {/* Three Dots Menu Modal */}
+      {/* Three Dots Menu Modal */}
       {showMenuModal && (
-            <Modal
-              visible={showMenuModal}
-              transparent={true}
-              animationType="fade"
-              onRequestClose={() => setShowMenuModal(false)}
+        <Modal
+          visible={showMenuModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowMenuModal(false)}
+        >
+          <TouchableOpacity
+            style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+            activeOpacity={1}
+            onPress={() => setShowMenuModal(false)}
+          >
+            <View
+              style={{
+                position: 'absolute',
+                top: menuPosition.y,
+                left: menuPosition.x,
+                backgroundColor: '#fff',
+                borderRadius: 12,
+                paddingVertical: 8,
+                minWidth: 160,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 12,
+                elevation: 8,
+              }}
             >
-              <TouchableOpacity 
-                style={{ 
-                  flex: 1, 
-                  backgroundColor: 'rgba(0, 0, 0, 0.3)'
+              {/* Edit Button - Only show if post is "new" */}
+              {(() => {
+                const currentPost = userPosts.find(item => item.id === selectedPostId);
+                if (currentPost?.isNew) {
+                  return (
+                    <>
+                      <TouchableOpacity
+                        onPress={() => {
+                          if (selectedPostId) {
+                            handleEditPost(selectedPostId);
+                          }
+                        }}
+                        style={{
+                          paddingHorizontal: 16,
+                          paddingVertical: 12,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Ionicons name="pencil" size={16} color="#007AFF" />
+                        <Text style={{ marginLeft: 10, fontSize: 14, color: '#007AFF' }}>
+                          Edit
+                        </Text>
+                      </TouchableOpacity>
+                      <View style={{ height: 0.5, backgroundColor: '#e5e5e5', marginHorizontal: 8 }} />
+                    </>
+                  );
+                }
+                return null;
+              })()}
+
+              {/* Delete Button */}
+              <TouchableOpacity
+                onPress={() => {
+                  if (selectedPostId) {
+                    handleDeletePost(selectedPostId);
+                  }
                 }}
-                activeOpacity={1}
-                onPress={() => setShowMenuModal(false)}
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                }}
               >
-                <View style={{
-                  position: 'absolute',
-                  top: menuPosition.y,
-                  left: menuPosition.x,
-                  backgroundColor: '#fff',
-                  borderRadius: 8,
-                  paddingVertical: 4,
-                  minWidth: 140,
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 8,
-                  elevation: 8,
-                }}>
-                  {/* <TouchableOpacity
-                    onPress={() => {
-                      // const comment = comments.find(c => c.id === selectedCommentId);
-                      // if (comment) handleEditComment(comment);
-                      if(userExistingComment) handleEditComment(userExistingComment);
-                    }}
-                    style={{
-                      paddingHorizontal: 16,
-                      paddingVertical: 12,
-                      flexDirection: 'row',
-                      alignItems: 'center'
-                    }}
-                  >
-                    <Ionicons name="pencil" size={16} color="#007AFF" />
-                    <Text style={{ marginLeft: 10, fontSize: 14, color: '#007AFF' }}>
-                      Edit
+                <Ionicons name="trash" size={16} color="#FF3B30" />
+                <Text style={{ marginLeft: 10, fontSize: 14, color: '#FF3B30' }}>
+                  Delete
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      )}
+
+
+      {/* Edit Post Modal */}
+        <Modal
+          visible={isEditModalVisible}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={handleCancelEdit}
+          statusBarTranslucent
+        >
+          <View className="flex-1 bg-black/50 justify-end">
+            <View className="bg-white rounded-t-3xl" style={{ maxHeight: screenHeight * 0.85 }}>
+              {/* Header */}
+              <View className="px-6 py-4 border-b border-gray-200 flex-row items-center justify-between">
+                <TouchableOpacity
+                  onPress={handleCancelEdit}
+                  className="p-2"
+                >
+                  <Text className="text-blue-500 font-semibold text-base">Cancel</Text>
+                </TouchableOpacity>
+                
+                <Text className="text-lg font-bold text-gray-900">Edit Post</Text>
+                
+                <TouchableOpacity
+                  onPress={handleSaveEditPost}
+                  className="p-2"
+                >
+                  <Text className="text-blue-500 font-semibold text-base">Save</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Edit Status Badge */}
+              <View className="px-6 py-3 bg-yellow-50 border-b border-yellow-100">
+                <View className="flex-row items-center">
+                  <Ionicons name="information-circle" size={18} color="#F59E0B" />
+                  <Text className="ml-2 text-yellow-700 text-sm font-medium">
+                    Editing "New" Status Post
+                  </Text>
+                </View>
+                <Text className="text-yellow-600 text-xs mt-1 ml-7">
+                  Once approved, this post cannot be edited
+                </Text>
+              </View>
+
+              {/* Content Editor */}
+              <ScrollView className="px-6 py-4" showsVerticalScrollIndicator={false}>
+                <Text className="text-gray-700 font-semibold mb-2">Post Content</Text>
+                <TextInput
+                  className="border border-gray-300 rounded-xl p-4 text-gray-900 min-h-[200px]"
+                  placeholder="Write your post content..."
+                  placeholderTextColor="#9CA3AF"
+                  multiline
+                  textAlignVertical="top"
+                  value={editPostContent}
+                  onChangeText={setEditPostContent}
+                  maxLength={2000}
+                  autoFocus
+                />
+                <View className="flex-row justify-between mt-2">
+                  <Text className="text-xs text-gray-500">
+                    {editPostContent.length}/2000 characters
+                  </Text>
+                  {editPostData && editPostContent !== editPostData.ContentDesc && (
+                    <Text className="text-xs text-blue-500 font-medium">
+                      * Modified
                     </Text>
-                  </TouchableOpacity> */}
-                  
-                  <View style={{ height: 0.5, backgroundColor: '#e5e5e5', marginHorizontal: 8 }} />
-                  
+                  )}
+                </View>
+
+                {/* Original Media Preview (Read-only) */}
+                {editPostData && (editPostData.ContentURL || editPostData.ContentURLs) && (
+                  <View className="mt-4">
+                    <Text className="text-gray-700 font-semibold mb-2">Attached Media</Text>
+                    <View className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                      <View className="flex-row items-center">
+                        <Ionicons name="image-outline" size={20} color="#64748B" />
+                        <Text className="ml-2 text-gray-600 text-sm">
+                          Media cannot be edited
+                        </Text>
+                      </View>
+                      {renderMediaContent(editPostData)}
+                    </View>
+                  </View>
+                )}
+              </ScrollView>
+
+              {/* Bottom Action Buttons */}
+              <View className="px-6 py-4 border-t border-gray-200">
+                <View className="flex-row" style={{ gap: 12 }}>
                   <TouchableOpacity
-                    onPress={() => {
-                      if (selectedPostId) handleDeletePost(selectedPostId);
-                    }}
+                    className="flex-1 py-4 px-6 rounded-xl bg-gray-200"
+                    onPress={handleCancelEdit}
+                    activeOpacity={0.8}
+                  >
+                    <Text className="text-gray-700 font-semibold text-center text-base">
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    className={`flex-1 py-4 px-6 rounded-xl ${
+                      editPostContent.trim() === "" ? "bg-gray-300" : "bg-black"
+                    }`}
+                    onPress={handleSaveEditPost}
+                    activeOpacity={0.8}
+                    disabled={editPostContent.trim() === ""}
                     style={{
-                      paddingHorizontal: 16,
-                      paddingVertical: 12,
-                      flexDirection: 'row',
-                      alignItems: 'center'
+                      shadowColor: editPostContent.trim() !== "" ? "#000" : "transparent",
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.3,
+                      shadowRadius: 8,
+                      elevation: editPostContent.trim() !== "" ? 6 : 0,
                     }}
                   >
-                    <Ionicons name="trash" size={16} color="#FF3B30" />
-                    <Text style={{ marginLeft: 10, fontSize: 14, color: '#FF3B30' }}>
-                      Delete
+                    <Text
+                      className={`font-semibold text-center text-base ${
+                        editPostContent.trim() === "" ? "text-gray-500" : "text-white"
+                      }`}
+                    >
+                      Save Changes
                     </Text>
                   </TouchableOpacity>
                 </View>
-              </TouchableOpacity>
-            </Modal>
-          )}
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+    {/* <Toast config={toastConfig} /> */}
+
     </SafeAreaView>
   );
 }
