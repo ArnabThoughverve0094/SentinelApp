@@ -3038,21 +3038,19 @@ export default function SentinelFeed(): React.JSX.Element {
           {/* <Text className="text-3xl font-bold text-black-900">Sentinel</Text> */}
           <Link href="/" asChild>
               <TouchableOpacity className="flex-row items-center">
-                {/* Logo Icon */}
-                <View className="w-8 h-8 mr-0">
-                  <Image
-                    source={require("../../assets/images/new_logo.png")}
-                    style={{ flex: 1, width: undefined, height: undefined }}
-                    resizeMode="contain"
-                  />
-                </View>
-                
-                {/* Text Stack (New View for Vertical Layout) */}
-                <View className="ml-2" mr-0>
-                  {/* Sentinel Text */}
-                  <Text className="text-3xl font-extrabold text-[#281C20]">entinel</Text>
-
-                  {/* Exposing Antisemitism Text - Now below Sentinel */}
+                <View className="ml-2">
+                  <View className="flex-row items-center">
+                    <View className="w-8 h-8 mr-0">
+                      <Image
+                        source={require("../../assets/images/new_logo.png")}
+                        style={{ flex: 1, width: undefined, height: undefined }}
+                        resizeMode="contain"
+                      />
+                    </View>
+                    {/* Sentinel Text */}
+                    <Text className="text-3xl font-extrabold text-[#281C20]">entinel</Text>
+                  </View>
+                  {/* Logo Icon */}
                   <Text className="text-sm text-[#281C20]">
                     Exposing Antisemitism
                   </Text>
