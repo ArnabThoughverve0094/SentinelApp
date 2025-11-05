@@ -285,6 +285,42 @@ const CustomModal: React.FC<CustomModalProps> = ({
 
 type SelectedMedia = { uri: string; name: string; type: string; size?: number };
 
+// Define the type for the radio button options
+type PostType = 'My Thoughts' | 'Witnessed' | 'Found Online';
+
+// --- Custom Radio Button Component ---
+interface RadioButtonProps {
+  label: PostType;
+  selected: boolean;
+  onSelect: (value: PostType) => void;
+}
+
+const RadioButton: React.FC<RadioButtonProps> = ({ label, selected, onSelect }) => (
+  <TouchableOpacity
+    // 1. Ensure the whole touchable area is a row and centered
+    className="flex-row items-center p-2" 
+    onPress={() => onSelect(label)}
+    activeOpacity={0.7}
+  >
+    {/* Outer Circle (The Radio) */}
+    <View
+      className={`w-4 h-4 rounded-full border-2 ${
+        selected ? 'border-red-500' : 'border-gray-400'
+      } items-center justify-center`}
+    >
+      {/* Inner Dot (Selected state) */}
+      {selected && (
+        <View className="w-2 h-2 rounded-full bg-red-500" />
+      )}
+    </View>
+    
+    {/* Label Text */}
+    <Text className={`ml-2 text-sm ${selected ? 'text-gray-800 font-semibold' : 'text-gray-600'}`}>
+      {label}
+    </Text>
+  </TouchableOpacity>
+);
+
 export default function CreatePost() {
   const router = useRouter();
   const [postText, setPostText] = useState("");
@@ -296,6 +332,10 @@ export default function CreatePost() {
   const [uploadProgress, setUploadProgress] = useState(false);
   const [currentUserDocId, setCurrentUserDocId] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
+
+  //Radio button
+  const [selectedType, setSelectedType] = useState<PostType>('My Thoughts');
+  const options: PostType[] = ['My Thoughts', 'Witnessed', 'Found Online'];
 
   // Modal states
   const [modalConfig, setModalConfig] = useState<{
@@ -784,6 +824,7 @@ export default function CreatePost() {
         isApproved: false,
         isLiked: false,
         isAnonymous: isAnonymous,
+        contentType: selectedType,
       });
 
       setPostText('');
@@ -1138,6 +1179,19 @@ export default function CreatePost() {
                   </TouchableOpacity>
                 ))}
               </View>
+            </View>
+
+            {/* // The key to the horizontal layout is flex-row */}
+            <View className="flex-row justify-around items-center w-full mt-4 mb-4">
+      
+              {options.map((option) => (
+                <RadioButton
+                  key={option}
+                  label={option}
+                  selected={selectedType === option}
+                  onSelect={setSelectedType}
+                />
+              ))}
             </View>
 
             <View style={styles.anonymousOptionContainer}>
