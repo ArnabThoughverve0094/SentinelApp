@@ -1084,7 +1084,7 @@ export default function CreatePost() {
                   <Ionicons name="images-outline" size={30} color="#666" />
                 </TouchableOpacity>
 
-                <TouchableOpacity
+                {/* <TouchableOpacity
                   style={{ 
                     width: 50, 
                     height: 40, 
@@ -1103,7 +1103,7 @@ export default function CreatePost() {
                   }}>
                     GIF
                   </Text>
-                </TouchableOpacity>
+                </TouchableOpacity> */}
 
                 <TouchableOpacity
                   style={{ 
