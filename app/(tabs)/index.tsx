@@ -1734,6 +1734,18 @@ export default function SentinelFeed(): React.JSX.Element {
       return;
     }
 
+    if (postItem.Reposted) {
+      Toast.show({
+        type: 'success',
+        text1: 'Already Reposted',
+        text2: 'You have already reposted this Post.',
+        position: 'bottom',
+        visibilityTime: 2000,
+      });
+
+      return;
+    }
+
     setSelectedRepostPost(postItem);
     setIsRepostModalVisible(true);
   }, [areInteractionsDisabled]);
@@ -1758,28 +1770,28 @@ export default function SentinelFeed(): React.JSX.Element {
       const userImage = await AsyncStorage.getItem('userImageURL') || dummyAuthorImage;
 
       if (selectedRepostPost.Reposted) {
-        const postRef = doc(db, selectedRepostPost.postType, selectedRepostPost.id);
-        await updateDoc(postRef, {
-          ContentRepostCount: selectedRepostPost.ContentRepostCount - 1,
-          RepostedBy: arrayRemove(fetchuserID),
-        });
+        // const postRef = doc(db, selectedRepostPost.postType, selectedRepostPost.id);
+        // await updateDoc(postRef, {
+        //   ContentRepostCount: selectedRepostPost.ContentRepostCount - 1,
+        //   RepostedBy: arrayRemove(fetchuserID),
+        // });
 
-        setFetchedData(prevData => 
-          prevData.map(item => 
-            item.uniqueId === selectedRepostPost.uniqueId 
-              ? { 
-                  ...item, 
-                  Reposted: false, 
-                  ContentRepostCount: item.ContentRepostCount - 1
-                } 
-              : item
-          )
-        );
+        // setFetchedData(prevData => 
+        //   prevData.map(item => 
+        //     item.uniqueId === selectedRepostPost.uniqueId 
+        //       ? { 
+        //           ...item, 
+        //           Reposted: false, 
+        //           ContentRepostCount: item.ContentRepostCount - 1
+        //         } 
+        //       : item
+        //   )
+        // );
 
         Toast.show({
           type: 'success',
-          text1: 'Repost Removed',
-          text2: 'Post has been removed from your reposts.',
+          text1: 'Already Reposted',
+          text2: 'You have already reposted this Post.',
           position: 'bottom',
           visibilityTime: 2000,
         });
@@ -1811,28 +1823,30 @@ export default function SentinelFeed(): React.JSX.Element {
           isRepost: true,
           originalPost: {
             id: selectedRepostPost.id || '',
+            AuthorUserID: selectedRepostPost.AuthorUserID || '',
             AuthorName: selectedRepostPost.AuthorName || 'Anonymous',
             AuthorImageURL: selectedRepostPost.AuthorImageURL || dummyAuthorImage,
             ContentDesc: selectedRepostPost.ContentDesc || '',
             ContentDate: selectedRepostPost.ContentDate || new Date(),
-            postType: selectedRepostPost.postType || 'Unknown'
+            postType: selectedRepostPost.postType || 'Unknown',
+            isAnonymous: selectedRepostPost.isAnonymous || false,
           },
           repostComment: '',
           repostedBy: fetchuserID,
           repostedAt: new Date(),
         });
 
-        setFetchedData(prevData => 
-          prevData.map(item => 
-            item.uniqueId === selectedRepostPost.uniqueId 
-              ? { 
-                  ...item, 
-                  Reposted: true, 
-                  ContentRepostCount: item.ContentRepostCount + 1
-                } 
-              : item
-          )
-        );
+        // setFetchedData(prevData => 
+        //   prevData.map(item => 
+        //     item.uniqueId === selectedRepostPost.uniqueId 
+        //       ? { 
+        //           ...item, 
+        //           Reposted: true, 
+        //           ContentRepostCount: item.ContentRepostCount + 1
+        //         } 
+        //       : item
+        //   )
+        // );
 
         Toast.show({
           type: 'success',
@@ -1878,55 +1892,57 @@ export default function SentinelFeed(): React.JSX.Element {
       const userInfo = await AsyncStorage.getItem('userName') || 'Anonymous';
       const userImage = await AsyncStorage.getItem('userImageURL') || dummyAuthorImage;
 
-      const postRef = doc(db, selectedRepostPost.postType, selectedRepostPost.id);
-      await updateDoc(postRef, {
-        ContentRepostCount: selectedRepostPost.ContentRepostCount + 1,
-        RepostedBy: arrayUnion(fetchuserID),
-      });
+      
 
-      await addDoc(collection(db, 'SentinelPosts'), {
-        AuthorImageURL: userImage,
-        AuthorName: userInfo,
-        AuthorUserID: fetchuserID,
-        ContentDate: new Date(),
-        ContentDesc: comment || '',
-        ContentURL: selectedRepostPost.ContentURL || '',
-        ContentURLs: selectedRepostPost.ContentURLs || [],
-        ContentLikeCount: 0,
-        ContentRepostCount: 0,
-        ContentCommentCount: 0,
-        isApproved: true,
-        isNew: false,
-        LikedBy: [],
-        RepostedBy: [],
-        BookmarkedBy: [],
-        createdAt: new Date(),
-        CommentTemplate: selectedRepostPost.CommentTemplate || "Sentinel Default Template",
-        isRepost: true,
-        originalPost: {
-          id: selectedRepostPost.id || '',
-          AuthorName: selectedRepostPost.AuthorName || 'Anonymous',
-          AuthorImageURL: selectedRepostPost.AuthorImageURL || dummyAuthorImage,
-          ContentDesc: selectedRepostPost.ContentDesc || '',
-          ContentDate: selectedRepostPost.ContentDate || new Date(),
-          postType: selectedRepostPost.postType || 'Unknown'
-        },
-        repostComment: comment || '',
-        repostedBy: fetchuserID,
-        repostedAt: new Date(),
-      });
+      if (selectedRepostPost.Reposted) {
+        Toast.show({
+          type: 'success',
+          text1: 'Already Reposted',
+          text2: 'You have already reposted this Post.',
+          position: 'bottom',
+          visibilityTime: 2000,
+        });
+      } else {
+        const postRef = doc(db, selectedRepostPost.postType, selectedRepostPost.id);
+        await updateDoc(postRef, {
+          ContentRepostCount: selectedRepostPost.ContentRepostCount + 1,
+          RepostedBy: arrayUnion(fetchuserID),
+        });
 
-      setFetchedData(prevData => 
-        prevData.map(item => 
-          item.uniqueId === selectedRepostPost.uniqueId 
-            ? { 
-                ...item, 
-                Reposted: true, 
-                ContentRepostCount: item.ContentRepostCount + 1
-              } 
-            : item
-        )
-      );
+        await addDoc(collection(db, 'SentinelPosts'), {
+          AuthorImageURL: userImage,
+          AuthorName: userInfo,
+          AuthorUserID: fetchuserID,
+          ContentDate: new Date(),
+          ContentDesc: comment || '',
+          ContentURL: selectedRepostPost.ContentURL || '',
+          ContentURLs: selectedRepostPost.ContentURLs || [],
+          ContentLikeCount: 0,
+          ContentRepostCount: 0,
+          ContentCommentCount: 0,
+          isApproved: true,
+          isNew: false,
+          LikedBy: [],
+          RepostedBy: [],
+          BookmarkedBy: [],
+          createdAt: new Date(),
+          CommentTemplate: selectedRepostPost.CommentTemplate || "Sentinel Default Template",
+          isRepost: true,
+          originalPost: {
+            id: selectedRepostPost.id || '',
+            AuthorUserID: selectedRepostPost.AuthorUserID || '',
+            AuthorName: selectedRepostPost.AuthorName || 'Anonymous',
+            AuthorImageURL: selectedRepostPost.AuthorImageURL || dummyAuthorImage,
+            ContentDesc: selectedRepostPost.ContentDesc || '',
+            ContentDate: selectedRepostPost.ContentDate || new Date(),
+            postType: selectedRepostPost.postType || 'Unknown',
+            isAnonymous: selectedRepostPost.isAnonymous || false,
+          },
+          repostComment: comment || '',
+          repostedBy: fetchuserID,
+          repostedAt: new Date(),
+        });
+      }
 
       Toast.show({
         type: 'success',
@@ -2239,8 +2255,8 @@ export default function SentinelFeed(): React.JSX.Element {
       AuthorName = "Anonymous";
       AuthorImage = dummyAuthorImage;
     } else {
-      AuthorName = item.AuthorName;
-      AuthorImage = item.AuthorImageURL;
+      AuthorName = item.originalPost.AuthorName;
+      AuthorImage = item.originalPost.AuthorImageURL;
     }
 
     return (
