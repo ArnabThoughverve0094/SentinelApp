@@ -10,7 +10,8 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "in.thoughtverve.sentinel"
+      "bundleIdentifier": "in.thoughtverve.sentinel",
+      "icon": "./assets/images/new_logo.png"
     },
     "android": {
       "adaptiveIcon": {
@@ -18,7 +19,8 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "in.thoughtverve.sentinel"
+      "package": "in.thoughtverve.sentinel",
+      "icon": "./assets/images/new_logo.png"
     },
     "web": {
       "bundler": "metro",
