@@ -667,23 +667,27 @@ export default function Register(): React.JSX.Element {
         {/* Header with back button */}
         <View className="px-6 pt-5 pb-4 flex-row items-center justify-between">
           {/* Left: Logo and Text */}
-          <Link href="/(auth)/email-login" asChild>
-            <TouchableOpacity className="flex-row items-center">
-              {/* Gear Icon */}
-              <View className="w-8 h-8 mr-2">
-                <Image
-                  source={require("../../assets/images/new_logo.png")}
-                  className="w-full h-full"
-                  resizeMode="contain"
-                />
-              </View>
-
-              {/* Sentinel Text */}
-              <Text className="text-2xl font-extrabold text-[#281C20]">
-                Sentinel
-              </Text>
-            </TouchableOpacity>
-          </Link>
+          <Link href="/" asChild>
+              <TouchableOpacity className="flex-row items-center">
+                <View className="ml-2">
+                  <View className="flex-row items-center">
+                    <View className="w-8 h-8 mr-0">
+                      <Image
+                        source={require("../../assets/images/new_logo.png")}
+                        style={{ flex: 1, width: undefined, height: undefined }}
+                        resizeMode="contain"
+                      />
+                    </View>
+                    {/* Sentinel Text */}
+                    <Text className="text-3xl font-extrabold text-[#281C20]">entinel</Text>
+                  </View>
+                  {/* Logo Icon */}
+                  <Text className="text-sm text-[#281C20]">
+                    Exposing Antisemitism
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </Link>
         </View>
 
         <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
