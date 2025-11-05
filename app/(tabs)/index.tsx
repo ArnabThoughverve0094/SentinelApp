@@ -3003,19 +3003,19 @@ export default function SentinelFeed(): React.JSX.Element {
         <MaterialCommunityIcons name="account-heart-outline" size={40} color="#9CA3AF" />
       </View>
       <Text className="text-xl font-semibold text-gray-900 mb-2 text-center">
-        No Posts from Following
+        Posts coming soon
       </Text>
       <Text className="text-gray-500 text-center leading-6 mb-4">
-        You're not following anyone yet, or users you follow haven't posted anything.
+      The next level of knowledge starts soon.
       </Text>
-      <TouchableOpacity 
+      {/* <TouchableOpacity 
         className="bg-black px-6 py-3 rounded-xl"
         onPress={() => {
           router.push('/search');
         }}
       >
         <Text className="text-white font-semibold">Find People to Follow</Text>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
     </View>
   );
 
@@ -3047,14 +3047,16 @@ export default function SentinelFeed(): React.JSX.Element {
                   />
                 </View>
                 
-                {/* Sentinel Text */}
-                <Text className="text-3xl mr-5 font-extrabold text-[#281C20]">
-                  entinel
-                </Text>
+                {/* Text Stack (New View for Vertical Layout) */}
+                <View className="ml-2" mr-0>
+                  {/* Sentinel Text */}
+                  <Text className="text-3xl font-extrabold text-[#281C20]">entinel</Text>
 
-                <Text className="text-1xl text-[#281C20]">
-                  Exposing Antisemitism
-                </Text>
+                  {/* Exposing Antisemitism Text - Now below Sentinel */}
+                  <Text className="text-sm text-[#281C20]">
+                    Exposing Antisemitism
+                  </Text>
+                </View>
               </TouchableOpacity>
             </Link>
 
@@ -3100,7 +3102,7 @@ export default function SentinelFeed(): React.JSX.Element {
           />
         }
       >
-        {loading ? (
+        {/* {loading ? (
           <View className="flex-1 justify-center items-center py-20">
             <LoadingComponent visible={true} size="large" />
           </View>
@@ -3110,6 +3112,19 @@ export default function SentinelFeed(): React.JSX.Element {
           listItems
         ) : activeTab === 'following' ? (
           renderEmptyFollowingState()
+        ) : (
+          <View className="flex-1 justify-center items-center py-20">
+            <LoadingComponent visible={true} size="large" />
+          </View>
+        )} */}
+        {loading ? (
+          <View className="flex-1 justify-center items-center py-20">
+            <LoadingComponent visible={true} size="large" />
+          </View>
+        ) : activeTab === 'following' ? (
+          renderEmptyFollowingState()
+        ) : listItems.length > 0 ? (
+          listItems
         ) : (
           <View className="flex-1 justify-center items-center py-20">
             <LoadingComponent visible={true} size="large" />
