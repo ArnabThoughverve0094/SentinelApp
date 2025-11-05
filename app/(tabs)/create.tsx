@@ -821,6 +821,7 @@ export default function CreatePost() {
         ContentURLs: uploadedUrls,
         ContentLikeCount: 0,
         ContentRepostCount: 0,
+        CommentTemplate: "Sentinel Default Template",
         isApproved: false,
         isLiked: false,
         isAnonymous: isAnonymous,
