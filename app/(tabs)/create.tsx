@@ -27,8 +27,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const { width: screenWidth } = Dimensions.get('window');
 
 // **ENHANCED: File size limits and helpers**
-const FILE_SIZE_LIMIT_BYTES = 5 * 1024 * 1024; // 5MB
-const FILE_SIZE_LIMIT_MB = 5; // For display purposes
+const FILE_SIZE_LIMIT_BYTES = 200 * 1024 * 1024; // 200MB
+const FILE_SIZE_LIMIT_MB = 200; // For display purposes
 
 const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return '0 Bytes';
@@ -608,6 +608,7 @@ export default function CreatePost() {
   };
 
   // **ENHANCED: Upload function with detailed error handling**
+  // **UPDATED: Upload function using presigned URL**
   const uploadMediaFile = async (file: SelectedMedia): Promise<string> => {
     if (Platform.OS === "web") {
       throw new Error("File upload not supported on web platform");
@@ -616,44 +617,81 @@ export default function CreatePost() {
     console.log("📤 Uploading file:", file.name, "Size:", formatFileSize(file.size || 0));
     setUploadProgress(true);
     
-    const formData = new FormData();
-    formData.append("file", {
-      uri: file.uri,
-      name: file.name,
-      type: file.type,
-    } as any);
-
     try {
-      console.log("🚀 Starting upload to API...");
-      const res = await fetch(
-        'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/uploadFile',
+      // Step 1: Get presigned URL from your API
+      console.log("🔗 Requesting presigned URL...");
+      
+      // Extract file extension from filename or type
+      const fileExtension = file.name.split('.').pop() || 
+                          file.type.split('/').pop() || 
+                          'png';
+      
+      const requestBody = {
+        fileName: file.name,
+        fileType: fileExtension
+      };
+
+      console.log("📦 Request body:", requestBody);
+
+      const presignedResponse = await fetch(
+        'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/upload-file-using-presignedUrl',
         {
           method: 'POST',
-          body: formData,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
         }
       );
 
-      console.log("📊 Upload response status:", res.status);
+      if (!presignedResponse.ok) {
+        const errText = await presignedResponse.text();
+        console.error("❌ Presigned URL request failed:", presignedResponse.status, errText);
+        throw new Error(`Failed to get upload URL: ${presignedResponse.status}`);
+      }
+
+      const presignedData = await presignedResponse.json();
+      console.log("✅ Presigned URL received:", presignedData);
+
+      // The API should return uploadUrl field
+      const uploadUrl = presignedData.uploadUrl || presignedData.url;
       
-      if (!res.ok) {
-        const errText = await res.text();
-        console.error("❌ Upload failed:", res.status, errText);
+      if (!uploadUrl) {
+        throw new Error("Server did not return a valid upload URL");
+      }
+
+      // Step 2: Upload file to S3 using presigned URL
+      console.log("🚀 Uploading file to S3...");
+
+      // Read file as blob for upload
+      const response = await fetch(file.uri);
+      const blob = await response.blob();
+
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': file.type,
+        },
+        body: blob,
+      });
+
+      if (!uploadResponse.ok) {
+        const errText = await uploadResponse.text();
+        console.error("❌ S3 upload failed:", uploadResponse.status, errText);
         
-        // Create detailed error based on status
-        let errorMessage = `HTTP status ${res.status}: ${errText}`;
-        if (res.status === 413) {
+        let errorMessage = `HTTP status ${uploadResponse.status}: ${errText}`;
+        if (uploadResponse.status === 413) {
           errorMessage = `File "${file.name}" size ${formatFileSize(file.size || 0)} exceeds ${FILE_SIZE_LIMIT_MB}MB limit`;
         }
         throw new Error(errorMessage);
       }
 
-      const data = await res.json();
-      if (!data.fileUrl || data.fileUrl.trim() === '') {
-        throw new Error("Server did not return a valid file URL");
-      }
+      // Construct the final file URL (remove query parameters from presigned URL)
+      const finalUrl = uploadUrl.split('?')[0];
+      console.log("✅ Upload successful:", finalUrl);
       
-      console.log("✅ Upload successful:", data.fileUrl);
-      return data.fileUrl;
+      return finalUrl;
+
     } catch (e) {
       console.error("❌ Upload error:", e);
       throw e;
@@ -661,6 +699,7 @@ export default function CreatePost() {
       setUploadProgress(false);
     }
   };
+
 
   const fetchUserData = useCallback(async () => {
     try {
