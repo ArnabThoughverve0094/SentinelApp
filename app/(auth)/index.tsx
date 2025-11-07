@@ -678,6 +678,7 @@ export default function Index(): React.JSX.Element {
                   source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
                   className="w-full h-full"
                   resizeMode="cover"
+                  resizeMethod="resize"
                 />
               </View>
             </View>
@@ -699,7 +700,7 @@ export default function Index(): React.JSX.Element {
         </View>
 
         <View className="px-3 py-2.5">
-          <Text className="text-gray-800 text-sm leading-5 mb-2">{item.ContentDesc}</Text>
+          <Text className="text-gray-800 text-sm leading-5 mb-2"  numberOfLines={2}>{item.ContentDesc}</Text>
 
           {renderMediaContent(item, index)}
 

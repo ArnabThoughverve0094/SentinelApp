@@ -245,10 +245,11 @@ const RepostModal: React.FC<RepostModalProps> = ({
                   source={{uri: AuthorImage || dummyAuthorImage}}
                   className="w-8 h-8 rounded-full mr-2"
                   resizeMode="cover"
+                  resizeMethod="resize"
                 />
                 <Text className="font-semibold text-gray-900 text-sm">{AuthorName}</Text>
               </View>
-              <Text className="text-gray-700 text-sm" numberOfLines={3}>
+              <Text className="text-gray-700 text-sm" numberOfLines={2}>
                 {post.ContentDesc}
               </Text>
             </View>
@@ -1387,8 +1388,8 @@ export default function SentinelFeed(): React.JSX.Element {
         const userRef = doc(db, "SentinelUsers", postUserDocId);
         await updateDoc(userRef, {
           Notification: arrayUnion({
-            AuthorImageURL: await AsyncStorage.getItem('profilePicUrl') || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
-            AuthorName: await AsyncStorage.getItem('userName'),
+            AuthorImageURL: "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+            AuthorName: 'Admin',
             AuthorUserID: await AsyncStorage.getItem('userId'),
             ContentDate: new Date(),
             NotifyType: 'post_rejected',
@@ -1404,8 +1405,8 @@ export default function SentinelFeed(): React.JSX.Element {
         await addDoc(collection(db, 'SentinelUsers'), {
           userID: postUserIdNotify,
           Notification: [{
-            AuthorImageURL: await AsyncStorage.getItem('profilePicUrl') || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
-            AuthorName: await AsyncStorage.getItem('userName'),
+            AuthorImageURL: "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+            AuthorName: 'Admin',
             AuthorUserID: await AsyncStorage.getItem('userId'),
             ContentDate: new Date(),
             NotifyType: 'post_rejected',
@@ -1612,8 +1613,8 @@ export default function SentinelFeed(): React.JSX.Element {
             const userRef = doc(db, "SentinelUsers", postDocID);
             await updateDoc(userRef, {
             Notification: arrayUnion({
-              AuthorImageURL: await AsyncStorage.getItem('profilePicUrl') || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
-              AuthorName: await AsyncStorage.getItem('userName'),
+              AuthorImageURL: "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+              AuthorName: 'Admin',
               AuthorUserID: await AsyncStorage.getItem('userId'),
               ContentDate: new Date(),
               Description: 'Great news! Your recent post has been approved and is now live.',
@@ -1633,8 +1634,8 @@ export default function SentinelFeed(): React.JSX.Element {
           await addDoc(collection(db, 'SentinelUsers'), {
             userID: postUserID,
             Notification: [{
-              AuthorImageURL: await AsyncStorage.getItem('profilePicUrl') || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
-              AuthorName: await AsyncStorage.getItem('userName'),
+              AuthorImageURL: "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+              AuthorName: 'Admin',
               AuthorUserID: await AsyncStorage.getItem('userId'),
               ContentDate: new Date(),
               Description: 'Great news! Your recent post has been approved and is now live.',
@@ -2267,13 +2268,14 @@ export default function SentinelFeed(): React.JSX.Element {
             source={{ uri: AuthorImage || dummyAuthorImage }}
             className="w-6 h-6 rounded-full mr-2"
             resizeMode="cover"
+            resizeMethod="resize"
           />
           <Text className="font-semibold text-gray-900 text-sm">{AuthorName}</Text>
           <Text className="text-gray-500 text-xs ml-2">
             {getTimeAgo(item.originalPost.ContentDate)}
           </Text>
         </View>
-        <Text className="text-gray-700 text-sm" numberOfLines={3}>
+        <Text className="text-gray-700 text-sm" numberOfLines={2}>
           {item.originalPost.ContentDesc}
         </Text>
       </View>
@@ -2500,6 +2502,7 @@ export default function SentinelFeed(): React.JSX.Element {
                     source={{ uri: AuthorImage || dummyAuthorImage }}
                     className="w-full h-full"
                     resizeMode="cover"
+                    resizeMethod="resize"
                   />
                 </View>
               </View>
@@ -2532,7 +2535,10 @@ export default function SentinelFeed(): React.JSX.Element {
           </View>
   
           <View className="px-3 py-2.5">
-            <Text className="text-gray-800 text-sm leading-5 mb-2 font-normal">{item.ContentDesc}</Text>
+            <Text className="text-gray-800 text-sm leading-5 mb-2 font-normal"
+              numberOfLines={2}>
+              {item.ContentDesc}
+              </Text>
   
             {renderRepostContent(item)}
   
@@ -2839,6 +2845,7 @@ export default function SentinelFeed(): React.JSX.Element {
                     source={{ uri: AuthorImage || dummyAuthorImage }}
                     className="w-full h-full"
                     resizeMode="cover"
+                    resizeMethod="resize"
                   />
                 </View>
               </View>
@@ -2872,7 +2879,10 @@ export default function SentinelFeed(): React.JSX.Element {
               </View>
             )}
   
-            <Text className="text-gray-800 text-sm leading-5 mb-2">{item.ContentDesc}</Text>
+            <Text className="text-gray-800 text-sm leading-5 mb-2"
+              numberOfLines={2}>
+              {item.ContentDesc}
+              </Text>
   
             {renderRepostContent(item)}
   
