@@ -2,6 +2,7 @@ import { db } from "@/FirebaseConfig";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as DocumentPicker from 'expo-document-picker';
+import { FileSystemUploadType, uploadAsync } from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from "expo-router";
 import { addDoc, arrayUnion, collection, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
@@ -27,8 +28,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const { width: screenWidth } = Dimensions.get('window');
 
 // **ENHANCED: File size limits and helpers**
-const FILE_SIZE_LIMIT_BYTES = 200 * 1024 * 1024; // 200MB
-const FILE_SIZE_LIMIT_MB = 200; // For display purposes
+const FILE_SIZE_LIMIT_BYTES = 121 * 1024 * 1024; // 151MB
+const FILE_SIZE_LIMIT_MB = 121; // For display purposes
 
 const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return '0 Bytes';
@@ -43,13 +44,12 @@ const getErrorDetails = (error: any, fileName: string = ''): { title: string; me
   const errorString = String(error).toLowerCase();
   const fileNameDisplay = fileName ? `"${fileName}"` : 'your file';
   
-  // File size errors (HTTP 413)
-  if (errorString.includes('413') || errorString.includes('content length exceeded')) {
-    const sizeLimit = formatFileSize(FILE_SIZE_LIMIT_BYTES);
+  // Network timeout errors (now more specific)
+  if (errorString.includes('timeout') || errorString.includes('network request timed out')) {
     return {
-      title: 'File Too Large ⚠️',
-      message: `${fileNameDisplay} is too large. Please choose a file smaller than ${sizeLimit}.\n\nTip: Try compressing your video or image before uploading.`,
-      icon: 'warning'
+      title: 'Upload Timeout ⏱️',
+      message: `Upload of ${fileNameDisplay} timed out after 10 minutes.\n\nThis usually happens with:\n• Very large files (>100MB)\n• Slow internet connections\n• Weak mobile signal\n\nTry:\n• Compressing your video/image\n• Using a smaller file\n• Connecting to faster WiFi\n• Trying again later`,
+      icon: 'time-outline'
     };
   }
   
@@ -101,7 +101,7 @@ const getErrorDetails = (error: any, fileName: string = ''): { title: string; me
   // Generic upload error
   return {
     title: 'Upload Failed',
-    message: `Failed to upload ${fileNameDisplay}. This could be due to:\n\n• File size too large\n• Network connectivity issues\n• Temporary server problems\n\nPlease try again with a smaller file.`,
+    message: `Failed to upload ${fileNameDisplay}. This could be due to:\n\n• File size too large (limit: ${FILE_SIZE_LIMIT_MB}MB)\n• Network connectivity issues\n• Temporary server problems\n• Upload timeout (files >100MB may fail)\n\nPlease try again with a smaller or compressed file.`,
     icon: 'cloud-upload-outline'
   };
 };
@@ -330,6 +330,7 @@ export default function CreatePost() {
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(false);
+  const [uploadPercentage, setUploadPercentage] = useState<number>(0);
   const [currentUserDocId, setCurrentUserDocId] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
 
@@ -511,51 +512,84 @@ export default function CreatePost() {
 
   // **ENHANCED: Pick video with detailed validation**
   const pickVideo = async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
+  try {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      showCustomAlert(
+        'warning',
+        'Permission Required',
+        'Please grant camera roll permissions to select videos.',
+        [{ text: 'OK', onPress: hideModal }],
+        'videocam-outline'
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['videos'],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets) {
+      const asset = result.assets[0];
+      const fileSize = asset.fileSize || 0;
+      const fileName = asset.fileName || 'video.mp4';
+
+      console.log(`📹 Selected video: ${fileName}, Size: ${formatFileSize(fileSize)}`);
+
+      if (!validateFileSize(fileSize, fileName, 'video')) {
+        return;
+      }
+
+      // **NEW: Warn about large files that may take time to upload**
+      const fileSizeMB = fileSize / (1024 * 1024);
+      if (fileSizeMB > 100) {
         showCustomAlert(
           'warning',
-          'Permission Required',
-          'Please grant camera roll permissions to select videos.',
-          [{ text: 'OK', onPress: hideModal }],
-          'videocam-outline'
+          'Large Video Selected',
+          `This video is ${formatFileSize(fileSize)}. Uploading may take several minutes depending on your internet connection.\n\n💡 Tip: For faster uploads, compress the video before uploading.`,
+          [
+            {
+              text: 'Cancel',
+              style: 'cancel',
+              onPress: hideModal
+            },
+            {
+              text: 'Continue Anyway',
+              onPress: () => {
+                hideModal();
+                setSelectedMedia((curr) => [...curr, {
+                  uri: asset.uri,
+                  name: fileName,
+                  type: asset.mimeType || 'video/mp4',
+                  size: fileSize,
+                }]);
+                console.log(`✅ Video added successfully: ${fileName}`);
+              }
+            }
+          ],
+          'time-outline'
         );
         return;
       }
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['videos'],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets) {
-        const asset = result.assets[0];
-        const fileSize = asset.fileSize || 0;
-        const fileName = asset.fileName || 'video.mp4';
-
-        console.log(`📹 Selected video: ${fileName}, Size: ${formatFileSize(fileSize)}`);
-
-        if (!validateFileSize(fileSize, fileName, 'video')) {
-          return; // validateFileSize shows the detailed error
-        }
-
-        setSelectedMedia((curr) => [...curr, {
-          uri: asset.uri,
-          name: fileName,
-          type: asset.mimeType || 'video/mp4',
-          size: fileSize,
-        }]);
-        
-        console.log(`✅ Video added successfully: ${fileName}`);
-      }
-    } catch (error) {
-      const errorDetails = getErrorDetails(error, 'video');
-      showCustomAlert('error', errorDetails.title, errorDetails.message, [
-        { text: 'OK', onPress: hideModal }
-      ], errorDetails.icon);
+      setSelectedMedia((curr) => [...curr, {
+        uri: asset.uri,
+        name: fileName,
+        type: asset.mimeType || 'video/mp4',
+        size: fileSize,
+      }]);
+      
+      console.log(`✅ Video added successfully: ${fileName}`);
     }
-  };
+  } catch (error) {
+    const errorDetails = getErrorDetails(error, 'video');
+    showCustomAlert('error', errorDetails.title, errorDetails.message, [
+      { text: 'OK', onPress: hideModal }
+    ], errorDetails.icon);
+  }
+};
+
 
   // **ENHANCED: Pick document with validation**
   const pickDocument = async () => {
@@ -609,96 +643,102 @@ export default function CreatePost() {
 
   // **ENHANCED: Upload function with detailed error handling**
   // **UPDATED: Upload function using presigned URL**
+  // Add this enhanced version with progress tracking
   const uploadMediaFile = async (file: SelectedMedia): Promise<string> => {
-    if (Platform.OS === "web") {
-      throw new Error("File upload not supported on web platform");
+  if (Platform.OS === "web") {
+    throw new Error("File upload not supported on web platform");
+  }
+
+  console.log("📤 Uploading file:", file.name, "Size:", formatFileSize(file.size || 0));
+  setUploadProgress(true);
+  setUploadPercentage(0);
+  
+  try {
+    // Step 1: Get presigned URL
+    console.log("🔗 Requesting presigned URL...");
+    
+    const fileExtension = file.name.split('.').pop() || 
+                        file.type.split('/').pop() || 
+                        'png';
+    
+    const requestBody = {
+      fileName: file.name,
+      fileType: fileExtension
+    };
+
+    console.log("📦 Request body:", requestBody);
+
+    const presignedResponse = await fetch(
+      'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/upload-file-using-presignedUrl',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      }
+    );
+
+    if (!presignedResponse.ok) {
+      const errText = await presignedResponse.text();
+      console.error("❌ Presigned URL request failed:", presignedResponse.status, errText);
+      throw new Error(`Failed to get upload URL: ${presignedResponse.status}`);
     }
 
-    console.log("📤 Uploading file:", file.name, "Size:", formatFileSize(file.size || 0));
-    setUploadProgress(true);
+    const presignedData = await presignedResponse.json();
+    console.log("✅ Presigned URL received");
+
+    const uploadUrl = presignedData.uploadUrl || presignedData.url;
     
-    try {
-      // Step 1: Get presigned URL from your API
-      console.log("🔗 Requesting presigned URL...");
-      
-      // Extract file extension from filename or type
-      const fileExtension = file.name.split('.').pop() || 
-                          file.type.split('/').pop() || 
-                          'png';
-      
-      const requestBody = {
-        fileName: file.name,
-        fileType: fileExtension
-      };
+    if (!uploadUrl) {
+      throw new Error("Server did not return a valid upload URL");
+    }
 
-      console.log("📦 Request body:", requestBody);
+    // Step 2: Upload using legacy uploadAsync (simpler, no progress tracking)
+    console.log("🚀 Uploading file to S3...");
 
-      const presignedResponse = await fetch(
-        'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/upload-file-using-presignedUrl',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-        }
-      );
+    // Import at top: import { uploadAsync, FileSystemUploadType } from 'expo-file-system/legacy';
+    const uploadResult = await uploadAsync(uploadUrl, file.uri, {
+      httpMethod: 'PUT',
+      uploadType: FileSystemUploadType.BINARY_CONTENT,
+      headers: {
+        'Content-Type': file.type,
+      },
+    });
 
-      if (!presignedResponse.ok) {
-        const errText = await presignedResponse.text();
-        console.error("❌ Presigned URL request failed:", presignedResponse.status, errText);
-        throw new Error(`Failed to get upload URL: ${presignedResponse.status}`);
-      }
+    console.log("📊 Upload result status:", uploadResult.status);
 
-      const presignedData = await presignedResponse.json();
-      console.log("✅ Presigned URL received:", presignedData);
-
-      // The API should return uploadUrl field
-      const uploadUrl = presignedData.uploadUrl || presignedData.url;
-      
-      if (!uploadUrl) {
-        throw new Error("Server did not return a valid upload URL");
-      }
-
-      // Step 2: Upload file to S3 using presigned URL
-      console.log("🚀 Uploading file to S3...");
-
-      // Read file as blob for upload
-      const response = await fetch(file.uri);
-      const blob = await response.blob();
-
-      const uploadResponse = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': file.type,
-        },
-        body: blob,
-      });
-
-      if (!uploadResponse.ok) {
-        const errText = await uploadResponse.text();
-        console.error("❌ S3 upload failed:", uploadResponse.status, errText);
-        
-        let errorMessage = `HTTP status ${uploadResponse.status}: ${errText}`;
-        if (uploadResponse.status === 413) {
-          errorMessage = `File "${file.name}" size ${formatFileSize(file.size || 0)} exceeds ${FILE_SIZE_LIMIT_MB}MB limit`;
-        }
-        throw new Error(errorMessage);
-      }
-
-      // Construct the final file URL (remove query parameters from presigned URL)
+    if (uploadResult.status >= 200 && uploadResult.status < 300) {
       const finalUrl = uploadUrl.split('?')[0];
       console.log("✅ Upload successful:", finalUrl);
-      
       return finalUrl;
-
-    } catch (e) {
-      console.error("❌ Upload error:", e);
-      throw e;
-    } finally {
-      setUploadProgress(false);
+    } else {
+      console.error("❌ S3 upload failed:", uploadResult.status, uploadResult.body);
+      let errorMessage = `Upload failed with status ${uploadResult.status}`;
+      if (uploadResult.status === 413) {
+        errorMessage = `File "${file.name}" size ${formatFileSize(file.size || 0)} exceeds ${FILE_SIZE_LIMIT_MB}MB limit`;
+      }
+      throw new Error(errorMessage);
     }
-  };
+
+  } catch (e: any) {
+    console.error("❌ Upload error:", e);
+    
+    if (e.message?.includes('abort')) {
+      throw new Error("Upload cancelled or connection timeout");
+    } else if (e.message?.includes('Network request failed')) {
+      throw new Error("Network error: Check your internet connection");
+    }
+    
+    throw e;
+  } finally {
+    setUploadProgress(false);
+    setUploadPercentage(0);
+  }
+};
+
+
+
 
 
   const fetchUserData = useCallback(async () => {
@@ -1110,71 +1150,96 @@ export default function CreatePost() {
               paddingTop: 16,
               paddingBottom: 8
             }}>
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <TouchableOpacity
-                  style={{ 
-                    width: 40, 
-                    height: 40, 
-                    alignItems: "center", 
-                    justifyContent: "center", 
-                    marginRight: 30 
-                  }}
-                  onPress={pickImages}
-                >
-                  <Ionicons name="images-outline" size={30} color="#666" />
-                </TouchableOpacity>
-
-                {/* <TouchableOpacity
-                  style={{ 
-                    width: 50, 
-                    height: 40, 
-                    alignItems: "center", 
-                    justifyContent: "center", 
-                    marginRight: 30,
-                    backgroundColor: "#f0f0f0",
-                    borderRadius: 8
-                  }}
-                  onPress={pickDocument}
-                >
-                  <Text style={{ 
-                    fontSize: 16, 
-                    fontWeight: "bold", 
-                    color: "#666" 
-                  }}>
-                    GIF
-                  </Text>
-                </TouchableOpacity> */}
-
-                <TouchableOpacity
-                  style={{ 
-                    width: 40, 
-                    height: 40, 
-                    alignItems: "center", 
-                    justifyContent: "center" 
-                  }}
-                  onPress={pickVideo}
-                >
-                  <Ionicons name="videocam" size={30} color="#666" />
-                </TouchableOpacity>
-              </View>
-
-              {(loading || uploadProgress) && (
-                <View style={{ 
-                  backgroundColor: "#f0f0f0", 
-                  borderRadius: 50, 
-                  padding: 8 
-                }}>
-                  <ActivityIndicator size="small" color="#8B5CF6" />
+              <View 
+                style={{ 
+                  flexDirection: "row", 
+                  alignItems: "center", 
+                  // 👇 ADDED: Pushes content to the edges
+                  justifyContent: "space-between", 
+                  width: "100%" // Ensure the parent View takes full width
+                }}
+              >
+                <View style={styles.anonymousOptionContainer}>
+                  <TouchableOpacity
+                    style={styles.checkbox}
+                    onPress={() => setIsAnonymous(!isAnonymous)}
+                  >
+                    {/* 💡 Renders a checkmark if isAnonymous is true */}
+                    {isAnonymous && <Text style={styles.checkmark}>✓</Text>}
+                  </TouchableOpacity>
+                  <Text style={styles.anonymousText}>Post anonymously</Text>
                 </View>
-              )}
+
+                <View style={{ flexDirection: "row", alignItems: "center", marginRight: 10 }}>
+                  <TouchableOpacity
+                    style={{ 
+                      width: 24, 
+                      height: 24, 
+                      alignItems: "center", 
+                      justifyContent: "center", 
+                      marginRight: 10 
+                    }}
+                    onPress={pickImages}
+                  >  
+                    <Ionicons name="images-sharp" size={20} color="#666" />
+                  </TouchableOpacity>
+
+                  {/* <TouchableOpacity
+                    style={{ 
+                      width: 50, 
+                      height: 40, 
+                      alignItems: "center", 
+                      justifyContent: "center", 
+                      marginRight: 30,
+                      backgroundColor: "#f0f0f0",
+                      borderRadius: 8
+                    }}
+                    onPress={pickDocument}
+                  >
+                    <Text style={{ 
+                      fontSize: 16, 
+                      fontWeight: "bold", 
+                      color: "#666" 
+                    }}>
+                      GIF
+                    </Text>
+                  </TouchableOpacity> */}
+
+                  <TouchableOpacity
+                    style={{ 
+                      width: 24, 
+                      height: 24, 
+                      alignItems: "center", 
+                      justifyContent: "center", 
+                      marginRight: 10 
+                    }}
+                    onPress={pickVideo}
+                  >
+                  <Ionicons name="videocam" size={20} color="#666" />
+                  </TouchableOpacity>
+
+                  {(loading || uploadProgress) && (
+                  <View style={{ 
+                    backgroundColor: "#f0f0f0", 
+                    borderRadius: 20, 
+                    padding: 8, 
+                  }}>
+                    <ActivityIndicator size="small" color="#8B5CF6" />
+                  </View>
+                  )}
+
+                </View>
+              </View>
+              
             </View>
 
             {/* Plus icon and suggested images row */}
-            <View style={{ 
+            {/* <View style={{ 
               flexDirection: "row", 
               alignItems: "center", 
               paddingHorizontal: 16, 
-              paddingBottom: 16 
+              paddingBottom: 16,
+              marginTop: 10, 
             }}>
               <TouchableOpacity
                 style={{ 
@@ -1219,7 +1284,7 @@ export default function CreatePost() {
                   </TouchableOpacity>
                 ))}
               </View>
-            </View>
+            </View> */}
 
             {/* // The key to the horizontal layout is flex-row */}
             <View className="flex-row justify-around items-center w-full mt-4 mb-4">
@@ -1232,17 +1297,6 @@ export default function CreatePost() {
                   onSelect={setSelectedType}
                 />
               ))}
-            </View>
-
-            <View style={styles.anonymousOptionContainer}>
-              <TouchableOpacity
-                style={styles.checkbox}
-                onPress={() => setIsAnonymous(!isAnonymous)}
-              >
-                {/* 💡 Renders a checkmark if isAnonymous is true */}
-                {isAnonymous && <Text style={styles.checkmark}>✓</Text>}
-              </TouchableOpacity>
-              <Text style={styles.anonymousText}>Post as anonymous</Text>
             </View>
 
             {/* Post Now Button */}
@@ -1259,7 +1313,7 @@ export default function CreatePost() {
                 onPress={handlePostNow}
               >
                 <Text style={{ color: "white", fontSize: 16, fontWeight: "bold" }}>
-                  {loading ? "Posting..." : "Submit Now"}
+                  {loading ? "Submitting..." : "Submit Now"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1287,15 +1341,15 @@ const styles = StyleSheet.create({
   anonymousOptionContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 2,
+    paddingVertical: 2,
   },
   checkbox: {
-    height: 20,
-    width: 20,
+    height: 16,
+    width: 16,
     borderWidth: 2,
     borderColor: '#ccc',
-    borderRadius: 4,
+    borderRadius: 3,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
@@ -1303,11 +1357,11 @@ const styles = StyleSheet.create({
   },
   checkmark: {
     color: 'black',
-    fontSize: 14,
+    fontSize: 10,
     fontWeight: 'bold',
   },
   anonymousText: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#333',
   },
 });
