@@ -26,10 +26,10 @@ import {
   View
 } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Toast from 'react-native-toast-message';
 import CommentsModal from '../../components/CommentsModal';
 import SentinelFAQ from '../../components/SentinelFAQ';
 import TotalSentiment from '../../components/TotalSentiment';
-import Toast from 'react-native-toast-message';
  // Adjust path to your toastConfig file
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -57,6 +57,7 @@ interface PostItem {
   createdAt?: any;
   CommentTemplate: string;
   isAnonymous: boolean;
+  contentType: string;
 }
 
 // Your Custom LoadingComponent with Sentinel Logo (Smaller Size)
@@ -1123,6 +1124,7 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
             repostedBy: postData.repostedBy || '',
             repostedAt: postData.repostedAt || null,
             isAnonymous: postData.isAnonymous || false,
+            contentType: postData.contentType || 'My Thoughts'
           });
         }
 
@@ -2205,9 +2207,13 @@ const handleSharePost = useCallback(async (postItem: PostItem) => {
           <View className="flex-1">
             <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text>
             <View className="flex-row items-center mt-0.5">
-              <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
+              {item.postType !== 'X-Data' && (
+                <View className="bg-blue-100 px-1 py-0.5 rounded-full mr-1.5">
+                  <Text className="text-blue-600 text-xs font-regular">• {item.contentType}</Text>
+                </View>
+              )}
               {item.postType === 'X-Data' && (
-                <View className="bg-blue-100 px-1.5 py-0.5 rounded-full mr-1.5">
+                <View className="bg-blue-100 px-0.5 py-0.5 rounded-full mr-1.5">
                   <Text className="text-blue-600 text-xs font-semibold">𝕏 POST</Text>
                 </View>
               )}
@@ -2220,11 +2226,14 @@ const handleSharePost = useCallback(async (postItem: PostItem) => {
               )}
             </View>
           </View>
+              
+          <Text className="text-gray-500 text-xs mr-5">{getTimeAgo(item.ContentDate)}</Text>
           <TouchableOpacity className="p-1.5 rounded-full bg-gray-100"
-                onPress={(event) => handleThreeDotsPress(item, event)}>
-                <Ionicons name="ellipsis-horizontal" size={12} color="#64748b" />
-              </TouchableOpacity>
+            onPress={(event) => handleThreeDotsPress(item, event)}>
+            <Ionicons name="ellipsis-horizontal" size={12} color="#64748b" />
+          </TouchableOpacity>
         </View>
+
       </View>
 
       <View className="px-3 py-2.5">
