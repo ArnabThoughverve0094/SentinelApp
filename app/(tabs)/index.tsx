@@ -5,7 +5,7 @@ import * as Application from 'expo-application';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from "expo-sharing";
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
+import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query, where, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -70,27 +70,51 @@ interface PostItem {
 }
 
 // Tab Header Component
+// Update the type definitions
 const TabHeader: React.FC<{
-  activeTab: 'forYou' | 'following';
-  onTabChange: (tab: 'forYou' | 'following') => void;
+  activeTab: 'forYou' | 'following' | 'educational';
+  onTabChange: (tab: 'forYou' | 'following' | 'educational') => void;
 }> = ({ activeTab, onTabChange }) => {
   const slideAnim = useRef(new Animated.Value(0)).current;
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  // Calculate widths: First two tabs take 40% each, third tab full width
+  // This makes Published Posts + Educational = 80% screen, Following peeks at 20%
+  const tabWidth = screenWidth * 0.40; // Each tab is 40% of screen width
 
   useEffect(() => {
     Animated.spring(slideAnim, {
-      toValue: activeTab === 'forYou' ? 0 : 1,
+      toValue: activeTab === 'forYou' ? 0 : activeTab === 'educational' ? 1 : 2,
       tension: 100,
       friction: 8,
       useNativeDriver: true,
     }).start();
-  }, [activeTab, slideAnim]);
+
+    // Auto-scroll based on active tab
+    if (scrollViewRef.current) {
+      let scrollX = 0;
+      
+      if (activeTab === 'forYou') {
+        scrollX = 0; // Show "Published Posts" + "Educational" + peek of "Following"
+      } else if (activeTab === 'educational') {
+        scrollX = 0; // Keep same view - all visible
+      } else if (activeTab === 'following') {
+        scrollX = tabWidth; // Scroll to show "Educational" + "Following"
+      }
+      
+      scrollViewRef.current.scrollTo({
+        x: scrollX,
+        animated: true,
+      });
+    }
+  }, [activeTab, slideAnim, tabWidth]);
 
   const indicatorStyle = {
     transform: [
       {
         translateX: slideAnim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [0, screenWidth / 2],
+          inputRange: [0, 1, 2],
+          outputRange: [0, tabWidth, tabWidth * 2],
         }),
       },
     ],
@@ -98,48 +122,80 @@ const TabHeader: React.FC<{
 
   return (
     <View className="bg-white border-b border-gray-200">
-      <View className="flex-row">
-        <TouchableOpacity
-          className={`flex-1 py-4 items-center ${
-            activeTab === 'forYou' ? 'bg-white' : 'bg-gray-50'
-          }`}
-          onPress={() => onTabChange('forYou')}
-          activeOpacity={0.8}
-        >
-          <Text
-            className={`text-base font-semibold ${
-              activeTab === 'forYou' ? 'text-black' : 'text-gray-500'
+      <ScrollView
+        ref={scrollViewRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        scrollEventThrottle={16}
+        decelerationRate="fast"
+        // Remove snapToInterval to allow free scrolling
+      >
+        <View className="flex-row">
+          {/* Published Posts Tab */}
+          <TouchableOpacity
+            className={`py-4 items-center justify-center ${
+              activeTab === 'forYou' ? 'bg-white' : 'bg-gray-50'
             }`}
+            style={{ width: tabWidth }}
+            onPress={() => onTabChange('forYou')}
+            activeOpacity={0.8}
           >
-            Published Posts
-          </Text>
-        </TouchableOpacity>
+            <Text
+              className={`text-base font-semibold ${
+                activeTab === 'forYou' ? 'text-black' : 'text-gray-500'
+              }`}
+            >
+              Published Posts
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          className={`flex-1 py-4 items-center ${
-            activeTab === 'following' ? 'bg-white' : 'bg-gray-50'
-          }`}
-          onPress={() => onTabChange('following')}
-          activeOpacity={0.8}
-        >
-          <Text
-            className={`text-base font-semibold ${
-              activeTab === 'following' ? 'text-black' : 'text-gray-500'
+          {/* Educational Tab */}
+          <TouchableOpacity
+            className={`py-4 items-center justify-center ${
+              activeTab === 'educational' ? 'bg-white' : 'bg-gray-50'
             }`}
+            style={{ width: tabWidth }}
+            onPress={() => onTabChange('educational')}
+            activeOpacity={0.8}
           >
-            Educational
-          </Text>
-        </TouchableOpacity>
-      </View>
+            <Text
+              className={`text-base font-semibold ${
+                activeTab === 'educational' ? 'text-black' : 'text-gray-500'
+              }`}
+            >
+              Educational
+            </Text>
+          </TouchableOpacity>
 
-      <View className="relative">
+          {/* Following Tab */}
+          <TouchableOpacity
+            className={`py-4 items-center justify-center ${
+              activeTab === 'following' ? 'bg-white' : 'bg-gray-50'
+            }`}
+            style={{ width: tabWidth }}
+            onPress={() => onTabChange('following')}
+            activeOpacity={0.8}
+          >
+            <Text
+              className={`text-base font-semibold ${
+                activeTab === 'following' ? 'text-black' : 'text-gray-500'
+              }`}
+            >
+              Following
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+
+      {/* Animated Indicator */}
+      <View className="relative" style={{ height: 2 }}>
         <Animated.View
           style={[
             {
               position: 'absolute',
               bottom: 0,
               height: 2,
-              width: screenWidth / 2,
+              width: tabWidth,
               backgroundColor: '#000000',
             },
             indicatorStyle,
@@ -149,6 +205,9 @@ const TabHeader: React.FC<{
     </View>
   );
 };
+
+
+
 
 // Repost Modal Component
 interface RepostModalProps {
@@ -547,7 +606,7 @@ export default function SentinelFeed(): React.JSX.Element {
   // UPDATED: Removed videoRefs since we'll use useVideoPlayer directly
   const flipCardRef = useRef<any>(null);
 
-  const [activeTab, setActiveTab] = useState<'forYou' | 'following'>('forYou');
+const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational'>('forYou');
   const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
   const [currentUserDocId, setCurrentUserDocId] = useState('');
   const [notificationDetails, setNotificationDetails] = useState<any[]>([]);
@@ -598,78 +657,104 @@ export default function SentinelFeed(): React.JSX.Element {
   }, []);
 
   const fetchUserFollowing = useCallback(async () => {
-    try {
-      let fetchuserID = userId;
-      if(fetchuserID === "") {
-        fetchuserID = await AsyncStorage.getItem('userId') || "";
-        setUserId(fetchuserID);
-      }
+  try {
+    let fetchuserID = userId;
+    if (fetchuserID === "") {
+      fetchuserID = await AsyncStorage.getItem('userId') || "";
+      setUserId(fetchuserID);
+    }
 
-      if (fetchuserID) {
-        console.log('🔄 Fetching following list for user:', fetchuserID);
-        
-        // const sentinelUsersRef = collection(db, 'SentinelUsers');
-        // const q = query(sentinelUsersRef, where('userID', '==', fetchuserID));
-        
-        // const unsubscribe = onSnapshot(q, (snapshot) => {
-        //   if (!snapshot.empty) {
-        //     const userDoc = snapshot.docs[0];
-        //     const userData = userDoc.data();
-        //     setCurrentUserDocId(userDoc.id);
-        //     const following = userData.Following || [];
-        //     setFollowingUserIds(following);
-        //     console.log('✅ Following list updated:', following);
-        //     const notification = userData.Notification || [];
-        //     setNotificationDetails(notification);
-        //     console.log('✅ Notification list updated:', notification);
-        //   } else {
-        //     console.log('📱 No user document found');
-        //     setFollowingUserIds([]);
-        //     setCurrentUserDocId('');
-        //   }
-        // });
+    if (fetchuserID) {
+      console.log('🔄 Fetching following list for user:', fetchuserID);
+      
+      const sentinelUsersRef = collection(db, 'SentinelUsers');
+      const q = query(sentinelUsersRef, where('userID', '==', fetchuserID));
+      
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        if (!snapshot.empty) {
+          const userDoc = snapshot.docs[0];
+          const userData = userDoc.data();
+          setCurrentUserDocId(userDoc.id);
+          
+          // Get following list
+          const following = userData.Following || [];
+          setFollowingUserIds(following);
+          console.log('✅ Following list updated:', following);
+          console.log('✅ Following count:', following.length);
+          
+          // Get notifications
+          const notification = userData.Notification || [];
+          setNotificationDetails(notification);
+          console.log('✅ Notification list updated:', notification);
+        } else {
+          console.log('📱 No user document found');
+          setFollowingUserIds([]);
+          setCurrentUserDocId('');
+          setNotificationDetails([]);
+        }
+      }, (error) => {
+        console.error('❌ Error in following list listener:', error);
+        setFollowingUserIds([]);
+        setNotificationDetails([]);
+      });
 
+      return unsubscribe;
+    }
+  } catch (error) {
+    console.error('❌ Error fetching following list:', error);
+    setFollowingUserIds([]);
+    setNotificationDetails([]);
+  }
+}, [userId]);
+
+    const fetchAllUsersForNotifications = useCallback(async () => {
+      try {
         const sentinelUsersRef = collection(db, 'SentinelUsers');
         const q = query(sentinelUsersRef);
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-          const snapshotDataArr = snapshot.docs.map(doc => ({
-            id: doc.id,
-            data: doc.data(),
-          }))
+          const notificationlist = snapshot.docs.map(doc => ({
+            docID: doc.id,
+            userID: doc.data().userID,
+          }));
 
-          const notificationlist = [];
-
-          for (const doc of snapshotDataArr) {
-            const postData = doc.data;
-            const postId = doc.id;
-
-            if (postData.userID == fetchuserID) {
-              setCurrentUserDocId(postId);
-                
-              const following = postData.Following || [];
-              setFollowingUserIds(following);
-              console.log('✅ Following list updated:', following);
-            }
-
-            notificationlist.push({
-              docID: postId,
-              userID: postData.userID,
-            })
-          }
-
-          console.log('✅ Notification list updated:', notificationlist);
+          console.log('✅ All users notification list updated:', notificationlist);
           setNotificationDetails(notificationlist);
-          
+        }, (error) => {
+          console.error('❌ Error fetching all users:', error);
         });
 
         return unsubscribe;
+      } catch (error) {
+        console.error('❌ Error in fetchAllUsersForNotifications:', error);
       }
-    } catch (error) {
-      console.error('Error fetching following list:', error);
-      setFollowingUserIds([]);
-    }
-  }, [userId]);
+    }, []);
+
+    useEffect(() => {
+      let unsubFollowing: (() => void) | undefined;
+      let unsubNotifications: (() => void) | undefined;
+      let mounted = true;
+
+      (async () => {
+        try {
+          const u1 = await fetchUserFollowing();
+          if (mounted) unsubFollowing = u1;
+          const u2 = await fetchAllUsersForNotifications();
+          if (mounted) unsubNotifications = u2;
+        } catch (err) {
+          console.error('Error initializing listeners:', err);
+        }
+      })();
+
+      return () => {
+        mounted = false;
+        if (unsubFollowing) unsubFollowing();
+        if (unsubNotifications) unsubNotifications();
+      };
+    }, [fetchUserFollowing, fetchAllUsersForNotifications]);
+
+
+
 
   const getTimeAgo = useCallback((dateString: any) => {
     if (!dateString) return 'Just now';
@@ -2290,35 +2375,54 @@ export default function SentinelFeed(): React.JSX.Element {
   }, [handleFetchAllData]);
 
   const filteredData = useMemo(() => {
-    let baseData = fetchedData.filter(item => {
-      if (userRole === "User") {
-        return item.isApproved && !item.isNew;
-      }
-      return true;
-    });
-
-    if (activeTab === 'following') {
-      console.log('🔍 Filtering for following tab');
-      console.log('Following user IDs:', followingUserIds);
-      console.log('Base data count:', baseData.length);
-      
-      const followingData = baseData.filter(item => {
-        const authorId = item.AuthorUserID || item.repostedBy;
-        const isFromFollowedUser = authorId && followingUserIds.includes(authorId);
-        
-        if (isFromFollowedUser) {
-          console.log(`✅ Including post from followed user: ${item.AuthorName} (${authorId})`);
-        }
-        
-        return isFromFollowedUser;
-      });
-      
-      console.log('✅ Following filtered data count:', followingData.length);
-      return followingData;
+  let baseData = fetchedData.filter(item => {
+    if (userRole === "User") {
+      return item.isApproved && !item.isNew;
     }
+    return true;
+  });
 
-    return baseData;
-  }, [fetchedData, userRole, activeTab, followingUserIds]);
+  if (activeTab === 'following') {
+    console.log('🔍 Filtering for following tab');
+    console.log('Following user IDs:', followingUserIds);
+    console.log('Base data count:', baseData.length);
+    
+    // Debug: Log all post author IDs
+    console.log('All posts with authors:', baseData.map(item => ({
+      id: item.id,
+      AuthorUserID: item.AuthorUserID,
+      repostedBy: item.repostedBy,
+      AuthorName: item.AuthorName
+    })));
+    
+    const followingData = baseData.filter(item => {
+      // For regular posts, check AuthorUserID
+      // For reposts, check repostedBy first, then original author
+      const authorId = item.repostedBy || item.AuthorUserID;
+      const isFromFollowedUser = authorId && followingUserIds.includes(authorId);
+      
+      if (isFromFollowedUser) {
+        console.log(`✅ Including post from followed user: ${item.AuthorName} (${authorId})`);
+      } else {
+        console.log(`❌ Excluding post: ${item.AuthorName} (${authorId}) - not in following list`);
+      }
+      
+      return isFromFollowedUser;
+    });
+    
+    console.log('✅ Following filtered data count:', followingData.length);
+    return followingData;
+  }
+
+  if (activeTab === 'educational') {
+    // Educational tab - show "Coming Soon" message
+    return [];
+  }
+
+  // 'forYou' tab - show all published posts
+  return baseData;
+}, [fetchedData, userRole, activeTab, followingUserIds]);
+
 
   const handleScroll = useCallback((event: any) => {
     const { contentOffset, layoutMeasurement } = event.nativeEvent;
@@ -3023,27 +3127,60 @@ export default function SentinelFeed(): React.JSX.Element {
     });
   }, [filteredData, userRole, initializeCardAnimation, renderPostUserContent, renderPostContent, activeTab]);
 
-  const renderEmptyFollowingState = () => (
-    <View className="flex-1 justify-center items-center py-20 px-8">
-      <View className="w-20 h-20 bg-gray-100 rounded-full items-center justify-center mb-6">
-        <MaterialCommunityIcons name="account-heart-outline" size={40} color="#9CA3AF" />
+  const renderEmptyState = () => {
+  if (activeTab === 'educational') {
+    return (
+      <View className="flex-1 justify-center items-center py-20 px-8">
+        <View className="w-20 h-20 bg-gray-100 rounded-full items-center justify-center mb-6">
+          <Ionicons name="school-outline" size={40} color="#9CA3AF" />
+        </View>
+        <Text className="text-xl font-semibold text-gray-900 mb-2 text-center">
+          Coming Soon
+        </Text>
+        <Text className="text-gray-500 text-center leading-6 mb-4">
+          Educational content will be available here soon. Stay tuned for learning materials and resources!
+        </Text>
       </View>
-      <Text className="text-xl font-semibold text-gray-900 mb-2 text-center">
-        Posts coming soon
+    );
+  }
+
+  // Following tab empty state
+  return (
+    <View className="flex-1 justify-center items-center py-20 px-8 bg-white">
+  {/* Icon Container - Larger with subtle background */}
+      <View className="w-32 h-32 bg-gray-50 rounded-full items-center justify-center mb-8">
+        <MaterialCommunityIcons 
+          name="account-heart-outline" 
+          size={64} 
+          color="#D1D5DB" 
+        />
+      </View>
+      
+      {/* Heading - Larger and bolder */}
+      <Text className="text-2xl font-bold text-gray-900 mb-3 text-center">
+        Your feed is waiting
       </Text>
-      <Text className="text-gray-500 text-center leading-6 mb-4">
-      The next level of knowledge starts soon.
+      
+      {/* Description - More spacing */}
+      <Text className="text-base text-gray-500 text-center leading-6 mb-8 px-4">
+        Start following creators and friends to fill this space.
       </Text>
-      {/* <TouchableOpacity 
-        className="bg-black px-6 py-3 rounded-xl"
+      
+      {/* Button - Red/Pink color to match Figma */}
+      <TouchableOpacity 
+        className="bg-red-600 px-8 py-3.5 rounded-lg shadow-sm"
         onPress={() => {
           router.push('/search');
         }}
+        activeOpacity={0.8}
       >
-        <Text className="text-white font-semibold">Find People to Follow</Text>
-      </TouchableOpacity> */}
+        <Text className="text-white font-semibold text-base">Search Now</Text>
+      </TouchableOpacity>
     </View>
+
   );
+};
+
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -3126,27 +3263,12 @@ export default function SentinelFeed(): React.JSX.Element {
           />
         }
       >
-        {/* {loading ? (
-          <View className="flex-1 justify-center items-center py-20">
-            <LoadingComponent visible={true} size="large" />
-          </View>
-        ) : activeTab === 'following' && followingUserIds.length === 0 ? (
-          renderEmptyFollowingState()
-        ) : listItems.length > 0 ? (
-          listItems
-        ) : activeTab === 'following' ? (
-          renderEmptyFollowingState()
-        ) : (
-          <View className="flex-1 justify-center items-center py-20">
-            <LoadingComponent visible={true} size="large" />
-          </View>
-        )} */}
         {loading ? (
           <View className="flex-1 justify-center items-center py-20">
             <LoadingComponent visible={true} size="large" />
           </View>
-        ) : activeTab === 'following' ? (
-          renderEmptyFollowingState()
+        ) : (activeTab === 'following' || activeTab === 'educational') && listItems.length === 0 ? (
+          renderEmptyState()
         ) : listItems.length > 0 ? (
           listItems
         ) : (
@@ -3155,6 +3277,7 @@ export default function SentinelFeed(): React.JSX.Element {
           </View>
         )}
       </ScrollView>
+
       
       {/* IMAGE MODAL */}
       <Modal
