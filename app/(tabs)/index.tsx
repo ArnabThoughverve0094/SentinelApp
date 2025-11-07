@@ -67,6 +67,7 @@ interface PostItem {
   repostedAt?: any;
   CommentTemplate: string;
   isAnonymous: boolean;
+  contentType: string;
 }
 
 // Tab Header Component
@@ -704,19 +705,19 @@ export default function SentinelFeed(): React.JSX.Element {
       const diffInYears = Math.floor(diffInDays / 365);
 
       if (diffInSeconds < 60) {
-        return diffInSeconds <= 0 ? 'Just now' : `${diffInSeconds}s`;
+        return diffInSeconds <= 0 ? 'Just now' : `${diffInSeconds}s ago`;
       } else if (diffInMinutes < 60) {
-        return `${diffInMinutes}m`;
+        return `${diffInMinutes}m ago`;
       } else if (diffInHours < 24) {
-        return `${diffInHours}h`;
+        return `${diffInHours}h ago`;
       } else if (diffInDays < 7) {
-        return `${diffInDays}d`;
+        return `${diffInDays}d ago`;
       } else if (diffInWeeks < 4) {
-        return `${diffInWeeks}w`;
+        return `${diffInWeeks}w ago`;
       } else if (diffInMonths < 12) {
-        return `${diffInMonths}mo`;
+        return `${diffInMonths}mo ago`;
       } else {
-        return `${diffInYears}y`;
+        return `${diffInYears}y ago`;
       }
     } catch (error) {
       console.error('Error parsing date:', error);
@@ -876,6 +877,7 @@ export default function SentinelFeed(): React.JSX.Element {
             repostedBy: postData.repostedBy || '',
             repostedAt: postData.repostedAt || null,
             isAnonymous: false,
+            contentType: postData.contentType || 'My Thoughts'
           });
         }
 
@@ -927,6 +929,7 @@ export default function SentinelFeed(): React.JSX.Element {
             repostedBy: postData.repostedBy || '',
             repostedAt: postData.repostedAt || null,
             isAnonymous: postData.isAnonymous || false,
+            contentType: postData.contentType || 'My Thoughts'
           });
         }
 
@@ -1831,6 +1834,7 @@ export default function SentinelFeed(): React.JSX.Element {
             ContentDate: selectedRepostPost.ContentDate || new Date(),
             postType: selectedRepostPost.postType || 'Unknown',
             isAnonymous: selectedRepostPost.isAnonymous || false,
+            contentType: selectedRepostPost.contentType || 'My Thoughts'
           },
           repostComment: '',
           repostedBy: fetchuserID,
@@ -1938,6 +1942,7 @@ export default function SentinelFeed(): React.JSX.Element {
             ContentDate: selectedRepostPost.ContentDate || new Date(),
             postType: selectedRepostPost.postType || 'Unknown',
             isAnonymous: selectedRepostPost.isAnonymous || false,
+            contentType: selectedRepostPost.contentType || 'My Thoughts'
           },
           repostComment: comment || '',
           repostedBy: fetchuserID,
@@ -2509,9 +2514,13 @@ export default function SentinelFeed(): React.JSX.Element {
               <View className="flex-1">
                 <Text className="font-bold text-gray-900 text-sm">{AuthorName}</Text>
                 <View className="flex-row items-center mt-0.5">
-                  <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
+                  {item.postType != 'X-Data' && (
+                    <View className="bg-blue-100 px-1 py-0.5 rounded-full mr-1.5">
+                      <Text className="text-blue-600 text-xs font-regular">• {item.contentType}</Text>
+                    </View>
+                  )}
                   {item.postType === 'X-Data' && (
-                    <View className="bg-blue-100 px-1.5 py-0.5 rounded-full mr-1.5">
+                    <View className="bg-blue-100 px-0.5 py-0.5 rounded-full mr-1.5">
                       <Text className="text-blue-600 text-xs font-semibold">𝕏 POST</Text>
                     </View>
                   )}
@@ -2525,6 +2534,7 @@ export default function SentinelFeed(): React.JSX.Element {
                 </View>
               </View>
               
+              <Text className="text-gray-500 text-xs mr-5">{getTimeAgo(item.ContentDate)}</Text>
               {item.AuthorUserID === userId && (
                 <TouchableOpacity className="p-1.5 rounded-full bg-gray-100"
                 onPress={(event) => handleThreeDotsPress(item, event)}>
@@ -2544,103 +2554,113 @@ export default function SentinelFeed(): React.JSX.Element {
   
             {(!item.isRepost || item.repostComment) && renderMediaContent(item, index)}
   
-            <View className="flex-row items-center justify-between pt-1.5">
-              <TouchableOpacity
-                className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  toggleLike(item);
-                }}
-                activeOpacity={0.7}
-                disabled={areInteractionsDisabled(item)}
-              >
-                <Ionicons
-                  name={item.Liked ? "heart" : "heart-outline"}
-                  size={20}
-                  color={item.Liked ? "#ef4444" : "#64748b"}
-                />
-                <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
-                  {item.ContentLikeCount}
-                </Text>
-              </TouchableOpacity>
+            <View className="flex-row items-center">
+              <View className="flex-1"> 
+                <View className="flex-row items-center mt-1.5">
+
+                  <TouchableOpacity
+                    className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      toggleLike(item);
+                    }}
+                    activeOpacity={0.7}
+                    disabled={areInteractionsDisabled(item)}
+                  >
+                    <Ionicons
+                      name={item.Liked ? "heart" : "heart-outline"}
+                      size={20}
+                      color={item.Liked ? "#ef4444" : "#64748b"}
+                    />
+                    <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
+                      {item.ContentLikeCount}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      openCommentsModal(item);
+                    }}
+                    activeOpacity={0.7}
+                    disabled={areInteractionsDisabled(item)}
+                  >
+                    <MaterialCommunityIcons
+                      name="thumbs-up-down"
+                      size={20}
+                      color="#000000"
+                    />
+                    <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
+                  </TouchableOpacity>
   
-              <TouchableOpacity
-                className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  openCommentsModal(item);
-                }}
-                activeOpacity={0.7}
-                disabled={areInteractionsDisabled(item)}
-              >
-                <MaterialCommunityIcons
-                  name="thumbs-up-down"
-                  size={20}
-                  color="#000000"
-                />
-                <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
-              </TouchableOpacity>
+                  <TouchableOpacity
+                    className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleRepost(item);
+                    }}
+                    activeOpacity={0.7}
+                    disabled={areInteractionsDisabled(item)}
+                  >
+                    <Ionicons 
+                      name="repeat-outline" 
+                      size={20} 
+                      color={item.Reposted ? "#0ea5e9" : "#64748b"} 
+                    />
+                    <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
+                      {item.ContentRepostCount}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    className={`mr-2 p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      openGraphModal(item);
+                    }}
+                    activeOpacity={0.7}
+                    disabled={areInteractionsDisabled(item)}
+                  >
+                    <Feather name="bar-chart-2" size={20} color="#64748b" />
+                  </TouchableOpacity>
+
+                </View>
+          
+              </View>
+
+              <View className="flex-row items-center mt-1.5">
+                <TouchableOpacity
+                  className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleBookmark(item);
+                  }}
+                  activeOpacity={0.7}
+                  disabled={areInteractionsDisabled(item)}
+                >
+                  <Ionicons 
+                    name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
+                    size={20} 
+                    color={item.Bookmarked ? "#000000" : "#64748b"} 
+                  />
+                </TouchableOpacity>
   
-              <TouchableOpacity
-                className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  handleRepost(item);
-                }}
-                activeOpacity={0.7}
-                disabled={areInteractionsDisabled(item)}
-              >
-                <Ionicons 
-                  name="repeat-outline" 
-                  size={20} 
-                  color={item.Reposted ? "#0ea5e9" : "#64748b"} 
-                />
-                <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
-                  {item.ContentRepostCount}
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                className={`p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  openGraphModal(item);
-                }}
-                activeOpacity={0.7}
-                disabled={areInteractionsDisabled(item)}
-              >
-                <Feather name="bar-chart-2" size={20} color="#64748b" />
-              </TouchableOpacity>
-  
-              <TouchableOpacity
-                className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  handleBookmark(item);
-                }}
-                activeOpacity={0.7}
-                disabled={areInteractionsDisabled(item)}
-              >
-                <Ionicons 
-                  name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
-                  size={20} 
-                  color={item.Bookmarked ? "#000000" : "#64748b"} 
-                />
-              </TouchableOpacity>
-  
-              <TouchableOpacity 
-                className={`p-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  handleShare(item);
-                }}
-                activeOpacity={0.7}
-                disabled={areInteractionsDisabled(item)}
-              >
-                <Feather name="share-2" size={20} color="#64748b" />
-              </TouchableOpacity>
+                <TouchableOpacity 
+                  className={`mr-2 p-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleShare(item);
+                  }}
+                  activeOpacity={0.7}
+                  disabled={areInteractionsDisabled(item)}
+                >
+                  <Feather name="share-2" size={20} color="#64748b" />
+                </TouchableOpacity>
+                </View>
+
             </View>
-  
+
             {userRole !== "User" && item.postType === "SentinelPosts" && (
               <TouchableOpacity
                 onPress={(e) => e.stopPropagation()}
@@ -2888,101 +2908,111 @@ export default function SentinelFeed(): React.JSX.Element {
   
             {(!item.isRepost || item.repostComment) && renderMediaContent(item, index)}
   
-            <View className="flex-row items-center justify-between pt-1.5">
-              <TouchableOpacity
-                className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  toggleLike(item);
-                }}
-                activeOpacity={0.7}
-                disabled={areInteractionsDisabled(item)}
-              >
-                <Ionicons
-                  name={item.Liked ? "heart" : "heart-outline"}
-                  size={20}
-                  color={item.Liked ? "#ef4444" : "#64748b"}
-                />
-                <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
-                  {item.ContentLikeCount}
-                </Text>
-              </TouchableOpacity>
+            <View className="flex-row items-center">
+              <View className="flex-1"> 
+                <View className="flex-row items-center mt-1.5">
+
+                  <TouchableOpacity
+                    className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      toggleLike(item);
+                    }}
+                    activeOpacity={0.7}
+                    disabled={areInteractionsDisabled(item)}
+                  >
+                    <Ionicons
+                      name={item.Liked ? "heart" : "heart-outline"}
+                      size={20}
+                      color={item.Liked ? "#ef4444" : "#64748b"}
+                    />
+                    <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
+                      {item.ContentLikeCount}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      openCommentsModal(item);
+                    }}
+                    activeOpacity={0.7}
+                    disabled={areInteractionsDisabled(item)}
+                  >
+                    <MaterialCommunityIcons
+                      name="thumbs-up-down"
+                      size={20}
+                      color="#000000"
+                    />
+                    <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
+                  </TouchableOpacity>
   
-              <TouchableOpacity
-                className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  openCommentsModal(item);
-                }}
-                activeOpacity={0.7}
-                disabled={areInteractionsDisabled(item)}
-              >
-                <MaterialCommunityIcons
-                  name="thumbs-up-down"
-                  size={20}
-                  color="#000000"
-                />
-                <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
-              </TouchableOpacity>
+                  <TouchableOpacity
+                    className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleRepost(item);
+                    }}
+                    activeOpacity={0.7}
+                    disabled={areInteractionsDisabled(item)}
+                  >
+                    <Ionicons 
+                      name="repeat-outline" 
+                      size={20} 
+                      color={item.Reposted ? "#0ea5e9" : "#64748b"} 
+                    />
+                    <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
+                      {item.ContentRepostCount}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    className={`mr-2 p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      openGraphModal(item);
+                    }}
+                    activeOpacity={0.7}
+                    disabled={areInteractionsDisabled(item)}
+                  >
+                    <Feather name="bar-chart-2" size={20} color="#64748b" />
+                  </TouchableOpacity>
+
+                </View>
+          
+              </View>
+
+              <View className="flex-row items-center mt-1.5">
+                <TouchableOpacity
+                  className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleBookmark(item);
+                  }}
+                  activeOpacity={0.7}
+                  disabled={areInteractionsDisabled(item)}
+                >
+                  <Ionicons 
+                    name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
+                    size={20} 
+                    color={item.Bookmarked ? "#000000" : "#64748b"} 
+                  />
+                </TouchableOpacity>
   
-              <TouchableOpacity
-                className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  handleRepost(item);
-                }}
-                activeOpacity={0.7}
-                disabled={areInteractionsDisabled(item)}
-              >
-                <Ionicons 
-                  name="repeat-outline" 
-                  size={20} 
-                  color={item.Reposted ? "#0ea5e9" : "#64748b"} 
-                />
-                <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
-                  {item.ContentRepostCount}
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                className={`p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  openGraphModal(item);
-                }}
-                activeOpacity={0.7}
-                disabled={areInteractionsDisabled(item)}
-              >
-                <Feather name="bar-chart-2" size={20} color="#64748b" />
-              </TouchableOpacity>
-  
-              <TouchableOpacity
-                className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  handleBookmark(item);
-                }}
-                activeOpacity={0.7}
-                disabled={areInteractionsDisabled(item)}
-              >
-                <Ionicons 
-                  name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
-                  size={20} 
-                  color={item.Bookmarked ? "#000000" : "#64748b"} 
-                />
-              </TouchableOpacity>
-  
-              <TouchableOpacity 
-                className={`p-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  handleShare(item);
-                }}
-                activeOpacity={0.7}
-                disabled={areInteractionsDisabled(item)}
-              >
-                <Feather name="share-2" size={20} color="#64748b" />
-              </TouchableOpacity>
+                <TouchableOpacity 
+                  className={`mr-2 p-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleShare(item);
+                  }}
+                  activeOpacity={0.7}
+                  disabled={areInteractionsDisabled(item)}
+                >
+                  <Feather name="share-2" size={20} color="#64748b" />
+                </TouchableOpacity>
+                </View>
+
             </View>
           </View>
         </EnhancedCard>
@@ -3010,7 +3040,7 @@ export default function SentinelFeed(): React.JSX.Element {
       if (userRole === "User") {
         return (
           <React.Fragment key={uniqueKey}>
-            {renderPostUserContent(item, index)}
+            {renderPostContent(item, index)}
           </React.Fragment>
         );
       } else {
@@ -3021,7 +3051,7 @@ export default function SentinelFeed(): React.JSX.Element {
         );
       }
     });
-  }, [filteredData, userRole, initializeCardAnimation, renderPostUserContent, renderPostContent, activeTab]);
+  }, [filteredData, userRole, initializeCardAnimation, renderPostContent, renderPostContent, activeTab]);
 
   const renderEmptyFollowingState = () => (
     <View className="flex-1 justify-center items-center py-20 px-8">

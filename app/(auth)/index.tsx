@@ -3,7 +3,7 @@ import { LoadingComponent } from '@/components/LoadingComponent';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { Link, router } from 'expo-router';
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { collection, doc, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { collection, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Dimensions, Image, Linking, Modal, Platform, RefreshControl, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,6 +28,7 @@ interface PostItem {
   Bookmarked?: boolean;
   createdAt?: any;
   isAnonymous: boolean;
+  contentType: string;
 }
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -146,51 +147,6 @@ export default function Index(): React.JSX.Element {
     }
   }, [showAuthPopup]);
 
-  const fetchCommentsCount = useCallback(async (posts: PostItem[]) => {
-    try {
-      console.log('Starting to fetch comments for', posts.length, 'posts');
-      const commentsCount: { [key: string]: number } = {};
-      
-      const commentPromises = posts.map(async (post) => {
-        try {
-          let totalComments = 0;
-          
-          const commentsRef = collection(db, post.postType, post.id, 'Comments');
-          const commentsSnapshot = await getDocs(commentsRef);
-          
-          totalComments = commentsSnapshot.size;
-          
-          const replyPromises = commentsSnapshot.docs.map(async (commentDoc) => {
-            const repliesRef = collection(db, post.postType, post.id, 'Comments', commentDoc.id, 'Replies');
-            const repliesSnapshot = await getDocs(repliesRef);
-            return repliesSnapshot.size;
-          });
-          
-          const replyCounts = await Promise.all(replyPromises);
-          totalComments += replyCounts.reduce((sum, count) => sum + count, 0);
-          
-          return { [post.id]: totalComments };
-        } catch (error) {
-          console.error(`Error fetching comments for post ${post.id}:`, error);
-          return { [post.id]: 0 };
-        }
-      });
-      
-      const results = await Promise.all(commentPromises);
-      results.forEach(result => Object.assign(commentsCount, result));
-      
-      setCommentsData(commentsCount);
-      console.log('✅ Comments count fetched successfully:', commentsCount);
-    } catch (error) {
-      console.error('Error fetching comments count:', error);
-    }
-  }, []);
-
-  const handleBookmark = useCallback(async (postItem: PostItem) => {
-    console.log("Bookmark pressed - redirecting to auth:", postItem.id);
-    navigateToAuthScreen();
-  }, [navigateToAuthScreen]);
-
   const handleFetchAllData = useCallback(async (forceRefresh: boolean = false) => {
     const currentTime = Date.now();
     const cacheValidTime = 5 * 60 * 1000;
@@ -234,6 +190,7 @@ export default function Index(): React.JSX.Element {
             Bookmarked: false,
             createdAt: postData.createdAt || postData.ContentDate,
             isAnonymous: false,
+            contentType: postData.contentType || 'My Thoughts'
           });
         }
 
@@ -278,6 +235,7 @@ export default function Index(): React.JSX.Element {
             Bookmarked: false,
             createdAt: postData.createdAt || postData.ContentDate,
             isAnonymous: postData.isAnonymous || false,
+            contentType: postData.contentType || 'My Thoughts'
           });
 
         }
@@ -675,7 +633,8 @@ export default function Index(): React.JSX.Element {
             <View className="relative">
               <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
                 <Image
-                  source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
+                  // source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
+                  source={{uri: item?.AuthorImageURL || dummyAuthorImage }}
                   className="w-full h-full"
                   resizeMode="cover"
                   resizeMethod="resize"
@@ -685,17 +644,21 @@ export default function Index(): React.JSX.Element {
             <View className="flex-1">
               <Text className="font-bold text-gray-900 text-sm">{(item.isAnonymous) ? 'Anonymous' : item.AuthorName}</Text>
               <View className="flex-row items-center mt-0.5">
-                <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
+                {item.postType != 'X-Data' && (
+                  <View className="bg-blue-100 px-1 py-0.5 rounded-full mr-1.5">
+                    <Text className="text-blue-600 text-xs font-regular">• {item.contentType}</Text>
+                  </View>
+                )}
                 {item.postType === 'X-Data' && (
-                  <View className="bg-blue-100 px-1.5 py-0.5 rounded-full">
-                    <Text className="text-blue-600 text-xs font-medium">𝕏 POST</Text>
+                  <View className="bg-blue-100 px-0.5 py-0.5 rounded-full mr-1.5">
+                    <Text className="text-blue-600 text-xs font-semibold">𝕏 POST</Text>
                   </View>
                 )}
               </View>
             </View>
-            <TouchableOpacity className="p-1.5 rounded-full bg-gray-100">
-              <Ionicons name="ellipsis-horizontal" size={12} color="#64748b" />
-            </TouchableOpacity>
+              
+            <Text className="text-gray-500 text-xs mr-5">{getTimeAgo(item.ContentDate)}</Text>
+
           </View>
         </View>
 
@@ -704,7 +667,109 @@ export default function Index(): React.JSX.Element {
 
           {renderMediaContent(item, index)}
 
-          <View className="flex-row items-center justify-between pt-1.5 ">
+          <View className="flex-row items-center">
+              <View className="flex-1"> 
+                <View className="flex-row items-center mt-1.5">
+
+                  <TouchableOpacity
+                    className="flex-row items-center px-1.5 py-1 mr-5"
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      navigateToAuthScreen();
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name={item.Liked ? "heart" : "heart-outline"}
+                      size={20}
+                      color={item.Liked ? "#ef4444" : "#64748b"}
+                    />
+                    <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
+                      {item.ContentLikeCount}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    className="flex-row items-center mr-5 px-1.5 py-1 "
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      navigateToAuthScreen();
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialCommunityIcons
+                      name="thumbs-up-down"
+                      size={20}
+                      color="#64748b"
+                    />
+                    <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    className="flex-row items-center mr-5 px-1.5 py-1 "
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      navigateToAuthScreen();
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons 
+                      name="repeat-outline" 
+                      size={20} 
+                      color={item.Reposted ? "#0ea5e9" : "#64748b"} 
+                    />
+                    <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
+                      {item.ContentRepostCount}
+                    </Text>
+                  </TouchableOpacity>
+            
+                  <TouchableOpacity 
+                    className="mr-5 p-1.5"
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      navigateToAuthScreen();
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Feather name="bar-chart-2" size={20} color="#64748b" />
+                  </TouchableOpacity>
+
+                </View>
+          
+              </View>
+
+              <View className="flex-row items-center mt-1.5">
+                <TouchableOpacity
+                  className="flex-row items-center mr-5 px-1.5 py-1"
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    navigateToAuthScreen();
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons 
+                    name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
+                    size={20} 
+                    color={item.Bookmarked ? "#f59e0b" : "#64748b"} 
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  className="p-1"
+                  onPress={(e) => {
+                   e.stopPropagation();
+                    navigateToAuthScreen();
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Feather name="share-2" size={20} color="#64748b" />
+                </TouchableOpacity>
+              
+              </View>
+
+            </View>
+
+          {/* <View className="flex-row items-center justify-between pt-1.5 ">
             <TouchableOpacity
               className="flex-row items-center px-1.5 py-1 "
               onPress={(e) => {
@@ -793,7 +858,7 @@ export default function Index(): React.JSX.Element {
             >
               <Feather name="share-2" size={20} color="#64748b" />
             </TouchableOpacity>
-          </View>
+          </View> */}
         </View>
       </EnhancedCard>
     </TouchableOpacity>

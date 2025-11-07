@@ -325,6 +325,7 @@ export default function BookmarksPage(): React.JSX.Element {
               createdAt: postData.createdAt || postData.ContentDate,
               CommentTemplate: postData.CommentTemplate || "Sentinel Default Template",
               isAnonymous: postData.isAnonymous || false,
+              contentType: postData.contentType || 'My Thoughts'
             });
           }
         }
@@ -380,6 +381,7 @@ export default function BookmarksPage(): React.JSX.Element {
               createdAt: postData.createdAt || postData.ContentDate,
               CommentTemplate: postData.CommentTemplate || "Sentinel Default Template",
               isAnonymous: postData.isAnonymous || false,
+              contentType: postData.contentType || 'My Thoughts'
             });
           }
 
