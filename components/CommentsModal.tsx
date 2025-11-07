@@ -78,6 +78,7 @@ interface PostData {
   Reposted: boolean;
   CommentTemplate: string,
   isAnonymous: boolean,
+  contentType: string;
 }
 
 interface CommentScreenProps {
@@ -348,6 +349,7 @@ export default function CommentScreen({
           Reposted: false,
           CommentTemplate: data.CommentTemplate || 'Sentinel Default Template',
           isAnonymous: data.isAnonymous || false,
+          contentType: data.contentType || 'My Thoughts'
         });
         fetchCommentTemplate(data.CommentTemplate || 'Sentinel Default Template');
 
@@ -384,6 +386,7 @@ export default function CommentScreen({
       Reposted: passedPostData.Reposted || false,
       CommentTemplate: passedPostData.CommentTemplate || 'Sentinel Default Template',
       isAnonymous: passedPostData.isAnonymous || false,
+      contentType: passedPostData.contentType || 'My Thoughts'
 
     });
     fetchCommentTemplate(passedPostData.CommentTemplate || 'Sentinel Default Template');

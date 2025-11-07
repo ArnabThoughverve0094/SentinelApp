@@ -1249,7 +1249,7 @@ export default function CreatePost() {
             <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
               <TouchableOpacity
                 style={{
-                  backgroundColor: "#FF3B30",
+                  backgroundColor: "#E6161A",
                   borderRadius: 16,
                   paddingVertical: 16,
                   alignItems: "center",
