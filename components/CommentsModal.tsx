@@ -159,23 +159,64 @@ export default function CommentScreen({
     setFullScreenVideo(null);
   }, []);
 
-  const getTimeAgo = (timestamp: any): string => {
-    if (!timestamp) return '2h';
+  // IMPROVED TIME AGO FUNCTION
+  const getTimeAgo = useCallback((dateString: any) => {
+    if (!dateString) return 'Just now';
     
-    const now = Date.now();
-    const commentTime = timestamp.toDate ? timestamp.toDate().getTime() : new Date(timestamp).getTime();
-    const diff = now - commentTime;
-    
-    const seconds = Math.floor(diff / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-    
-    if (seconds < 60) return 'now';
-    if (minutes < 60) return `${minutes}m`;
-    if (hours < 24) return `${hours}h`;
-    return `${days}d`;
-  };
+    try {
+      let postDate: Date;
+      
+      if (dateString && typeof dateString === 'object' && dateString.toDate) {
+        postDate = dateString.toDate();
+      }
+      else if (typeof dateString === 'string') {
+        postDate = new Date(dateString);
+      }
+      else if (dateString instanceof Date) {
+        postDate = dateString;
+      }
+      else if (typeof dateString === 'number') {
+        postDate = new Date(dateString);
+      }
+      else {
+        return 'Just now';
+      }
+
+      const now = new Date();
+      const diffInMs = now.getTime() - postDate.getTime();
+      const diffInSeconds = Math.floor(diffInMs / 1000);
+      const diffInMinutes = Math.floor(diffInSeconds / 60);
+      const diffInHours = Math.floor(diffInMinutes / 60);
+      const diffInDays = Math.floor(diffInHours / 24);
+      const diffInWeeks = Math.floor(diffInDays / 7);
+      const diffInMonths = Math.floor(diffInDays / 30);
+      const diffInYears = Math.floor(diffInDays / 365);
+
+      if (diffInSeconds < 60) {
+        return diffInSeconds <= 0 ? 'Just now' : `${diffInSeconds}s ago`;
+      } else if (diffInMinutes < 60) {
+        return `${diffInMinutes}m ago`;
+      } else if (diffInHours < 24) {
+        return `${diffInHours}h ago`;
+      } else if (diffInDays < 7) {
+        return `${diffInDays}d ago`;
+      } else {
+        const dateObj = new Date(postDate.getTime());
+        const year  = dateObj.getFullYear();
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0'); // months are 0-based
+        const day   = String(dateObj.getDate()).padStart(2, '0');
+        const hours   = String(dateObj.getHours()).padStart(2, '0');
+        const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+
+        // Example formatted string: "YYYY-MM-DD HH:mm"
+        const formatted = `${year}-${month}-${day} ${hours}:${minutes}`;
+        return `${formatted}`;
+      }
+    } catch (error) {
+      console.error('Error parsing date:', error);
+      return 'Just now';
+    }
+  }, []);
 
   const getMediaType = (url: string) => {
     if (!url) return 'unknown';
