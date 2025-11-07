@@ -48,6 +48,7 @@ interface PostItem {
   bookmarkedAt?: any;
   CommentTemplate: string;
   isAnonymous: boolean;
+  contentType: string;
 }
 
 export default function BookmarksPage(): React.JSX.Element {
