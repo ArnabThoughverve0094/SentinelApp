@@ -788,6 +788,7 @@ export default function BookmarksPage(): React.JSX.Element {
                     source={{ uri: AuthorImage || dummyAuthorImage }}
                     className="w-full h-full"
                     resizeMode="cover"
+                    resizeMethod="resize"
                   />
                 </View>
               </View>
@@ -808,7 +809,7 @@ export default function BookmarksPage(): React.JSX.Element {
         </View>
   
         <View className="px-3 py-2.5">
-          <Text className="text-gray-800 text-sm leading-5 mb-2 font-normal">{item.ContentDesc}</Text>
+          <Text className="text-gray-800 text-sm leading-5 mb-2 font-normal" numberOfLines={2}>{item.ContentDesc}</Text>
   
           {renderMediaContent(item, index)}
   

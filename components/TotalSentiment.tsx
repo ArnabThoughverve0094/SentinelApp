@@ -489,6 +489,7 @@ export default function TotalSentiment({
                 source={{ uri: item.icon }}
                 style={{ width: 30, height: 30, marginRight: 8 }}
                 resizeMode="contain"
+                resizeMethod="resize"
               />
             )}
             <Text style={{ fontSize: 15, color: '#000', flex: 1, fontWeight: '500' }}>
@@ -570,6 +571,7 @@ export default function TotalSentiment({
               backgroundColor: '#e8e8e8'
             }}
             resizeMode="cover"
+            resizeMethod="resize"
           />
           <View style={{ 
             position: 'absolute', 
@@ -645,6 +647,7 @@ export default function TotalSentiment({
                           backgroundColor: '#e8e8e8' 
                         }}
                         resizeMode="cover"
+                        resizeMethod="resize"
                       />
                       <View style={{ flex: 1 }}>
                         <Text style={{ fontWeight: 'bold', fontSize: 16, color: '#000' }}>
@@ -764,6 +767,7 @@ export default function TotalSentiment({
                                     source={{ uri: option.icon}}
                                     style={{ width: 40, height: 25, marginRight: 8 }}
                                     resizeMode="contain"
+                                    resizeMethod="resize"
                                   />
                                 )}
                                 <Text style={{ fontSize: 16, color: '#000', fontWeight: '500' }}>
@@ -888,6 +892,7 @@ export default function TotalSentiment({
                   maxHeight: screenHeight - 100 
                 }}
                 resizeMode="contain"
+                resizeMethod="resize"
               />
             )}
           </TouchableOpacity>

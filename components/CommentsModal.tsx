@@ -703,6 +703,7 @@ export default function CommentScreen({
                 className="bg-white"
                 resizeMode="cover"
                 blurRadius={5}
+                resizeMethod="resize"
               />
               
               {/* Foreground Image (main) */}
@@ -713,6 +714,7 @@ export default function CommentScreen({
                   height: 200,
                 }}
                 resizeMode="contain"
+                resizeMethod="resize"
                 onError={(error) => {
                   console.log("Image load error:", error.nativeEvent.error);
                 }}
@@ -768,6 +770,7 @@ export default function CommentScreen({
                   source={{ uri: optionData?.icon}}
                   style={{ width: 64, height: 40 }}
                   resizeMode="contain"
+                  resizeMethod="resize"
                 />
                 <Text style={{ fontSize: 13, color: '#007aff', fontWeight: '500' }}>
                   {optionData?.label || option}
@@ -874,6 +877,7 @@ export default function CommentScreen({
                       backgroundColor: '#e8e8e8' 
                     }}
                     resizeMode="cover"
+                    resizeMethod="resize"
                   />
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontWeight: 'bold', fontSize: 16, color: '#000' }}>
@@ -938,6 +942,7 @@ export default function CommentScreen({
                           backgroundColor: '#e8e8e8' 
                         }}
                         resizeMode="cover"
+                        resizeMethod="resize"
                       />
                       
                       <View style={{ flex: 1 }}>
@@ -986,6 +991,7 @@ export default function CommentScreen({
                                 backgroundColor: '#e8e8e8' 
                               }}
                               resizeMode="cover" 
+                              resizeMethod="resize"
                             />
                             
                             <View style={{ flex: 1 }}>
@@ -1179,6 +1185,7 @@ export default function CommentScreen({
                   maxHeight: screenHeight - 100 
                 }}
                 resizeMode="contain"
+                resizeMethod="resize"
               />
             )}
           </TouchableOpacity>
@@ -1324,6 +1331,7 @@ export default function CommentScreen({
                             source={{ uri: option.icon}}
                             style={{ width: 64, height: 40 }}
                             resizeMode="contain"
+                            resizeMethod="resize"
                           />
                           <Text style={{
                             fontSize: 16,

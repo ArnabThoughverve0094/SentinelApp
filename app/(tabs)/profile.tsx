@@ -201,6 +201,7 @@ const LoadingComponent: React.FC<{ visible?: boolean; size?: 'small' | 'medium' 
               height: '100%',
             }}
             resizeMode="cover"
+            resizeMethod="resize"
           />
         </View>
       </Animated.View>
@@ -1925,6 +1926,7 @@ export default function ProfilePage(): React.JSX.Element {
                 style={{ width: '100%', height: 200 }}
                 className="bg-gray-100"
                 resizeMode="cover"
+                resizeMethod="resize"
               />
               <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
                  <MaterialIcons name="gif" size={20} color="white" />
@@ -2010,6 +2012,7 @@ export default function ProfilePage(): React.JSX.Element {
                 source={{ uri: item?.AuthorImageURL || profilePicUrl || dummyAuthorImage }}
                 className="w-full h-full"
                 resizeMode="cover"
+                resizeMethod="resize"
               />
             </View>
           </View>
@@ -2412,6 +2415,7 @@ export default function ProfilePage(): React.JSX.Element {
                       source={{ uri: getFullImageUrl(profilePicUrl) }}
                       className="w-full h-full"
                       style={{ resizeMode: 'cover' }}
+                      resizeMethod="resize"
                     />
                   ) : (
                     <Ionicons name="person" size={32} color="white" />
@@ -2589,6 +2593,7 @@ export default function ProfilePage(): React.JSX.Element {
                       source={{ uri: getFullImageUrl(profilePicUrl) }}
                       className="w-full h-full"
                       style={{ resizeMode: 'cover' }}
+                      resizeMethod="resize"
                     />
                   ) : (
                     <Ionicons name="person" size={24} color="white" />
