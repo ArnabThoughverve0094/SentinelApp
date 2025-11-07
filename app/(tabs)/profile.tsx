@@ -887,12 +887,17 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
         return `${diffInHours}h ago`;
       } else if (diffInDays < 7) {
         return `${diffInDays}d ago`;
-      } else if (diffInWeeks < 4) {
-        return `${diffInWeeks}w ago`;
-      } else if (diffInMonths < 12) {
-        return `${diffInMonths}mo ago`;
       } else {
-        return `${diffInYears}y ago`;
+        const dateObj = new Date(postDate.getTime());
+        const year  = dateObj.getFullYear();
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0'); // months are 0-based
+        const day   = String(dateObj.getDate()).padStart(2, '0');
+        const hours   = String(dateObj.getHours()).padStart(2, '0');
+        const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+
+        // Example formatted string: "YYYY-MM-DD HH:mm"
+        const formatted = `${year}-${month}-${day} ${hours}:${minutes}`;
+        return `${formatted}`;
       }
     } catch (error) {
       console.error('Error parsing date:', error);
