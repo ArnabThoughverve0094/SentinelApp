@@ -1,4 +1,5 @@
 import { db } from '@/FirebaseConfig';
+import TotalSentiment from '@/components/TotalSentiment';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
@@ -77,6 +78,11 @@ export default function BookmarksPage(): React.JSX.Element {
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedPostType, setSelectedPostType] = useState<string | null>(null);
   const [selectedCommentTemplate, setSelectedCommentTemplate] = useState<string | null>(null);
+
+  // ------- GRAPH MODAL STATE -------
+  const [isGraphModalVisible, setIsGraphModalVisible] = useState(false);
+  const [selectedGraphPostId, setSelectedGraphPostId] = useState<string | null>(null);
+  const [selectedGraphPostType, setSelectedGraphPostType] = useState<string | null>(null);
 
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
 
@@ -460,6 +466,29 @@ export default function BookmarksPage(): React.JSX.Element {
     setSelectedCommentTemplate(null);
   }, []);
 
+  // TO OPEN GRAPH MODAL
+  const openGraphModal = useCallback((item: PostItem) => {
+    console.log("Graph ID: ", item.id);
+    setSelectedGraphPostId(item.id);
+    setSelectedGraphPostType(item.postType);
+    setIsGraphModalVisible(true);
+    setSelectedPostId(item.id);
+    setSelectedPostType(item.postType);
+    setIsCommentModalVisible(false);
+    setSelectedCommentTemplate(item.CommentTemplate);
+  }, []);
+
+  const closeGraphModal = useCallback(() => {
+    setIsGraphModalVisible(false);
+    setSelectedGraphPostId(null);
+    setSelectedGraphPostType(null);
+  }, []);
+
+  const addResponseGraphModal = useCallback(() => {
+    setIsGraphModalVisible(false);
+    setIsCommentModalVisible(true);
+  }, []);
+
   // MEDIA MODAL CONTROLS
   const openFullScreenImage = useCallback((imageUrl: string) => {
     setFullScreenImage(imageUrl);
@@ -820,8 +849,107 @@ export default function BookmarksPage(): React.JSX.Element {
           <Text className="text-gray-800 text-sm leading-5 mb-2 font-normal" numberOfLines={2}>{item.ContentDesc}</Text>
   
           {renderMediaContent(item, index)}
+          <View className="flex-row items-center">
+              <View className="flex-1"> 
+                <View className="flex-row items-center mt-1.5">
+
+                  <TouchableOpacity
+                    className={`flex-row items-center mr-5 px-1.5 py-1`}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      toggleLike(item);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name={item.Liked ? "heart" : "heart-outline"}
+                      size={20}
+                      color={item.Liked ? "#ef4444" : "#64748b"}
+                    />
+                    <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
+                      {item.ContentLikeCount}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    className={`flex-row items-center mr-5 px-1.5 py-1`}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      openCommentsModal(item);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialCommunityIcons
+                      name="thumbs-up-down"
+                      size={20}
+                      color="#000000"
+                    />
+                    <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
+                  </TouchableOpacity>
   
-          <View className="flex-row items-center justify-between pt-1.5">
+                  <TouchableOpacity
+                    className={`flex-row items-center mr-5 px-1.5 py-1`}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleRepost(item);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons 
+                      name="repeat-outline" 
+                      size={20} 
+                      color={item.Reposted ? "#0ea5e9" : "#64748b"} 
+                    />
+                    <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
+                      {item.ContentRepostCount}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    className={`mr-2 p-1.5`}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      openGraphModal(item);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Feather name="bar-chart-2" size={20} color="#64748b" />
+                  </TouchableOpacity>
+
+                </View>
+          
+              </View>
+
+              <View className="flex-row items-center mt-1.5">
+                <TouchableOpacity
+                  className={`flex-row items-center mr-5 px-1.5 py-1`}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleRemoveBookmark(item);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons 
+                    name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
+                    size={20} 
+                    color={item.Bookmarked ? "#000000" : "#64748b"} 
+                  />
+                </TouchableOpacity>
+  
+                <TouchableOpacity 
+                  className={`mr-2 p-1`}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleShare(item);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Feather name="share-2" size={20} color="#64748b" />
+                </TouchableOpacity>
+                </View>
+
+            </View>
+          {/* <View className="flex-row items-center justify-between pt-1.5">
             <TouchableOpacity
               className="flex-row items-center px-1.5 py-1"
               onPress={(e) => {
@@ -906,7 +1034,7 @@ export default function BookmarksPage(): React.JSX.Element {
             >
               <Feather name="share-2" size={20} color="#64748b" />
             </TouchableOpacity>
-          </View>
+          </View> */}
         </View>
       </EnhancedCard>
       </TouchableOpacity>
@@ -1149,6 +1277,19 @@ export default function BookmarksPage(): React.JSX.Element {
         postData={bookmarkedPosts.find(item => item.id === selectedPostId)}
         commentTemplate={selectedCommentTemplate}
       />
+
+      {/* GRAPH MODAL */}
+      <TotalSentiment
+        visible={isGraphModalVisible}
+        onClose={closeGraphModal}
+        postId={selectedGraphPostId}
+        postType={selectedGraphPostType}
+        postData={bookmarkedPosts.find(item => item.id === selectedGraphPostId)}
+        onAddResponse={addResponseGraphModal} 
+        userExistingComment={undefined} 
+        onEditComment={undefined}
+        commentTemplate={selectedCommentTemplate}
+        />
     </SafeAreaView>
   );
 }

@@ -1073,8 +1073,6 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
   // }, [userId, userName, userNickName, profilePicUrl]);
 
   const fetchUserPosts = useCallback(async (forceRefresh: boolean = false) => {
-    const currentTime = Date.now();
-    
     let fetchuserID = userId;
     if(fetchuserID === ""){
       fetchuserID = await AsyncStorage.getItem('userId') || "";
@@ -2247,108 +2245,112 @@ const handleSharePost = useCallback(async (postItem: PostItem) => {
         {renderMediaContent(item, index)}
 
         {/* UPDATED: Post Actions with DISABLED STATE for rejected posts */}
-        <View className="flex-row items-center justify-between pt-1.5">
-          {/* Like Button */}
-          <TouchableOpacity
-            className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-            onPress={(e) => {
-              e.stopPropagation();
-              toggleLike(item);
-            }}
-            activeOpacity={0.7}
-            disabled={areInteractionsDisabled(item)}
-          >
-            <Ionicons
-              name={item.Liked ? "heart" : "heart-outline"}
-              size={14}
-              color={item.Liked ? "#ef4444" : "#64748b"}
-            />
-            <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
-              {item.ContentLikeCount || 0}
-            </Text>
-          </TouchableOpacity>
+        <View className="flex-row items-center">
+              <View className="flex-1"> 
+                <View className="flex-row items-center mt-1.5">
 
-          {/* Comment Button */}
-          <TouchableOpacity
-            className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-            onPress={(e) => {
-              e.stopPropagation();
-              openCommentsModal(item);
-            }}
-            activeOpacity={0.7}
-            disabled={areInteractionsDisabled(item)}
-          >
-            <MaterialCommunityIcons
-              name="thumbs-up-down"
-              size={14}
-              color="#000000"
-            />
-            <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount || 0}</Text>
-          </TouchableOpacity>
+                  <TouchableOpacity
+                    className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      toggleLike(item);
+                    }}
+                    activeOpacity={0.7}
+                    disabled={areInteractionsDisabled(item)}
+                  >
+                    <Ionicons
+                      name={item.Liked ? "heart" : "heart-outline"}
+                      size={20}
+                      color={item.Liked ? "#ef4444" : "#64748b"}
+                    />
+                    <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
+                      {item.ContentLikeCount}
+                    </Text>
+                  </TouchableOpacity>
 
-          {/* Repost Button */}
-          <TouchableOpacity
-            className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-            onPress={(e) => {
-              e.stopPropagation();
-              handleRepost(item);
-            }}
-            activeOpacity={0.7}
-            disabled={areInteractionsDisabled(item)}
-          >
-            <Ionicons 
-              name="repeat-outline" 
-              size={14} 
-              color={item.Reposted ? "#0ea5e9" : "#64748b"} 
-            />
-            <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
-              {item.ContentRepostCount || 0}
-            </Text>
-          </TouchableOpacity>
+                  <TouchableOpacity
+                    className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      openCommentsModal(item);
+                    }}
+                    activeOpacity={0.7}
+                    disabled={areInteractionsDisabled(item)}
+                  >
+                    <MaterialCommunityIcons
+                      name="thumbs-up-down"
+                      size={20}
+                      color="#000000"
+                    />
+                    <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
+                  </TouchableOpacity>
+  
+                  <TouchableOpacity
+                    className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleRepost(item);
+                    }}
+                    activeOpacity={0.7}
+                    disabled={areInteractionsDisabled(item)}
+                  >
+                    <Ionicons 
+                      name="repeat-outline" 
+                      size={20} 
+                      color={item.Reposted ? "#0ea5e9" : "#64748b"} 
+                    />
+                    <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
+                      {item.ContentRepostCount}
+                    </Text>
+                  </TouchableOpacity>
 
-          {/* Analytics/Graph Button */}
-          <TouchableOpacity 
-            className={`p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-            onPress={(e) => {
-              e.stopPropagation();
-              openGraphModal(item);
-            }}
-            activeOpacity={0.7}
-            disabled={areInteractionsDisabled(item)}
-          >
-            <Feather name="bar-chart-2" size={14} color="#64748b" />
-          </TouchableOpacity>
+                  <TouchableOpacity 
+                    className={`mr-2 p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      openGraphModal(item);
+                    }}
+                    activeOpacity={0.7}
+                    disabled={areInteractionsDisabled(item)}
+                  >
+                    <Feather name="bar-chart-2" size={20} color="#64748b" />
+                  </TouchableOpacity>
 
-          {/* Bookmark Button */}
-          <TouchableOpacity
-            className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-            onPress={(e) => {
-              e.stopPropagation();
-              handleBookmark(item);
-            }}
-            activeOpacity={0.7}
-            disabled={areInteractionsDisabled(item)}
-          >
-            <Ionicons 
-              name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
-              size={14} 
-              color={item.Bookmarked ? "#000000" : "#64748b"} 
-            />
-          </TouchableOpacity>
+                </View>
+          
+              </View>
 
-          {/* Share Button */}
-          <TouchableOpacity
-            className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-            onPress={(e) => {
-              e.stopPropagation();
-              handleSharePost(item);
-            }}
-            activeOpacity={0.7}
-            disabled={areInteractionsDisabled(item)}
-          >
-            <Feather name="share-2" size={16} color="#64748b" />
-          </TouchableOpacity>
-        </View>
+              <View className="flex-row items-center mt-1.5">
+                <TouchableOpacity
+                  className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleBookmark(item);
+                  }}
+                  activeOpacity={0.7}
+                  disabled={areInteractionsDisabled(item)}
+                >
+                  <Ionicons 
+                    name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
+                    size={20} 
+                    color={item.Bookmarked ? "#000000" : "#64748b"} 
+                  />
+                </TouchableOpacity>
+  
+                <TouchableOpacity 
+                  className={`mr-2 p-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleSharePost(item);
+                  }}
+                  activeOpacity={0.7}
+                  disabled={areInteractionsDisabled(item)}
+                >
+                  <Feather name="share-2" size={20} color="#64748b" />
+                </TouchableOpacity>
+                </View>
+
+            </View>
       </View>
     </TouchableOpacity>
   ), [openCommentsModal, toggleLike, handleRepost, handleBookmark, handleSharePost, openGraphModal, renderMediaContent, getTimeAgo, getPostStatus, profilePicUrl, dummyAuthorImage, areInteractionsDisabled]);
