@@ -832,6 +832,16 @@ export default function BookmarksPage(): React.JSX.Element {
               <View className="flex-1">
                 <Text className="font-bold text-gray-900 text-sm">{AuthorName}</Text>
                 <View className="flex-row items-center mt-0.5">
+                  {item.postType != 'X-Data' && (
+                    <View className="bg-blue-100 px-1 py-0.5 rounded-full mr-1.5">
+                      <Text className="text-blue-600 text-xs font-regular">• {item.contentType}</Text>
+                    </View>
+                  )}
+                  {item.postType === 'X-Data' && (
+                    <View className="bg-blue-100 px-0.5 py-0.5 rounded-full mr-1.5">
+                      <Text className="text-blue-600 text-xs font-semibold">𝕏 POST</Text>
+                    </View>
+                  )}
                   <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
                 </View>
               </View>
