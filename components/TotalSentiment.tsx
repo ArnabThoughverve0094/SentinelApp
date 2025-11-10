@@ -52,6 +52,7 @@ interface PostData {
   Reposted: boolean;
   CommentTemplate: string;
   isAnonymous: boolean;
+  contentType: string;
 }
 
 interface TotalSentimentProps {
@@ -669,9 +670,24 @@ export default function TotalSentiment({
                           {(postData.isAnonymous) ? 'Anonymous' : postData.AuthorName}
                         </Text>
                         {/* UPDATED: Real-time timestamp */}
-                        <Text style={{ fontSize: 14, color: '#8e8e93' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                          {postData.postType != 'X-Data' && (
+                            <View className="bg-blue-100 px-1 py-0.5 rounded-full mr-1.5">
+                              <Text className="text-blue-600 text-xs font-regular">• {postData.contentType}</Text>
+                            </View>
+                          )}
+                          {postData.postType === 'X-Data' && (
+                            <View className="bg-blue-100 px-0.5 py-0.5 rounded-full mr-1.5">
+                              <Text className="text-blue-600 text-xs font-semibold">𝕏 POST</Text>
+                            </View>
+                          )}
+                          <Text style={{ fontSize: 14, color: '#8e8e93', marginLeft: 8 }}>
+                            {getTimeAgo(postData.ContentDate)}
+                          </Text>
+                        </View>
+                        {/* <Text style={{ fontSize: 14, color: '#8e8e93' }}>
                           {postTimeAgo || 'now'}
-                        </Text>
+                        </Text> */}
                       </View>
                     </View>
                     

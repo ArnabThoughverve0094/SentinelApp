@@ -816,9 +816,19 @@ export default function CommentScreen({
                   resizeMode="contain"
                   resizeMethod="resize"
                 />
-                <Text style={{ fontSize: 13, color: '#007aff', fontWeight: '500' }}>
-                  {optionData?.label || option}
-                </Text>
+                <View style={{ flex: 1 }}> 
+                  <Text 
+                    style={{ 
+                      fontSize: 13, 
+                      color: '#007aff', 
+                      fontWeight: '500', 
+                      // Option to force wrap, though usually default
+                      flexWrap: 'wrap', 
+                  }}
+                  >
+                    {optionData?.label || option}
+                  </Text>
+                </View>
               </View>
             );
           })}
@@ -929,9 +939,16 @@ export default function CommentScreen({
                       {changedAuthorName}
                     </Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                      {/* <Text style={{ fontSize: 14, color: '#8e8e93' }}>
-                        {postDataState.AuthorUsername}
-                      </Text> */}
+                    {postDataState.postType != 'X-Data' && (
+                      <View className="bg-blue-100 px-1 py-0.5 rounded-full mr-1.5">
+                        <Text className="text-blue-600 text-xs font-regular">• {postDataState.contentType}</Text>
+                      </View>
+                    )}
+                    {postDataState.postType === 'X-Data' && (
+                      <View className="bg-blue-100 px-0.5 py-0.5 rounded-full mr-1.5">
+                        <Text className="text-blue-600 text-xs font-semibold">𝕏 POST</Text>
+                      </View>
+                    )}
                       <Text style={{ fontSize: 14, color: '#8e8e93', marginLeft: 8 }}>
                         {getTimeAgo(postDataState.ContentDate)}
                       </Text>
