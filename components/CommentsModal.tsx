@@ -1215,21 +1215,23 @@ export default function CommentScreen({
           </TouchableOpacity>
           
           <TouchableOpacity 
-            style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
+            className="flex-1 justify-center items-center"
             activeOpacity={1}
             onPress={closeFullScreenImage}
           >
             {fullScreenImage && (
               <Image
                 source={{ uri: fullScreenImage }}
-                style={{ 
-                  width: '100%', 
-                  maxWidth: '100%',
-                  height: screenHeight - 100, 
-                  maxHeight: screenHeight - 100 
+                style={{
+                  width: '100%',
+                  height: '100%', // Fills the parent View
                 }}
-                resizeMode="contain"
+                // No className here, as the background image is now handled by the other Image
+                resizeMode="contain" // Ensures the full foreground image is visible
                 resizeMethod="resize"
+                onError={(error) => {
+                  console.log("Image load error:", error.nativeEvent.error);
+                }}
               />
             )}
           </TouchableOpacity>

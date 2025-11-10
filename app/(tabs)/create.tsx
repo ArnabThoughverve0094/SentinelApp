@@ -1,4 +1,5 @@
 import { db } from "@/FirebaseConfig";
+import compressImage from "@/components/CompressImage";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as DocumentPicker from 'expo-document-picker';
@@ -472,6 +473,7 @@ export default function CreatePost() {
         const invalidFiles: string[] = [];
 
         for (const asset of result.assets) {
+          const assetUri = await compressImage(asset.uri);
           const fileSize = asset.fileSize || 0;
           const fileName = asset.fileName || 'image.jpg';
 
@@ -480,7 +482,7 @@ export default function CreatePost() {
             // Don't add to validAssets, validation already showed error
           } else {
             validAssets.push({
-              uri: asset.uri,
+              uri: assetUri,
               name: fileName,
               type: asset.mimeType || 'image/jpeg',
               size: fileSize,
@@ -533,57 +535,7 @@ export default function CreatePost() {
 
     if (!result.canceled && result.assets) {
       const asset = result.assets[0];
-      return handleMediaSelection(asset);
-      // const fileSize = asset.fileSize || 0;
-      // const fileName = asset.fileName || 'video.mp4';
-
-      // console.log(`📹 Selected video: ${fileName}, Size: ${formatFileSize(fileSize)}`);
-
-      // if (!validateFileSize(fileSize, fileName, 'video')) {
-      //   return;
-      // }
-
-      // // **NEW: Warn about large files that may take time to upload**
-      // const fileSizeMB = fileSize / (1024 * 1024);
-      // if (fileSizeMB > 100) {
-      //   showCustomAlert(
-      //     'warning',
-      //     'Large Video Selected',
-      //     `This video is ${formatFileSize(fileSize)}. Uploading may take several minutes depending on your internet connection.\n\n💡 Tip: For faster uploads, compress the video before uploading.`,
-      //     [
-      //       {
-      //         text: 'Cancel',
-      //         style: 'cancel',
-      //         onPress: hideModal
-      //       },
-      //       {
-      //         text: 'Continue Anyway',
-      //         onPress: () => {
-      //           hideModal();
-      //           setSelectedMedia((curr) => [...curr, {
-      //             uri: asset.uri,
-      //             name: fileName,
-      //             type: asset.mimeType || 'video/mp4',
-      //             size: fileSize,
-      //           }]);
-      //           console.log(`✅ Video added successfully: ${fileName}`);
-      //         }
-      //       }
-      //     ],
-      //     'time-outline'
-      //   );
-      //   return;
-      // } else {
-      //   setSelectedMedia((curr) => [...curr, {
-      //     uri: asset.uri,
-      //     name: fileName,
-      //     type: asset.mimeType || 'video/mp4',
-      //     size: fileSize,
-      //   }]);
-        
-      //   console.log(`✅ Video added successfully: ${fileName}`);
-      // }
-      
+      return handleVideoMediaSelection(asset);
     }
   } catch (error) {
     const errorDetails = getErrorDetails(error, 'video');
@@ -594,7 +546,7 @@ export default function CreatePost() {
 };
 
 // Assuming this is inside a function that handles selecting and processing media
-const handleMediaSelection = async (asset) => { // <<< MUST BE ASYNC
+const handleVideoMediaSelection = async (asset) => { // <<< MUST BE ASYNC
   // 1. Await the compression result
   // The 'assetUri' is now the actual local file path (a string), not a Promise.
   const assetUri = await compressAndGetUrl(asset.uri);
@@ -651,6 +603,7 @@ const handleMediaSelection = async (asset) => { // <<< MUST BE ASYNC
   
 };
 
+//Compress Video
 const compressAndGetUrl = async (localUri) => {
   setUploadProgress(true);
   try {
@@ -1171,7 +1124,7 @@ const compressAndGetUrl = async (localUri) => {
                             borderRadius: 12,
                             backgroundColor: "#F3F4F6",
                           }}
-                          resizeMode="cover"
+                          resizeMode="contain"
                         />
                       ) : (
                         <View
