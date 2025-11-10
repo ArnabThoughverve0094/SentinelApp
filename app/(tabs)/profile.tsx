@@ -657,6 +657,8 @@ export default function ProfilePage(): React.JSX.Element {
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [fullScreenVideo, setFullScreenVideo] = useState<string | null>(null);
     const [isVideoModalVisible, setIsVideoModalVisible] = useState(false);
+    const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+    const [isImageModalVisible, setIsImageModalVisible] = useState(false);
   
 
   // Posts related states
@@ -1634,10 +1636,12 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
       setIsUploading(false);
     }
   };
+
   const fullScreenVideoPlayer = useVideoPlayer(fullScreenVideo || '', (player) => {
     player.loop = false;
     player.play();
   });
+
   const VideoPlayer = useCallback(({ videoUrl, index }: { videoUrl: string; index?: number }) => {
     const player = useVideoPlayer(videoUrl, (player) => {
       player.loop = true;
@@ -1768,6 +1772,26 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
   const addResponseGraphModal = useCallback(() => {
     setIsGraphModalVisible(false);
     setIsCommentModalVisible(true);
+  }, []);
+
+  const openFullScreenImage = useCallback((imageUrl: string) => {
+    setFullScreenImage(imageUrl);
+    setIsImageModalVisible(true);
+  }, []);
+
+  const closeFullScreenImage = useCallback(() => {
+    setIsImageModalVisible(false);
+    setFullScreenImage(null);
+  }, []);
+
+  const openFullScreenVideo = useCallback((videoUrl: string) => {
+    setFullScreenVideo(videoUrl);
+    setIsVideoModalVisible(true);
+  }, []);
+
+  const closeFullScreenVideo = useCallback(() => {
+    setIsVideoModalVisible(false);
+    setFullScreenVideo(null);
   }, []);
 
   const toggleLike = useCallback(async (postItem: PostItem) => {
@@ -2059,6 +2083,10 @@ const handleSharePost = useCallback(async (postItem: PostItem) => {
       return (
         <View className="mb-2">
           <TouchableOpacity 
+            onPress={(e) => {
+              e?.stopPropagation?.();
+              openFullScreenImage(primaryMediaUrl);
+            }}
             activeOpacity={0.95}
           >
             <View className="relative rounded-xl overflow-hidden">
@@ -2099,6 +2127,10 @@ const handleSharePost = useCallback(async (postItem: PostItem) => {
       return (
         <View className="mb-2">
           <TouchableOpacity 
+            onPress={(e) => {
+              e?.stopPropagation?.();
+              openFullScreenVideo(primaryMediaUrl);
+            }}
             activeOpacity={0.95}
           >
             <VideoPlayer videoUrl={primaryMediaUrl} index={index} />
@@ -3029,6 +3061,74 @@ const handleSharePost = useCallback(async (postItem: PostItem) => {
         </Modal>
       )}
 
+      {/* IMAGE MODAL */}
+      <Modal
+        visible={isImageModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeFullScreenImage}
+        statusBarTranslucent
+      >
+        <View className="flex-1 bg-black">
+          <TouchableOpacity 
+            className="absolute top-12 right-6 z-10 p-3 rounded-full bg-black/60 backdrop-blur-sm"
+            onPress={closeFullScreenImage}
+          >
+            <Ionicons name="close" size={24} color="white" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            className="flex-1 justify-center items-center"
+            activeOpacity={1}
+            onPress={closeFullScreenImage}
+          >
+            {fullScreenImage && (
+              <Image
+                source={{ uri: fullScreenImage }}
+                style={{
+                  width: '100%',
+                  height: '100%', // Fills the parent View
+                }}
+                // No className here, as the background image is now handled by the other Image
+                resizeMode="contain" // Ensures the full foreground image is visible
+                resizeMethod="resize"
+                onError={(error) => {
+                  console.log("Image load error:", error.nativeEvent.error);
+                }}
+              />
+            )}
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* VIDEO MODAL - UPDATED */}
+      <Modal
+        visible={isVideoModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeFullScreenVideo}
+        statusBarTranslucent
+      >
+        <View className="flex-1 bg-black">
+          <TouchableOpacity 
+            className="absolute top-12 right-6 z-10 p-3 rounded-full bg-black/60 backdrop-blur-sm"
+            onPress={closeFullScreenVideo}
+          >
+            <Ionicons name="close" size={24} color="white" />
+          </TouchableOpacity>
+          
+          <View className="flex-1 justify-center items-center">
+            {fullScreenVideo && (
+              <VideoView
+                player={fullScreenVideoPlayer}
+                style={{ width: screenWidth, height: screenHeight - 100 }}
+                contentFit="contain"
+                nativeControls={true}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
 
       {/* Edit Post Modal */}
         <Modal
