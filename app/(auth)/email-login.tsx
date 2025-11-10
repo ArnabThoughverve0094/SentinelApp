@@ -7,7 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Link, useRouter } from 'expo-router';
 import { addDoc, collection, onSnapshot, query, where } from 'firebase/firestore';
 import React, { useCallback, useState } from 'react';
-import { Image, KeyboardAvoidingView, Platform, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Image, ImageBackground, KeyboardAvoidingView, Platform, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type LoginResponse = {
@@ -307,11 +307,11 @@ export default function EmailLogin(): React.JSX.Element {
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       
       {/* Background Image */}
-      {/* <ImageBackground 
-        source={require('../../assets/images/page-bg.jpg')}
-        className="flex-1"
-        resizeMode="cover"
-      > */}
+      <ImageBackground
+              source={require("../../assets/images/white-bg.png")}
+              className="flex-1"
+              resizeMode="cover"
+            >
         <KeyboardAvoidingView
           className="flex-1"
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -491,7 +491,8 @@ export default function EmailLogin(): React.JSX.Element {
 
           </View>
         </KeyboardAvoidingView>
-      {/* </ImageBackground> */}
+      </ImageBackground>
+    
     </SafeAreaView>
   );
 }

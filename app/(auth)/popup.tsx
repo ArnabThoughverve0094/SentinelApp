@@ -40,7 +40,7 @@ export default function Index(): React.JSX.Element {
       />
       
       <ImageBackground
-        source={require("../../assets/images/redbg.png")}
+        source={require("../../assets/images/red-bg-watermark.png")}
         className="flex-1"
         resizeMode="cover"
       >
