@@ -23,6 +23,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { Video } from 'react-native-compressor';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -532,7 +533,72 @@ export default function CreatePost() {
 
     if (!result.canceled && result.assets) {
       const asset = result.assets[0];
-      const fileSize = asset.fileSize || 0;
+      return handleMediaSelection(asset);
+      // const fileSize = asset.fileSize || 0;
+      // const fileName = asset.fileName || 'video.mp4';
+
+      // console.log(`📹 Selected video: ${fileName}, Size: ${formatFileSize(fileSize)}`);
+
+      // if (!validateFileSize(fileSize, fileName, 'video')) {
+      //   return;
+      // }
+
+      // // **NEW: Warn about large files that may take time to upload**
+      // const fileSizeMB = fileSize / (1024 * 1024);
+      // if (fileSizeMB > 100) {
+      //   showCustomAlert(
+      //     'warning',
+      //     'Large Video Selected',
+      //     `This video is ${formatFileSize(fileSize)}. Uploading may take several minutes depending on your internet connection.\n\n💡 Tip: For faster uploads, compress the video before uploading.`,
+      //     [
+      //       {
+      //         text: 'Cancel',
+      //         style: 'cancel',
+      //         onPress: hideModal
+      //       },
+      //       {
+      //         text: 'Continue Anyway',
+      //         onPress: () => {
+      //           hideModal();
+      //           setSelectedMedia((curr) => [...curr, {
+      //             uri: asset.uri,
+      //             name: fileName,
+      //             type: asset.mimeType || 'video/mp4',
+      //             size: fileSize,
+      //           }]);
+      //           console.log(`✅ Video added successfully: ${fileName}`);
+      //         }
+      //       }
+      //     ],
+      //     'time-outline'
+      //   );
+      //   return;
+      // } else {
+      //   setSelectedMedia((curr) => [...curr, {
+      //     uri: asset.uri,
+      //     name: fileName,
+      //     type: asset.mimeType || 'video/mp4',
+      //     size: fileSize,
+      //   }]);
+        
+      //   console.log(`✅ Video added successfully: ${fileName}`);
+      // }
+      
+    }
+  } catch (error) {
+    const errorDetails = getErrorDetails(error, 'video');
+    showCustomAlert('error', errorDetails.title, errorDetails.message, [
+      { text: 'OK', onPress: hideModal }
+    ], errorDetails.icon);
+  }
+};
+
+// Assuming this is inside a function that handles selecting and processing media
+const handleMediaSelection = async (asset) => { // <<< MUST BE ASYNC
+  // 1. Await the compression result
+  // The 'assetUri' is now the actual local file path (a string), not a Promise.
+  const assetUri = await compressAndGetUrl(asset.uri);
+  const fileSize = asset.fileSize || 0;
       const fileName = asset.fileName || 'video.mp4';
 
       console.log(`📹 Selected video: ${fileName}, Size: ${formatFileSize(fileSize)}`);
@@ -559,7 +625,7 @@ export default function CreatePost() {
               onPress: () => {
                 hideModal();
                 setSelectedMedia((curr) => [...curr, {
-                  uri: asset.uri,
+                  uri: assetUri,
                   name: fileName,
                   type: asset.mimeType || 'video/mp4',
                   size: fileSize,
@@ -571,25 +637,43 @@ export default function CreatePost() {
           'time-outline'
         );
         return;
+      } else {
+        setSelectedMedia((curr) => [...curr, {
+          uri: assetUri,
+          name: fileName,
+          type: asset.mimeType || 'video/mp4',
+          size: fileSize,
+        }]);
+        
+        console.log(`✅ Video added successfully: ${fileName}`);
       }
 
-      setSelectedMedia((curr) => [...curr, {
-        uri: asset.uri,
-        name: fileName,
-        type: asset.mimeType || 'video/mp4',
-        size: fileSize,
-      }]);
-      
-      console.log(`✅ Video added successfully: ${fileName}`);
-    }
-  } catch (error) {
-    const errorDetails = getErrorDetails(error, 'video');
-    showCustomAlert('error', errorDetails.title, errorDetails.message, [
-      { text: 'OK', onPress: hideModal }
-    ], errorDetails.icon);
-  }
+  
 };
 
+const compressAndGetUrl = async (localUri) => {
+  try {
+    const compressedUri = await Video.compress(
+      localUri,
+      {
+        compressionMethod: 'auto', // Smart compression
+        // You can specify resolution, e.g., maxHeight: 720, maxWidth: 1280
+      },
+      (progress) => {
+        console.log('Compression Progress:', progress);
+      }
+    );
+
+    // After compression, you would typically upload 'compressedUri' to your server
+    // to get the public URL for playback.
+    // For example: const finalUrl = await uploadToServer(compressedUri);
+
+    return compressedUri; // Return the compressed local URI for testing/upload
+  } catch (error) {
+    console.error('Video Compression Error:', error);
+    return localUri; // Return original if compression fails
+  }
+};
 
   // **ENHANCED: Pick document with validation**
   const pickDocument = async () => {
