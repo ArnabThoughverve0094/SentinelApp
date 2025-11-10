@@ -652,13 +652,16 @@ const handleMediaSelection = async (asset) => { // <<< MUST BE ASYNC
 };
 
 const compressAndGetUrl = async (localUri) => {
+  setUploadProgress(true);
   try {
     const compressedUri = await Video.compress(
       localUri,
       {
-        compressionMethod: 'auto', // Smart compression
-        // You can specify resolution, e.g., maxHeight: 720, maxWidth: 1280
-      },
+        compressionMethod: 'auto', 
+        maxHeight: 854, // Target 480p/540p resolution
+        maxWidth: 480,
+        bitrate: 1500000, // Very low 1.5 Mbps
+      }as any,
       (progress) => {
         console.log('Compression Progress:', progress);
       }
@@ -668,10 +671,14 @@ const compressAndGetUrl = async (localUri) => {
     // to get the public URL for playback.
     // For example: const finalUrl = await uploadToServer(compressedUri);
 
+    console.log(`Compression successful.`);
+
     return compressedUri; // Return the compressed local URI for testing/upload
   } catch (error) {
     console.error('Video Compression Error:', error);
     return localUri; // Return original if compression fails
+  } finally {
+    setUploadProgress(false);
   }
 };
 
