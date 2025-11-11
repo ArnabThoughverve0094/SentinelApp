@@ -1421,7 +1421,7 @@ export default function BookmarksPage(): React.JSX.Element {
         {/* Search and Filter Section */}
         <View className="px-4 pb-4 mt-3">
           {/* Search Bar */}
-          <View className="flex-row items-center bg-gray-100 rounded-xl px-4 py-3 mb-3">
+          {/* <View className="flex-row items-center bg-gray-100 rounded-xl px-4 py-3 mb-3">
               <Ionicons name="search" size={20} color="#9ca3af" />
               <Text 
                 className="flex-1 ml-3 text-gray-700 text-base"
@@ -1441,7 +1441,7 @@ export default function BookmarksPage(): React.JSX.Element {
                   console.log("Sort/filter functionality to be implemented");
                 }}
               />
-            </View>
+            </View> */}
 
           {/* Filter Buttons */}
           <ScrollView 
