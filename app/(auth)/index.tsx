@@ -27,6 +27,11 @@ interface PostItem {
   Reposted: boolean;
   Bookmarked?: boolean;
   createdAt?: any;
+  isRepost?: boolean;
+  originalPost?: PostItem;
+  repostComment?: string;
+  repostedBy?: string;
+  repostedAt?: any;
   isAnonymous: boolean;
   contentType: string;
 }
@@ -54,6 +59,10 @@ export default function Index(): React.JSX.Element {
   const [isFlipped, setIsFlipped] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(-1);
+
+  //Repost modal
+  const [isRepostModalVisible, setIsRepostModalVisible] = useState(false);
+  const [selectedRepostPost, setSelectedRepostPost] = useState<PostItem | null>(null);
   
   // ✅ NEW: Scroll tracking and auth popup states
   const [scrollCount, setScrollCount] = useState(0);
@@ -189,8 +198,13 @@ export default function Index(): React.JSX.Element {
             Reposted: false,
             Bookmarked: false,
             createdAt: postData.createdAt || postData.ContentDate,
+            isRepost: postData.isRepost || false,
+            originalPost: postData.originalPost || null,
+            repostComment: postData.repostComment || '',
+            repostedBy: postData.repostedBy || '',
+            repostedAt: postData.repostedAt || null,
             isAnonymous: false,
-            contentType: postData.contentType || 'My Thoughts'
+            contentType: postData.contentType || 'My Thoughts',
           });
         }
 
@@ -234,8 +248,13 @@ export default function Index(): React.JSX.Element {
             Reposted: false,
             Bookmarked: false,
             createdAt: postData.createdAt || postData.ContentDate,
+            isRepost: postData.isRepost || false,
+            originalPost: postData.originalPost || null,
+            repostComment: postData.repostComment || '',
+            repostedBy: postData.repostedBy || '',
+            repostedAt: postData.repostedAt || null,
             isAnonymous: postData.isAnonymous || false,
-            contentType: postData.contentType || 'My Thoughts'
+            contentType: postData.contentType || 'My Thoughts',
           });
 
         }
@@ -423,6 +442,41 @@ export default function Index(): React.JSX.Element {
     return urlPath.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt)$/) ? 'doc' : 'image';
   }, []);
 
+  const renderRepostContent = useCallback((item: PostItem) => {
+    if (!item.isRepost || !item.originalPost) return null;
+
+    let AuthorName = "";
+    let AuthorImage = "";
+    if (item.originalPost.isAnonymous) {
+      AuthorName = "Anonymous";
+      AuthorImage = dummyAuthorImage;
+    } else {
+      AuthorName = item.originalPost.AuthorName;
+      AuthorImage = item.originalPost.AuthorImageURL;
+    }
+
+    return (
+      <View className="border border-gray-200 rounded-xl p-3 mt-2 bg-gray-50">
+        <View className="flex-row items-center mb-2">
+          <Image
+            // source={{ uri: item.originalPost.AuthorImageURL || dummyAuthorImage }}
+            source={{ uri: AuthorImage || dummyAuthorImage }}
+            className="w-6 h-6 rounded-full mr-2"
+            resizeMode="cover"
+            resizeMethod="resize"
+          />
+          <Text className="font-semibold text-gray-900 text-sm">{AuthorName}</Text>
+          <Text className="text-gray-500 text-xs ml-2">
+            {getTimeAgo(item.originalPost.ContentDate)}
+          </Text>
+        </View>
+        <Text className="text-gray-700 text-sm" numberOfLines={2}>
+          {item.originalPost.ContentDesc}
+        </Text>
+      </View>
+    );
+  }, [getTimeAgo, dummyAuthorImage]);
+  
   const renderMediaContent = useCallback((item: PostItem, index?: number) => {
     const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
                      (item.ContentURL ? [item.ContentURL] : []);
@@ -670,6 +724,8 @@ export default function Index(): React.JSX.Element {
         <View className="px-3 py-2.5">
           <Text className="text-gray-800 text-sm leading-5 mb-2"  numberOfLines={2}>{item.ContentDesc}</Text>
 
+          {renderRepostContent(item)}
+
           {renderMediaContent(item, index)}
 
           <View className="flex-row items-center">
@@ -867,7 +923,7 @@ export default function Index(): React.JSX.Element {
         </View>
       </EnhancedCard>
     </TouchableOpacity>
-  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, dummyAuthorImage, navigateToAuthScreen]);
+  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, dummyAuthorImage, navigateToAuthScreen, renderRepostContent]);
 
   const initializeCardAnimation = useCallback((postId: string) => {
     if (!cardAnimations[postId]) {

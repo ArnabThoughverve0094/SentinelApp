@@ -5,7 +5,7 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { arrayRemove, arrayUnion, collection, deleteDoc, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
+import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -39,6 +39,7 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 interface PostItem {
   id: string;
   uniqueId: string;
+  AuthorUserID?: string;
   AuthorImageURL: string;
   AuthorName: string;
   ContentDate: string;
@@ -56,6 +57,11 @@ interface PostItem {
   Bookmarked?: boolean;
   createdAt?: any;
   CommentTemplate: string;
+  isRepost?: boolean;
+  originalPost?: PostItem;
+  repostComment?: string;
+  repostedBy?: string;
+  repostedAt?: any;
   isAnonymous: boolean;
   contentType: string;
 }
@@ -378,6 +384,187 @@ const AppToast: React.FC<ToastProps> = ({ visible, message, type, onHide }) => {
   );
 };
 
+// Repost Modal Component
+interface RepostModalProps {
+  visible: boolean;
+  onClose: () => void;
+  post: PostItem | null;
+  onSimpleRepost: () => void;
+  onQuoteRepost: (comment: string) => void;
+}
+
+const RepostModal: React.FC<RepostModalProps> = ({
+  visible,
+  onClose,
+  post,
+  onSimpleRepost,
+  onQuoteRepost
+}) => {
+  const [repostComment, setRepostComment] = useState('');
+  const [isQuoteMode, setIsQuoteMode] = useState(false);
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+  const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
+
+  useEffect(() => {
+    if (visible) {
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      scaleAnim.setValue(0);
+      setRepostComment('');
+      setIsQuoteMode(false);
+    }
+  }, [visible, scaleAnim]);
+
+  const handleQuoteRepost = () => {
+    if (repostComment.trim()) {
+      onQuoteRepost(repostComment.trim());
+    }
+    onClose();
+  };
+
+  const handleSimpleRepost = () => {
+    onSimpleRepost();
+    onClose();
+  };
+
+  if (!visible || !post) return null;
+
+  let AuthorName = "";
+  let AuthorImage = "";
+  if (post.isAnonymous) {
+    AuthorName = "Anonymous";
+    AuthorImage = dummyAuthorImage;
+  } else {
+    AuthorName = post.AuthorName;
+    AuthorImage = post.AuthorImageURL;
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View className="flex-1 bg-black/50 items-center justify-end px-4 pb-8">
+        <Animated.View 
+          style={[{ transform: [{ scale: scaleAnim }] }]}
+          className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl"
+        >
+          <View className="px-6 py-4 border-b border-gray-100">
+            <View className="flex-row items-center justify-between">
+              <View className="flex-1">
+                <Text className="text-xl font-bold text-gray-900">Share this post</Text>
+                <Text className="text-gray-500 text-sm mt-1">Add your thoughts or share as is</Text>
+              </View>
+              <TouchableOpacity 
+                className="p-2 rounded-full bg-gray-100"
+                onPress={onClose}
+              >
+                <Ionicons name="close" size={20} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View className="px-6 py-4">
+            <View className="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-200">
+              <View className="flex-row items-center mb-2">
+                <Image
+                  // source={{ uri: post.AuthorImageURL }}
+                  source={{uri: AuthorImage || dummyAuthorImage}}
+                  className="w-8 h-8 rounded-full mr-2"
+                  resizeMode="cover"
+                  resizeMethod="resize"
+                />
+                <Text className="font-semibold text-gray-900 text-sm">{AuthorName}</Text>
+              </View>
+              <Text className="text-gray-700 text-sm" numberOfLines={2}>
+                {post.ContentDesc}
+              </Text>
+            </View>
+
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-gray-600 text-sm">Add your thoughts?</Text>
+              <TouchableOpacity
+                onPress={() => setIsQuoteMode(!isQuoteMode)}
+                className={`px-3 py-1 rounded-full border ${
+                  isQuoteMode ? 'bg-black border-black' : 'bg-gray-100 border-gray-300'
+                }`}
+              >
+                <Text className={`text-xs font-medium ${
+                  isQuoteMode ? 'text-white' : 'text-gray-600'
+                }`}>
+                  Quote
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {isQuoteMode && (
+              <View className="mb-4">
+                <TextInput
+                  className="border border-gray-300 rounded-xl p-3 text-gray-900 min-h-[80px]"
+                  placeholder="Add your comment..."
+                  placeholderTextColor="#9CA3AF"
+                  multiline
+                  textAlignVertical="top"
+                  value={repostComment}
+                  onChangeText={setRepostComment}
+                  maxLength={280}
+                />
+                <Text className="text-xs text-gray-500 mt-1 text-right">
+                  {repostComment.length}/280
+                </Text>
+              </View>
+            )}
+
+            <View className="flex-row space-x-3">
+              <TouchableOpacity
+                onPress={handleSimpleRepost}
+                className="flex-1 bg-gray-100 py-3 rounded-xl items-center"
+                activeOpacity={0.8}
+              >
+                <View className="flex-row items-center">
+                  <Ionicons name="repeat" size={18} color="#64748b" />
+                  <Text className="ml-2 text-gray-700 font-semibold">Repost</Text>
+                </View>
+              </TouchableOpacity>
+
+              {isQuoteMode && (
+                <TouchableOpacity
+                  onPress={handleQuoteRepost}
+                  className={`flex-1 py-3 rounded-xl items-center ${
+                    repostComment.trim() ? 'bg-black' : 'bg-gray-300'
+                  }`}
+                  activeOpacity={0.8}
+                  disabled={!repostComment.trim()}
+                >
+                  <View className="flex-row items-center">
+                    <MaterialCommunityIcons 
+                      name="comment-quote" 
+                      size={18} 
+                      color={repostComment.trim() ? "white" : "#9CA3AF"} 
+                    />
+                    <Text className={`ml-2 font-semibold ${
+                      repostComment.trim() ? 'text-white' : 'text-gray-500'
+                    }`}>
+                      Quote
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+};
+
 // Custom Modal Component with better UI
 interface CustomModalProps {
   visible: boolean;
@@ -683,6 +870,10 @@ export default function ProfilePage(): React.JSX.Element {
   const [selectedGraphPostId, setSelectedGraphPostId] = useState<string | null>(null);
   const [selectedGraphPostType, setSelectedGraphPostType] = useState<string | null>(null);
 
+  //Repost modal
+  const [isRepostModalVisible, setIsRepostModalVisible] = useState(false);
+  const [selectedRepostPost, setSelectedRepostPost] = useState<PostItem | null>(null);
+
   //Post menu options
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
@@ -935,144 +1126,6 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
     
     return urlPath.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt)$/) ? 'doc' : 'image';
   }, []);
-
-  // FIXED: Fetch ONLY the current user's posts WITHOUT complex Firebase queries
-  // const fetchUserPosts = useCallback(async (loadMore = false) => {
-  //   if (!userName && !userNickName) {
-  //     console.log('No user name available for filtering posts');
-  //     return;
-  //   }
-
-  //   // Set loading states
-  //   if (loadMore) {
-  //     setLoadingMore(true);
-  //   } else {
-  //     setLoading(true);
-  //   }
-
-  //   try {
-  //     console.log('🔍 Fetching posts for current user:', userName || userNickName);
-      
-  //     const allUserPosts: PostItem[] = [];
-
-  //     // FIXED: Use simple getDocs without complex queries to avoid Firebase index requirements
-  //     try {
-  //       const sentinelSnapshot = await getDocs(collection(db, 'SentinelPosts'));
-  //       const sentinelPosts = sentinelSnapshot.docs
-  //         .map(doc => {
-  //           const postData = doc.data();
-  //           return {
-  //             uniqueId: `sentinel-${doc.id}`,
-  //             id: doc.id,
-  //             AuthorImageURL: postData.AuthorImageURL || profilePicUrl,
-  //             AuthorName: postData.AuthorName,
-  //             ContentDate: postData.ContentDate,
-  //             ContentDesc: postData.ContentDesc,
-  //             ContentURL: postData.ContentURL,
-  //             ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
-  //             ContentLikeCount: postData.ContentLikeCount || 0,
-  //             ContentRepostCount: postData.ContentRepostCount || 0,
-  //             ContentCommentCount: postData.ContentCommentCount || 0,
-  //             isApproved: postData.isApproved || false,
-  //             isNew: postData.isNew !== undefined ? postData.isNew : true,
-  //             postType: "SentinelPosts",
-  //             Liked: (postData.LikedBy?.includes(userId) || false),
-  //             Reposted: false,
-  //             Bookmarked: (postData.BookmarkedBy?.includes(userId) || false),
-  //             createdAt: postData.createdAt || postData.ContentDate,
-  //             CommentTemplate: postData.CommentTemplate || "Template1",
-  //           } as PostItem;
-  //         })
-  //         .filter(post => {
-  //           // Client-side filtering to avoid Firebase index requirements
-  //           const isCurrentUser = post.AuthorName === userName || post.AuthorName === userNickName;
-  //           return isCurrentUser;
-  //         })
-  //         .sort((a, b) => {
-  //           // Client-side sorting by date
-  //           const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
-  //           const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
-  //           return dateB.getTime() - dateA.getTime();
-  //         });
-
-  //       allUserPosts.push(...sentinelPosts);
-  //       console.log(`✅ Found ${sentinelPosts.length} SentinelPosts for current user`);
-  //     } catch (sentinelError) {
-  //       console.warn('⚠️ Error fetching SentinelPosts:', sentinelError);
-  //     }
-
-  //     // Fetch from X-Data
-  //     try {
-  //       const xDataSnapshot = await getDocs(collection(db, 'X-Data'));
-  //       const xDataPosts = xDataSnapshot.docs
-  //         .map(doc => {
-  //           const postData = doc.data();
-  //           return {
-  //             uniqueId: `xdata-${doc.id}`,
-  //             id: doc.id,
-  //             AuthorImageURL: postData.AuthorImageURL || profilePicUrl,
-  //             AuthorName: postData.AuthorName,
-  //             ContentDate: postData.ContentDate,
-  //             ContentDesc: postData.ContentDesc,
-  //             ContentURL: postData.ContentURL,
-  //             ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
-  //             ContentLikeCount: postData.ContentLikeCount || 0,
-  //             ContentRepostCount: postData.ContentRepostCount || 0,
-  //             ContentCommentCount: postData.ContentCommentCount || 0,
-  //             isApproved: true,
-  //             isNew: false,
-  //             postType: "X-Data",
-  //             Liked: (postData.LikedBy?.includes(userId) || false),
-  //             Reposted: false,
-  //             Bookmarked: (postData.BookmarkedBy?.includes(userId) || false),
-  //             createdAt: postData.createdAt || postData.ContentDate,
-  //             CommentTemplate: postData.CommentTemplate || "Template1",
-  //           } as PostItem;
-  //         })
-  //         .filter(post => {
-  //           // Client-side filtering to avoid Firebase index requirements
-  //           const isCurrentUser = post.AuthorName === userName || post.AuthorName === userNickName;
-  //           return isCurrentUser;
-  //         })
-  //         .sort((a, b) => {
-  //           // Client-side sorting by date
-  //           const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
-  //           const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
-  //           return dateB.getTime() - dateA.getTime();
-  //         });
-
-  //       allUserPosts.push(...xDataPosts);
-  //       console.log(`✅ Found ${xDataPosts.length} X-Data posts for current user`);
-  //     } catch (xDataError) {
-  //       console.warn('⚠️ Error fetching X-Data:', xDataError);
-  //     }
-
-      // // Final sort of all combined posts
-      // const sortedPosts = allUserPosts.sort((a, b) => {
-      //   const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
-      //   const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
-      //   return dateB.getTime() - dateA.getTime();
-      // });
-
-  //     if (loadMore) {
-  //       setUserPosts(prev => [...prev, ...sortedPosts]);
-  //     } else {
-  //       setUserPosts(sortedPosts);
-  //     }
-      
-  //     console.log(`🎉 Total posts found for "${userName || userNickName}": ${sortedPosts.length}`);
-
-  //     // Check if there are more posts (simplified logic)
-  //     setHasMorePosts(sortedPosts.length > 0);
-
-  //   } catch (error) {
-  //     console.error('❌ Error fetching user posts:', error);
-  //     showToast('Failed to load posts', 'error');
-  //   } finally {
-  //     setLoading(false);
-  //     setLoadingMore(false);
-  //   }
-  // }, [userId, userName, userNickName, profilePicUrl]);
 
   const fetchUserPosts = useCallback(async (forceRefresh: boolean = false) => {
     let fetchuserID = userId;
@@ -1684,6 +1737,39 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
     );
   }, [currentVideoIndex]);
 
+  const openRepostModal = useCallback((postItem: PostItem) => {
+    if (areInteractionsDisabled(postItem)) {
+      Toast.show({
+        type: 'error',
+        text1: 'Action Not Available',
+        text2: 'This post has been rejected and interactions are disabled.',
+        position: 'bottom',
+        visibilityTime: 3000,
+      });
+      return;
+    }
+
+    if (postItem.Reposted) {
+      Toast.show({
+        type: 'success',
+        text1: 'Already Reposted',
+        text2: 'You have already reposted this Post.',
+        position: 'bottom',
+        visibilityTime: 2000,
+      });
+
+      return;
+    }
+
+    setSelectedRepostPost(postItem);
+    setIsRepostModalVisible(true);
+  }, [areInteractionsDisabled]);
+
+  const closeRepostModal = useCallback(() => {
+    setIsRepostModalVisible(false);
+    setSelectedRepostPost(null);
+  }, []);
+
   // TO OPEN COMMENTS MODAL
   const openCommentsModal = useCallback((item: PostItem) => {
   // Check if post is new (waiting for approval)
@@ -1869,6 +1955,182 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
   }
 }, [userId, areInteractionsDisabled]);
 
+  // SIMPLE REPOST WITH TOAST
+  const handleSimpleRepost = useCallback(async () => {
+  if (!selectedRepostPost) return;
+
+  try {
+    let fetchuserID = userId;
+    if(fetchuserID === ""){
+      fetchuserID = await AsyncStorage.getItem('userId') || "";
+      setUserId(fetchuserID);
+    }
+
+    const userInfo = await AsyncStorage.getItem('userName') || 'Anonymous';
+    const userImage = await AsyncStorage.getItem('profilePicUrl') || dummyAuthorImage;
+
+    if (selectedRepostPost.Reposted) {
+      Toast.show({
+        type: 'success',
+        text1: 'Already Reposted',
+        text2: 'You have already reposted this Post.',
+        position: 'bottom',
+        visibilityTime: 2000,
+      });
+    } else {
+      const postRef = doc(db, selectedRepostPost.postType, selectedRepostPost.id);
+      await updateDoc(postRef, {
+        ContentRepostCount: selectedRepostPost.ContentRepostCount + 1,
+        RepostedBy: arrayUnion(fetchuserID),
+      });
+
+      await addDoc(collection(db, 'SentinelPosts'), {
+        AuthorImageURL: userImage,
+        AuthorName: userInfo,
+        AuthorUserID: fetchuserID,
+        ContentDate: new Date(),
+        ContentDesc: selectedRepostPost.ContentDesc || '',
+        ContentURL: selectedRepostPost.ContentURL || '',
+        ContentURLs: selectedRepostPost.ContentURLs || [],
+        ContentLikeCount: 0,
+        ContentRepostCount: 0,
+        ContentCommentCount: 0,
+        isApproved: true,
+        isNew: false,
+        LikedBy: [],
+        RepostedBy: [],
+        BookmarkedBy: [],
+        createdAt: new Date(),
+        CommentTemplate: selectedRepostPost.CommentTemplate || "Sentinel Default Template",
+        isRepost: true,
+        originalPost: {
+          id: selectedRepostPost.id || '',
+          AuthorUserID: selectedRepostPost.AuthorUserID || '',
+          AuthorName: selectedRepostPost.AuthorName || 'Anonymous',
+          AuthorImageURL: selectedRepostPost.AuthorImageURL || dummyAuthorImage,
+          ContentDesc: selectedRepostPost.ContentDesc || '',
+          ContentDate: selectedRepostPost.ContentDate || new Date(),
+          postType: selectedRepostPost.postType || 'Unknown',
+          isAnonymous: selectedRepostPost.isAnonymous || false,
+          contentType: selectedRepostPost.contentType || 'My Thoughts'
+        },
+        repostComment: '',
+        repostedBy: fetchuserID,
+        repostedAt: new Date(),
+        isAnonymous: false,
+        contentType: 'Found Online'
+      });
+
+      Toast.show({
+        type: 'success',
+        text1: 'Reposted Successfully',
+        text2: 'Post has been shared to your followers.',
+        position: 'bottom',
+        visibilityTime: 2000,
+      });
+    }
+
+  } catch (error) {
+    console.error('Error handling repost:', error);
+    Toast.show({
+      type: 'error',
+      text1: 'Repost Failed',
+      text2: 'Failed to repost. Please try again.',
+      position: 'bottom',
+      visibilityTime: 3000,
+    });
+  }
+  }, [selectedRepostPost, userId]);
+
+  // QUOTE REPOST WITH TOAST
+  const handleQuoteRepost = useCallback(async (comment: string) => {
+  if (!selectedRepostPost) return;
+
+  try {
+    let fetchuserID = userId;
+    if(fetchuserID === ""){
+      fetchuserID = await AsyncStorage.getItem('userId') || "";
+      setUserId(fetchuserID);
+    }
+
+    const userInfo = await AsyncStorage.getItem('userName') || 'Anonymous';
+    const userImage = await AsyncStorage.getItem('profilePicUrl') || dummyAuthorImage;
+
+    
+
+    if (selectedRepostPost.Reposted) {
+      Toast.show({
+        type: 'success',
+        text1: 'Already Reposted',
+        text2: 'You have already reposted this Post.',
+        position: 'bottom',
+        visibilityTime: 2000,
+      });
+    } else {
+      const postRef = doc(db, selectedRepostPost.postType, selectedRepostPost.id);
+      await updateDoc(postRef, {
+        ContentRepostCount: selectedRepostPost.ContentRepostCount + 1,
+        RepostedBy: arrayUnion(fetchuserID),
+      });
+
+      await addDoc(collection(db, 'SentinelPosts'), {
+        AuthorImageURL: userImage,
+        AuthorName: userInfo,
+        AuthorUserID: fetchuserID,
+        ContentDate: new Date(),
+        ContentDesc: comment || '',
+        ContentURL: selectedRepostPost.ContentURL || '',
+        ContentURLs: selectedRepostPost.ContentURLs || [],
+        ContentLikeCount: 0,
+        ContentRepostCount: 0,
+        ContentCommentCount: 0,
+        isApproved: true,
+        isNew: false,
+        LikedBy: [],
+        RepostedBy: [],
+        BookmarkedBy: [],
+        createdAt: new Date(),
+        CommentTemplate: selectedRepostPost.CommentTemplate || "Sentinel Default Template",
+        isRepost: true,
+        originalPost: {
+          id: selectedRepostPost.id || '',
+          AuthorUserID: selectedRepostPost.AuthorUserID || '',
+          AuthorName: selectedRepostPost.AuthorName || 'Anonymous',
+          AuthorImageURL: selectedRepostPost.AuthorImageURL || dummyAuthorImage,
+          ContentDesc: selectedRepostPost.ContentDesc || '',
+          ContentDate: selectedRepostPost.ContentDate || new Date(),
+          postType: selectedRepostPost.postType || 'Unknown',
+          isAnonymous: selectedRepostPost.isAnonymous || false,
+          contentType: selectedRepostPost.contentType || 'My Thoughts'
+        },
+        repostComment: comment || '',
+        repostedBy: fetchuserID,
+        repostedAt: new Date(),
+        isAnonymous: false,
+        contentType: 'Found Online'
+      });
+    }
+
+    Toast.show({
+      type: 'success',
+      text1: 'Quote Repost Created',
+      text2: 'Your quote repost has been shared to your followers.',
+      position: 'bottom',
+      visibilityTime: 2000,
+    });
+
+  } catch (error) {
+    console.error('Error creating quote repost:', error);
+    Toast.show({
+      type: 'error',
+      text1: 'Quote Repost Failed',
+      text2: 'Failed to create quote repost. Please try again.',
+      position: 'bottom',
+      visibilityTime: 3000,
+    });
+  }
+  }, [selectedRepostPost, userId]);
+
 const handleRepost = useCallback(async (postItem: PostItem) => {
   // Check if post is new (waiting for approval)
   if (postItem.isNew) {
@@ -1895,23 +2157,10 @@ const handleRepost = useCallback(async (postItem: PostItem) => {
   }
 
   console.log('Repost pressed', postItem.id);
-  setUserPosts((prevData) =>
-    prevData.map((item) =>
-      item.uniqueId === postItem.uniqueId
-        ? {
-            ...item,
-            Reposted: !item.Reposted,
-            ContentRepostCount: item.Reposted
-              ? Math.max(0, item.ContentRepostCount - 1)
-              : item.ContentRepostCount + 1,
-          }
-        : item
-    )
-  );
-  await new Promise((r) => setTimeout(r, 200));
-}, [areInteractionsDisabled]);
+  openRepostModal(postItem);
+  }, [areInteractionsDisabled]);
 
-const handleBookmark = useCallback(async (postItem: PostItem) => {
+  const handleBookmark = useCallback(async (postItem: PostItem) => {
   // Check if post is new (waiting for approval)
   if (postItem.isNew) {
     Toast.show({
@@ -1977,9 +2226,9 @@ const handleBookmark = useCallback(async (postItem: PostItem) => {
       visibilityTime: 2000,
     });
   }
-}, [userId, areInteractionsDisabled]);
+  }, [userId, areInteractionsDisabled]);
 
-const handleSharePost = useCallback(async (postItem: PostItem) => {
+  const handleSharePost = useCallback(async (postItem: PostItem) => {
   // Check if post is new (waiting for approval)
   if (postItem.isNew) {
     Toast.show({
@@ -2028,7 +2277,7 @@ const handleSharePost = useCallback(async (postItem: PostItem) => {
       visibilityTime: 2000,
     });
   }
-}, [areInteractionsDisabled]);
+  }, [areInteractionsDisabled]);
 
 
   //Post options
@@ -2068,6 +2317,41 @@ const handleSharePost = useCallback(async (postItem: PostItem) => {
      ]
    );
  };
+
+ const renderRepostContent = useCallback((item: PostItem) => {
+  if (!item.isRepost || !item.originalPost) return null;
+
+  let AuthorName = "";
+  let AuthorImage = "";
+  if (item.originalPost.isAnonymous) {
+    AuthorName = "Anonymous";
+    AuthorImage = dummyAuthorImage;
+  } else {
+    AuthorName = item.originalPost.AuthorName;
+    AuthorImage = item.originalPost.AuthorImageURL;
+  }
+
+  return (
+    <View className="border border-gray-200 rounded-xl p-3 mt-2 bg-gray-50">
+      <View className="flex-row items-center mb-2">
+        <Image
+          // source={{ uri: item.originalPost.AuthorImageURL || dummyAuthorImage }}
+          source={{ uri: AuthorImage || dummyAuthorImage }}
+          className="w-6 h-6 rounded-full mr-2"
+          resizeMode="cover"
+          resizeMethod="resize"
+        />
+        <Text className="font-semibold text-gray-900 text-sm">{AuthorName}</Text>
+        <Text className="text-gray-500 text-xs ml-2">
+          {getTimeAgo(item.originalPost.ContentDate)}
+        </Text>
+      </View>
+      <Text className="text-gray-700 text-sm" numberOfLines={2}>
+        {item.originalPost.ContentDesc}
+      </Text>
+    </View>
+  );
+}, [getTimeAgo, dummyAuthorImage]);
 
   // OPTIMIZED MEDIA CONTENT - REDUCED SIZES
   const renderMediaContent = useCallback((item: PostItem, index?: number) => {
@@ -2274,6 +2558,8 @@ const handleSharePost = useCallback(async (postItem: PostItem) => {
       <View className="px-3 py-2.5">
         <Text className="text-gray-800 text-sm leading-5 mb-2 font-normal">{item.ContentDesc}</Text>
 
+        {renderRepostContent(item)}
+
         {renderMediaContent(item, index)}
 
         {/* UPDATED: Post Actions with DISABLED STATE for rejected posts */}
@@ -2385,7 +2671,7 @@ const handleSharePost = useCallback(async (postItem: PostItem) => {
             </View>
       </View>
     </TouchableOpacity>
-  ), [openCommentsModal, toggleLike, handleRepost, handleBookmark, handleSharePost, openGraphModal, renderMediaContent, getTimeAgo, getPostStatus, profilePicUrl, dummyAuthorImage, areInteractionsDisabled]);
+  ), [openCommentsModal, toggleLike, handleRepost, handleBookmark, handleSharePost, openGraphModal, renderMediaContent, getTimeAgo, getPostStatus, profilePicUrl, dummyAuthorImage, areInteractionsDisabled, renderRepostContent]);
 
   // Refresh function
   const onRefresh = useCallback(async () => {
@@ -2767,6 +3053,14 @@ const handleSharePost = useCallback(async (postItem: PostItem) => {
         {/* Bottom spacing */}
         <View style={{ height: 80 }} />
       </ScrollView>
+
+      <RepostModal
+        visible={isRepostModalVisible}
+        onClose={closeRepostModal}
+        post={selectedRepostPost}
+        onSimpleRepost={handleSimpleRepost}
+        onQuoteRepost={handleQuoteRepost}
+      />
 
       {/* Comments Modal */}
       {selectedPostId && selectedPostType && selectedPostData && (
