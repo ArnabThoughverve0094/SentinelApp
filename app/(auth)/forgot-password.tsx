@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Link, router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Image, KeyboardAvoidingView, Modal, Platform, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Animated,ImageBackground, Image, KeyboardAvoidingView, Modal, Platform, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Custom Modal Component
@@ -298,11 +298,11 @@ export default function ForgotPassword(): React.JSX.Element {
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       
       {/* Background Image */}
-      {/* <ImageBackground 
-        source={require('../../assets/images/page-bg.jpg')}
-        className="flex-1"
-        resizeMode="cover"
-      > */}
+      <ImageBackground
+                    source={require("../../assets/images/white-bg.png")}
+                    className="flex-1"
+                    resizeMode="cover"
+                  >
         <KeyboardAvoidingView
           className="flex-1"
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -405,7 +405,7 @@ export default function ForgotPassword(): React.JSX.Element {
             </Link>
           </View>
         </KeyboardAvoidingView>
-      {/* </ImageBackground> */}
+      </ImageBackground>
 
       {/* Custom Modal - Only for success and network errors */}
       <CustomModal

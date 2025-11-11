@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  ImageBackground,
   ScrollView,
   StatusBar,
   Text,
@@ -654,11 +655,11 @@ export default function Register(): React.JSX.Element {
         backgroundColor="transparent"
         translucent
       />
-      {/* <ImageBackground 
-        source={require('../../assets/images/page-bg.jpg')}
-        className="flex-1"
-        resizeMode="cover"
-      > */}
+      <ImageBackground
+              source={require("../../assets/images/white-bg.png")}
+              className="flex-1"
+              resizeMode="cover"
+            >
 
       <KeyboardAvoidingView
         className="flex-1"
@@ -1057,7 +1058,7 @@ export default function Register(): React.JSX.Element {
           onClose={hideModal}
         />
       </KeyboardAvoidingView>
-      {/* </ImageBackground> */}
+      </ImageBackground>
     </SafeAreaView>
   );
 }

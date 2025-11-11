@@ -2136,7 +2136,7 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
   }, [fullScreenCard, areInteractionsDisabled, userId]);
 
   const handleShare = useCallback(async (postItem: PostItem) => {
-    console.log("Share pressed:", postItem.id);
+    console.log("Share pressed:", postItem?.id);
     
     const available = await Sharing.isAvailableAsync();
     if (!available) {
@@ -2151,16 +2151,40 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
     }
 
     try {
-      if (postItem.isAnonymous) {
-        await Share.share({
-          message: `SENTINEL POST\n\nShared by Anonymous\n${postItem.ContentDesc}\n${postItem.ContentURL}\n\nPlease take a look.`,
-        });
-      } else {
-        await Share.share({
-          message: `SENTINEL POST\n\nShared by ${postItem.AuthorName}\n${postItem.ContentDesc}\n${postItem.ContentURL}\n\nPlease take a look.`,
-        });
-      }
+      const postUrl = `https://main.d29wx1onz1k3b1.amplifyapp.com/post/${postItem?.id}`;
       
+      const shareMessage = postItem.isAnonymous
+        ? `✨ SENTINEL POST ✨
+
+      👤 Shared by Anonymous
+
+      💭 ${postItem.ContentDesc}
+
+      🔗 Tap to view this amazing post:
+      ${postUrl}
+
+      ━━━━━━━━━━━━━━━
+      📱 Join the conversation on Sentinel and discover more!`
+        : `✨ SENTINEL POST ✨
+
+      🌟 Shared by ${postItem.AuthorName}
+
+      💭 ${postItem.ContentDesc}
+
+      🔗 Tap to view this amazing post:
+      ${postUrl}
+
+      ━━━━━━━━━━━━━━━
+      📱 Join the conversation on Sentinel and discover more!`;
+
+      await Share.share({
+        message: shareMessage,
+        url: postUrl,
+        title: '✨ Check out this Sentinel post',
+      });
+
+
+
       
     } catch (error) {
       console.log("Error sharing ", error);
@@ -2175,6 +2199,8 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
 
     await new Promise(r => setTimeout(r, 200));
   }, []);
+
+
 
   // UPDATED: VideoPlayer component using expo-video
   const VideoPlayer = useCallback(({ videoUrl, index }: { videoUrl: string; index?: number }) => {
