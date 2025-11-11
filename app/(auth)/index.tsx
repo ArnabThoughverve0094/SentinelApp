@@ -90,45 +90,49 @@ export default function Index(): React.JSX.Element {
   });
 
   const VideoPlayer = useCallback(({ videoUrl, index }: { videoUrl: string; index?: number }) => {
-    const player = useVideoPlayer(videoUrl, (player) => {
-      player.loop = true;
-      player.muted = true;
-      if (currentVideoIndex === index) {
-        player.play();
-      } else {
-        player.pause();
-      }
-    });
+  const player = useVideoPlayer(videoUrl, (player) => {
+    player.loop = true;
+    player.muted = true;
+    if (currentVideoIndex === index) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  });
 
-    useEffect(() => {
-      if (currentVideoIndex === index) {
-        player.play();
-      } else {
-        player.pause();
-      }
-    }, [currentVideoIndex, index, player]);
+  useEffect(() => {
+    if (currentVideoIndex === index) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  }, [currentVideoIndex, index, player]);
 
-    return (
-      <View className="relative rounded-xl overflow-hidden bg-black">
-        <VideoView
-          player={player}
-          style={{ width: '100%', height: 200 }}
-          contentFit="contain"
-          nativeControls={false}
-        />
-        <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
-          <Ionicons name="play-outline" size={14} color="white" />
-        </View>
-        {currentVideoIndex !== index && (
-          <View className="absolute inset-0 bg-black/20 items-center justify-center">
-            <View className="w-10 h-10 bg-black/60 rounded-full items-center justify-center">
-              <Ionicons name="play" size={20} color="white" />
-            </View>
-          </View>
-        )}
+  return (
+    <View className="relative rounded-xl overflow-hidden bg-black">
+      <VideoView
+        player={player}
+        style={{ 
+          width: '100%', 
+          aspectRatio: 16 / 9  // Changed from fixed height to aspectRatio
+        }}
+        contentFit="cover"  // Changed from "contain" to "cover"
+        nativeControls={false}
+      />
+      <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+        <Ionicons name="play-outline" size={14} color="white" />
       </View>
-    );
-  }, [currentVideoIndex]);
+      {currentVideoIndex !== index && (
+        <View className="absolute inset-0 bg-black/20 items-center justify-center">
+          <View className="w-10 h-10 bg-black/60 rounded-full items-center justify-center">
+            <Ionicons name="play" size={20} color="white" />
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}, [currentVideoIndex]);
+
 
   const navigateToAuthScreen = useCallback(() => {
     try {
@@ -478,131 +482,120 @@ export default function Index(): React.JSX.Element {
   }, [getTimeAgo, dummyAuthorImage]);
   
   const renderMediaContent = useCallback((item: PostItem, index?: number) => {
-    const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
-                     (item.ContentURL ? [item.ContentURL] : []);
-    
-    if (!mediaUrls || mediaUrls.length === 0) return null;
+  const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
+                   (item.ContentURL ? [item.ContentURL] : []);
+  
+  if (!mediaUrls || mediaUrls.length === 0) return null;
 
-    const primaryMediaUrl = mediaUrls[0];
-    const mediaType = getMediaType(primaryMediaUrl);
+  const primaryMediaUrl = mediaUrls[0];
+  const mediaType = getMediaType(primaryMediaUrl);
 
-    if (mediaType === 'image') {
-      return (
-        <View className="mb-2">
-          <TouchableOpacity 
-            onPress={(e) => {
-              e?.stopPropagation?.();
-              openFullScreenImage(primaryMediaUrl);
-            }}
-            activeOpacity={0.95}
-          >
-            <View className="relative rounded-xl overflow-hidden">
-              {/* Background Image (faded) */}
-              <Image
-                source={{ uri: primaryMediaUrl }}
-                style={{
-                  width: '100%',
-                  height: 200, // Fills the parent View
-                  position: 'absolute', // Allows other content to layer on top
-                  opacity: 0.2, // Adjust for desired transparency (0.0 to 1.0)
-                }}
-                className="bg-white" // This background will be visible if the image doesn't fill
-                resizeMode="cover" // The background image usually covers the entire area
-                blurRadius={5} // Optional: Add a blur effect to the background
-                resizeMethod="resize"
-              />
-
-              {/* Foreground Image (main) */}
-              <Image
-                source={{ uri: primaryMediaUrl }}
-                style={{
-                  width: '100%',
-                  height: 200, // Fills the parent View
-                }}
-                // No className here, as the background image is now handled by the other Image
-                resizeMode="contain" // Ensures the full foreground image is visible
-                resizeMethod="resize"
-                onError={(error) => {
-                  console.log("Image load error:", error.nativeEvent.error);
-                }}
-              />
-              <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
-                <Ionicons name="expand-outline" size={14} color="white" />
-              </View>
-            </View>
-          </TouchableOpacity>
-        </View>
-      );
-    } else if (mediaType === 'video') {
-      return (
-        <View className="mb-2">
-          <TouchableOpacity 
-            onPress={(e) => {
-              e?.stopPropagation?.();
-              openFullScreenVideo(primaryMediaUrl);
-            }}
-            activeOpacity={0.95}
-          >
-            <VideoPlayer videoUrl={primaryMediaUrl} index={index} />
-          </TouchableOpacity>
-        </View>
-      );
-    } else if (mediaType === 'gif') {
-      return (
-        <View className="mb-2">
-          <TouchableOpacity 
-            onPress={(e) => {
-              e?.stopPropagation?.();
-              openFullScreenImage(primaryMediaUrl);
-            }}
-            activeOpacity={0.95}
-          >
-            <View className="relative rounded-xl overflow-hidden">
-              <Image
-                source={{ uri: primaryMediaUrl }}
-                style={{ width: '100%', height: 200 }}
-                className="bg-gray-100"
-                resizeMode="cover"
-              />
-              <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
-                 <MaterialIcons name="gif" size={20} color="white" />
-              </View>
-            </View>
-          </TouchableOpacity>
-        </View>
-      );
-    } else if (mediaType === 'doc') {
-      return (
-        <View className="mb-2">
-          <TouchableOpacity 
-            onPress={(e) => {
-              e?.stopPropagation?.();
-              openFullScreenDoc(primaryMediaUrl);
-            }}
-            activeOpacity={0.95}
-          >
-            <View
+  if (mediaType === 'image') {
+    return (
+      <View className="mb-2">
+        <TouchableOpacity 
+          onPress={(e) => {
+            e?.stopPropagation?.();
+            openFullScreenImage(primaryMediaUrl);
+          }}
+          activeOpacity={0.95}
+        >
+          <View className="relative rounded-xl overflow-hidden bg-gray-100">
+            {/* Single Full-Width Image - No Blur Background */}
+            <Image
+              source={{ uri: primaryMediaUrl }}
               style={{
-                borderRadius: 12,
-                overflow: 'hidden',
-                backgroundColor: '#EEF2F6',
-                alignItems: 'center',
-                justifyContent: 'center',
-                height: 80,
-              }}>
-              <Ionicons name="document-text-outline" size={32} color="#8B5CF6" />
-              <Text numberOfLines={1} style={{ color: '#333', marginTop: 4, textAlign: 'center', paddingHorizontal: 12, fontSize: 11 }}>
-                {primaryMediaUrl.split('/').pop() || 'Document'}
-              </Text>
-              <Text style={{ color: '#aaa', fontSize: 9, marginTop: 1 }}>Tap to open</Text>
+                width: '100%',
+                aspectRatio: 16 / 9, // Adjust based on your preference (e.g., 4/3, 1/1)
+              }}
+              resizeMode="cover" // Changed from 'contain' to fill the entire area
+              resizeMethod="resize"
+              onError={(error) => {
+                console.log("Image load error:", error.nativeEvent.error);
+              }}
+            />
+            
+            <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+              <Ionicons name="expand-outline" size={14} color="white" />
             </View>
-          </TouchableOpacity>
-        </View>
-      );
-    } else {
-      return null;
-    }
-  }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, VideoPlayer]);
+          </View>
+        </TouchableOpacity>
+      </View>
+    );
+  } else if (mediaType === 'video') {
+    return (
+      <View className="mb-2">
+        <TouchableOpacity 
+          onPress={(e) => {
+            e?.stopPropagation?.();
+            openFullScreenVideo(primaryMediaUrl);
+          }}
+          activeOpacity={0.95}
+        >
+          <VideoPlayer videoUrl={primaryMediaUrl} index={index} />
+        </TouchableOpacity>
+      </View>
+    );
+  } else if (mediaType === 'gif') {
+    return (
+      <View className="mb-2">
+        <TouchableOpacity 
+          onPress={(e) => {
+            e?.stopPropagation?.();
+            openFullScreenImage(primaryMediaUrl);
+          }}
+          activeOpacity={0.95}
+        >
+          <View className="relative rounded-xl overflow-hidden bg-gray-100">
+            {/* GIF - Full Width with Cover */}
+            <Image
+              source={{ uri: primaryMediaUrl }}
+              style={{ 
+                width: '100%', 
+                aspectRatio: 16 / 9 
+              }}
+              resizeMode="cover"
+            />
+            <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+               <MaterialIcons name="gif" size={20} color="white" />
+            </View>
+          </View>
+        </TouchableOpacity>
+      </View>
+    );
+  } else if (mediaType === 'doc') {
+    return (
+      <View className="mb-2">
+        <TouchableOpacity 
+          onPress={(e) => {
+            e?.stopPropagation?.();
+            openFullScreenDoc(primaryMediaUrl);
+          }}
+          activeOpacity={0.95}
+        >
+          <View
+            style={{
+              borderRadius: 12,
+              overflow: 'hidden',
+              backgroundColor: '#EEF2F6',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: 80,
+            }}>
+            <Ionicons name="document-text-outline" size={32} color="#000000" />
+            <Text numberOfLines={1} style={{ color: '#333', marginTop: 4, textAlign: 'center', paddingHorizontal: 12, fontSize: 11 }}>
+              {primaryMediaUrl.split('/').pop() || 'Document'}
+            </Text>
+            <Text style={{ color: '#aaa', fontSize: 9, marginTop: 1 }}>Tap to open</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+    );
+  } else {
+    return null;
+  }
+}, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, VideoPlayer]);
+
 
   // ✅ NEW: Handle scroll with counter for popup trigger
   const handleScroll = useCallback((event: any) => {

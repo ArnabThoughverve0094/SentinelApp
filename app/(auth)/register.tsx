@@ -575,15 +575,21 @@ export default function Register(): React.JSX.Element {
     }
   };
 
-  const handleDateChange = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(Platform.OS === "ios");
+    const handleDateChange = (event, selectedDate) => {
+    setShowDatePicker(false);
+    
     if (selectedDate) {
-      setDob(selectedDate);
-      if (errors.dob) {
-        setErrors((prev) => ({ ...prev, dob: undefined }));
+      const ageError = validateAge(selectedDate);
+      
+      if (ageError) {
+        setErrors({ ...errors, dob: ageError });
+      } else {
+        setDob(selectedDate);
+        setErrors({ ...errors, dob: null });
       }
     }
   };
+
 
   const handleCountrySelect = (selectedCountry: string) => {
     setCountry(selectedCountry);
@@ -647,6 +653,40 @@ export default function Register(): React.JSX.Element {
   const handlePrivacyPress = () => {
     router.push("/(auth)/privacypolicy");
   };
+
+  const getMaximumDate = () => {
+  const today = new Date();
+  const maxDate = new Date(
+    today.getFullYear() - 18,
+    today.getMonth(),
+    today.getDate()
+  );
+  return maxDate;
+};
+
+const validateAge = (birthDate) => {
+  if (!birthDate) {
+    return "Please select your date of birth";
+  }
+
+  const today = new Date();
+  const birth = new Date(birthDate);
+  
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  
+  // Adjust age if birthday hasn't occurred this year yet
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+
+  if (age < 18) {
+    return "You must be at least 18 years old";
+  }
+
+  return null; // Valid
+};
+
 
   return (
     <SafeAreaView className="flex-1">
@@ -913,7 +953,7 @@ export default function Register(): React.JSX.Element {
                       dob ? "text-gray-900" : "text-gray-400"
                     }`}
                   >
-                    {dob ? formatDate(dob) : "Select date of birth"}
+                    {dob ? formatDate(dob) : "Select date of birth (18+)"}
                   </Text>
                   <Ionicons name="calendar-outline" size={20} color="#9CA3AF" />
                 </TouchableOpacity>
@@ -925,15 +965,16 @@ export default function Register(): React.JSX.Element {
 
                 {showDatePicker && (
                   <DateTimePicker
-                    value={dob || new Date()}
+                    value={dob || getMaximumDate()}
                     mode="date"
                     display="default"
                     onChange={handleDateChange}
-                    maximumDate={new Date()}
+                    maximumDate={getMaximumDate()}
                     minimumDate={new Date(1900, 0, 1)}
                   />
                 )}
               </View>
+
 
               {/* Country input */}
               <View className="mb-6">

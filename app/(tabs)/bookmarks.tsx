@@ -341,7 +341,7 @@ export default function BookmarksPage(): React.JSX.Element {
     player.loop = false;
     player.play();
   });
-  const VideoPlayer = useCallback(({ videoUrl, index }: { videoUrl: string; index?: number }) => {
+    const VideoPlayer = useCallback(({ videoUrl, index }: { videoUrl: string; index?: number }) => {
     const player = useVideoPlayer(videoUrl, (player) => {
       player.loop = true;
       player.muted = true;
@@ -365,8 +365,11 @@ export default function BookmarksPage(): React.JSX.Element {
       <View className="relative rounded-xl overflow-hidden bg-black">
         <VideoView
           player={player}
-          style={{ width: '100%', height: 200 }}
-          contentFit="contain"
+          style={{ 
+            width: '100%', 
+            aspectRatio: 16 / 9  // Changed from fixed height to responsive aspectRatio
+          }}
+          contentFit="cover"  // Changed from "contain" to "cover" for full-area display
           nativeControls={false}
         />
         <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
@@ -382,6 +385,7 @@ export default function BookmarksPage(): React.JSX.Element {
       </View>
     );
   }, [currentVideoIndex]);
+
 
   const getMediaType = useCallback((url: string) => {
     if (!url) return 'unknown';
@@ -1012,9 +1016,9 @@ export default function BookmarksPage(): React.JSX.Element {
   }, [getTimeAgo, dummyAuthorImage]);
 
   // OPTIMIZED MEDIA CONTENT
-  const renderMediaContent = useCallback((item: PostItem, index?: number) => {
+    const renderMediaContent = useCallback((item: PostItem, index?: number) => {
     const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
-                     (item.ContentURL ? [item.ContentURL] : []);
+                    (item.ContentURL ? [item.ContentURL] : []);
     
     if (!mediaUrls || mediaUrls.length === 0) return null;
 
@@ -1031,36 +1035,21 @@ export default function BookmarksPage(): React.JSX.Element {
             }}
             activeOpacity={0.95}
           >
-            <View className="relative rounded-xl overflow-hidden">
-              {/* Background Image (faded) */}
+            <View className="relative rounded-xl overflow-hidden bg-gray-100">
+              {/* Single Full-Width Image - No Blur Background */}
               <Image
                 source={{ uri: primaryMediaUrl }}
                 style={{
                   width: '100%',
-                  height: 200, // Fills the parent View
-                  position: 'absolute', // Allows other content to layer on top
-                  opacity: 0.2, // Adjust for desired transparency (0.0 to 1.0)
+                  aspectRatio: 16 / 9, // Adjust based on your preference
                 }}
-                className="bg-white" // This background will be visible if the image doesn't fill
-                resizeMode="cover" // The background image usually covers the entire area
-                blurRadius={5} // Optional: Add a blur effect to the background
-                resizeMethod="resize"
-              />
-
-              {/* Foreground Image (main) */}
-              <Image
-                source={{ uri: primaryMediaUrl }}
-                style={{
-                  width: '100%',
-                  height: 200, // Fills the parent View
-                }}
-                // No className here, as the background image is now handled by the other Image
-                resizeMode="contain" // Ensures the full foreground image is visible
+                resizeMode="cover" // Changed from 'contain' to fill entire area
                 resizeMethod="resize"
                 onError={(error) => {
                   console.log("Image load error:", error.nativeEvent.error);
                 }}
               />
+              
               <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
                 <Ionicons name="expand-outline" size={14} color="white" />
               </View>
@@ -1092,11 +1081,14 @@ export default function BookmarksPage(): React.JSX.Element {
             }}
             activeOpacity={0.95}
           >
-            <View className="relative rounded-xl overflow-hidden">
+            <View className="relative rounded-xl overflow-hidden bg-gray-100">
+              {/* GIF - Full Width with Cover */}
               <Image
                 source={{ uri: primaryMediaUrl }}
-                style={{ width: '100%', height: 200 }}
-                className="bg-gray-100"
+                style={{ 
+                  width: '100%', 
+                  aspectRatio: 16 / 9 
+                }}
                 resizeMode="cover"
               />
               <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
@@ -1138,6 +1130,7 @@ export default function BookmarksPage(): React.JSX.Element {
       return null;
     }
   }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, VideoPlayer]);
+
 
   // OPTIMIZED REFRESH
   const onRefresh = useCallback(async () => {
