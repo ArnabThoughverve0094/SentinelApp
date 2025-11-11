@@ -207,9 +207,6 @@ const TabHeader: React.FC<{
   );
 };
 
-
-
-
 // Repost Modal Component
 interface RepostModalProps {
   visible: boolean;
@@ -1866,27 +1863,9 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
       }
 
       const userInfo = await AsyncStorage.getItem('userName') || 'Anonymous';
-      const userImage = await AsyncStorage.getItem('userImageURL') || dummyAuthorImage;
+      const userImage = await AsyncStorage.getItem('profilePicUrl') || dummyAuthorImage;
 
       if (selectedRepostPost.Reposted) {
-        // const postRef = doc(db, selectedRepostPost.postType, selectedRepostPost.id);
-        // await updateDoc(postRef, {
-        //   ContentRepostCount: selectedRepostPost.ContentRepostCount - 1,
-        //   RepostedBy: arrayRemove(fetchuserID),
-        // });
-
-        // setFetchedData(prevData => 
-        //   prevData.map(item => 
-        //     item.uniqueId === selectedRepostPost.uniqueId 
-        //       ? { 
-        //           ...item, 
-        //           Reposted: false, 
-        //           ContentRepostCount: item.ContentRepostCount - 1
-        //         } 
-        //       : item
-        //   )
-        // );
-
         Toast.show({
           type: 'success',
           text1: 'Already Reposted',
@@ -1934,19 +1913,9 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
           repostComment: '',
           repostedBy: fetchuserID,
           repostedAt: new Date(),
+          isAnonymous: false,
+          contentType: 'Found Online'
         });
-
-        // setFetchedData(prevData => 
-        //   prevData.map(item => 
-        //     item.uniqueId === selectedRepostPost.uniqueId 
-        //       ? { 
-        //           ...item, 
-        //           Reposted: true, 
-        //           ContentRepostCount: item.ContentRepostCount + 1
-        //         } 
-        //       : item
-        //   )
-        // );
 
         Toast.show({
           type: 'success',
@@ -1990,7 +1959,7 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
       }
 
       const userInfo = await AsyncStorage.getItem('userName') || 'Anonymous';
-      const userImage = await AsyncStorage.getItem('userImageURL') || dummyAuthorImage;
+      const userImage = await AsyncStorage.getItem('profilePicUrl') || dummyAuthorImage;
 
       
 
@@ -2042,6 +2011,8 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
           repostComment: comment || '',
           repostedBy: fetchuserID,
           repostedAt: new Date(),
+          isAnonymous: false,
+          contentType: 'Found Online'
         });
       }
 
@@ -2418,7 +2389,7 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
   const filteredData = useMemo(() => {
   let baseData = fetchedData.filter(item => {
     if (userRole === "User") {
-      return item.isApproved && !item.isNew;
+      return (item.isApproved && !item.isNew) || item.uniqueId.includes('xdata');
     }
     return true;
   });
@@ -2692,7 +2663,8 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
   
             {renderRepostContent(item)}
   
-            {(!item.isRepost || item.repostComment) && renderMediaContent(item, index)}
+            {/* {(!item.isRepost || item.repostComment) && renderMediaContent(item, index)} */}
+            {renderMediaContent(item, index)}
   
             <View className="flex-row items-center">
               <View className="flex-1"> 
@@ -3046,7 +3018,8 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
   
             {renderRepostContent(item)}
   
-            {(!item.isRepost || item.repostComment) && renderMediaContent(item, index)}
+            {/* {(!item.isRepost || item.repostComment) && renderMediaContent(item, index)} */}
+            {renderMediaContent(item, index)}
   
             <View className="flex-row items-center">
               <View className="flex-1"> 
@@ -3177,21 +3150,21 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
       const timestampKey = getTimestamp(item.createdAt) || getTimestamp(item.ContentDate) || index;
       const uniqueKey = `${baseKey}-${contextKey}-${timestampKey}`;
       
-      if (userRole === "User") {
+      // if (userRole === "User") {
+      //   return (
+      //     <React.Fragment key={uniqueKey}>
+      //       {renderPostContent(item, index)}
+      //     </React.Fragment>
+      //   );
+      // } else {
         return (
           <React.Fragment key={uniqueKey}>
             {renderPostContent(item, index)}
           </React.Fragment>
         );
-      } else {
-        return (
-          <React.Fragment key={uniqueKey}>
-            {renderPostContent(item, index)}
-          </React.Fragment>
-        );
-      }
+      // }
     });
-  }, [filteredData, userRole, initializeCardAnimation, renderPostContent, renderPostContent, activeTab]);
+  }, [filteredData, userRole, initializeCardAnimation, renderPostContent, activeTab]);
 
   const renderEmptyState = () => {
   if (activeTab === 'educational') {

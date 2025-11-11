@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import * as Sharing from "expo-sharing";
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { arrayRemove, arrayUnion, collection, doc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
+import { addDoc, arrayRemove, arrayUnion, collection, doc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
@@ -17,10 +17,12 @@ import {
   RefreshControl,
   ScrollView, Share, StatusBar,
   Text,
+  TextInput,
   TouchableOpacity,
   View
 } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Toast } from 'react-native-toast-message/lib/src/Toast';
 import CommentsModal from '../../components/CommentsModal';
 import { LoadingComponent } from '../../components/LoadingComponent';
 import { showToast } from '../../utils/toast';
@@ -30,6 +32,7 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 interface PostItem {
   id: string;
   uniqueId: string;
+  AuthorUserID?: string;
   AuthorImageURL: string;
   AuthorName: string;
   ContentDate: string;
@@ -48,9 +51,195 @@ interface PostItem {
   createdAt?: any;
   bookmarkedAt?: any;
   CommentTemplate: string;
+  isRepost?: boolean;
+  originalPost?: PostItem;
+  repostComment?: string;
+  repostedBy?: string;
+  repostedAt?: any;
   isAnonymous: boolean;
   contentType: string;
 }
+
+// Repost Modal Component
+interface RepostModalProps {
+  visible: boolean;
+  onClose: () => void;
+  post: PostItem | null;
+  onSimpleRepost: () => void;
+  onQuoteRepost: (comment: string) => void;
+}
+
+const RepostModal: React.FC<RepostModalProps> = ({
+  visible,
+  onClose,
+  post,
+  onSimpleRepost,
+  onQuoteRepost
+}) => {
+  const [repostComment, setRepostComment] = useState('');
+  const [isQuoteMode, setIsQuoteMode] = useState(false);
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+  const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
+
+  useEffect(() => {
+    if (visible) {
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      scaleAnim.setValue(0);
+      setRepostComment('');
+      setIsQuoteMode(false);
+    }
+  }, [visible, scaleAnim]);
+
+  const handleQuoteRepost = () => {
+    if (repostComment.trim()) {
+      onQuoteRepost(repostComment.trim());
+    }
+    onClose();
+  };
+
+  const handleSimpleRepost = () => {
+    onSimpleRepost();
+    onClose();
+  };
+
+  if (!visible || !post) return null;
+
+  let AuthorName = "";
+  let AuthorImage = "";
+  if (post.isAnonymous) {
+    AuthorName = "Anonymous";
+    AuthorImage = dummyAuthorImage;
+  } else {
+    AuthorName = post.AuthorName;
+    AuthorImage = post.AuthorImageURL;
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View className="flex-1 bg-black/50 items-center justify-end px-4 pb-8">
+        <Animated.View 
+          style={[{ transform: [{ scale: scaleAnim }] }]}
+          className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl"
+        >
+          <View className="px-6 py-4 border-b border-gray-100">
+            <View className="flex-row items-center justify-between">
+              <View className="flex-1">
+                <Text className="text-xl font-bold text-gray-900">Share this post</Text>
+                <Text className="text-gray-500 text-sm mt-1">Add your thoughts or share as is</Text>
+              </View>
+              <TouchableOpacity 
+                className="p-2 rounded-full bg-gray-100"
+                onPress={onClose}
+              >
+                <Ionicons name="close" size={20} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View className="px-6 py-4">
+            <View className="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-200">
+              <View className="flex-row items-center mb-2">
+                <Image
+                  // source={{ uri: post.AuthorImageURL }}
+                  source={{uri: AuthorImage || dummyAuthorImage}}
+                  className="w-8 h-8 rounded-full mr-2"
+                  resizeMode="cover"
+                  resizeMethod="resize"
+                />
+                <Text className="font-semibold text-gray-900 text-sm">{AuthorName}</Text>
+              </View>
+              <Text className="text-gray-700 text-sm" numberOfLines={2}>
+                {post.ContentDesc}
+              </Text>
+            </View>
+
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-gray-600 text-sm">Add your thoughts?</Text>
+              <TouchableOpacity
+                onPress={() => setIsQuoteMode(!isQuoteMode)}
+                className={`px-3 py-1 rounded-full border ${
+                  isQuoteMode ? 'bg-black border-black' : 'bg-gray-100 border-gray-300'
+                }`}
+              >
+                <Text className={`text-xs font-medium ${
+                  isQuoteMode ? 'text-white' : 'text-gray-600'
+                }`}>
+                  Quote
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {isQuoteMode && (
+              <View className="mb-4">
+                <TextInput
+                  className="border border-gray-300 rounded-xl p-3 text-gray-900 min-h-[80px]"
+                  placeholder="Add your comment..."
+                  placeholderTextColor="#9CA3AF"
+                  multiline
+                  textAlignVertical="top"
+                  value={repostComment}
+                  onChangeText={setRepostComment}
+                  maxLength={280}
+                />
+                <Text className="text-xs text-gray-500 mt-1 text-right">
+                  {repostComment.length}/280
+                </Text>
+              </View>
+            )}
+
+            <View className="flex-row space-x-3">
+              <TouchableOpacity
+                onPress={handleSimpleRepost}
+                className="flex-1 bg-gray-100 py-3 rounded-xl items-center"
+                activeOpacity={0.8}
+              >
+                <View className="flex-row items-center">
+                  <Ionicons name="repeat" size={18} color="#64748b" />
+                  <Text className="ml-2 text-gray-700 font-semibold">Repost</Text>
+                </View>
+              </TouchableOpacity>
+
+              {isQuoteMode && (
+                <TouchableOpacity
+                  onPress={handleQuoteRepost}
+                  className={`flex-1 py-3 rounded-xl items-center ${
+                    repostComment.trim() ? 'bg-black' : 'bg-gray-300'
+                  }`}
+                  activeOpacity={0.8}
+                  disabled={!repostComment.trim()}
+                >
+                  <View className="flex-row items-center">
+                    <MaterialCommunityIcons 
+                      name="comment-quote" 
+                      size={18} 
+                      color={repostComment.trim() ? "white" : "#9CA3AF"} 
+                    />
+                    <Text className={`ml-2 font-semibold ${
+                      repostComment.trim() ? 'text-white' : 'text-gray-500'
+                    }`}>
+                      Quote
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+};
 
 export default function BookmarksPage(): React.JSX.Element {
   const router = useRouter();
@@ -83,6 +272,10 @@ export default function BookmarksPage(): React.JSX.Element {
   const [isGraphModalVisible, setIsGraphModalVisible] = useState(false);
   const [selectedGraphPostId, setSelectedGraphPostId] = useState<string | null>(null);
   const [selectedGraphPostType, setSelectedGraphPostType] = useState<string | null>(null);
+
+  //Repost modal
+  const [isRepostModalVisible, setIsRepostModalVisible] = useState(false);
+  const [selectedRepostPost, setSelectedRepostPost] = useState<PostItem | null>(null);
 
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
 
@@ -392,6 +585,11 @@ export default function BookmarksPage(): React.JSX.Element {
               Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
               createdAt: postData.createdAt || postData.ContentDate,
               CommentTemplate: postData.CommentTemplate || "Sentinel Default Template",
+              isRepost: postData.isRepost || false,
+              originalPost: postData.originalPost || null,
+              repostComment: postData.repostComment || '',
+              repostedBy: postData.repostedBy || '',
+              repostedAt: postData.repostedAt || null,
               isAnonymous: postData.isAnonymous || false,
               contentType: postData.contentType || 'My Thoughts'
             });
@@ -448,6 +646,28 @@ export default function BookmarksPage(): React.JSX.Element {
   useEffect(() => {
     getItem();
     handleFetchBookmarkedPosts();
+  }, []);
+
+  const openRepostModal = useCallback((postItem: PostItem) => {
+    if (postItem.Reposted) {
+      Toast.show({
+        type: 'success',
+        text1: 'Already Reposted',
+        text2: 'You have already reposted this Post.',
+        position: 'bottom',
+        visibilityTime: 2000,
+      });
+
+      return;
+    }
+
+    setSelectedRepostPost(postItem);
+    setIsRepostModalVisible(true);
+  }, []);
+
+  const closeRepostModal = useCallback(() => {
+    setIsRepostModalVisible(false);
+    setSelectedRepostPost(null);
   }, []);
 
   // TO OPEN COMMENTS MODAL
@@ -547,25 +767,185 @@ export default function BookmarksPage(): React.JSX.Element {
     await new Promise(r => setTimeout(r, 200));
   }, []);
 
-  const handleRepost = useCallback(async (postItem: PostItem) => {
-    console.log("Repost pressed:", postItem.id);
-    
-    setBookmarkedPosts(prevData => 
-      prevData.map(item => 
-        item.uniqueId === postItem.uniqueId 
-          ? { 
-              ...item, 
-              Reposted: !item.Reposted, 
-              ContentRepostCount: item.Reposted 
-                ? item.ContentRepostCount - 1 
-                : item.ContentRepostCount + 1
-            } 
-          : item
-      )
-    );
+  // SIMPLE REPOST WITH TOAST
+  const handleSimpleRepost = useCallback(async () => {
+    if (!selectedRepostPost) return;
 
-    await new Promise(r => setTimeout(r, 200));
-  }, []);
+    try {
+      let fetchuserID = userId;
+      if(fetchuserID === ""){
+        fetchuserID = await AsyncStorage.getItem('userId') || "";
+        setUserId(fetchuserID);
+      }
+
+      const userInfo = await AsyncStorage.getItem('userName') || 'Anonymous';
+      const userImage = await AsyncStorage.getItem('profilePicUrl') || dummyAuthorImage;
+
+      if (selectedRepostPost.Reposted) {
+        Toast.show({
+          type: 'success',
+          text1: 'Already Reposted',
+          text2: 'You have already reposted this Post.',
+          position: 'bottom',
+          visibilityTime: 2000,
+        });
+      } else {
+        const postRef = doc(db, selectedRepostPost.postType, selectedRepostPost.id);
+        await updateDoc(postRef, {
+          ContentRepostCount: selectedRepostPost.ContentRepostCount + 1,
+          RepostedBy: arrayUnion(fetchuserID),
+        });
+
+        await addDoc(collection(db, 'SentinelPosts'), {
+          AuthorImageURL: userImage,
+          AuthorName: userInfo,
+          AuthorUserID: fetchuserID,
+          ContentDate: new Date(),
+          ContentDesc: selectedRepostPost.ContentDesc || '',
+          ContentURL: selectedRepostPost.ContentURL || '',
+          ContentURLs: selectedRepostPost.ContentURLs || [],
+          ContentLikeCount: 0,
+          ContentRepostCount: 0,
+          ContentCommentCount: 0,
+          isApproved: true,
+          isNew: false,
+          LikedBy: [],
+          RepostedBy: [],
+          BookmarkedBy: [],
+          createdAt: new Date(),
+          CommentTemplate: selectedRepostPost.CommentTemplate || "Sentinel Default Template",
+          isRepost: true,
+          originalPost: {
+            id: selectedRepostPost.id || '',
+            AuthorUserID: selectedRepostPost.AuthorUserID || '',
+            AuthorName: selectedRepostPost.AuthorName || 'Anonymous',
+            AuthorImageURL: selectedRepostPost.AuthorImageURL || dummyAuthorImage,
+            ContentDesc: selectedRepostPost.ContentDesc || '',
+            ContentDate: selectedRepostPost.ContentDate || new Date(),
+            postType: selectedRepostPost.postType || 'Unknown',
+            isAnonymous: selectedRepostPost.isAnonymous || false,
+            contentType: selectedRepostPost.contentType || 'My Thoughts'
+          },
+          repostComment: '',
+          repostedBy: fetchuserID,
+          repostedAt: new Date(),
+          isAnonymous: false,
+          contentType: 'Found Online'
+        });
+
+        Toast.show({
+          type: 'success',
+          text1: 'Reposted Successfully',
+          text2: 'Post has been shared to your followers.',
+          position: 'bottom',
+          visibilityTime: 2000,
+        });
+      }
+
+    } catch (error) {
+      console.error('Error handling repost:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Repost Failed',
+        text2: 'Failed to repost. Please try again.',
+        position: 'bottom',
+        visibilityTime: 3000,
+      });
+    }
+  }, [selectedRepostPost, userId]);
+
+  // QUOTE REPOST WITH TOAST
+  const handleQuoteRepost = useCallback(async (comment: string) => {
+    if (!selectedRepostPost) return;
+
+    try {
+      let fetchuserID = userId;
+      if(fetchuserID === ""){
+        fetchuserID = await AsyncStorage.getItem('userId') || "";
+        setUserId(fetchuserID);
+      }
+
+      const userInfo = await AsyncStorage.getItem('userName') || 'Anonymous';
+      const userImage = await AsyncStorage.getItem('profilePicUrl') || dummyAuthorImage;
+
+      
+
+      if (selectedRepostPost.Reposted) {
+        Toast.show({
+          type: 'success',
+          text1: 'Already Reposted',
+          text2: 'You have already reposted this Post.',
+          position: 'bottom',
+          visibilityTime: 2000,
+        });
+      } else {
+        const postRef = doc(db, selectedRepostPost.postType, selectedRepostPost.id);
+        await updateDoc(postRef, {
+          ContentRepostCount: selectedRepostPost.ContentRepostCount + 1,
+          RepostedBy: arrayUnion(fetchuserID),
+        });
+
+        await addDoc(collection(db, 'SentinelPosts'), {
+          AuthorImageURL: userImage,
+          AuthorName: userInfo,
+          AuthorUserID: fetchuserID,
+          ContentDate: new Date(),
+          ContentDesc: comment || '',
+          ContentURL: selectedRepostPost.ContentURL || '',
+          ContentURLs: selectedRepostPost.ContentURLs || [],
+          ContentLikeCount: 0,
+          ContentRepostCount: 0,
+          ContentCommentCount: 0,
+          isApproved: true,
+          isNew: false,
+          LikedBy: [],
+          RepostedBy: [],
+          BookmarkedBy: [],
+          createdAt: new Date(),
+          CommentTemplate: selectedRepostPost.CommentTemplate || "Sentinel Default Template",
+          isRepost: true,
+          originalPost: {
+            id: selectedRepostPost.id || '',
+            AuthorUserID: selectedRepostPost.AuthorUserID || '',
+            AuthorName: selectedRepostPost.AuthorName || 'Anonymous',
+            AuthorImageURL: selectedRepostPost.AuthorImageURL || dummyAuthorImage,
+            ContentDesc: selectedRepostPost.ContentDesc || '',
+            ContentDate: selectedRepostPost.ContentDate || new Date(),
+            postType: selectedRepostPost.postType || 'Unknown',
+            isAnonymous: selectedRepostPost.isAnonymous || false,
+            contentType: selectedRepostPost.contentType || 'My Thoughts'
+          },
+          repostComment: comment || '',
+          repostedBy: fetchuserID,
+          repostedAt: new Date(),
+          isAnonymous: false,
+          contentType: 'Found Online'
+        });
+      }
+
+      Toast.show({
+        type: 'success',
+        text1: 'Quote Repost Created',
+        text2: 'Your quote repost has been shared to your followers.',
+        position: 'bottom',
+        visibilityTime: 2000,
+      });
+
+    } catch (error) {
+      console.error('Error creating quote repost:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Quote Repost Failed',
+        text2: 'Failed to create quote repost. Please try again.',
+        position: 'bottom',
+        visibilityTime: 3000,
+      });
+    }
+  }, [selectedRepostPost, userId]);
+
+  const handleRepost = useCallback(async (postItem: PostItem) => {
+    openRepostModal(postItem);
+  }, [openRepostModal]);
 
   const handleRemoveBookmark = useCallback(async (postItem: PostItem) => {
     try {
@@ -595,6 +975,41 @@ export default function BookmarksPage(): React.JSX.Element {
       showToast.error('Failed to remove bookmark. Please try again.', 'Error');
     }
   }, []);
+
+  const renderRepostContent = useCallback((item: PostItem) => {
+    if (!item.isRepost || !item.originalPost) return null;
+
+    let AuthorName = "";
+    let AuthorImage = "";
+    if (item.originalPost.isAnonymous) {
+      AuthorName = "Anonymous";
+      AuthorImage = dummyAuthorImage;
+    } else {
+      AuthorName = item.originalPost.AuthorName;
+      AuthorImage = item.originalPost.AuthorImageURL;
+    }
+
+    return (
+      <View className="border border-gray-200 rounded-xl p-3 mt-2 bg-gray-50">
+        <View className="flex-row items-center mb-2">
+          <Image
+            // source={{ uri: item.originalPost.AuthorImageURL || dummyAuthorImage }}
+            source={{ uri: AuthorImage || dummyAuthorImage }}
+            className="w-6 h-6 rounded-full mr-2"
+            resizeMode="cover"
+            resizeMethod="resize"
+          />
+          <Text className="font-semibold text-gray-900 text-sm">{AuthorName}</Text>
+          <Text className="text-gray-500 text-xs ml-2">
+            {getTimeAgo(item.originalPost.ContentDate)}
+          </Text>
+        </View>
+        <Text className="text-gray-700 text-sm" numberOfLines={2}>
+          {item.originalPost.ContentDesc}
+        </Text>
+      </View>
+    );
+  }, [getTimeAgo, dummyAuthorImage]);
 
   // OPTIMIZED MEDIA CONTENT
   const renderMediaContent = useCallback((item: PostItem, index?: number) => {
@@ -858,6 +1273,8 @@ export default function BookmarksPage(): React.JSX.Element {
         <View className="px-3 py-2.5">
           <Text className="text-gray-800 text-sm leading-5 mb-2 font-normal" numberOfLines={2}>{item.ContentDesc}</Text>
   
+          {renderRepostContent(item)}
+
           {renderMediaContent(item, index)}
           <View className="flex-row items-center">
               <View className="flex-1"> 
@@ -959,98 +1376,12 @@ export default function BookmarksPage(): React.JSX.Element {
                 </View>
 
             </View>
-          {/* <View className="flex-row items-center justify-between pt-1.5">
-            <TouchableOpacity
-              className="flex-row items-center px-1.5 py-1"
-              onPress={(e) => {
-                e.stopPropagation();
-                toggleLike(item);
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={item.Liked ? "heart" : "heart-outline"}
-                size={20}
-                color={item.Liked ? "#ef4444" : "#64748b"}
-              />
-              <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
-                {item.ContentLikeCount}
-              </Text>
-            </TouchableOpacity>
-  
-            <TouchableOpacity
-              className="flex-row items-center px-1.5 py-1"
-              onPress={(e) => {
-                e.stopPropagation();
-                openCommentsModal(item);
-              }}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name="thumbs-up-down"
-                size={20}
-                color="#000000"
-              />
-              <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
-            </TouchableOpacity>
-  
-            <TouchableOpacity
-              className="flex-row items-center px-1.5 py-1 "
-              onPress={(e) => {
-                e.stopPropagation();
-                handleRepost(item);
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons 
-                name="repeat-outline" 
-                size={20} 
-                color={item.Reposted ? "#0ea5e9" : "#64748b"} 
-              />
-              <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
-                {item.ContentRepostCount}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-                className="p-1.5"
-                onPress={() => console.log("Graph pressed:", item.id)}
-                activeOpacity={0.7}
-              >
-                <Feather name="bar-chart-2" size={20} color="#64748b" />
-              </TouchableOpacity>
-  
-            <TouchableOpacity
-              className="flex-row items-center px-1.5 py-1"
-              onPress={(e) => {
-                e.stopPropagation();
-                handleRemoveBookmark(item);
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons 
-                name="bookmark" 
-                size={20} 
-                color="#00000" 
-              />
-            </TouchableOpacity>
-  
-            <TouchableOpacity 
-              className="p-1"
-              onPress={(e) => {
-                e.stopPropagation();
-                handleShare(item);
-              }}
-              activeOpacity={0.7}
-            >
-              <Feather name="share-2" size={20} color="#64748b" />
-            </TouchableOpacity>
-          </View> */}
         </View>
       </EnhancedCard>
       </TouchableOpacity>
       
     )
-  } , [EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleRemoveBookmark, dummyAuthorImage, openCommentsModal]);
+  } , [EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleRemoveBookmark, dummyAuthorImage, openCommentsModal, renderRepostContent]);
 
   const listItems = useMemo(() => {
     return filteredAndSortedPosts.map((item, index) => {
@@ -1277,6 +1608,14 @@ export default function BookmarksPage(): React.JSX.Element {
           </View>
         </View>
       </Modal>
+
+      <RepostModal
+        visible={isRepostModalVisible}
+        onClose={closeRepostModal}
+        post={selectedRepostPost}
+        onSimpleRepost={handleSimpleRepost}
+        onQuoteRepost={handleQuoteRepost}
+      />
 
       {/* COMMENTS MODAL */}
       <CommentsModal

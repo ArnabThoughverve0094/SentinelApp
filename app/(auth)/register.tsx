@@ -7,10 +7,10 @@ import {
   Animated,
   FlatList,
   Image,
+  ImageBackground,
   KeyboardAvoidingView,
   Modal,
   Platform,
-  ImageBackground,
   ScrollView,
   StatusBar,
   Text,
@@ -689,6 +689,20 @@ export default function Register(): React.JSX.Element {
                 </View>
               </TouchableOpacity>
             </Link>
+
+            {/* Right: Close Button */}
+            <TouchableOpacity 
+                onPress={() => router.back()} 
+                style={{ 
+                  width: 32, 
+                  height: 32, 
+                  alignItems: "center", 
+                  justifyContent: "center" 
+                }}
+              >
+                <Ionicons name="close" size={26} color="#000" />
+              </TouchableOpacity>
+              
         </View>
 
         <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
