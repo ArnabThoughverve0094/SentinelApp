@@ -2174,7 +2174,7 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
 
 
   // UPDATED: VideoPlayer component using expo-video
-  const VideoPlayer = useCallback(({ videoUrl, index }: { videoUrl: string; index?: number }) => {
+    const VideoPlayer = useCallback(({ videoUrl, index }: { videoUrl: string; index?: number }) => {
     const player = useVideoPlayer(videoUrl, (player) => {
       player.loop = true;
       player.muted = true;
@@ -2198,8 +2198,11 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
       <View className="relative rounded-xl overflow-hidden bg-black">
         <VideoView
           player={player}
-          style={{ width: '100%', height: 200 }}
-          contentFit="contain"
+          style={{ 
+            width: '100%', 
+            aspectRatio: 16 / 9  // Changed from fixed height to responsive aspectRatio
+          }}
+          contentFit="cover"  // Changed from "contain" to "cover" for full-area display
           nativeControls={false}
         />
         <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
@@ -2216,9 +2219,10 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
     );
   }, [currentVideoIndex]);
 
-  const renderMediaContent = useCallback((item: PostItem, index?: number) => {
+
+    const renderMediaContent = useCallback((item: PostItem, index?: number) => {
     const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
-                     (item.ContentURL ? [item.ContentURL] : []);
+                    (item.ContentURL ? [item.ContentURL] : []);
     
     if (!mediaUrls || mediaUrls.length === 0) return null;
 
@@ -2235,31 +2239,15 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
             }}
             activeOpacity={0.95}
           >
-            <View className="relative rounded-xl overflow-hidden">
-              {/* Background Image (faded) */}
+            <View className="relative rounded-xl overflow-hidden bg-gray-100">
+              {/* Single Image - Full Width, Auto Height */}
               <Image
                 source={{ uri: primaryMediaUrl }}
                 style={{
                   width: '100%',
-                  height: 200, // Fills the parent View
-                  position: 'absolute', // Allows other content to layer on top
-                  opacity: 0.2, // Adjust for desired transparency (0.0 to 1.0)
+                  aspectRatio: 16 / 9, // Adjust based on your desired ratio (e.g., 4/3, 1/1, 16/9)
                 }}
-                className="bg-white" // This background will be visible if the image doesn't fill
-                resizeMode="cover" // The background image usually covers the entire area
-                blurRadius={5} // Optional: Add a blur effect to the background
-                resizeMethod="resize"
-              />
-
-              {/* Foreground Image (main) */}
-              <Image
-                source={{ uri: primaryMediaUrl }}
-                style={{
-                  width: '100%',
-                  height: 200, // Fills the parent View
-                }}
-                // No className here, as the background image is now handled by the other Image
-                resizeMode="contain" // Ensures the full foreground image is visible
+                resizeMode="cover" // Changed from 'contain' to 'cover'
                 resizeMethod="resize"
                 onError={(error) => {
                   console.log("Image load error:", error.nativeEvent.error);
@@ -2300,12 +2288,14 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
             <View className="relative rounded-xl overflow-hidden">
               <Image
                 source={{ uri: primaryMediaUrl }}
-                style={{ width: '100%', height: 200 }}
-                className="bg-gray-100"
+                style={{ 
+                  width: '100%', 
+                  aspectRatio: 16 / 9 
+                }}
                 resizeMode="cover"
               />
               <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
-                 <MaterialIcons name="gif" size={20} color="white" />
+                <MaterialIcons name="gif" size={20} color="white" />
               </View>
             </View>
           </TouchableOpacity>
@@ -2343,6 +2333,7 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
       return null;
     }
   }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, VideoPlayer]);
+
 
   const renderRepostContent = useCallback((item: PostItem) => {
     if (!item.isRepost || !item.originalPost) return null;
