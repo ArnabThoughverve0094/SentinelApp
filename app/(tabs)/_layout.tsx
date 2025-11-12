@@ -4,7 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Tabs } from "expo-router";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { useCallback, useEffect, useState } from "react";
-import { Text } from "react-native";
+import { Text, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const TabsLayout = () => {
@@ -13,6 +13,17 @@ const TabsLayout = () => {
   const [unreadCount, setUnreadCount] = useState<number>(0);
 
   const hasNotifications = unreadCount > 0;
+
+  // Get screen width - NO INSTALLATION NEEDED
+  const screenWidth = Dimensions.get('window').width;
+  
+  // Calculate responsive font size
+  const getFontSize = () => {
+    if (screenWidth < 350) return 8;
+    if (screenWidth < 380) return 9;
+    return 10;
+  };
+
 
   const fetchUserNotification = useCallback(async () => {
     try {
