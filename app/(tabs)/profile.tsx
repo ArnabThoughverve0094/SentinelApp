@@ -66,6 +66,220 @@ interface PostItem {
   contentType: string;
 }
 
+interface MediaCarouselProps {
+  mediaUrls: string[];
+  postId: string;
+  onImagePress: (url: string) => void;
+  onVideoPress: (url: string) => void;
+  onDocPress: (url: string) => void;
+  getMediaType: (url: string) => string;
+  VideoPlayer: any;
+  index?: number;
+}
+
+const MediaCarousel: React.FC<MediaCarouselProps> = React.memo(({ 
+  mediaUrls,
+  postId,
+  onImagePress,
+  onVideoPress,
+  onDocPress,
+  getMediaType,
+  VideoPlayer,
+  index
+}) => {
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const scrollViewRef = useRef<ScrollView>(null);
+  
+  // ✅ CRITICAL: Calculate exact width for perfect snapping
+  const CARD_PADDING = 12; // Total horizontal padding (6px each side)
+  const ITEM_WIDTH = screenWidth - (CARD_PADDING * 2);
+
+  if (!mediaUrls || mediaUrls.length === 0) return null;
+
+  const handleScroll = (event: any) => {
+    const offset = event.nativeEvent.contentOffset.x;
+    const activeSlide = Math.round(offset / ITEM_WIDTH);
+    setCurrentSlide(activeSlide);
+  };
+
+  return (
+    <View className="mb-2 relative">
+      {/* ✅ Gesture handling wrapper */}
+      <View 
+        onStartShouldSetResponder={() => true}
+        onMoveShouldSetResponder={() => false}
+        onMoveShouldSetResponderCapture={(evt) => {
+          return Math.abs(evt.nativeEvent.pageX - evt.nativeEvent.locationX) > 10;
+        }}
+        onResponderTerminationRequest={() => false}
+      >
+        <ScrollView
+          ref={scrollViewRef}
+          horizontal
+          pagingEnabled={false} // ✅ Changed to false, using snapToInterval instead
+          showsHorizontalScrollIndicator={false}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          // ✅ CRITICAL SNAP PROPS
+          snapToInterval={ITEM_WIDTH}
+          snapToAlignment="start"
+          decelerationRate="fast"
+          disableIntervalMomentum={true}
+          // Other props
+          nestedScrollEnabled={true}
+          scrollEnabled={true}
+          removeClippedSubviews={false}
+          contentContainerStyle={{ paddingRight: CARD_PADDING }}
+        >
+          {mediaUrls.map((mediaUrl, mediaIndex) => {
+            const mediaType = getMediaType(mediaUrl);
+
+            return (
+              <View 
+                key={`${postId}-media-${mediaIndex}`}
+                style={{ 
+                  width: ITEM_WIDTH,
+                  marginRight: mediaIndex < mediaUrls.length - 1 ? 0 : 0 
+                }}
+              >
+                {mediaType === 'image' && (
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e?.stopPropagation?.();
+                      onImagePress(mediaUrl);
+                    }}
+                    activeOpacity={0.95}
+                  >
+                    <View className="relative rounded-xl overflow-hidden bg-gray-100">
+                      <Image
+                        source={{ uri: mediaUrl }}
+                        style={{ width: '100%', aspectRatio: 16 / 9 }}
+                        resizeMode="cover"
+                        resizeMethod="resize"
+                        progressiveRenderingEnabled={true}
+                        fadeDuration={300}
+                      />
+                      <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+                        <Ionicons name="expand-outline" size={14} color="white" />
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+                {mediaType === 'video' && (
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e?.stopPropagation?.();
+                      onVideoPress(mediaUrl);
+                    }}
+                    activeOpacity={0.95}
+                  >
+                    <VideoPlayer videoUrl={mediaUrl} index={index} />
+                  </TouchableOpacity>
+                )}
+
+                {mediaType === 'gif' && (
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e?.stopPropagation?.();
+                      onImagePress(mediaUrl);
+                    }}
+                    activeOpacity={0.95}
+                  >
+                    <View className="relative rounded-xl overflow-hidden">
+                      <Image
+                        source={{ uri: mediaUrl }}
+                        style={{ width: '100%', aspectRatio: 16 / 9 }}
+                        resizeMode="cover"
+                        progressiveRenderingEnabled={true}
+                      />
+                      <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+                        <MaterialIcons name="gif" size={20} color="white" />
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+                {mediaType === 'doc' && (
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e?.stopPropagation?.();
+                      onDocPress(mediaUrl);
+                    }}
+                    activeOpacity={0.95}
+                  >
+                    <View
+                      style={{
+                        borderRadius: 12,
+                        backgroundColor: '#8B5CF6',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        aspectRatio: 16 / 9,
+                        width: '100%',
+                      }}
+                    >
+                      <Ionicons name="document-text-outline" size={32} color="#FFFFFF" />
+                      <Text 
+                        numberOfLines={1}
+                        style={{
+                          color: '#FFF',
+                          marginTop: 4,
+                          textAlign: 'center',
+                          paddingHorizontal: 12,
+                          fontSize: 11,
+                        }}
+                      >
+                        {mediaUrl.split('/').pop()}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* Instagram-Style Pagination Dots */}
+      {mediaUrls.length > 1 && (
+        <View className="flex-row justify-center items-center mt-2" style={{ gap: 6 }}>
+          {mediaUrls.map((_, dotIndex) => (
+            <TouchableOpacity
+              key={`dot-${dotIndex}`}
+              onPress={() => {
+                scrollViewRef.current?.scrollTo({
+                  x: dotIndex * ITEM_WIDTH,
+                  animated: true,
+                });
+              }}
+              activeOpacity={0.7}
+            >
+              <View
+                style={{
+                  width: currentSlide === dotIndex ? 8 : 6,
+                  height: currentSlide === dotIndex ? 8 : 6,
+                  borderRadius: currentSlide === dotIndex ? 4 : 3,
+                  backgroundColor: currentSlide === dotIndex ? '#3b82f6' : '#d1d5db',
+                }}
+              />
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {/* Media Counter Badge (1/5) */}
+      {mediaUrls.length > 1 && (
+        <View className="absolute top-2 right-2 px-2.5 py-1 rounded-full bg-black/70">
+          <Text className="text-white text-xs font-semibold">
+            {currentSlide + 1}/{mediaUrls.length}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+});
+
+
 // Your Custom LoadingComponent with Sentinel Logo (Smaller Size)
 const LoadingComponent: React.FC<{ visible?: boolean; size?: 'small' | 'medium' | 'large' }> = ({
   visible = true,
@@ -2366,120 +2580,26 @@ const handleRepost = useCallback(async (postItem: PostItem) => {
 }, [getTimeAgo, dummyAuthorImage]);
 
   // OPTIMIZED MEDIA CONTENT - REDUCED SIZES
-  const renderMediaContent = useCallback((item: PostItem, index?: number) => {
-  const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
-                   (item.ContentURL ? [item.ContentURL] : []);
-  
-  if (!mediaUrls || mediaUrls.length === 0) return null;
+  // OPTIMIZED MEDIA CONTENT WITH INSTAGRAM CAROUSEL
+const renderMediaContent = useCallback((item: PostItem, index?: number) => {
+  const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 
+    ? item.ContentURLs 
+    : (item.ContentURL ? [item.ContentURL] : []);
 
-  const primaryMediaUrl = mediaUrls[0];
-  const mediaType = getMediaType(primaryMediaUrl);
-
-  if (mediaType === 'image') {
-    return (
-      <View className="mb-2">
-        <TouchableOpacity 
-          onPress={(e) => {
-            e?.stopPropagation?.();
-            openFullScreenImage(primaryMediaUrl);
-          }}
-          activeOpacity={0.95}
-        >
-          <View className="relative rounded-xl overflow-hidden bg-gray-100">
-            {/* Single Full-Width Image - No Blur Background */}
-            <Image
-              source={{ uri: primaryMediaUrl }}
-              style={{
-                width: '100%',
-                aspectRatio: 16 / 9, // Adjust based on your preference
-              }}
-              resizeMode="cover" // Changed from 'contain' to fill entire area
-              resizeMethod="resize"
-              onError={(error) => {
-                console.log("Image load error:", error.nativeEvent.error);
-              }}
-            />
-            
-            <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
-              <Ionicons name="expand-outline" size={14} color="white" />
-            </View>
-          </View>
-        </TouchableOpacity>
-      </View>
-    );
-  } else if (mediaType === 'video') {
-    return (
-      <View className="mb-2">
-        <TouchableOpacity 
-          onPress={(e) => {
-            e?.stopPropagation?.();
-            openFullScreenVideo(primaryMediaUrl);
-          }}
-          activeOpacity={0.95}
-        >
-          <VideoPlayer videoUrl={primaryMediaUrl} index={index} />
-        </TouchableOpacity>
-      </View>
-    );
-  } else if (mediaType === 'gif') {
-    return (
-      <View className="mb-2">
-        <TouchableOpacity 
-          onPress={(e) => {
-            e?.stopPropagation?.();
-            openFullScreenImage(primaryMediaUrl);
-          }}
-          activeOpacity={0.95}
-        >
-          <View className="relative rounded-xl overflow-hidden bg-gray-100">
-            {/* GIF - Full Width with Cover */}
-            <Image
-              source={{ uri: primaryMediaUrl }}
-              style={{ 
-                width: '100%', 
-                aspectRatio: 16 / 9 
-              }}
-              resizeMode="cover"
-            />
-            <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
-              <MaterialIcons name="gif" size={20} color="white" />
-            </View>
-          </View>
-        </TouchableOpacity>
-      </View>
-    );
-  } else if (mediaType === 'doc') {
-    return (
-      <View className="mb-2">
-        <TouchableOpacity 
-          onPress={(e) => {
-            e?.stopPropagation?.();
-            openFullScreenDoc(primaryMediaUrl);
-          }}
-          activeOpacity={0.95}
-        >
-          <View
-            style={{
-              borderRadius: 12,
-              overflow: 'hidden',
-              backgroundColor: '#EEF2F6',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: 80,
-            }}>
-            <Ionicons name="document-text-outline" size={32} color="#8B5CF6" />
-            <Text numberOfLines={1} style={{ color: '#333', marginTop: 4, textAlign: 'center', paddingHorizontal: 12, fontSize: 11 }}>
-              {primaryMediaUrl.split('/').pop() || 'Document'}
-            </Text>
-            <Text style={{ color: '#aaa', fontSize: 9, marginTop: 1 }}>Tap to open</Text>
-          </View>
-        </TouchableOpacity>
-      </View>
-    );
-  } else {
-    return null;
-  }
+  return (
+    <MediaCarousel
+      mediaUrls={mediaUrls}
+      postId={item.id}
+      onImagePress={openFullScreenImage}
+      onVideoPress={openFullScreenVideo}
+      onDocPress={openFullScreenDoc}
+      getMediaType={getMediaType}
+      VideoPlayer={VideoPlayer}
+      index={index}
+    />
+  );
 }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, VideoPlayer]);
+
 
 
   // UPDATED: Get post status for display - FIXED to show REJECTED instead of PENDING
