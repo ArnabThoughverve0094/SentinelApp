@@ -1051,6 +1051,7 @@ const compressAndGetUrl = async (localUri) => {
             borderColor: "#eee" 
           }}>
             <Text className="text-2xl font-bold text-gray-900 pt-3">Create post</Text>
+            
             <TouchableOpacity onPress={() => router.back()} style={{ 
               width: 32, 
               height: 32, 
@@ -1211,7 +1212,11 @@ const compressAndGetUrl = async (localUri) => {
                     {/* 💡 Renders a checkmark if isAnonymous is true */}
                     {isAnonymous && <Text style={styles.checkmark}>✓</Text>}
                   </TouchableOpacity>
-                  <Text style={styles.anonymousText}>Post anonymously</Text>
+                  <TouchableOpacity
+                    onPress={() => setIsAnonymous(!isAnonymous)} >
+                    <Text style={styles.anonymousText}>Post anonymously</Text>
+                  </TouchableOpacity>
+                  
                 </View>
 
                 <View style={{ flexDirection: "row", alignItems: "center", marginRight: 10 }}>
@@ -1389,8 +1394,8 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   checkbox: {
-    height: 16,
-    width: 16,
+    height: 20,
+    width: 20,
     borderWidth: 2,
     borderColor: '#ccc',
     borderRadius: 3,
