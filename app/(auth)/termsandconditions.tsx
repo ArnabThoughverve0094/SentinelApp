@@ -320,22 +320,21 @@ export default function TermsOfUse(): React.JSX.Element {
                   Questions about these Terms may be sent to:
                 </Text>
                 <View className="bg-gray-50 rounded-lg p-4">
-                <View className="flex-row items-center mb-2">
+                <View className="mb-2">
                   <Text className="text-base text-gray-900 font-medium">
-                    📧 Email: 
-                  </Text>
-                  <TouchableOpacity 
-                    onPress={() => {
-                      const email = 'SentinelTerms@gmail.com';
-                      const subject = 'Terms of Use Inquiry';
-                      const url = `mailto:${email}?subject=${encodeURIComponent(subject)}`;
-                      Linking.openURL(url).catch(err => console.error('Error opening email:', err));
-                    }}
-                  >
-                    <Text className="text-base text-blue-600 underline ml-1">
+                    📧 Email:{' '}
+                    <Text 
+                      className="text-base text-blue-600 underline"
+                      onPress={() => {
+                        const email = 'SentinelTerms@gmail.com';
+                        const subject = 'Terms of Use Inquiry';
+                        const url = `mailto:${email}?subject=${encodeURIComponent(subject)}`;
+                        Linking.openURL(url).catch(err => console.error('Error opening email:', err));
+                      }}
+                    >
                       SentinelTerms@gmail.com
                     </Text>
-                  </TouchableOpacity>
+                  </Text>
                 </View>
                 <Text className="text-base text-gray-700 mb-2">
                   📍 Address: C/O David J. Hart PA
