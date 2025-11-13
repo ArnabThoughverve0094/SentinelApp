@@ -7,6 +7,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -322,9 +323,22 @@ export default function PrivacyPolicy(): React.JSX.Element {
                   If you have any questions or concerns about this Privacy Policy or how we handle your data, please contact us at:
                 </Text>
                 <View className="bg-gray-50 rounded-lg p-4">
-                  <Text className="text-base text-gray-900 font-medium mb-2">
-                    📧 Email: SentinelTerms@gmail.com
-                  </Text>
+                  <View className="mb-2">
+                                    <Text className="text-base text-gray-900 font-medium">
+                                      📧 Email:{' '}
+                                      <Text 
+                                        className="text-base text-blue-600 underline"
+                                        onPress={() => {
+                                          const email = 'SentinelTerms@gmail.com';
+                                          const subject = 'Terms of Use Inquiry';
+                                          const url = `mailto:${email}?subject=${encodeURIComponent(subject)}`;
+                                          Linking.openURL(url).catch(err => console.error('Error opening email:', err));
+                                        }}
+                                      >
+                                        SentinelTerms@gmail.com
+                                      </Text>
+                                    </Text>
+                                  </View>
                   <Text className="text-base text-gray-700 mb-2">
                     📍 Address: C/O David J. Hart PA
                   </Text>
