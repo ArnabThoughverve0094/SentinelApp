@@ -19,6 +19,7 @@ import {
   ScrollView,
   StatusBar,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -335,6 +336,13 @@ export default function CreatePost() {
   const [uploadPercentage, setUploadPercentage] = useState<number>(0);
   const [currentUserDocId, setCurrentUserDocId] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
+  const [isEducationalEnabled, setIsEducationalEnabled] = useState<boolean>(false);
+  const scaleFactor = 0.7; // Smaller: 0.7 (70% of original size)
+
+  // Handler function to invert the state when the switch is toggled.
+  const toggleSwitch = () => {
+    setIsEducationalEnabled(previousState => !previousState);
+  }
 
   //Radio button
   const [selectedType, setSelectedType] = useState<PostType>('My Thoughts');
@@ -1051,15 +1059,52 @@ const compressAndGetUrl = async (localUri) => {
             borderColor: "#eee" 
           }}>
             <Text className="text-2xl font-bold text-gray-900 pt-3">Create post</Text>
-            
-            <TouchableOpacity onPress={() => router.back()} style={{ 
-              width: 32, 
-              height: 32, 
-              alignItems: "center", 
-              justifyContent: "center" 
-            }}>
-              <Ionicons name="close" size={26} color="#000" />
-            </TouchableOpacity>
+
+            {/* 2. MIDDLE/RIGHT ITEMS: Group Toggle and Close Button together */}
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {/* The Educational Toggle (Switch + Text) */}
+              <View style={styles.container}> 
+                <Text style={[styles.statusText, { marginRight: 4 }]}> 
+                  Educational 
+                </Text>
+                <Switch
+                  value={isEducationalEnabled}
+                  onValueChange={toggleSwitch}
+                  trackColor={{ false: '#767577', true: '#81b0ff' }}
+                  thumbColor={isEducationalEnabled ? '#f4f3f4' : '#f4f3f4'}
+                  ios_backgroundColor="#3e3e3e"
+                  // --- 💡 This is the key change to decrease size ---
+                  style={{ 
+                    transform: [
+                      { scaleX: scaleFactor }, // Scale horizontally
+                      { scaleY: scaleFactor }  // Scale vertically
+                    ],
+                    // Note: On Android, you might need to adjust margin 
+                    // after scaling to align it correctly, but start without it.
+                  }}
+                  // ----------------------------------------------------
+                />
+              </View>
+
+              {/* Spacer (Optional, adjust as needed) */}
+              <View style={{ width: 10 }} />
+
+                {/* The Close Button */}
+                <TouchableOpacity 
+                  onPress={() => router.back()} 
+                  style={{
+                    width: 32,
+                    height: 32,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginTop: 6,
+                    // Padding/Margin adjustment might be needed to align with other elements
+                  }}
+                >
+                  <Ionicons name="close" size={26} color="#000" />
+                </TouchableOpacity>
+
+              </View>
           </View>
 
           {/* Post Input */}
@@ -1412,5 +1457,16 @@ const styles = StyleSheet.create({
   anonymousText: {
     fontSize: 14,
     color: '#333',
+  },
+  container: { 
+    flexDirection: 'row', // Make content go horizontal
+    alignItems: 'center', // Align them vertically in the center
+    // No need for flex: 1, padding, or justify here
+    marginTop: 10,
+  },
+  statusText: {
+    // Keep your font styles, and add a small right margin to separate it from the switch
+    marginRight: 8, 
+    fontSize: 14, // Smaller text size for the header row
   },
 });
