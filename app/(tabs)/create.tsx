@@ -435,6 +435,7 @@ export default function CreatePost() {
       const fetchuserName = await AsyncStorage.getItem('userName');
       const fetchUserImage = await AsyncStorage.getItem('profilePicUrl');
       const fetchuserID = await AsyncStorage.getItem('userId');
+      const fetchCreateType = await AsyncStorage.getItem('createType');
 
       if(fetchuserName !== null) {
         console.log("userName: ", fetchuserName);
@@ -448,6 +449,16 @@ export default function CreatePost() {
 
       if(fetchuserID !== null) {
         setUserId(fetchuserID);
+      }
+
+      if(fetchCreateType !== null) {
+        if(fetchCreateType == "educational"){
+          setIsEducationalEnabled(true);
+        } else {
+          setIsEducationalEnabled(false);
+        }
+      } else {
+        setIsEducationalEnabled(false);
       }
       
     } catch (error) {
