@@ -108,7 +108,17 @@ const TabHeader: React.FC<{
         animated: true,
       });
     }
+    
   }, [activeTab, slideAnim, tabWidth]);
+
+  const saveLastTab = async () => {
+    try {
+      await AsyncStorage.setItem('createType', activeTab);
+      console.log(`Tab **${activeTab}** saved to AsyncStorage.`);
+    } catch (error) {
+      console.error('Error saving tab name:', error);
+    }
+  };
 
   const indicatorStyle = {
     transform: [
@@ -2393,6 +2403,7 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
     }
     return true;
   });
+  
 
   if (activeTab === 'following') {
     console.log('🔍 Filtering for following tab');
@@ -3166,6 +3177,15 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
     });
   }, [filteredData, userRole, initializeCardAnimation, renderPostContent, activeTab]);
 
+  const saveLastTab = async () => {
+    try {
+      await AsyncStorage.setItem('createType', activeTab);
+      console.log(`Tab **${activeTab}** saved to AsyncStorage.`);
+    } catch (error) {
+      console.error('Error saving tab name:', error);
+    }
+  };
+  
   const renderEmptyState = () => {
   if (activeTab === 'educational') {
     return (
@@ -3182,8 +3202,8 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
       </View>
     );
   }
-
-  // Following tab empty state
+  else {
+    // Following tab empty state
   return (
     <View className="flex-1 justify-center items-center py-20 px-8 bg-white">
   {/* Icon Container - Larger with subtle background */}
@@ -3218,6 +3238,8 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
     </View>
 
   );
+  }
+
 };
 
 
