@@ -2,6 +2,7 @@ import { db } from "@/FirebaseConfig";
 import compressImage from "@/components/CompressImage";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
 import * as DocumentPicker from 'expo-document-picker';
 import { FileSystemUploadType, uploadAsync } from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
@@ -342,6 +343,12 @@ export default function CreatePost() {
   // Handler function to invert the state when the switch is toggled.
   const toggleSwitch = () => {
     setIsEducationalEnabled(previousState => !previousState);
+    if(isEducationalEnabled){
+      saveLastTab("");
+    } else {
+      saveLastTab("educational");
+    }
+    
   }
 
   //Radio button
@@ -471,6 +478,15 @@ export default function CreatePost() {
       console.log("Error retrieving item", error);
     }
   }
+
+  const saveLastTab = async (tabName: string) => {
+    try {
+      await AsyncStorage.setItem('createType', tabName);
+      console.log(`Tab **${tabName}** saved to AsyncStorage.`);
+    } catch (error) {
+      console.error('Error saving tab name:', error);
+    }
+  };
 
   // **ENHANCED: Pick images with validation**
   const pickImages = async () => {
@@ -787,11 +803,6 @@ const compressAndGetUrl = async (localUri) => {
   }
 };
 
-
-
-
-
-
   const fetchUserData = useCallback(async () => {
     try {
       let fetchuserID = userId;
@@ -954,6 +965,7 @@ const compressAndGetUrl = async (localUri) => {
         isNew: true,
         isAnonymous: isAnonymous,
         contentType: selectedType,
+        isEducational: isEducationalEnabled, 
       });
 
       setPostText('');
@@ -1032,9 +1044,12 @@ const compressAndGetUrl = async (localUri) => {
   };
 
   useEffect(() => {
-    getItem();
     fetchUserData();
   }, []);
+
+  useFocusEffect(() => {
+    getItem();
+  })
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "white" }}>
@@ -1407,17 +1422,18 @@ const compressAndGetUrl = async (localUri) => {
             </View> */}
 
             {/* // The key to the horizontal layout is flex-row */}
-            <View className="flex-row justify-around items-center w-full mt-4 mb-4">
-      
-              {options.map((option) => (
-                <RadioButton
-                  key={option}
-                  label={option}
-                  selected={selectedType === option}
-                  onSelect={setSelectedType}
-                />
-              ))}
-            </View>
+            {isEducationalEnabled === false && (
+              <View className="flex-row justify-around items-center w-full mt-4 mb-4">
+                {options.map((option) => (
+                  <RadioButton
+                    key={option}
+                    label={option}
+                    selected={selectedType === option}
+                    onSelect={setSelectedType}
+                  />
+                ))}
+              </View>
+            )}
 
             {/* Post Now Button */}
             <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
