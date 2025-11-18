@@ -280,7 +280,7 @@ export default function CommentScreen({
   };
 
   // UPDATED: VideoPlayer component - SAME AS LANDING PAGE
-  const VideoPlayer = useCallback(({ videoUrl, index }: { videoUrl: string; index?: number }) => {
+    const VideoPlayer = useCallback(({ videoUrl, index }: { videoUrl: string; index?: number }) => {
     const player = useVideoPlayer(videoUrl, (player) => {
       player.loop = true;
       player.muted = true;
@@ -307,8 +307,11 @@ export default function CommentScreen({
         <View style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', backgroundColor: '#000' }}>
           <VideoView
             player={player}
-            style={{ width: '100%', height: 200 }}
-            contentFit="contain"
+            style={{ 
+              width: '100%', 
+              aspectRatio: 16 / 9  // Changed from fixed height to responsive aspectRatio
+            }}
+            contentFit="cover"  // Changed from "contain" to "cover"
             nativeControls={false}
           />
           <View style={{ position: 'absolute', top: 8, right: 8, padding: 6, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.5)' }}>
@@ -325,6 +328,7 @@ export default function CommentScreen({
       </TouchableOpacity>
     );
   }, [currentVideoIndex, openFullScreenVideo]);
+
 
   const fetchPostData = async (itemId: string, itemType: string) => {
     setPostLoading(true);
@@ -718,9 +722,9 @@ export default function CommentScreen({
   };
 
   // UPDATED: Render media content with click to fullscreen - SAME AS LANDING PAGE
-  const renderMediaContent = (post: PostData) => {
+    const renderMediaContent = (post: PostData) => {
     const mediaUrls = post.ContentURLs && post.ContentURLs.length > 0 ? post.ContentURLs : 
-                     (post.ContentURL ? [post.ContentURL] : []);
+                    (post.ContentURL ? [post.ContentURL] : []);
     
     if (!mediaUrls || mediaUrls.length === 0) return null;
 
@@ -734,30 +738,15 @@ export default function CommentScreen({
             onPress={() => openFullScreenImage(primaryMediaUrl)}
             activeOpacity={0.95}
           >
-            <View style={{ position: 'relative', borderRadius: 16, overflow: 'hidden' }}>
-              {/* Background Image (faded) */}
+            <View style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', backgroundColor: '#f5f5f5' }}>
+              {/* Single Full-Width Image - No Blur Background */}
               <Image
                 source={{ uri: primaryMediaUrl }}
                 style={{
                   width: '100%',
-                  height: 200,
-                  position: 'absolute',
-                  opacity: 0.4,
+                  aspectRatio: 16 / 9, // Changed from fixed height to responsive
                 }}
-                className="bg-white"
-                resizeMode="cover"
-                blurRadius={5}
-                resizeMethod="resize"
-              />
-              
-              {/* Foreground Image (main) */}
-              <Image
-                source={{ uri: primaryMediaUrl }}
-                style={{
-                  width: '100%',
-                  height: 200,
-                }}
-                resizeMode="contain"
+                resizeMode="cover" // Changed from 'contain' to fill entire area
                 resizeMethod="resize"
                 onError={(error) => {
                   console.log("Image load error:", error.nativeEvent.error);
@@ -788,6 +777,7 @@ export default function CommentScreen({
     
     return null;
   };
+
 
   const renderStructuredComment = (comment: Comment | Reply) => {
     if (comment.commentType === 'structured' && comment.selectedOptions && comment.selectedOptions.length > 0) {
