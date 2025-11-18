@@ -296,6 +296,15 @@ const TabHeader: React.FC<{
   // This makes Published Posts + Educational = 80% screen, Following peeks at 20%
   const tabWidth = screenWidth * 0.40; // Each tab is 40% of screen width
 
+  const saveLastTab = async () => {
+    try {
+      await AsyncStorage.setItem('createType', activeTab);
+      console.log(`Tab **${activeTab}** saved to AsyncStorage.`);
+    } catch (error) {
+      console.error('Error saving tab name:', error);
+    }
+  };
+
   useEffect(() => {
     Animated.spring(slideAnim, {
       toValue: activeTab === 'forYou' ? 0 : activeTab === 'educational' ? 1 : 2,
@@ -321,17 +330,8 @@ const TabHeader: React.FC<{
         animated: true,
       });
     }
-    
+    saveLastTab();
   }, [activeTab, slideAnim, tabWidth]);
-
-  const saveLastTab = async () => {
-    try {
-      await AsyncStorage.setItem('createType', activeTab);
-      console.log(`Tab **${activeTab}** saved to AsyncStorage.`);
-    } catch (error) {
-      console.error('Error saving tab name:', error);
-    }
-  };
 
   const indicatorStyle = {
     transform: [
@@ -1192,7 +1192,8 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
             repostedBy: postData.repostedBy || '',
             repostedAt: postData.repostedAt || null,
             isAnonymous: false,
-            contentType: postData.contentType || 'My Thoughts'
+            contentType: postData.contentType || 'My Thoughts',
+            isEducational: postData.isEducational || false,
           });
         }
 
@@ -1202,6 +1203,7 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
       const collSentinelRefPost = collection(db, 'SentinelPosts');
       const querySentinel = query(
         collSentinelRefPost,
+        where('isEducational', '==', false),
         orderBy('ContentDate', 'desc')
       );
 
@@ -1244,7 +1246,8 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
             repostedBy: postData.repostedBy || '',
             repostedAt: postData.repostedAt || null,
             isAnonymous: postData.isAnonymous || false,
-            contentType: postData.contentType || 'My Thoughts'
+            contentType: postData.contentType || 'My Thoughts',
+            isEducational: postData.isEducational || false,
           });
         }
 
@@ -3287,15 +3290,6 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
     });
   }, [filteredData, userRole, initializeCardAnimation, renderPostContent, activeTab]);
 
-  const saveLastTab = async () => {
-    try {
-      await AsyncStorage.setItem('createType', activeTab);
-      console.log(`Tab **${activeTab}** saved to AsyncStorage.`);
-    } catch (error) {
-      console.error('Error saving tab name:', error);
-    }
-  };
-  
   const renderEmptyState = () => {
   if (activeTab === 'educational') {
     return (
