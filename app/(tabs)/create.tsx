@@ -347,6 +347,12 @@ export default function CreatePost() {
   //Radio button
   const [selectedType, setSelectedType] = useState<PostType>('My Thoughts');
   const options: PostType[] = ['My Thoughts', 'Witnessed', 'Found Online'];
+  // Add to your state declarations
+    const [uploadingFiles, setUploadingFiles] = useState<{
+      fileName: string;
+      progress: number;
+    }[]>();
+
 
   // Modal states
   const [modalConfig, setModalConfig] = useState<{
@@ -713,12 +719,10 @@ const compressAndGetUrl = async (localUri) => {
   }
 
   console.log("📤 Uploading file:", file.name, "Size:", formatFileSize(file.size || 0));
-  setUploadProgress(true);
-  setUploadPercentage(0);
   
   try {
     // Step 1: Get presigned URL
-    console.log("🔗 Requesting presigned URL...");
+    console.log("🔗 Requesting presigned URL for:", file.name);
     
     const fileExtension = file.name.split('.').pop() || 
                         file.type.split('/').pop() || 
@@ -728,8 +732,6 @@ const compressAndGetUrl = async (localUri) => {
       fileName: file.name,
       fileType: fileExtension
     };
-
-    console.log("📦 Request body:", requestBody);
 
     const presignedResponse = await fetch(
       'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/upload-file-using-presignedUrl',
@@ -749,7 +751,7 @@ const compressAndGetUrl = async (localUri) => {
     }
 
     const presignedData = await presignedResponse.json();
-    console.log("✅ Presigned URL received");
+    console.log("✅ Presigned URL received for:", file.name);
 
     const uploadUrl = presignedData.uploadUrl || presignedData.url;
     
@@ -757,10 +759,9 @@ const compressAndGetUrl = async (localUri) => {
       throw new Error("Server did not return a valid upload URL");
     }
 
-    // Step 2: Upload using legacy uploadAsync (simpler, no progress tracking)
-    console.log("🚀 Uploading file to S3...");
+    // Step 2: Upload to S3
+    console.log("🚀 Uploading to S3:", file.name);
 
-    // Import at top: import { uploadAsync, FileSystemUploadType } from 'expo-file-system/legacy';
     const uploadResult = await uploadAsync(uploadUrl, file.uri, {
       httpMethod: 'PUT',
       uploadType: FileSystemUploadType.BINARY_CONTENT,
@@ -769,36 +770,23 @@ const compressAndGetUrl = async (localUri) => {
       },
     });
 
-    console.log("📊 Upload result status:", uploadResult.status);
+    console.log("📊 Upload result for", file.name, "- Status:", uploadResult.status);
 
     if (uploadResult.status >= 200 && uploadResult.status < 300) {
       const finalUrl = uploadUrl.split('?')[0];
-      console.log("✅ Upload successful:", finalUrl);
+      console.log("✅ Upload successful:", file.name, "URL:", finalUrl);
       return finalUrl;
     } else {
       console.error("❌ S3 upload failed:", uploadResult.status, uploadResult.body);
-      let errorMessage = `Upload failed with status ${uploadResult.status}`;
-      if (uploadResult.status === 413) {
-        errorMessage = `File "${file.name}" size ${formatFileSize(file.size || 0)} exceeds ${FILE_SIZE_LIMIT_MB}MB limit`;
-      }
-      throw new Error(errorMessage);
+      throw new Error(`Upload failed with status ${uploadResult.status}`);
     }
 
   } catch (e: any) {
-    console.error("❌ Upload error:", e);
-    
-    if (e.message?.includes('abort')) {
-      throw new Error("Upload cancelled or connection timeout");
-    } else if (e.message?.includes('Network request failed')) {
-      throw new Error("Network error: Check your internet connection");
-    }
-    
+    console.error("❌ Upload error for", file.name, ":", e);
     throw e;
-  } finally {
-    setUploadProgress(false);
-    setUploadPercentage(0);
   }
 };
+
 
 
 
@@ -839,90 +827,87 @@ const compressAndGetUrl = async (localUri) => {
   }, [userId]);
 
   // **ENHANCED: Post handler with better error management**
-  const handlePostNow = async () => {
-    if (!postText.trim() && selectedMedia.length === 0) {
+      const handlePostNow = async () => {
+  if (!postText.trim() && selectedMedia.length === 0) {
+    showCustomAlert(
+      'warning',
+      'Empty Post',
+      'Please add some content or media before posting.',
+      [{ text: 'OK', onPress: hideModal }],
+      'create-outline'
+    );
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    // ✅ PARALLEL UPLOAD: Upload all files at once
+    const uploadPromises = selectedMedia.map(async (asset, index) => {
+      console.log(`📤 Starting upload ${index + 1}/${selectedMedia.length}: ${asset.name}`);
+      
+      try {
+        if (!asset.uri.startsWith("http")) {
+          const url = await uploadMediaFile(asset);
+          if (url && url.trim() !== '') {
+            console.log(`✅ Uploaded ${index + 1}/${selectedMedia.length}`);
+            return { success: true, url, fileName: asset.name };
+          }
+        } else {
+          return { success: true, url: asset.uri, fileName: asset.name };
+        }
+        return { success: false, fileName: asset.name };
+      } catch (uploadError) {
+        console.error(`❌ Failed to upload ${asset.name}:`, uploadError);
+        return { success: false, error: uploadError, fileName: asset.name };
+      }
+    });
+
+    console.log(`⏳ Uploading ${uploadPromises.length} files in parallel...`);
+    const results = await Promise.allSettled(uploadPromises);
+
+    // Separate successful and failed uploads
+    const uploadedUrls: string[] = [];
+    const failedUploads: string[] = [];
+
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled' && result.value?.success) {
+        uploadedUrls.push(result.value.url);
+      } else {
+        const fileName = result.status === 'fulfilled' 
+          ? result.value?.fileName 
+          : selectedMedia[index]?.name || `File ${index + 1}`;
+        failedUploads.push(fileName);
+      }
+    });
+
+    console.log(`✅ ${uploadedUrls.length} succeeded, ${failedUploads.length} failed`);
+
+    if (uploadedUrls.length === 0 && failedUploads.length > 0) {
       showCustomAlert(
-        'warning',
-        'Empty Post',
-        'Please add some content or media before posting.',
+        'error',
+        'All Uploads Failed',
+        `Failed to upload all files. Please check your connection.`,
         [{ text: 'OK', onPress: hideModal }],
-        'create-outline'
+        'cloud-offline-outline'
       );
       return;
     }
 
-    setLoading(true);
-    let uploadedUrls: string[] = [];
-    let failedUploads: string[] = [];
+    await createPost(uploadedUrls, failedUploads);
 
-    try {
-      // Upload each media file with individual error handling
-      for (let i = 0; i < selectedMedia.length; i++) {
-        const asset = selectedMedia[i];
-        console.log(`📤 Processing ${i + 1}/${selectedMedia.length}: ${asset.name}`);
-        
-        try {
-          if (!asset.uri.startsWith("http")) {
-            const url = await uploadMediaFile(asset);
-            if (url && url.trim() !== '') {
-              uploadedUrls.push(url);
-              console.log(`✅ Uploaded: ${asset.name}`);
-            }
-          } else {
-            uploadedUrls.push(asset.uri);
-            console.log(`✅ Added remote URL: ${asset.uri}`);
-          }
-        } catch (uploadError) {
-          console.error(`❌ Failed to upload ${asset.name}:`, uploadError);
-          failedUploads.push(asset.name);
-          
-          // Show detailed error for each failed upload
-          const errorDetails = getErrorDetails(uploadError, asset.name);
-          
-          return new Promise<void>((resolve) => {
-            showCustomAlert(
-              'error',
-              errorDetails.title,
-              `${errorDetails.message}\n\nWould you like to continue posting without this file?`,
-              [
-                {
-                  text: 'Cancel Post',
-                  style: 'cancel',
-                  onPress: () => {
-                    hideModal();
-                    setLoading(false);
-                    resolve();
-                  }
-                },
-                {
-                  text: 'Continue',
-                  onPress: async () => {
-                    hideModal();
-                    // Continue with remaining uploads and post creation
-                    await continueWithRemainingUploads(i + 1, uploadedUrls, failedUploads);
-                    resolve();
-                  }
-                }
-              ],
-              errorDetails.icon
-            );
-          });
-        }
-      }
+  } catch (e) {
+    console.error("❌ Post creation error:", e);
+    const errorDetails = getErrorDetails(e);
+    showCustomAlert('error', errorDetails.title, errorDetails.message, [
+      { text: 'OK', onPress: hideModal }
+    ], errorDetails.icon);
+  } finally {
+    setLoading(false);
+  }
+};
 
-      // All uploads completed successfully
-      await createPost(uploadedUrls, failedUploads);
 
-    } catch (e) {
-      console.error("❌ Post creation error:", e);
-      const errorDetails = getErrorDetails(e);
-      showCustomAlert('error', errorDetails.title, errorDetails.message, [
-        { text: 'OK', onPress: hideModal }
-      ], errorDetails.icon);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // **NEW: Continue with remaining uploads**
   const continueWithRemainingUploads = async (startIndex: number, uploadedUrls: string[], failedUploads: string[]) => {
@@ -966,6 +951,7 @@ const compressAndGetUrl = async (localUri) => {
         CommentTemplate: "Sentinel Default Template",
         isApproved: false,
         isLiked: false,
+        isNew: true,
         isAnonymous: isAnonymous,
         contentType: selectedType,
       });
@@ -1156,6 +1142,35 @@ const compressAndGetUrl = async (localUri) => {
                 />
               </View>
             </View>
+
+            {/* Upload Progress Indicator - Add this in your render method */}
+              {loading && selectedMedia.length > 0 && (
+                <View style={{
+                  position: 'absolute',
+                  bottom: 100,
+                  left: 16,
+                  right: 16,
+                  backgroundColor: 'white',
+                  borderRadius: 12,
+                  padding: 16,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 4,
+                  elevation: 5,
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                    <ActivityIndicator size="small" color="#8B5CF6" />
+                    <Text style={{ marginLeft: 8, fontSize: 14, fontWeight: '600', color: '#333' }}>
+                      Uploading {selectedMedia.length} file(s)...
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 12, color: '#666' }}>
+                    Please wait while your media is being uploaded
+                  </Text>
+                </View>
+              )}
+
 
             {/* Media Preview */}
             {selectedMedia.length > 0 && (
