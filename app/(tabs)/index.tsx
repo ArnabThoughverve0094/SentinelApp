@@ -12,6 +12,7 @@ import {
   Animated,
   Dimensions,
   Image,
+  KeyboardAvoidingView,
   Linking,
   Modal,
   Platform,
@@ -497,11 +498,18 @@ const RepostModal: React.FC<RepostModalProps> = ({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <View className="flex-1 bg-black/50 items-center justify-end px-4 pb-8">
-        <Animated.View 
-          style={[{ transform: [{ scale: scaleAnim }] }]}
-          className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl"
-        >
+      <KeyboardAvoidingView
+        style={{
+          flex: 1,
+          justifyContent: 'flex-end', // Aligns the modal content to the bottom
+        }}
+        // Use 'padding' for iOS and 'height' or nothing for Android
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <View className="flex-1 bg-black/50 items-center justify-end px-4 pb-8">
+          <Animated.View 
+            style={[{ transform: [{ scale: scaleAnim }] }]}
+            className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl"
+          >
           <View className="px-6 py-4 border-b border-gray-100">
             <View className="flex-row items-center justify-between">
               <View className="flex-1">
@@ -607,6 +615,8 @@ const RepostModal: React.FC<RepostModalProps> = ({
           </View>
         </Animated.View>
       </View>
+        </KeyboardAvoidingView>
+      
     </Modal>
   );
 };
@@ -1203,7 +1213,6 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
       const collSentinelRefPost = collection(db, 'SentinelPosts');
       const querySentinel = query(
         collSentinelRefPost,
-        where('isEducational', '==', false),
         orderBy('ContentDate', 'desc')
       );
 
@@ -3350,7 +3359,6 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
-      
       <View className="bg-white border-b border-gray-200 pt-3">
         <View 
           className="px-4 py-2 flex-row items-center justify-between"
