@@ -69,6 +69,7 @@ interface PostItem {
   CommentTemplate: string;
   isAnonymous: boolean;
   contentType: string;
+  isEducational: boolean;
 }
 
 interface MediaCarouselProps {
@@ -816,7 +817,8 @@ export default function SentinelFeed(): React.JSX.Element {
   const [userId, setUserId] = useState("");
   const [userRole, setUserRole] = useState("User");
   const [fetchedData, setFetchedData] = useState<PostItem[]>([]);
-  const [fetchedXData, setFetchedXData] = useState<any>([]);
+  const [sentinelData, setSentinelData] = useState<PostItem[]>([]);
+  const [fetchedXData, setFetchedXData] = useState<PostItem[]>([]);
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
   const [isImageModalVisible, setIsImageModalVisible] = useState(false);
   const [fullScreenVideo, setFullScreenVideo] = useState<string | null>(null);
@@ -865,6 +867,8 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
 
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+
+  const commentUnsubscribesRef = useRef<(() => void)[]>([]);
 
   // UPDATED: Create video player for fullscreen modal
   const fullScreenVideoPlayer = useVideoPlayer(fullScreenVideo || '', (player) => {
@@ -1113,6 +1117,10 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
     } catch (error) {
       console.log("Error retrieving userId", error);
     }
+
+    fetchUserFollowing();
+    handleFetchAllData();
+    fetchCommentTemplate();
   }, []);
 
   const fetchSinglePostComments = useCallback(async (postId: string, postType: string) => {
@@ -1260,27 +1268,28 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
           });
         }
 
-        const allData = postsData.concat(postsXData);
-        setFetchedData(allData);
-        console.log('OnSnapshot Fetched and Sorted', `Total: ${allData.length} documents`);
+        setSentinelData(postsData);
+        // const allData = postsData.concat(postsXData);
+        // setFetchedData(allData);
+        // console.log('OnSnapshot Fetched and Sorted', `Total: ${allData.length} documents`);
 
-        allData.forEach(post => {
-          onSnapshot(
-            collection(doc(db, post.postType, post.id), 'Comments'),
-            commentsSnap => {
-              let totalComments = 0;
-              totalComments = commentsSnap.size;
+        // allData.forEach(post => {
+        //   onSnapshot(
+        //     collection(doc(db, post.postType, post.id), 'Comments'),
+        //     commentsSnap => {
+        //       let totalComments = 0;
+        //       totalComments = commentsSnap.size;
 
-              setFetchedData(prev =>
-                prev.map(p =>
-                  p.id === post.id
-                  ? { ...p, ContentCommentCount: totalComments }
-                  : p
-                )
-              );
-            }
-          )
-        });
+        //       setFetchedData(prev =>
+        //         prev.map(p =>
+        //           p.id === post.id
+        //           ? { ...p, ContentCommentCount: totalComments }
+        //           : p
+        //         )
+        //       );
+        //     }
+        //   )
+        // });
       });
       
       setLastFetchTime(currentTime);
@@ -1425,11 +1434,39 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
   },[]);
 
   useEffect(() => {
-    getItem();
-    fetchUserFollowing();
-    handleFetchAllData();
-    fetchCommentTemplate();
-  }, []);
+    if(userId == null) {
+      getItem();
+    }
+    
+    const combinedData = [...sentinelData, ...fetchedXData];
+    setFetchedData(combinedData);
+
+    //Cleanup existing listeners before starting new ones
+    commentUnsubscribesRef.current.forEach(unsubscribe => unsubscribe());
+    commentUnsubscribesRef.current = []; // Clear the ref array
+    combinedData.forEach(post => {
+      const unsubscribeComments = onSnapshot(
+          collection(doc(db, post.postType, post.id), 'Comments'),
+          commentsSnap => {
+              setFetchedData(prev =>
+                  prev.map(p =>
+                      p.id === post.id
+                          ? { ...p, ContentCommentCount: commentsSnap.size }
+                          : p
+                  )
+              );
+          }
+      );
+      // Store the new unsubscribe function
+      commentUnsubscribesRef.current.push(unsubscribeComments);
+    });
+
+    return () => {
+      console.log('Cleaning up all comment listeners.');
+      commentUnsubscribesRef.current.forEach(unsubscribe => unsubscribe());
+  };
+
+  }, [fetchedXData, sentinelData]);
 
   useFocusEffect(
     useCallback(() => {
@@ -2525,6 +2562,10 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
     }
     return true;
   });
+
+  let educationalData = fetchedData.filter(item => {
+    return item.isEducational;
+  });
   
 
   if (activeTab === 'following') {
@@ -2561,7 +2602,7 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
 
   if (activeTab === 'educational') {
     // Educational tab - show "Coming Soon" message
-    return [];
+    return educationalData || [];
   }
 
   // 'forYou' tab - show all published posts
