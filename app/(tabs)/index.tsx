@@ -2556,7 +2556,12 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
     });
 
     let educationalData = fetchedData.filter(item => {
-      return item.isEducational;
+      if (userRole === "User") {
+        return (item.isApproved && item.isEducational);
+      } else {
+        return (item.isEducational);
+      }
+      
     });
 
     let publishedData = fetchedData.filter(item => {
