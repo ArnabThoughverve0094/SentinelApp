@@ -892,55 +892,47 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
   }, []);
 
   const fetchUserFollowing = useCallback(async () => {
-  try {
-    let fetchuserID = userId;
-    if (fetchuserID === "") {
-      fetchuserID = await AsyncStorage.getItem('userId') || "";
-      setUserId(fetchuserID);
-    }
+    try {
+      let fetchuserID = userId;
+      if (fetchuserID === "") {
+        fetchuserID = await AsyncStorage.getItem('userId') || "";
+        setUserId(fetchuserID);
+      }
 
-    if (fetchuserID) {
-      console.log('🔄 Fetching following list for user:', fetchuserID);
+      if (fetchuserID) {
+        console.log('🔄 Fetching following list for user:', fetchuserID);
       
-      const sentinelUsersRef = collection(db, 'SentinelUsers');
-      const q = query(sentinelUsersRef, where('userID', '==', fetchuserID));
+        const sentinelUsersRef = collection(db, 'SentinelUsers');
+        const q = query(sentinelUsersRef, where('userID', '==', fetchuserID));
       
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        if (!snapshot.empty) {
-          const userDoc = snapshot.docs[0];
-          const userData = userDoc.data();
-          setCurrentUserDocId(userDoc.id);
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          if (!snapshot.empty) {
+            const userDoc = snapshot.docs[0];
+            const userData = userDoc.data();
+            setCurrentUserDocId(userDoc.id);
           
-          // Get following list
-          const following = userData.Following || [];
-          setFollowingUserIds(following);
-          console.log('✅ Following list updated:', following);
-          console.log('✅ Following count:', following.length);
-          
-          // Get notifications
-          const notification = userData.Notification || [];
-          setNotificationDetails(notification);
-          console.log('✅ Notification list updated:', notification);
-        } else {
-          console.log('📱 No user document found');
+            // Get following list
+            const following = userData.Following || [];
+            setFollowingUserIds(following);
+            console.log('✅ Following list updated:', following);
+            console.log('✅ Following count:', following.length);
+          } else {
+            console.log('📱 No user document found');
+            setFollowingUserIds([]);
+            setCurrentUserDocId('');
+          }
+        }, (error) => {
+          console.error('❌ Error in following list listener:', error);
           setFollowingUserIds([]);
-          setCurrentUserDocId('');
-          setNotificationDetails([]);
-        }
-      }, (error) => {
-        console.error('❌ Error in following list listener:', error);
-        setFollowingUserIds([]);
-        setNotificationDetails([]);
-      });
+        });
 
-      return unsubscribe;
+        return unsubscribe;
+      }
+    } catch (error) {
+      console.error('❌ Error fetching following list:', error);
+      setFollowingUserIds([]);
     }
-  } catch (error) {
-    console.error('❌ Error fetching following list:', error);
-    setFollowingUserIds([]);
-    setNotificationDetails([]);
-  }
-}, [userId]);
+  }, [userId]);
 
     const fetchAllUsersForNotifications = useCallback(async () => {
       try {
@@ -957,11 +949,13 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
           setNotificationDetails(notificationlist);
         }, (error) => {
           console.error('❌ Error fetching all users:', error);
+          setNotificationDetails([]);
         });
 
         return unsubscribe;
       } catch (error) {
         console.error('❌ Error in fetchAllUsersForNotifications:', error);
+        setNotificationDetails([]);
       }
     }, []);
 
@@ -1117,10 +1111,6 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
     } catch (error) {
       console.log("Error retrieving userId", error);
     }
-
-    fetchUserFollowing();
-    handleFetchAllData();
-    fetchCommentTemplate();
   }, []);
 
   const fetchSinglePostComments = useCallback(async (postId: string, postType: string) => {
@@ -1434,9 +1424,11 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
   },[]);
 
   useEffect(() => {
-    if(userId == null) {
-      getItem();
-    }
+    getItem();
+    fetchUserFollowing();
+    fetchAllUsersForNotifications();
+    handleFetchAllData();
+    fetchCommentTemplate();
     
     const combinedData = [...sentinelData, ...fetchedXData];
     setFetchedData(combinedData);
@@ -1955,6 +1947,7 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
           setPostUserDocId(docUserID.docID);
           setPostUserIdNotify(postUserID);
           // setPostUserDeviceToken(doc.docDeviceToken);
+          break;
         }
       }
 
@@ -2537,9 +2530,9 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
             resizeMethod="resize"
           />
           <Text className="font-semibold text-gray-900 text-sm">{AuthorName}</Text>
-          <Text className="text-gray-500 text-xs ml-2">
+          {/* <Text className="text-gray-500 text-xs ml-2">
             {getTimeAgo(item.originalPost.ContentDate)}
-          </Text>
+          </Text> */}
         </View>
         <Text className="text-gray-700 text-sm" numberOfLines={2}>
           {item.originalPost.ContentDesc}
@@ -2556,58 +2549,66 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
   }, [handleFetchAllData]);
 
   const filteredData = useMemo(() => {
-  let baseData = fetchedData.filter(item => {
-    if (userRole === "User") {
-      return (item.isApproved && !item.isNew) || item.uniqueId.includes('xdata');
-    }
-    return true;
-  });
+    let baseData = fetchedData.filter(item => {
+      if (userRole === "User") {
+        return (item.isApproved && !item.isNew) || item.uniqueId.includes('xdata');
+      }
+      return true;
+    });
 
-  let educationalData = fetchedData.filter(item => {
-    return item.isEducational;
-  });
+    let educationalData = fetchedData.filter(item => {
+      return item.isEducational;
+    });
+
+    let publishedData = fetchedData.filter(item => {
+      if (userRole === "User") {
+        return (item.isApproved && !item.isNew && !item.isEducational) || item.uniqueId.includes('xdata');
+      } else {
+        return !item.isEducational;
+      }
+    });
   
 
-  if (activeTab === 'following') {
-    console.log('🔍 Filtering for following tab');
-    console.log('Following user IDs:', followingUserIds);
-    console.log('Base data count:', baseData.length);
+    if (activeTab === 'following') {
+      console.log('🔍 Filtering for following tab');
+      console.log('Following user IDs:', followingUserIds);
+      console.log('Base data count:', baseData.length);
     
-    // Debug: Log all post author IDs
-    console.log('All posts with authors:', baseData.map(item => ({
-      id: item.id,
-      AuthorUserID: item.AuthorUserID,
-      repostedBy: item.repostedBy,
-      AuthorName: item.AuthorName
-    })));
+      // Debug: Log all post author IDs
+      console.log('All posts with authors:', baseData.map(item => ({
+        id: item.id,
+        AuthorUserID: item.AuthorUserID,
+        repostedBy: item.repostedBy,
+        AuthorName: item.AuthorName
+      })));
     
-    const followingData = baseData.filter(item => {
-      // For regular posts, check AuthorUserID
-      // For reposts, check repostedBy first, then original author
-      const authorId = item.repostedBy || item.AuthorUserID;
-      const isFromFollowedUser = authorId && followingUserIds.includes(authorId);
+      const followingData = baseData.filter(item => {
+        // For regular posts, check AuthorUserID
+        // For reposts, check repostedBy first, then original author
+        const authorId = item.repostedBy || item.AuthorUserID;
+        const isFromFollowedUser = authorId && followingUserIds.includes(authorId);
       
-      if (isFromFollowedUser) {
-        console.log(`✅ Including post from followed user: ${item.AuthorName} (${authorId})`);
-      } else {
-        console.log(`❌ Excluding post: ${item.AuthorName} (${authorId}) - not in following list`);
-      }
+        if (isFromFollowedUser) {
+          console.log(`✅ Including post from followed user: ${item.AuthorName} (${authorId})`);
+        } else {
+          console.log(`❌ Excluding post: ${item.AuthorName} (${authorId}) - not in following list`);
+        }
       
-      return isFromFollowedUser;
-    });
+        return isFromFollowedUser;
+      });
     
-    console.log('✅ Following filtered data count:', followingData.length);
-    return followingData;
-  }
+      console.log('✅ Following filtered data count:', followingData.length);
+      return followingData;
+    }
 
-  if (activeTab === 'educational') {
-    // Educational tab - show "Coming Soon" message
-    return educationalData || [];
-  }
+    if (activeTab === 'educational') {
+      // Educational tab - show "Coming Soon" message
+      return educationalData || [];
+    }
 
-  // 'forYou' tab - show all published posts
-  return baseData;
-}, [fetchedData, userRole, activeTab, followingUserIds]);
+    // 'forYou' tab - show all published posts
+    return publishedData || [];
+  }, [fetchedData, userRole, activeTab, followingUserIds]);
 
 
   const handleScroll = useCallback((event: any) => {
@@ -2799,7 +2800,7 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
               <View className="flex-1">
                 <Text className="font-bold text-gray-900 text-sm">{AuthorName}</Text>
                 <View className="flex-row items-center mt-0.5">
-                  {item.postType != 'X-Data' && (
+                  {item.postType != 'X-Data' && !item.isEducational && (
                     <View className="bg-blue-100 px-1 py-0.5 rounded-full mr-1.5">
                       <Text className="text-blue-600 text-xs font-regular">• {item.contentType}</Text>
                     </View>
@@ -3348,10 +3349,10 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
           <Ionicons name="school-outline" size={40} color="#9CA3AF" />
         </View>
         <Text className="text-xl font-semibold text-gray-900 mb-2 text-center">
-          Coming Soon
+          Educational feed is waiting
         </Text>
         <Text className="text-gray-500 text-center leading-6 mb-4">
-          Educational content will be available here soon. Stay tuned for learning materials and resources!
+          Educational content will be available here. Stay tuned for learning materials and resources!
         </Text>
       </View>
     );
