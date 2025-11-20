@@ -143,7 +143,7 @@ const MediaCarousel: React.FC<MediaCarouselProps> = React.memo(({
                         progressiveRenderingEnabled={true}
                         fadeDuration={300}
                       />
-                      <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+                      <View className="absolute top-2 right-6 p-1.5 rounded-full bg-black/50">
                         <Ionicons name="expand-outline" size={14} color="white" />
                       </View>
                     </View>
@@ -250,15 +250,15 @@ const MediaCarousel: React.FC<MediaCarouselProps> = React.memo(({
           ))}
         </View>
       )}
+      {/* Media Counter Badge */}
+        {mediaUrls.length > 1 && (
+          <View className="absolute top-2 left-2 px-2.5 py-1 rounded-full bg-black/70">
+            <Text className="text-white text-xs font-semibold">
+              {currentSlide + 1}/{mediaUrls.length}
+            </Text>
+          </View>
+        )}
 
-      {/* Media Counter Badge (1/5) */}
-      {mediaUrls.length > 1 && (
-        <View className="absolute top-2 right-2 px-2.5 py-1 rounded-full bg-black/70">
-          <Text className="text-white text-xs font-semibold">
-            {currentSlide + 1}/{mediaUrls.length}
-          </Text>
-        </View>
-      )}
     </View>
   );
 });
