@@ -786,46 +786,71 @@ export default function TotalSentiment({
                     </View>
 
                     {/* Sentiment Bars */}
+                    {/* Sentiment Bars */}
+                    {/* Sentiment Bars */}
                     <View style={{ marginBottom: 30 }}>
                       {RESPONSE_OPTIONS.map((option, index) => {
                         const percentage = sentimentData[option.id] || 0;
                         return (
                           <View key={option.id} style={{ marginBottom: 16 }}>
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                                {option.icon && (
-                                  <Image
-                                    source={{ uri: option.icon}}
-                                    style={{ width: 40, height: 25, marginRight: 8 }}
-                                    resizeMode="contain"
-                                    resizeMethod="resize"
-                                  />
-                                )}
-                                <Text style={{ fontSize: 16, color: '#000', fontWeight: '500' }}>
-                                  {option.label}
-                                </Text>
-                              </View>
-                              <Text style={{ fontSize: 16, color: '#000', fontWeight: 'bold' }}>
-                                {percentage}%
+                            {/* Icon and Label only */}
+                            <View style={{ 
+                              flexDirection: 'row', 
+                              alignItems: 'center', 
+                              marginBottom: 6 
+                            }}>
+                              {option.icon && (
+                                <Image
+                                  source={{ uri: option.icon}}
+                                  style={{ width: 24, height: 24, marginRight: 8 }}
+                                  resizeMode="contain"
+                                  resizeMethod="resize"
+                                />
+                              )}
+                              <Text style={{ fontSize: 15, color: '#000', fontWeight: '500' }}>
+                                {option.label}
                               </Text>
                             </View>
+                            
+                            {/* Progress bar with percentage at the right end */}
                             <View style={{ 
-                              height: 10, 
-                              backgroundColor: '#f0f0f0', 
-                              borderRadius: 5,
-                              overflow: 'hidden'
+                              flexDirection: 'row', 
+                              alignItems: 'center',
+                              gap: 8
                             }}>
+                              {/* Progress bar container */}
                               <View style={{ 
-                                height: '100%', 
-                                backgroundColor: CHART_COLORS[index % CHART_COLORS.length], 
-                                width: `${percentage}%`,
-                                borderRadius: 5
-                              }} />
+                                flex: 1,
+                                height: 8, 
+                                backgroundColor: '#f0f0f0', 
+                                borderRadius: 4,
+                                overflow: 'hidden'
+                              }}>
+                                <View style={{ 
+                                  height: '100%', 
+                                  backgroundColor: CHART_COLORS[index % CHART_COLORS.length], 
+                                  width: `${percentage}%`,
+                                  borderRadius: 4
+                                }} />
+                              </View>
+                              
+                              {/* Percentage text at the right */}
+                              <Text style={{ 
+                                fontSize: 15, 
+                                color: '#000', 
+                                fontWeight: 'bold',
+                                minWidth: 45,
+                                textAlign: 'right'
+                              }}>
+                                {percentage}%
+                              </Text>
                             </View>
                           </View>
                         );
                       })}
                     </View>
+
+
                   </View>
                 )}
               </ScrollView>
