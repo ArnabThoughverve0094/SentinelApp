@@ -272,6 +272,22 @@ export default function NotificationPage() {
                 })
               }
             }
+
+            // --- 👇 SORTING BY ContentDate (Latest on Top) 👇 ---
+            
+            fetchNotific.sort((a, b) => {
+              // Assuming 'a.time' and 'b.time' (which is ContentDate) 
+              // are valid date strings or Date objects/timestamps.
+              
+              // 1. Convert to comparable date values (milliseconds)
+              const dateA = new Date(a.time).getTime(); 
+              const dateB = new Date(b.time).getTime();
+
+              // 2. Sort in DESCENDING order (Latest on top): b - a
+              return dateB - dateA;
+            });
+            
+            // --- 👆 SORTING ENDS 👆 ---
             
             setNotificationDetails(fetchNotific);
             console.log('✅ Notification list updated:', fetchNotific);
