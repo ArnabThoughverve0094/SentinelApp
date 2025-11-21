@@ -8,6 +8,7 @@ import {
   Alert,
   Dimensions,
   Image,
+  Linking,
   Modal,
   Platform,
   ScrollView,
@@ -66,6 +67,101 @@ interface TotalSentimentProps {
   onEditComment: (comment: Comment) => void;
   commentTemplate: string | null;
 }
+const renderStyledPostText = (text) => {
+  if (!text) return null;
+
+  const urlPattern = /(https?:\/\/[^\s]+)|(www\.[^\s]+)/gi;
+  const hashtagPattern = /(^|\s)(#[a-zA-Z0-9_]+)/g;
+
+  const urlMatches = [];
+  const hashtagMatches = [];
+  let match;
+
+  while ((match = urlPattern.exec(text)) !== null) {
+    urlMatches.push({
+      type: "url",
+      text: match[0],
+      index: match.index,
+      length: match[0].length,
+    });
+  }
+
+  while ((match = hashtagPattern.exec(text)) !== null) {
+    hashtagMatches.push({
+      type: "hashtag",
+      text: match[2],
+      index: match.index + match[1].length,
+      length: match[2].length,
+    });
+  }
+
+  const allMatches = [...urlMatches, ...hashtagMatches].sort((a, b) => a.index - b.index);
+
+  if (allMatches.length === 0) {
+    return <Text style={{ color: "#111827" }}>{text}</Text>;
+  }
+
+  const components = [];
+  let lastIndex = 0;
+
+  allMatches.forEach((match, i) => {
+    if (match.index > lastIndex) {
+      components.push(
+        <Text key={`text-${i}`} style={{ color: "#111827" }}>
+          {text.substring(lastIndex, match.index)}
+        </Text>
+      );
+    }
+
+    if (match.type === "url") {
+      components.push(
+        <Text
+          key={`url-${i}`}
+          style={{ color: "#2563EB", textDecorationLine: "underline", fontWeight: "500" }}
+          onPress={() => {
+            const url = match.text.startsWith("http") ? match.text : `https://${match.text}`;
+            Linking.openURL(url);
+          }}
+        >
+          {match.text}
+        </Text>
+      );
+    } else if (match.type === "hashtag") {
+      components.push(
+        <TouchableOpacity
+          key={`hashtag-${i}`}
+          onPress={() => {
+            alert("Hashtag tapped: " + match.text);
+            // Or custom navigation/filter
+          }}
+        >
+          <Text
+            style={{
+              color: "#E6161A",
+              fontWeight: "bold",
+              backgroundColor: "#FEE2E2",
+              paddingHorizontal: 2,
+              borderRadius: 2,
+            }}
+          >
+            {match.text}
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+    lastIndex = match.index + match.length;
+  });
+
+  if (lastIndex < text.length) {
+    components.push(
+      <Text key="end" style={{ color: "#111827" }}>
+        {text.substring(lastIndex)}
+      </Text>
+    );
+  }
+
+  return components;
+};
 
 // Response options matching the design
 let RESPONSE_OPTIONS: any[] = [];
@@ -692,7 +788,7 @@ export default function TotalSentiment({
                     </View>
                     
                     <Text style={{ fontSize: 15, color: '#000', lineHeight: 20, marginBottom: 12 }}>
-                      {postData.ContentDesc}
+                      {renderStyledPostText(postData.ContentDesc)}
                     </Text>
                     
                     {renderMediaContent()}
@@ -729,11 +825,11 @@ export default function TotalSentiment({
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                       <Text style={{ fontSize: 24, marginRight: 8 }}>📊</Text>
                       <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#000' }}>
-                        Response Distribution
+                        Sentiment Distribution
                       </Text>
                     </View>
                     <Text style={{ fontSize: 14, color: '#8e8e93', marginBottom: 20 }}>
-                      Total Responses: {totalResponses}
+                      Total Sentiments: {totalResponses}
                     </Text>
                     
                     <PieChart
