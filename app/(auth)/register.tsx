@@ -1,11 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { Link, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
-  FlatList,
   Image,
   ImageBackground,
   KeyboardAvoidingView,
@@ -18,6 +16,7 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
+import { CountryPicker } from "react-native-country-codes-picker";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 // Custom Modal Component
@@ -155,18 +154,18 @@ const CustomModal: React.FC<CustomModalProps> = ({
 };
 
 // Country list
-const COUNTRIES = [
-  "United States",
-  "United Kingdom",
-  "Canada",
-  "Australia",
-  "Germany",
-  "France",
-  "India",
-  "Japan",
-  "Brazil",
-  "South Africa",
-];
+// const COUNTRIES = [
+//   "United States",
+//   "United Kingdom",
+//   "Canada",
+//   "Australia",
+//   "Germany",
+//   "France",
+//   "India",
+//   "Japan",
+//   "Brazil",
+//   "South Africa",
+// ];
 
 // Simplified Password Requirements Component - Single Line
 const PasswordRequirements = ({ password }: { password: string }) => {
@@ -225,6 +224,8 @@ export default function Register(): React.JSX.Element {
   // Country dropdown state
   const [showCountryDropdown, setShowCountryDropdown] =
     useState<boolean>(false);
+  const [agreeToAge, setAgreeToAge] = useState<boolean>(false);
+
 
   // Modal states
   const [modalConfig, setModalConfig] = useState<{
@@ -387,10 +388,12 @@ export default function Register(): React.JSX.Element {
     }
 
     // DOB validation
-    if (!dob) {
-      newErrors.dob = "Date of birth is required";
+    // if (!dob) {
+    //   newErrors.dob = "Date of birth is required";
+    // }
+    if (!agreeToAge) {
+      newErrors.dob = "You must confirm that you are 18 years or older";
     }
-
     // Country validation
     if (!country.trim()) {
       newErrors.country = "Country is required";
@@ -451,11 +454,12 @@ export default function Register(): React.JSX.Element {
         name: name.trim(),
         nickName: username.trim(),
         confirmPassword: confirmPassword.trim(),
-        dob: dob?.toISOString().split("T")[0] || "",
+        dob: agreeToAge ? new Date(new Date().getFullYear() - 18, 0, 1).toISOString().split("T")[0] : "", // Default to 18 years ago
         country: country.trim(),
         termsAccepted: "true",
         role: "User",
       };
+
 
       console.log("=== SENDING DATA IN EXACT API FORMAT ===");
       console.log("Registration data:", registrationData);
@@ -591,13 +595,13 @@ export default function Register(): React.JSX.Element {
   };
 
 
-  const handleCountrySelect = (selectedCountry: string) => {
-    setCountry(selectedCountry);
-    setShowCountryDropdown(false);
-    if (errors.country) {
-      setErrors((prev) => ({ ...prev, country: undefined }));
-    }
-  };
+  // const handleCountrySelect = (selectedCountry: string) => {
+  //   setCountry(selectedCountry);
+  //   setShowCountryDropdown(false);
+  //   if (errors.country) {
+  //     setErrors((prev) => ({ ...prev, country: undefined }));
+  //   }
+  // };
 
   const formatDate = (date: Date): string => {
     return date.toLocaleDateString("en-GB");
@@ -686,6 +690,15 @@ const validateAge = (birthDate) => {
 
   return null; // Valid
 };
+
+const handleCountrySelect = (selectedCountry: string) => {
+  setCountry(selectedCountry);
+  setShowCountryDropdown(false);
+  if (errors.country) {
+    setErrors((prev) => ({ ...prev, country: undefined }));
+  }
+};
+
 
 
   return (
@@ -869,7 +882,7 @@ const validateAge = (birthDate) => {
               </View>
 
               {/* Confirm Password input */}
-              <View className="mb-5">
+              {/* <View className="mb-5">
                 <Text className="text-sm font-medium text-black/90 mb-2">
                   Confirm Password <Text className="text-red-500">*</Text>
                 </Text>
@@ -908,7 +921,7 @@ const validateAge = (birthDate) => {
                     {errors.confirmPassword}
                   </Text>
                 )}
-              </View>
+              </View> */}
 
               {/* Nickname input */}
               <View className="mb-5">
@@ -938,7 +951,7 @@ const validateAge = (birthDate) => {
               </View>
 
               {/* Date of Birth input */}
-              <View className="mb-5">
+              {/* <View className="mb-5">
                 <Text className="text-sm font-medium text-black/90 mb-2">
                   Date of Birth <Text className="text-red-500">*</Text>
                 </Text>
@@ -973,8 +986,43 @@ const validateAge = (birthDate) => {
                     minimumDate={new Date(1900, 0, 1)}
                   />
                 )}
-              </View>
-
+              </View> */}
+              {/* Age Confirmation Checkbox - 18+ */}
+                <View className="mb-6">
+                  <Text className="text-sm font-medium text-black/90 mb-3">
+                    Age Confirmation <Text className="text-red-500">*</Text>
+                  </Text>
+                  <TouchableOpacity
+                    className="flex-row items-start"
+                    onPress={() => {
+                      setDob(agreeToAge ? null : new Date()); // Set a dummy date when checked
+                      setAgreeToAge(!agreeToAge);
+                      if (!agreeToAge) clearError("dob");
+                    }}
+                  >
+                    <View
+                      className={`w-5 h-5 rounded border-2 mr-3 mt-0.5 items-center justify-center ${
+                        agreeToAge
+                          ? "bg-red-700 border-red-700"
+                          : "border-gray-300 bg-white"
+                      } font-sans`}
+                    >
+                      {agreeToAge && (
+                        <Ionicons name="checkmark" size={14} color="white" />
+                      )}
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-sm text-black/70 leading-5">
+                        I confirm that I am 18 years of age or older
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                  {errors.dob && (
+                    <Text className="text-red-500 text-xs mt-1">
+                      {errors.dob}
+                    </Text>
+                  )}
+                </View>
 
               {/* Country input */}
               <View className="mb-6">
@@ -1002,6 +1050,7 @@ const validateAge = (birthDate) => {
                   </Text>
                 )}
               </View>
+
 
               {/* Terms & Conditions with clickable links */}
               <View className="mb-8">
@@ -1067,41 +1116,51 @@ const validateAge = (birthDate) => {
         </ScrollView>
 
         {/* Country Selection Modal */}
-        <Modal
-          visible={showCountryDropdown}
-          transparent={true}
-          animationType="slide"
-          onRequestClose={() => setShowCountryDropdown(false)}
-        >
-          <View className="flex-1 justify-end bg-black/50">
-            <View className="bg-white rounded-t-3xl max-h-96">
-              <View className="p-4 border-b border-gray-200">
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-lg font-semibold text-gray-900">
-                    Select Country
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => setShowCountryDropdown(false)}
-                  >
-                    <Ionicons name="close" size={24} color="#374151" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-              <FlatList
-                data={COUNTRIES}
-                keyExtractor={(item) => item}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    className="px-4 py-3 border-b border-gray-100"
-                    onPress={() => handleCountrySelect(item)}
-                  >
-                    <Text className="text-base text-gray-900">{item}</Text>
-                  </TouchableOpacity>
-                )}
-              />
-            </View>
-          </View>
-        </Modal>
+        {/* Country Selection Modal with Search */}
+          <CountryPicker
+            show={showCountryDropdown}
+            pickerButtonOnPress={(item) => {
+              handleCountrySelect(item.name.en);
+            }}
+            onBackdropPress={() => setShowCountryDropdown(false)}
+            style={{
+              modal: {
+                height: 500,
+                backgroundColor: 'white',
+              },
+              textInput: {
+                height: 50,
+                borderRadius: 12,
+                paddingHorizontal: 16,
+                fontSize: 16,
+                backgroundColor: '#F3F4F6',
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
+                marginHorizontal: 16,
+                marginBottom: 16,
+              },
+              countryButtonStyles: {
+                height: 60,
+                paddingHorizontal: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: '#F3F4F6',
+              },
+              dialCode: {
+                display: 'none', // Hide dial codes since you only need country names
+              },
+              countryName: {
+                fontSize: 16,
+                color: '#1F2937',
+              },
+              flag: {
+                fontSize: 24,
+                marginRight: 12,
+              },
+            }}
+            searchMessage="Search for your country..."
+            lang="en"
+          />
+
 
         {/* Custom Modal */}
         <CustomModal
@@ -1117,3 +1176,5 @@ const validateAge = (birthDate) => {
     </SafeAreaView>
   );
 }
+
+//Final register page after all over the wordld country name 
