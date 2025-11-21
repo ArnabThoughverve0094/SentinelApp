@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import { PieChart } from 'react-native-gifted-charts';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { InstagramMediaCarousel } from './MediaCarousel';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -791,7 +792,14 @@ export default function TotalSentiment({
                       {renderStyledPostText(postData.ContentDesc)}
                     </Text>
                     
-                    {renderMediaContent()}
+                    <InstagramMediaCarousel
+                      mediaUrls={postData?.ContentURLs || (postData?.ContentURL ? [postData.ContentURL] : [])}
+                      onPressMedia={(url, type) => {
+                        if (type === "image") openFullScreenImage(url);
+                        else openFullScreenVideo(url);
+                      }}
+                    />
+
                   </View>
                 )}
 

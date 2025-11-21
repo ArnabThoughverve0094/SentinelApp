@@ -31,6 +31,7 @@ import {
   View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { InstagramMediaCarousel } from './MediaCarousel';
 import TotalSentiment from './TotalSentiment';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -1055,7 +1056,14 @@ export default function CommentScreen({
                 </View>
                 
                 {/* Media Content */}
-                {renderMediaContent(postDataState)}
+                <InstagramMediaCarousel
+                  mediaUrls={postData?.ContentURLs || (postData?.ContentURL ? [postData.ContentURL] : [])}
+                  onPressMedia={(url, type) => {
+                    if (type === "image") openFullScreenImage(url);
+                    else openFullScreenVideo(url);
+                  }}
+                />
+
               </View>
             ) : null}
 
