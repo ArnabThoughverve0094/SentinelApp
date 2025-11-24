@@ -3,6 +3,7 @@ import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from "@expo/
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VideoView, useVideoPlayer } from 'expo-video';
 
+import EditProfileScreen from '@/components/EditProfileScreen';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
@@ -1156,6 +1157,7 @@ export default function ProfilePage(): React.JSX.Element {
     const [isVideoModalVisible, setIsVideoModalVisible] = useState(false);
     const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
     const [isImageModalVisible, setIsImageModalVisible] = useState(false);
+    const [userBio, setUserBio] = useState("");
   
 
   // Posts related states
@@ -1195,15 +1197,68 @@ export default function ProfilePage(): React.JSX.Element {
   const currentPost = userPosts.find(item => item.id === selectedPostId);
   const [fullScreenDoc, setFullScreenDoc] = useState<string | null>(null);
   const [isDocModalVisible, setIsDocModalVisible] = useState(false);
-  
-  
 
-
-  const handleCancelEdit = () => {
-  setIsEditModalVisible(false);
-  setEditPostData(null);
-  setEditPostContent("");
+  // Add this function in your ProfilePage component
+const loadProfileData = async () => {
+  try {
+    console.log("🔄 [Profile] Reloading profile data from AsyncStorage...");
+    const [name, nickname, email, country, bio, profilePic] = await AsyncStorage.multiGet([
+      'userName',
+      'userNickName',
+      'userEmail',
+      'userCountry',
+      'userBio',
+      'profilePicUrl',
+    ]);
+    
+    if (name[1]) {
+      setUserName(name[1]);
+      console.log("✅ [Profile] Name updated:", name[1]);
+    }
+    if (nickname[1]) {
+      setUserNickName(nickname[1]);
+      console.log("✅ [Profile] Nickname updated:", nickname[1]);
+    }
+    if (email[1]) {
+      setUserEmail(email[1]);
+      console.log("✅ [Profile] Email updated:", email[1]);
+    }
+    if (profilePic[1]) {
+      setProfilePicUrl(profilePic[1]);
+      console.log("✅ [Profile] Profile pic updated:", profilePic[1]);
+    }
+    if (bio[1]){ 
+      setUserBio(bio[1]);
+      console.log("✅ [Profile] Bio updated:", bio[1]);
+    }
+    if (country[1]) {
+      // If you have a country state, update it here
+      // setUserCountry(country[1]);
+      console.log("✅ [Profile] Country updated:", country[1]);
+    }
+    
+    console.log("✅ [Profile] All profile data reloaded successfully");
+  } catch (error) {
+    console.error("❌ [Profile] Error reloading profile data:", error);
+  }
 };
+
+
+  const [editVisible, setEditVisible] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const fetchUserProfile = async () => {
+    // Replace with your actual endpoint/token logic
+    const res = await fetch("https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/get-profile"); 
+    const data = await res.json();
+    setUserData(data); // Should include name, email, nickname, country, bio, ageConfirmed, profilePicUrl etc.
+  };
+  useEffect(() => { fetchUserProfile(); }, []);
+  
+  const handleCancelEdit = () => {
+    setIsEditModalVisible(false);
+    setEditPostData(null);
+    setEditPostContent("");
+  };
 
   const handleEditPost = (postId: string) => {
   const post = userPosts.find(item => item.id === postId);
@@ -3058,17 +3113,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
   };
 
   const handleEditProfile = () => {
-    showCustomAlert(
-      'info',
-      'Edit Profile',
-      'Profile editing feature is coming soon! You will be able to update your profile picture, bio, and other details.',
-      [
-        {
-          text: 'OK',
-          onPress: hideModal
-        }
-      ]
-    );
+    setEditVisible(true); // This shows your EditProfileScreen modal/component
   };
 
   const handleShareProfile = () => {
@@ -3216,19 +3261,37 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
             {/* Bio Section - Below Stats */}
             <View className="mb-6">
               <Text className="text-gray-700 leading-6 text-justify">
-                Welcome to my profile! I love sharing moments and connecting with amazing people. 
-                Let's create something beautiful together! ✨
+                {userBio || "Welcome to my profile! I love sharing moments and connecting with amazing people. Let's create something beautiful together! ✨"}
+                
               </Text>
             </View>
 
             {/* Action Buttons - Below Bio */}
             <View className="flex-row space-x-4 mb-4">
-              <TouchableOpacity 
+              <View>
+                <TouchableOpacity 
                 className="flex-1 bg-gray-900 py-4 px-6 rounded-xl mr-4"
-                onPress={handleEditProfile}
-              >
+                onPress={() => setEditVisible(true)}>
                 <Text className="text-white font-semibold text-center text-base">Edit Profile</Text>
-              </TouchableOpacity>
+                </TouchableOpacity>
+                {userData && (
+                  <EditProfileScreen
+                    visible={editVisible}
+                    onClose={() => setEditVisible(false)}
+                    onSuccess={(data) => {
+                      console.log("✅ Profile updated, refreshing display...");
+                      loadProfileData(); // 👈 Call the function here to refresh
+                      Toast.show({
+                        type: 'success',
+                        text1: 'Profile Updated',
+                        text2: 'Your profile has been updated successfully.',
+                        position: 'bottom',
+                        visibilityTime: 2000,
+                      });
+                    }}
+                  />
+                )}
+              </View>
               <TouchableOpacity 
                 className="flex-1 border-2 border-gray-200 py-4 px-6 rounded-xl bg-white"
                 onPress={handleShareProfile}
@@ -3778,6 +3841,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
         </Modal>
 
     {/* <Toast config={toastConfig} /> */}
+    
 
     </SafeAreaView>
   );
@@ -3789,3 +3853,7 @@ const styles = StyleSheet.create({
     width: '100%' 
   },
 });
+
+function setUserCountry(arg0: string) {
+  throw new Error('Function not implemented.');
+}
