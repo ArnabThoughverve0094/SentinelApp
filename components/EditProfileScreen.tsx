@@ -25,7 +25,6 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
       if (visible) {
         setIsLoading(true);
         try {
-          // Load from AsyncStorage instead of API
           const [name, nickname, email, country, bio, profilePicUrl] = await AsyncStorage.multiGet([
             'userName',
             'userNickName',
@@ -60,13 +59,13 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
     }
   }, [visible]);
 
-  async function uploadImageToServer(localUri) {
+  async function uploadImageToServer(localUri, timestamp) {
     console.log("📤 [EditProfile] Uploading image:", localUri);
     try {
       const formData = new FormData();
       formData.append('file', {
         uri: localUri,
-        name: 'profilepic.jpg',
+        name: `profilepic_${timestamp}.jpg`, // Unique filename with timestamp
         type: 'image/jpeg',
       } as any);
       
@@ -94,11 +93,14 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
     if (!result.canceled && result.assets && result.assets.length > 0) {
       console.log("✅ [EditProfile] Image selected:", result.assets[0].uri);
       setIsLoading(true);
-      const uploadPath = await uploadImageToServer(result.assets[0].uri);
+      const timestamp = Date.now();
+      const uploadPath = await uploadImageToServer(result.assets[0].uri, timestamp);
       setIsLoading(false);
       
       if (uploadPath) {
         console.log("✅ [EditProfile] Profile pic updated:", uploadPath);
+        // Add cache-busting parameter
+        const cacheBustedUrl = `${uploadPath}?t=${Date.now()}`;
         setFields(f => ({ ...f, profilePicUrl: uploadPath }));
       } else {
         Alert.alert("Error", "Failed to upload image.");
@@ -159,7 +161,6 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
       
       console.log("✅ [EditProfile] Profile updated successfully");
       
-      // Save updated profile to AsyncStorage
       await AsyncStorage.multiSet([
         ['userName', fields.name],
         ['userNickName', fields.nickname],
@@ -189,7 +190,8 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
           <TouchableOpacity style={{ alignItems: 'center', marginBottom: 18 }} onPress={handlePickImage} disabled={isLoading}>
             <View style={{ position: 'relative' }}>
               <Image
-                source={fields.profilePicUrl ? { uri: fields.profilePicUrl } : { uri: DEFAULT_AVATAR }}
+                key={fields.profilePicUrl} // Force re-render when URL changes
+                source={fields.profilePicUrl ? { uri: `${fields.profilePicUrl}?t=${Date.now()}` } : { uri: DEFAULT_AVATAR }}
                 style={{ width: 90, height: 90, borderRadius: 45, backgroundColor: '#eee' }}
               />
               <View style={{ position: 'absolute', bottom: -8, right: -8, backgroundColor: '#fff', padding: 6, borderRadius: 20, borderWidth: 1, borderColor: '#ccc' }}>
