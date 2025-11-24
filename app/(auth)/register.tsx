@@ -153,19 +153,6 @@ const CustomModal: React.FC<CustomModalProps> = ({
   );
 };
 
-// Country list
-// const COUNTRIES = [
-//   "United States",
-//   "United Kingdom",
-//   "Canada",
-//   "Australia",
-//   "Germany",
-//   "France",
-//   "India",
-//   "Japan",
-//   "Brazil",
-//   "South Africa",
-// ];
 
 // Simplified Password Requirements Component - Single Line
 const PasswordRequirements = ({ password }: { password: string }) => {
@@ -206,25 +193,16 @@ export default function Register(): React.JSX.Element {
   const [username, setUsername] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
-  const [confirmPassword, setConfirmPassword] = useState<string>("");
-  const [dob, setDob] = useState<Date | null>(null);
+  const [aboveEighteen, setAboveEighteen] = useState<boolean>(false);
   const [country, setCountry] = useState<string>("");
   const [showPassword, setShowPassword] = useState<boolean>(false);
-  const [showConfirmPassword, setShowConfirmPassword] =
-    useState<boolean>(false);
   const [agreeToTerms, setAgreeToTerms] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [emailCheckTimeout, setEmailCheckTimeout] = useState<ReturnType<
     typeof setTimeout
   > | null>(null);
-
-  // Date picker states
-  const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
-
-  // Country dropdown state
   const [showCountryDropdown, setShowCountryDropdown] =
     useState<boolean>(false);
-  const [agreeToAge, setAgreeToAge] = useState<boolean>(false);
 
 
   // Modal states
@@ -251,9 +229,8 @@ export default function Register(): React.JSX.Element {
     name?: string;
     email?: string;
     password?: string;
-    confirmPassword?: string;
     username?: string;
-    dob?: string;
+    aboveEighteen?: string;
     country?: string;
     terms?: string;
   }>({});
@@ -375,24 +352,14 @@ export default function Register(): React.JSX.Element {
       }
     }
 
-    // Confirm password validation
-    if (!confirmPassword.trim()) {
-      newErrors.confirmPassword = "Please confirm your password";
-    } else if (password !== confirmPassword) {
-      newErrors.confirmPassword = "Passwords do not match";
-    }
 
     // Username validation
     if (!username.trim()) {
       newErrors.username = "Nickname is required";
     }
-
-    // DOB validation
-    // if (!dob) {
-    //   newErrors.dob = "Date of birth is required";
-    // }
-    if (!agreeToAge) {
-      newErrors.dob = "You must confirm that you are 18 years or older";
+    // Age confirmation validation
+    if (!aboveEighteen) {
+      newErrors.aboveEighteen = "You must confirm that you are 18 years or older";
     }
     // Country validation
     if (!country.trim()) {
@@ -453,8 +420,7 @@ export default function Register(): React.JSX.Element {
         password: password.trim(),
         name: name.trim(),
         nickName: username.trim(),
-        confirmPassword: confirmPassword.trim(),
-        dob: agreeToAge ? new Date(new Date().getFullYear() - 18, 0, 1).toISOString().split("T")[0] : "", // Default to 18 years ago
+        aboveEighteen: aboveEighteen ? "true" : "false", // Default to 18 years ago
         country: country.trim(),
         termsAccepted: "true",
         role: "User",
@@ -579,29 +545,6 @@ export default function Register(): React.JSX.Element {
     }
   };
 
-    const handleDateChange = (event, selectedDate) => {
-    setShowDatePicker(false);
-    
-    if (selectedDate) {
-      const ageError = validateAge(selectedDate);
-      
-      if (ageError) {
-        setErrors({ ...errors, dob: ageError });
-      } else {
-        setDob(selectedDate);
-        setErrors({ ...errors, dob: null });
-      }
-    }
-  };
-
-
-  // const handleCountrySelect = (selectedCountry: string) => {
-  //   setCountry(selectedCountry);
-  //   setShowCountryDropdown(false);
-  //   if (errors.country) {
-  //     setErrors((prev) => ({ ...prev, country: undefined }));
-  //   }
-  // };
 
   const formatDate = (date: Date): string => {
     return date.toLocaleDateString("en-GB");
@@ -612,43 +555,7 @@ export default function Register(): React.JSX.Element {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
   };
-
-  // Handle Terms and Privacy Policy links
-  // const handleTermsPress = () => {
-  //   const termsUrl = 'https://docs.google.com/document/d/1S64mjGx4R0gcq3OHkJ08xGsEno0FVvd9QZi8nisbRI0/edit?usp=sharing';
-  //   Linking.openURL(termsUrl).catch(err => {
-  //     console.error('Failed to open terms URL:', err);
-  //     showCustomAlert(
-  //       'error',
-  //       'Error',
-  //       'Unable to open Terms & Conditions',
-  //       [
-  //         {
-  //           text: 'OK',
-  //           onPress: hideModal
-  //         }
-  //       ]
-  //     );
-  //   });
-  // };
-
-  // const handlePrivacyPress = () => {
-  //   const privacyUrl = 'https://docs.google.com/document/d/1S64mjGx4R0gcq3OHkJ08xGsEno0FVvd9QZi8nisbRI0/edit?usp=sharing';
-  //   Linking.openURL(privacyUrl).catch(err => {
-  //     console.error('Failed to open privacy URL:', err);
-  //     showCustomAlert(
-  //       'error',
-  //       'Error',
-  //       'Unable to open Privacy Policy',
-  //       [
-  //         {
-  //           text: 'OK',
-  //           onPress: hideModal
-  //         }
-  //       ]
-  //     );
-  //   });
-  // };
+  // Navigate to Terms & Conditions page
   const handleTermsPress = () => {
     router.push("/(auth)/termsandconditions");
   };
@@ -775,9 +682,6 @@ const handleCountrySelect = (selectedCountry: string) => {
                   </TouchableOpacity>
                 </Link>
               </View>
-              {/* <Text className="text-base text-black/80 font-sans">
-                Start sharing your moments with the world.
-              </Text> */}
             </View>
 
             {/* Form section */}
@@ -850,9 +754,6 @@ const handleCountrySelect = (selectedCountry: string) => {
                     onChangeText={(text) => {
                       setPassword(text);
                       if (text.trim()) clearError("password");
-                      if (confirmPassword && text === confirmPassword) {
-                        clearError("confirmPassword");
-                      }
                     }}
                     secureTextEntry={!showPassword}
                     autoCapitalize="none"
@@ -881,48 +782,6 @@ const handleCountrySelect = (selectedCountry: string) => {
                 )}
               </View>
 
-              {/* Confirm Password input */}
-              {/* <View className="mb-5">
-                <Text className="text-sm font-medium text-black/90 mb-2">
-                  Confirm Password <Text className="text-red-500">*</Text>
-                </Text>
-                <View className="relative">
-                  <TextInput
-                    className={`w-full px-4 py-3 bg-white/95 border rounded-xl text-base text-gray-900 pr-12 shadow-lg ${
-                      errors.confirmPassword
-                        ? "border-red-500"
-                        : "border-white/30"
-                    } font-sans`}
-                    placeholder="••••••••••"
-                    placeholderTextColor="#9CA3AF"
-                    value={confirmPassword}
-                    onChangeText={(text) => {
-                      setConfirmPassword(text);
-                      if (text.trim()) clearError("confirmPassword");
-                    }}
-                    secureTextEntry={!showConfirmPassword}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    style={{ fontSize: 16, lineHeight: 20 }}
-                  />
-                  <TouchableOpacity
-                    className="absolute right-4 top-3.5"
-                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    <Ionicons
-                      name={showConfirmPassword ? "eye-off" : "eye"}
-                      size={20}
-                      color="#9CA3AF"
-                    />
-                  </TouchableOpacity>
-                </View>
-                {errors.confirmPassword && (
-                  <Text className="text-red-500 text-xs mt-1">
-                    {errors.confirmPassword}
-                  </Text>
-                )}
-              </View> */}
-
               {/* Nickname input */}
               <View className="mb-5">
                 <Text className="text-sm font-medium text-black/90 mb-2">
@@ -949,44 +808,6 @@ const handleCountrySelect = (selectedCountry: string) => {
                   </Text>
                 )}
               </View>
-
-              {/* Date of Birth input */}
-              {/* <View className="mb-5">
-                <Text className="text-sm font-medium text-black/90 mb-2">
-                  Date of Birth <Text className="text-red-500">*</Text>
-                </Text>
-                <TouchableOpacity
-                  className={`w-full px-4 py-3 bg-white/95 border rounded-xl flex-row items-center justify-between shadow-lg ${
-                    errors.dob ? "border-red-500" : "border-white/30"
-                  } font-sans`}
-                  onPress={() => setShowDatePicker(true)}
-                >
-                  <Text
-                    className={`text-base ${
-                      dob ? "text-gray-900" : "text-gray-400"
-                    }`}
-                  >
-                    {dob ? formatDate(dob) : "Select date of birth (18+)"}
-                  </Text>
-                  <Ionicons name="calendar-outline" size={20} color="#9CA3AF" />
-                </TouchableOpacity>
-                {errors.dob && (
-                  <Text className="text-red-500 text-xs mt-1">
-                    {errors.dob}
-                  </Text>
-                )}
-
-                {showDatePicker && (
-                  <DateTimePicker
-                    value={dob || getMaximumDate()}
-                    mode="date"
-                    display="default"
-                    onChange={handleDateChange}
-                    maximumDate={getMaximumDate()}
-                    minimumDate={new Date(1900, 0, 1)}
-                  />
-                )}
-              </View> */}
               {/* Age Confirmation Checkbox - 18+ */}
                 <View className="mb-6">
                   <Text className="text-sm font-medium text-black/90 mb-3">
@@ -995,19 +816,18 @@ const handleCountrySelect = (selectedCountry: string) => {
                   <TouchableOpacity
                     className="flex-row items-start"
                     onPress={() => {
-                      setDob(agreeToAge ? null : new Date()); // Set a dummy date when checked
-                      setAgreeToAge(!agreeToAge);
-                      if (!agreeToAge) clearError("dob");
+                      setAboveEighteen(!aboveEighteen);
+                      if (!aboveEighteen) clearError("aboveEighteen");
                     }}
                   >
                     <View
                       className={`w-5 h-5 rounded border-2 mr-3 mt-0.5 items-center justify-center ${
-                        agreeToAge
+                        aboveEighteen
                           ? "bg-red-700 border-red-700"
                           : "border-gray-300 bg-white"
                       } font-sans`}
                     >
-                      {agreeToAge && (
+                      {aboveEighteen && (
                         <Ionicons name="checkmark" size={14} color="white" />
                       )}
                     </View>
@@ -1017,9 +837,9 @@ const handleCountrySelect = (selectedCountry: string) => {
                       </Text>
                     </View>
                   </TouchableOpacity>
-                  {errors.dob && (
+                  {errors.aboveEighteen && (
                     <Text className="text-red-500 text-xs mt-1">
-                      {errors.dob}
+                      {errors.aboveEighteen}
                     </Text>
                   )}
                 </View>
@@ -1115,7 +935,6 @@ const handleCountrySelect = (selectedCountry: string) => {
           </View>
         </ScrollView>
 
-        {/* Country Selection Modal */}
         {/* Country Selection Modal with Search */}
           <CountryPicker
             show={showCountryDropdown}
@@ -1176,5 +995,3 @@ const handleCountrySelect = (selectedCountry: string) => {
     </SafeAreaView>
   );
 }
-
-//Final register page after all over the wordld country name 
