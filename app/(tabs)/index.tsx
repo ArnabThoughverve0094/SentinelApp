@@ -5,7 +5,7 @@ import * as Application from 'expo-application';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from "expo-sharing";
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query, updateDoc, where } from 'firebase/firestore';
+import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDocs, limit, onSnapshot, orderBy, query, startAfter, updateDoc, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -510,11 +510,11 @@ const RepostModal: React.FC<RepostModalProps> = ({
             style={[{ transform: [{ scale: scaleAnim }] }]}
             className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl"
           >
-          <View className="px-6 py-4 border-b border-gray-100">
+          <View className="px-6 pt-4 border-b border-gray-100">
             <View className="flex-row items-center justify-between">
               <View className="flex-1">
                 <Text className="text-xl font-bold text-gray-900">Share this post</Text>
-                <Text className="text-gray-500 text-sm mt-1">Add your thoughts or share as is</Text>
+                {/* <Text className="text-gray-500 text-sm mt-1">Add your thoughts or share as is</Text> */}
               </View>
               <TouchableOpacity 
                 className="p-2 rounded-full bg-gray-100"
@@ -525,7 +525,7 @@ const RepostModal: React.FC<RepostModalProps> = ({
             </View>
           </View>
 
-          <View className="px-6 py-4">
+          <View className="px-2 py-0">
             <View className="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-200">
               <View className="flex-row items-center mb-2">
                 <Image
@@ -542,7 +542,7 @@ const RepostModal: React.FC<RepostModalProps> = ({
               </Text>
             </View>
 
-            <View className="flex-row items-center justify-between mb-4">
+            {/* <View className="flex-row items-center justify-between mb-4">
               <Text className="text-gray-600 text-sm">Add your thoughts?</Text>
               <TouchableOpacity
                 onPress={() => setIsQuoteMode(!isQuoteMode)}
@@ -556,7 +556,7 @@ const RepostModal: React.FC<RepostModalProps> = ({
                   Quote
                 </Text>
               </TouchableOpacity>
-            </View>
+            </View> */}
 
             {isQuoteMode && (
               <View className="mb-4">
@@ -838,7 +838,7 @@ export default function SentinelFeed(): React.JSX.Element {
   // UPDATED: Removed videoRefs since we'll use useVideoPlayer directly
   const flipCardRef = useRef<any>(null);
 
-const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational'>('forYou');
+  const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational'>('forYou');
   const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
   const [currentUserDocId, setCurrentUserDocId] = useState('');
   const [notificationDetails, setNotificationDetails] = useState<any[]>([]);
@@ -867,7 +867,13 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
 
-  const commentUnsubscribesRef = useRef<(() => void)[]>([]);
+  //Lasy loading
+  const [lastVisible, setLastVisible] = useState<any>(null); // Use the correct Snapshot type if possible
+  const [hasMore, setHasMore] = useState(true); // To check if there are more documents to load
+  const BATCH_SIZE = 20; // Define your lazy load batch size
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [unsubscribers, setUnsubscribers] = useState<(() => void)[]>([]);
+  
 
   // UPDATED: Create video player for fullscreen modal
   const fullScreenVideoPlayer = useVideoPlayer(fullScreenVideo || '', (player) => {
@@ -1140,6 +1146,164 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
     }
   }, []);
 
+  // const handleFetchAllData = useCallback(async (forceRefresh: boolean = false) => {
+  //   const currentTime = Date.now();
+    
+  //   let fetchuserID = userId;
+  //   if(fetchuserID === ""){
+  //     fetchuserID = await AsyncStorage.getItem('userId') || "";
+  //     setUserId(fetchuserID);
+  //   }
+
+  //   if (!forceRefresh && isInitialized && (currentTime - lastFetchTime < 30000)) {
+  //     return;
+  //   }
+
+  //   setLoading(true);
+  //   try {
+  //     const postsXData: any = [];
+      
+  //     const collXDataRefPost = collection(db, 'X-Data');
+  //     const queryXData = query(
+  //       collXDataRefPost,
+  //       orderBy('ContentDate', 'desc')
+  //     );
+  //     const unsubscribeXData = onSnapshot(queryXData, async xDataSnapshot => {
+  //       const xdataDataArr = xDataSnapshot.docs.map(doc => ({
+  //         id: doc.id,
+  //         data: doc.data(),
+  //       }))
+
+  //       for (const doc of xdataDataArr) {
+  //         const postData = doc.data;
+  //         const postId = doc.id;
+
+  //         postsXData.push({
+  //           uniqueId: `xdata-${postId}`,
+  //           id: postId,
+  //           AuthorImageURL: postData.AuthorImageURL,
+  //           AuthorName: postData.AuthorName,
+  //           AuthorUserID: postData.AuthorUserID || '',
+  //           ContentDate: postData.ContentDate,
+  //           ContentDesc: postData.ContentDesc,
+  //           ContentURL: postData.ContentURL,
+  //           ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+  //           ContentLikeCount: postData.ContentLikeCount || 0,
+  //           ContentRepostCount: postData.ContentRepostCount || 0,
+  //           ContentCommentCount: postData.ContentCommentCount || 0,
+  //           isApproved: true,
+  //           isNew: false,
+  //           postType: "X-Data",
+  //           Liked: (postData.LikedBy?.includes(fetchuserID) || false),
+  //           Reposted: (postData.RepostedBy?.includes(fetchuserID) || false),
+  //           Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
+  //           createdAt: postData.createdAt || postData.ContentDate,
+  //           CommentTemplate: postData.CommentTemplate || "Sentinel Default Template",
+  //           isRepost: postData.isRepost || false,
+  //           originalPost: postData.originalPost || null,
+  //           repostComment: postData.repostComment || '',
+  //           repostedBy: postData.repostedBy || '',
+  //           repostedAt: postData.repostedAt || null,
+  //           isAnonymous: false,
+  //           contentType: postData.contentType || 'My Thoughts',
+  //           isEducational: postData.isEducational || false,
+  //         });
+  //       }
+
+  //       setFetchedXData(postsXData);
+  //     });
+
+  //     const collSentinelRefPost = collection(db, 'SentinelPosts');
+  //     const querySentinel = query(
+  //       collSentinelRefPost,
+  //       orderBy('ContentDate', 'desc')
+  //     );
+
+  //     console.log("Sentinel OnSnapshot");
+  //     const unsubscribeSentinel = onSnapshot(querySentinel, async sentinelSnapshot => {
+  //       const sentineldataArr = sentinelSnapshot.docs.map(doc => ({
+  //         id: doc.id,
+  //         data: doc.data(),
+  //       }))
+
+  //       const postsData = [];
+  //       for (const doc of sentineldataArr) {
+  //         const postData = doc.data;
+  //         const postId = doc.id;
+
+  //         postsData.push({
+  //           uniqueId: `sentinel-${postId}`,
+  //           id: postId,
+  //           AuthorImageURL: postData.AuthorImageURL,
+  //           AuthorName: postData.AuthorName,
+  //           AuthorUserID: postData.AuthorUserID || postData.repostedBy || '',
+  //           ContentDate: postData.ContentDate,
+  //           ContentDesc: postData.ContentDesc,
+  //           ContentURL: postData.ContentURL,
+  //           ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+  //           ContentLikeCount: postData.ContentLikeCount || 0,
+  //           ContentRepostCount: postData.ContentRepostCount || 0,
+  //           ContentCommentCount: postData.ContentCommentCount || 0,
+  //           isApproved: postData.isApproved || false,
+  //           isNew: postData.isNew !== undefined ? postData.isNew : true,
+  //           postType: "SentinelPosts",
+  //           Liked: (postData.LikedBy?.includes(fetchuserID) || false),
+  //           Reposted: (postData.RepostedBy?.includes(fetchuserID) || false),
+  //           Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
+  //           createdAt: postData.createdAt || postData.ContentDate,
+  //           CommentTemplate: postData.CommentTemplate || "Sentinel Default Template",
+  //           isRepost: postData.isRepost || false,
+  //           originalPost: postData.originalPost || null,
+  //           repostComment: postData.repostComment || '',
+  //           repostedBy: postData.repostedBy || '',
+  //           repostedAt: postData.repostedAt || null,
+  //           isAnonymous: postData.isAnonymous || false,
+  //           contentType: postData.contentType || 'My Thoughts',
+  //           isEducational: postData.isEducational || false,
+  //         });
+  //       }
+
+  //       setSentinelData(postsData);
+  //       // const allData = postsData.concat(postsXData);
+  //       // setFetchedData(allData);
+  //       // console.log('OnSnapshot Fetched and Sorted', `Total: ${allData.length} documents`);
+
+  //       // allData.forEach(post => {
+  //       //   onSnapshot(
+  //       //     collection(doc(db, post.postType, post.id), 'Comments'),
+  //       //     commentsSnap => {
+  //       //       let totalComments = 0;
+  //       //       totalComments = commentsSnap.size;
+
+  //       //       setFetchedData(prev =>
+  //       //         prev.map(p =>
+  //       //           p.id === post.id
+  //       //           ? { ...p, ContentCommentCount: totalComments }
+  //       //           : p
+  //       //         )
+  //       //       );
+  //       //     }
+  //       //   )
+  //       // });
+  //     });
+      
+  //     setLastFetchTime(currentTime);
+  //     console.log('All Data Fetched and Sorted', `Total: ${fetchedData.length} documents`);
+      
+  //     setIsInitialized(true);
+
+  //     return () => {
+  //       unsubscribeSentinel();
+  //       unsubscribeXData();
+  //     };
+      
+  //   } catch (error) {
+  //     console.error('Error fetching data:', error);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // }, [isInitialized, fetchedData.length, lastFetchTime, userId]);
+
   const handleFetchAllData = useCallback(async (forceRefresh: boolean = false) => {
     const currentTime = Date.now();
     
@@ -1149,13 +1313,96 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
       setUserId(fetchuserID);
     }
 
-    if (!forceRefresh && isInitialized && (currentTime - lastFetchTime < 30000)) {
+    if (!forceRefresh && isInitialized && (currentTime - lastFetchTime < 10000)) {
       return;
     }
 
     setLoading(true);
     try {
-      const postsXData: any = [];
+      const collSentinelRefPost = collection(db, 'SentinelPosts');
+      let querySentinel = query(
+        collSentinelRefPost,
+        orderBy('ContentDate', 'desc'),
+        limit(BATCH_SIZE) // Apply the limit for the initial batch
+    );
+
+      console.log("Sentinel OnSnapshot");
+      const unsubscribeSentinel = onSnapshot(querySentinel, async sentinelSnapshot => {
+        const sentineldataArr = sentinelSnapshot.docs.map(doc => ({
+          id: doc.id,
+          data: doc.data(),
+        }))
+
+        const postsData = [];
+        for (const doc of sentineldataArr) {
+          const postData = doc.data;
+          const postId = doc.id;
+
+          postsData.push({
+            uniqueId: `sentinel-${postId}`,
+            id: postId,
+            AuthorImageURL: postData.AuthorImageURL,
+            AuthorName: postData.AuthorName,
+            AuthorUserID: postData.AuthorUserID || postData.repostedBy || '',
+            ContentDate: postData.ContentDate,
+            ContentDesc: postData.ContentDesc,
+            ContentURL: postData.ContentURL,
+            ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+            ContentLikeCount: postData.ContentLikeCount || 0,
+            ContentRepostCount: postData.ContentRepostCount || 0,
+            ContentCommentCount: postData.ContentCommentCount || 0,
+            isApproved: postData.isApproved || false,
+            isNew: postData.isNew !== undefined ? postData.isNew : true,
+            postType: "SentinelPosts",
+            Liked: (postData.LikedBy?.includes(fetchuserID) || false),
+            Reposted: (postData.RepostedBy?.includes(fetchuserID) || false),
+            Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
+            createdAt: postData.createdAt || postData.ContentDate,
+            CommentTemplate: postData.CommentTemplate || "Sentinel Default Template",
+            isRepost: postData.isRepost || false,
+            originalPost: postData.originalPost || null,
+            repostComment: postData.repostComment || '',
+            repostedBy: postData.repostedBy || '',
+            repostedAt: postData.repostedAt || null,
+            isAnonymous: postData.isAnonymous || false,
+            contentType: postData.contentType || 'My Thoughts',
+            isEducational: postData.isEducational || false,
+          });
+        }
+
+        // 1. Get the last document snapshot
+        const lastDoc = sentinelSnapshot.docs[sentinelSnapshot.docs.length - 1];
+            
+        // 2. Set the last visible state for subsequent fetches
+        // This is crucial for the lazy loading of the next batch
+        setLastVisible(lastDoc); 
+
+        // 3. Set the posts data (Initial batch)
+        setSentinelData(postsData);
+        setFetchedData(postsData);
+        setHasMore(sentinelSnapshot.docs.length === BATCH_SIZE); // Check if more data exists
+
+        fetchedData.forEach(post => {
+          onSnapshot(
+            collection(doc(db, post.postType, post.id), 'Comments'),
+            commentsSnap => {
+              let totalComments = 0;
+              totalComments = commentsSnap.size;
+
+              setFetchedData(prev =>
+                prev.map(p =>
+                  p.id === post.id
+                  ? { ...p, ContentCommentCount: totalComments }
+                  : p
+                )
+              );
+            }
+          )
+        });
+      });
+      
+      if (sentinelData.length <= 0) {
+        const postsXData: any = [];
       
       const collXDataRefPost = collection(db, 'X-Data');
       const queryXData = query(
@@ -1207,21 +1454,85 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
         setFetchedXData(postsXData);
       });
 
-      const collSentinelRefPost = collection(db, 'SentinelPosts');
-      const querySentinel = query(
-        collSentinelRefPost,
-        orderBy('ContentDate', 'desc')
-      );
+      setFetchedData(postsXData);
+        console.log('OnSnapshot Fetched and Sorted', `Total: ${fetchedData.length} documents`);
 
-      console.log("Sentinel OnSnapshot");
-      const unsubscribeSentinel = onSnapshot(querySentinel, async sentinelSnapshot => {
-        const sentineldataArr = sentinelSnapshot.docs.map(doc => ({
+        fetchedData.forEach(post => {
+          onSnapshot(
+            collection(doc(db, post.postType, post.id), 'Comments'),
+            commentsSnap => {
+              let totalComments = 0;
+              totalComments = commentsSnap.size;
+
+              setFetchedData(prev =>
+                prev.map(p =>
+                  p.id === post.id
+                  ? { ...p, ContentCommentCount: totalComments }
+                  : p
+                )
+              );
+            }
+          )
+        });
+      
+      return () => {
+        unsubscribeXData();
+      };
+      }
+      
+      setLastFetchTime(currentTime);
+      console.log('All Data Fetched and Sorted', `Total: ${fetchedData.length} documents`);
+      
+      setIsInitialized(true);
+
+      return () => {
+        console.log('unsubscribeSentinel');
+        unsubscribeSentinel();
+      };
+      
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [isInitialized, fetchedData.length, lastFetchTime, userId]);
+
+  const handleLoadMore = useCallback(async () => {
+    let fetchuserID = userId;
+    if(fetchuserID === ""){
+      fetchuserID = await AsyncStorage.getItem('userId') || "";
+      setUserId(fetchuserID);
+    }
+
+    if (!hasMore || loading || isFetchingMore || !lastVisible) return; // Prevent multiple fetches or fetching if no more data
+
+    setIsFetchingMore(true); // Use a separate loading state if needed for 'loading more' indicator
+    try {
+        const collSentinelRefPost = collection(db, 'SentinelPosts');
+        let queryNext = query(
+            collSentinelRefPost,
+            orderBy('ContentDate', 'desc'),
+            startAfter(lastVisible), // Start after the last document fetched
+            limit(BATCH_SIZE)
+        );
+
+        // *** Use getDocs for the lazy load to avoid a new onSnapshot listener ***
+        const nextSnapshot = await getDocs(queryNext);
+
+        if (nextSnapshot.empty) {
+            setHasMore(false);
+            setIsFetchingMore(false);
+            return;
+        }
+        
+        // ... (Map nextSnapshot.docs to postsData and append) ...
+        const nextPostsData = nextSnapshot.docs.map(doc => ({
           id: doc.id,
           data: doc.data(),
         }))
 
         const postsData = [];
-        for (const doc of sentineldataArr) {
+        for (const doc of nextPostsData) {
           const postData = doc.data;
           const postId = doc.id;
 
@@ -1257,46 +1568,36 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
           });
         }
 
-        setSentinelData(postsData);
-        // const allData = postsData.concat(postsXData);
-        // setFetchedData(allData);
-        // console.log('OnSnapshot Fetched and Sorted', `Total: ${allData.length} documents`);
+        setFetchedData(prevData => [...prevData, ...postsData]); // Append new data
 
-        // allData.forEach(post => {
-        //   onSnapshot(
-        //     collection(doc(db, post.postType, post.id), 'Comments'),
-        //     commentsSnap => {
-        //       let totalComments = 0;
-        //       totalComments = commentsSnap.size;
+        fetchedData.forEach(post => {
+          onSnapshot(
+            collection(doc(db, post.postType, post.id), 'Comments'),
+            commentsSnap => {
+              let totalComments = 0;
+              totalComments = commentsSnap.size;
 
-        //       setFetchedData(prev =>
-        //         prev.map(p =>
-        //           p.id === post.id
-        //           ? { ...p, ContentCommentCount: totalComments }
-        //           : p
-        //         )
-        //       );
-        //     }
-        //   )
-        // });
-      });
-      
-      setLastFetchTime(currentTime);
-      console.log('All Data Fetched and Sorted', `Total: ${fetchedData.length} documents`);
-      
-      setIsInitialized(true);
+              setFetchedData(prev =>
+                prev.map(p =>
+                  p.id === post.id
+                  ? { ...p, ContentCommentCount: totalComments }
+                  : p
+                )
+              );
+            }
+          )
+        });
 
-      return () => {
-        unsubscribeSentinel();
-        unsubscribeXData();
-      };
-      
+        const newLastDoc = nextSnapshot.docs[nextSnapshot.docs.length - 1];
+        setLastVisible(newLastDoc);
+        setHasMore(nextSnapshot.docs.length === BATCH_SIZE); // Check if this batch filled the limit
+
     } catch (error) {
-      console.error('Error fetching data:', error);
+        console.error('Error loading more data:', error);
     } finally {
-      setLoading(false);
+      setIsFetchingMore(false);
     }
-  }, [isInitialized, fetchedData.length, lastFetchTime, userId]);
+  }, [hasMore, loading, lastVisible, isFetchingMore]);
 
   const fetchCommentTemplate = useCallback(async () => {
     try {
@@ -1422,6 +1723,15 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
     }
   },[]);
 
+  const cleanupSubscriptions = useCallback(() => {
+    unsubscribers.forEach(unsubscribe => {
+        if (typeof unsubscribe === 'function') {
+            unsubscribe();
+        }
+    });
+    setUnsubscribers([]);
+}, [unsubscribers]);
+
   useEffect(() => {
     getItem();
     fetchUserFollowing();
@@ -1429,35 +1739,35 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
     handleFetchAllData();
     fetchCommentTemplate();
     
-    const combinedData = [...sentinelData, ...fetchedXData];
-    setFetchedData(combinedData);
+    // const combinedData = [...sentinelData, ...fetchedXData];
+    // setFetchedData(combinedData);
 
-    //Cleanup existing listeners before starting new ones
-    commentUnsubscribesRef.current.forEach(unsubscribe => unsubscribe());
-    commentUnsubscribesRef.current = []; // Clear the ref array
-    combinedData.forEach(post => {
-      const unsubscribeComments = onSnapshot(
-          collection(doc(db, post.postType, post.id), 'Comments'),
-          commentsSnap => {
-              setFetchedData(prev =>
-                  prev.map(p =>
-                      p.id === post.id
-                          ? { ...p, ContentCommentCount: commentsSnap.size }
-                          : p
-                  )
-              );
-          }
-      );
-      // Store the new unsubscribe function
-      commentUnsubscribesRef.current.push(unsubscribeComments);
-    });
+    // //Cleanup existing listeners before starting new ones
+    // commentUnsubscribesRef.current.forEach(unsubscribe => unsubscribe());
+    // commentUnsubscribesRef.current = []; // Clear the ref array
+    // combinedData.forEach(post => {
+    //   const unsubscribeComments = onSnapshot(
+    //       collection(doc(db, post.postType, post.id), 'Comments'),
+    //       commentsSnap => {
+    //           setFetchedData(prev =>
+    //               prev.map(p =>
+    //                   p.id === post.id
+    //                       ? { ...p, ContentCommentCount: commentsSnap.size }
+    //                       : p
+    //               )
+    //           );
+    //       }
+    //   );
+    //   // Store the new unsubscribe function
+    //   commentUnsubscribesRef.current.push(unsubscribeComments);
+    // });
 
-    return () => {
-      console.log('Cleaning up all comment listeners.');
-      commentUnsubscribesRef.current.forEach(unsubscribe => unsubscribe());
-  };
+    // return () => {
+    //   console.log('Cleaning up all comment listeners.');
+    //   commentUnsubscribesRef.current.forEach(unsubscribe => unsubscribe());
+    // };
 
-  }, [fetchedXData, sentinelData]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -2616,10 +2926,18 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
 
 
   const handleScroll = useCallback((event: any) => {
-    const { contentOffset, layoutMeasurement } = event.nativeEvent;
+    const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
     const currentScrollY = contentOffset.y;
     const viewHeight = layoutMeasurement.height;
     const viewCenter = currentScrollY + viewHeight / 2;
+
+    // Check if the user is 90% of the way down the content
+    const isCloseToBottom = 
+      contentOffset.y + layoutMeasurement.height >= contentSize.height * 0.9; 
+
+    if (isCloseToBottom && hasMore && !loading) {
+      handleLoadMore(); // Call the lazy loading function
+    }
 
     filteredData.forEach((item, index) => {
       const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
@@ -2636,7 +2954,7 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
         }
       }
     });
-  }, [filteredData, getMediaType, currentVideoIndex]);
+  }, [filteredData, getMediaType, currentVideoIndex, hasMore, loading, handleLoadMore]);
 
   const ApprovalToggle = useCallback(({ isApproved, isNew, onToggle, postId, postItem, isFullScreen = false }: { 
     isApproved: boolean; 
@@ -3461,7 +3779,8 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
       />
 
       <ScrollView 
-        key={`feed-${activeTab}-${filteredData.length}`}
+        // key={`feed-${activeTab}-${filteredData.length}`}
+        key={`feed-${activeTab}`}
         ref={scrollViewRef}
         className="flex-1" 
         showsVerticalScrollIndicator={false}
@@ -3482,7 +3801,7 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
           />
         }
       >
-        {loading ? (
+        {/* {loading ? (
           <View className="flex-1 justify-center items-center py-20">
             <LoadingComponent visible={true} size="large" />
           </View>
@@ -3494,6 +3813,37 @@ const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational
           <View className="flex-1 justify-center items-center py-20">
             <LoadingComponent visible={true} size="large" />
           </View>
+        )} */}
+
+        {loading && !isFetchingMore ? (
+            // Full-screen loader for initial/refresh load
+            <View className="flex-1 justify-center items-center py-20">
+                <LoadingComponent visible={true} size="large" />
+            </View>
+        ) : (activeTab === 'following' || activeTab === 'educational') && listItems.length === 0 ? (
+            renderEmptyState()
+        ) : listItems.length > 0 ? (
+            // The list of items
+            listItems
+        ) : (
+             // Fallback loader if list is empty after initial load (optional)
+            <View className="flex-1 justify-center items-center py-20">
+                <LoadingComponent visible={true} size="large" />
+            </View>
+        )}
+
+        {/* 👇 5. Small Loader for Pagination */}
+        {isFetchingMore && (
+            <View className="py-4 justify-center items-center">
+                <LoadingComponent visible={true} size="small" /> 
+            </View>
+        )}
+
+        {/* 👇 6. "No More Data" Indicator (Optional) */}
+        {!hasMore && listItems.length > BATCH_SIZE && (
+            <View className="py-4 justify-center items-center">
+                <Text className="text-gray-500">You've reached the end of the feed.</Text>
+            </View>
         )}
       </ScrollView>
 

@@ -670,11 +670,11 @@ const RepostModal: React.FC<RepostModalProps> = ({
           style={[{ transform: [{ scale: scaleAnim }] }]}
           className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl"
         >
-          <View className="px-6 py-4 border-b border-gray-100">
+          <View className="px-6 pt-4 border-b border-gray-100">
             <View className="flex-row items-center justify-between">
               <View className="flex-1">
                 <Text className="text-xl font-bold text-gray-900">Share this post</Text>
-                <Text className="text-gray-500 text-sm mt-1">Add your thoughts or share as is</Text>
+                {/* <Text className="text-gray-500 text-sm mt-1">Add your thoughts or share as is</Text> */}
               </View>
               <TouchableOpacity 
                 className="p-2 rounded-full bg-gray-100"
@@ -685,7 +685,7 @@ const RepostModal: React.FC<RepostModalProps> = ({
             </View>
           </View>
 
-          <View className="px-6 py-4">
+          <View className="px-2 py-0">
             <View className="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-200">
               <View className="flex-row items-center mb-2">
                 <Image
@@ -702,7 +702,7 @@ const RepostModal: React.FC<RepostModalProps> = ({
               </Text>
             </View>
 
-            <View className="flex-row items-center justify-between mb-4">
+            {/* <View className="flex-row items-center justify-between mb-4">
               <Text className="text-gray-600 text-sm">Add your thoughts?</Text>
               <TouchableOpacity
                 onPress={() => setIsQuoteMode(!isQuoteMode)}
@@ -716,7 +716,7 @@ const RepostModal: React.FC<RepostModalProps> = ({
                   Quote
                 </Text>
               </TouchableOpacity>
-            </View>
+            </View> */}
 
             {isQuoteMode && (
               <View className="mb-4">
