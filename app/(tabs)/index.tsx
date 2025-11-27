@@ -2939,7 +2939,7 @@ export default function SentinelFeed(): React.JSX.Element {
             {getTimeAgo(item.originalPost.ContentDate)}
           </Text> */}
         </View>
-        <Text className="text-gray-700 text-sm" numberOfLines={3}>
+        <Text className="text-gray-700 text-sm mt-4" numberOfLines={3}>
           {renderStyledPostText(item.originalPost.ContentDesc)}
         </Text>
       </View>
