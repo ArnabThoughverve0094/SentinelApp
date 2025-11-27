@@ -21,6 +21,7 @@ import {
   Alert,
   Dimensions,
   Image,
+  Linking,
   Modal,
   Platform,
   ScrollView,
@@ -30,6 +31,7 @@ import {
   View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { InstagramMediaCarousel } from './MediaCarousel';
 import TotalSentiment from './TotalSentiment';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -90,7 +92,107 @@ interface CommentScreenProps {
   commentTemplate: string | null;
 }
 
+
+
 let RESPONSE_OPTIONS: any[] = [];
+
+// Usage: <Text>{renderStyledCommentText(commentText)}</Text>
+const renderStyledPostText = (text) => {
+  if (!text) return null;
+
+  const urlPattern = /(https?:\/\/[^\s]+)|(www\.[^\s]+)/gi;
+  const hashtagPattern = /(^|\s)(#[a-zA-Z0-9_]+)/g;
+
+  const urlMatches = [];
+  const hashtagMatches = [];
+  let match;
+
+  while ((match = urlPattern.exec(text)) !== null) {
+    urlMatches.push({
+      type: "url",
+      text: match[0],
+      index: match.index,
+      length: match[0].length,
+    });
+  }
+
+  while ((match = hashtagPattern.exec(text)) !== null) {
+    hashtagMatches.push({
+      type: "hashtag",
+      text: match[2],
+      index: match.index + match[1].length,
+      length: match[2].length,
+    });
+  }
+
+  const allMatches = [...urlMatches, ...hashtagMatches].sort((a, b) => a.index - b.index);
+
+  if (allMatches.length === 0) {
+    return <Text style={{ color: "#111827" }}>{text}</Text>;
+  }
+
+  const components = [];
+  let lastIndex = 0;
+
+  allMatches.forEach((match, i) => {
+    if (match.index > lastIndex) {
+      components.push(
+        <Text key={`text-${i}`} style={{ color: "#111827" }}>
+          {text.substring(lastIndex, match.index)}
+        </Text>
+      );
+    }
+
+    if (match.type === "url") {
+      components.push(
+        <Text
+          key={`url-${i}`}
+          style={{ color: "#2563EB", textDecorationLine: "underline", fontWeight: "500" }}
+          onPress={() => {
+            const url = match.text.startsWith("http") ? match.text : `https://${match.text}`;
+            Linking.openURL(url);
+          }}
+        >
+          {match.text}
+        </Text>
+      );
+    } else if (match.type === "hashtag") {
+      components.push(
+        <TouchableOpacity
+          key={`hashtag-${i}`}
+          onPress={() => {
+            alert("Hashtag tapped: " + match.text);
+            // Or custom navigation/filter
+          }}
+        >
+          <Text
+            style={{
+              color: "#E6161A",
+              fontWeight: "bold",
+              backgroundColor: "#FEE2E2",
+              paddingHorizontal: 2,
+              borderRadius: 2,
+            }}
+          >
+            {match.text}
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+    lastIndex = match.index + match.length;
+  });
+
+  if (lastIndex < text.length) {
+    components.push(
+      <Text key="end" style={{ color: "#111827" }}>
+        {text.substring(lastIndex)}
+      </Text>
+    );
+  }
+
+  return components;
+};
+
 
 export default function CommentScreen({ 
   visible, 
@@ -947,12 +1049,21 @@ export default function CommentScreen({
                 </View>
 
                 {/* Post Content */}
-                <Text style={{ fontSize: 15, color: '#000', lineHeight: 20, marginBottom: 8 }}>
-                  {postDataState.ContentDesc}
-                </Text>
+                <View style={{ padding: 16 }}>
+                  <Text style={{ fontSize: 16, color: "#000", lineHeight: 20, marginBottom: 8 }}>
+                    {renderStyledPostText(postDataState.ContentDesc)}
+                  </Text>
+                </View>
                 
                 {/* Media Content */}
-                {renderMediaContent(postDataState)}
+                <InstagramMediaCarousel
+                  mediaUrls={postData?.ContentURLs || (postData?.ContentURL ? [postData.ContentURL] : [])}
+                  onPressMedia={(url, type) => {
+                    if (type === "image") openFullScreenImage(url);
+                    else openFullScreenVideo(url);
+                  }}
+                />
+
               </View>
             ) : null}
 

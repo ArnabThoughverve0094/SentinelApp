@@ -83,6 +83,102 @@ interface MediaCarouselProps {
   index?: number;
 }
 
+const renderStyledPostText = (text) => {
+  if (!text) return null;
+
+  const urlPattern = /(https?:\/\/[^\s]+)|(www\.[^\s]+)/gi;
+  const hashtagPattern = /(^|\s)(#[a-zA-Z0-9_]+)/g;
+
+  const urlMatches = [];
+  const hashtagMatches = [];
+  let match;
+
+  while ((match = urlPattern.exec(text)) !== null) {
+    urlMatches.push({
+      type: "url",
+      text: match[0],
+      index: match.index,
+      length: match[0].length,
+    });
+  }
+
+  while ((match = hashtagPattern.exec(text)) !== null) {
+    hashtagMatches.push({
+      type: "hashtag",
+      text: match[2],
+      index: match.index + match[1].length,
+      length: match[2].length,
+    });
+  }
+
+  const allMatches = [...urlMatches, ...hashtagMatches].sort((a, b) => a.index - b.index);
+
+  if (allMatches.length === 0) {
+    return <Text style={{ color: "#111827" }}>{text}</Text>;
+  }
+
+  const components = [];
+  let lastIndex = 0;
+
+  allMatches.forEach((match, i) => {
+    if (match.index > lastIndex) {
+      components.push(
+        <Text key={`text-${i}`} style={{ color: "#111827" }}>
+          {text.substring(lastIndex, match.index)}
+        </Text>
+      );
+    }
+
+    if (match.type === "url") {
+      components.push(
+        <Text
+          key={`url-${i}`}
+          style={{ color: "#2563EB", textDecorationLine: "underline", fontWeight: "500" }}
+          onPress={() => {
+            const url = match.text.startsWith("http") ? match.text : `https://${match.text}`;
+            Linking.openURL(url);
+          }}
+        >
+          {match.text}
+        </Text>
+      );
+    } else if (match.type === "hashtag") {
+      components.push(
+        <TouchableOpacity
+          key={`hashtag-${i}`}
+          onPress={() => {
+            alert("Hashtag tapped: " + match.text);
+            // Or custom navigation/filter
+          }}
+        >
+          <Text
+            style={{
+              color: "#E6161A",
+              fontWeight: "bold",
+              backgroundColor: "#FEE2E2",
+              paddingHorizontal: 2,
+              borderRadius: 2,
+            }}
+          >
+            {match.text}
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+    lastIndex = match.index + match.length;
+  });
+
+  if (lastIndex < text.length) {
+    components.push(
+      <Text key="end" style={{ color: "#111827" }}>
+        {text.substring(lastIndex)}
+      </Text>
+    );
+  }
+
+  return components;
+};
+
 const MediaCarousel: React.FC<MediaCarouselProps> = React.memo(({ 
   mediaUrls,
   postId,
@@ -537,8 +633,8 @@ const RepostModal: React.FC<RepostModalProps> = ({
                 />
                 <Text className="font-semibold text-gray-900 text-sm">{AuthorName}</Text>
               </View>
-              <Text className="text-gray-700 text-sm" numberOfLines={2}>
-                {post.ContentDesc}
+              <Text className="text-gray-700 text-sm" numberOfLines={3}>
+                {renderStyledPostText(post.ContentDesc)}
               </Text>
             </View>
 
@@ -2843,8 +2939,8 @@ export default function SentinelFeed(): React.JSX.Element {
             {getTimeAgo(item.originalPost.ContentDate)}
           </Text> */}
         </View>
-        <Text className="text-gray-700 text-sm" numberOfLines={2}>
-          {item.originalPost.ContentDesc}
+        <Text className="text-gray-700 text-sm" numberOfLines={3}>
+          {renderStyledPostText(item.originalPost.ContentDesc)}
         </Text>
       </View>
     );
@@ -3154,8 +3250,8 @@ export default function SentinelFeed(): React.JSX.Element {
   
           <View className="px-3 py-2.5">
             <Text className="text-gray-800 text-sm leading-5 mb-2 font-normal"
-              numberOfLines={2}>
-              {item.ContentDesc}
+              numberOfLines={3}>
+              {renderStyledPostText(item.ContentDesc)}
               </Text>
   
             {renderRepostContent(item)}
@@ -3509,8 +3605,8 @@ export default function SentinelFeed(): React.JSX.Element {
             )}
   
             <Text className="text-gray-800 text-sm leading-5 mb-2"
-              numberOfLines={2}>
-              {item.ContentDesc}
+              numberOfLines={3}>
+              {renderStyledPostText(item.ContentDesc)}
               </Text>
   
             {renderRepostContent(item)}

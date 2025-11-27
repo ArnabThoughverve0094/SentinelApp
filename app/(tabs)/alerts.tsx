@@ -20,157 +20,11 @@ type Notification = {
     name: string;
     avatar: string;
   };
-  time: string;
+  time: any; // changed to any to support Firestore Timestamp, string, or number
   message: string;
   showButtons: boolean;
   status?: "approved" | "rejected";
 };
-
-// ✅ Fixed: Explicitly type the array and cast status literals
-const notifications: Notification[] = [
-  {
-    id: "1",
-    type: "follow",
-    user: {
-      name: "Kellan Arbor",
-      avatar: "https://randomuser.me/api/portraits/men/45.jpg",
-    },
-    time: "2 m",
-    message: "sent you a follow request.",
-    showButtons: true,
-  },
-  {
-    id: "2",
-    type: "post_approved",
-    user: {
-      name: "Sentinel Admin",
-      avatar: "https://randomuser.me/api/portraits/men/75.jpg",
-    },
-    time: "5 m",
-    message: "Your post has been approved and is now visible to all users.",
-    showButtons: false,
-    status: "approved" as "approved", // ✅ Cast as literal type
-  },
-  {
-    id: "3",
-    type: "like",
-    user: {
-      name: "Elowen Farris",
-      avatar: "https://randomuser.me/api/portraits/women/68.jpg",
-    },
-    time: "8 m",
-    message: "liked your post.",
-    showButtons: false,
-  },
-  {
-    id: "4",
-    type: "post_rejected",
-    user: {
-      name: "Sentinel Moderator",
-      avatar: "https://randomuser.me/api/portraits/women/55.jpg",
-    },
-    time: "12 m",
-    message:
-      "Your post was rejected due to: Inappropriate content or language.",
-    showButtons: false,
-    status: "rejected" as "rejected", // ✅ Cast as literal type
-  },
-  {
-    id: "5",
-    type: "follow",
-    user: {
-      name: "Laurie Kittel",
-      avatar: "https://randomuser.me/api/portraits/women/32.jpg",
-    },
-    time: "15 m",
-    message: "sent you a follow request.",
-    showButtons: true,
-  },
-  {
-    id: "6",
-    type: "post_approved",
-    user: {
-      name: "Sentinel Admin",
-      avatar: "https://randomuser.me/api/portraits/men/75.jpg",
-    },
-    time: "18 m",
-    message: "Your video post about community events has been approved.",
-    showButtons: false,
-    status: "approved" as "approved",
-  },
-  {
-    id: "7",
-    type: "follow",
-    user: {
-      name: "Larkin Veum",
-      avatar: "https://randomuser.me/api/portraits/men/25.jpg",
-    },
-    time: "21 m",
-    message: "sent you a follow request.",
-    showButtons: true,
-  },
-  {
-    id: "8",
-    type: "post_rejected",
-    user: {
-      name: "Sentinel Moderator",
-      avatar: "https://randomuser.me/api/portraits/women/55.jpg",
-    },
-    time: "35 m",
-    message:
-      "Your post was rejected due to: Spam or repetitive content, Misleading or false information.",
-    showButtons: false,
-    status: "rejected" as "rejected",
-  },
-  {
-    id: "9",
-    type: "like",
-    user: {
-      name: "Rigel Quitzon",
-      avatar: "https://randomuser.me/api/portraits/men/18.jpg",
-    },
-    time: "1h ago",
-    message: "liked your post.",
-    showButtons: false,
-  },
-  {
-    id: "10",
-    type: "post_approved",
-    user: {
-      name: "Sentinel Admin",
-      avatar: "https://randomuser.me/api/portraits/men/75.jpg",
-    },
-    time: "2h ago",
-    message: "Your image post has been reviewed and approved successfully.",
-    showButtons: false,
-    status: "approved" as "approved",
-  },
-  {
-    id: "11",
-    type: "post_rejected",
-    user: {
-      name: "Sentinel Moderator",
-      avatar: "https://randomuser.me/api/portraits/women/55.jpg",
-    },
-    time: "3h ago",
-    message: "Your post was rejected due to: Violates community guidelines.",
-    showButtons: false,
-    status: "rejected" as "rejected",
-  },
-  {
-    id: "12",
-    type: "post_approved",
-    user: {
-      name: "Sentinel Admin",
-      avatar: "https://randomuser.me/api/portraits/men/75.jpg",
-    },
-    time: "5h ago",
-    message:
-      "Great job! Your post about local news has been approved and published.",
-    showButtons: false,
-    status: "approved" as "approved",
-  },
-];
 
 const getNotificationIcon = (type: string, status?: string) => {
   switch (type) {
@@ -187,10 +41,15 @@ const getNotificationIcon = (type: string, status?: string) => {
   }
 };
 
-
+function getMillis(val: any): number {
+  // Supports Firestore Timestamp, string date, or ms number
+  if (!val) return 0;
+  if (typeof val === "object" && typeof val.toDate === "function") return val.toDate().getTime();
+  if (typeof val === "number") return val;
+  return new Date(val).getTime();
+}
 
 export default function NotificationPage() {
-
   const [userImage, setUserImage] = useState("");
   const [userName, setUserName] = useState("");
   const [userId, setUserId] = useState("");
@@ -207,21 +66,9 @@ export default function NotificationPage() {
       const fetchuserName = await AsyncStorage.getItem('userName');
       const fetchUserImage = await AsyncStorage.getItem('profilePicUrl');
       const fetchuserID = await AsyncStorage.getItem('userId');
-
-      if(fetchuserName !== null) {
-        console.log("userName: ", fetchuserName);
-        setUserName(fetchuserName);
-      }
-
-      if(fetchUserImage !== null) {
-        console.log("userImage: ", fetchUserImage);
-        setUserImage(fetchUserImage);
-      }
-
-      if(fetchuserID !== null) {
-        setUserId(fetchuserID);
-      }
-      
+      if(fetchuserName !== null) setUserName(fetchuserName);
+      if(fetchUserImage !== null) setUserImage(fetchUserImage);
+      if(fetchuserID !== null) setUserId(fetchuserID);
     } catch (error) {
       console.log("Error retrieving item", error);
     }
@@ -236,26 +83,23 @@ export default function NotificationPage() {
       }
 
       if (fetchuserID) {
-        console.log('🔄 Fetching following list for user:', fetchuserID);
-        
         const sentinelUsersRef = collection(db, 'SentinelUsers');
         const q = query(
           sentinelUsersRef, 
           where('userID', '==', fetchuserID));
-        
+
         const unsubscribe = onSnapshot(q, (snapshot) => {
           const snapshotDataArr = snapshot.docs.map(doc => ({
             id: doc.id,
             data: doc.data(),
-          }))
+          }));
 
-          const fetchNotific = [];
-          
+          const fetchNotific: Notification[] = [];
           for (const doc of snapshotDataArr) {
             const postData = doc.data;
             const postId = doc.id;
             setCurrentUserDocId(postId);
-            
+
             if (postData.Notification != null) {
               for (const docNotification of postData.Notification) {
                 fetchNotific.push({
@@ -269,30 +113,13 @@ export default function NotificationPage() {
                   message: docNotification.Description,
                   showButtons: docNotification.ShowButtons,
                   status: docNotification.Status,
-                })
+                });
               }
             }
-
-            // --- 👇 SORTING BY ContentDate (Latest on Top) 👇 ---
-            
-            fetchNotific.sort((a, b) => {
-              // Assuming 'a.time' and 'b.time' (which is ContentDate) 
-              // are valid date strings or Date objects/timestamps.
-              
-              // 1. Convert to comparable date values (milliseconds)
-              const dateA = new Date(a.time).getTime(); 
-              const dateB = new Date(b.time).getTime();
-
-              // 2. Sort in DESCENDING order (Latest on top): b - a
-              return dateB - dateA;
-            });
-            
-            // --- 👆 SORTING ENDS 👆 ---
-            
-            setNotificationDetails(fetchNotific);
-            console.log('✅ Notification list updated:', fetchNotific);
           }
-          
+          // Robust sort (latest first)
+          fetchNotific.sort((a, b) => getMillis(b.time) - getMillis(a.time));
+          setNotificationDetails(fetchNotific);
         });
 
         return unsubscribe;
@@ -306,10 +133,8 @@ export default function NotificationPage() {
 
   const getTimeAgo = useCallback((dateString: any) => {
     if (!dateString) return 'Just now';
-    
     try {
       let postDate: Date;
-      
       if (dateString && typeof dateString === 'object' && dateString.toDate) {
         postDate = dateString.toDate();
       }
@@ -325,7 +150,6 @@ export default function NotificationPage() {
       else {
         return 'Just now';
       }
-
       const now = new Date();
       const diffInMs = now.getTime() - postDate.getTime();
       const diffInSeconds = Math.floor(diffInMs / 1000);
@@ -374,7 +198,7 @@ export default function NotificationPage() {
           </View>
         )}
       </View>
-  
+
       {/* Content */}
       <View className="flex-1">
         {/* User name and message */}
@@ -393,10 +217,10 @@ export default function NotificationPage() {
               </View>
             )}
         </View>
-  
+
         {/* Time */}
         <Text className="text-xs text-gray-500 mb-2">{getTimeAgo(notification.time)}</Text>
-  
+
         {/* Status badge for post notifications */}
         {(notification.type === "post_approved" ||
           notification.type === "post_rejected") && (
@@ -418,7 +242,7 @@ export default function NotificationPage() {
             </Text>
           </View>
         )}
-  
+
         {/* Follow/Decline Buttons */}
         {notification.showButtons && (
           <View className="flex-row">
@@ -444,34 +268,11 @@ export default function NotificationPage() {
           Notifications
         </Text>
       </View>
-      {/* <View className="flex-row items-center bg-gray-100 rounded-xl px-4 py-3 mb-3">
-        <Ionicons name="search" size={20} color="#9ca3af" />
-        <Text
-          className="flex-1 ml-3 text-gray-700 text-base"
-          onPress={() => {
-            // You can implement a proper search input here
-            console.log("Search functionality to be implemented");
-          }}
-        >
-          Search notifications...
-        </Text>
-        <Ionicons
-          name="filter"
-          size={20}
-          color="#9ca3af"
-          onPress={() => {
-            // Implement sorting/filtering functionality here
-            console.log("Sort/filter functionality to be implemented");
-          }}
-        />
-      </View> */}
 
       {/* Notifications List */}
       <View className="flex-1">
         <FlatList
-          // data={notifications}
           data={notificationDetails}
-          // keyExtractor={(item) => item.id}
           keyExtractor={(_item, index) => index.toString()}
           renderItem={({ item }) => <NotificationItem notification={item} />}
           showsVerticalScrollIndicator={false}
@@ -495,7 +296,3 @@ export default function NotificationPage() {
     </SafeAreaView>
   );
 }
-function getTimeAgo(time: string): import("react").ReactNode {
-  throw new Error("Function not implemented.");
-}
-

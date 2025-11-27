@@ -15,6 +15,7 @@ import {
   Dimensions,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   ScrollView,
@@ -26,6 +27,109 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+const MAX_CHARACTERS = 2000;
+
+  // Returns styled, clickable React Native text from input value
+  const renderStyledText = (text) => {
+    if (!text) return null;
+
+    const urlPattern = /(https?:\/\/[^\s]+)|(www\.[^\s]+)/gi;
+    const hashtagPattern = /(^|\s)(#[a-zA-Z0-9_]+)/g;
+
+    const urlMatches = [];
+    const hashtagMatches = [];
+
+    let match;
+    while ((match = urlPattern.exec(text)) !== null) {
+      urlMatches.push({
+        type: "url",
+        text: match[0],
+        index: match.index,
+        length: match[0].length,
+      });
+    }
+
+    while ((match = hashtagPattern.exec(text)) !== null) {
+      hashtagMatches.push({
+        type: "hashtag",
+        text: match[2],
+        index: match.index + match[1].length,
+        length: match[2].length,
+      });
+    }
+
+    const allMatches = [...urlMatches, ...hashtagMatches].sort((a, b) => a.index - b.index);
+    if (allMatches.length === 0) {
+      return <Text style={{ color: "#111827" }}>{text}</Text>;
+    }
+
+    const components = [];
+    let lastIndex = 0;
+
+    allMatches.forEach((match, i) => {
+      if (match.index > lastIndex) {
+        components.push(
+          <Text key={`text-${i}`} style={{ color: "#111827" }}>
+            {text.substring(lastIndex, match.index)}
+          </Text>
+        );
+      }
+
+      if (match.type === "url") {
+        components.push(
+          <Text
+            key={`url-${i}`}
+            style={{
+              color: "#2563EB",
+              textDecorationLine: "underline",
+              fontWeight: "600",
+            }}
+            onPress={() => {
+              const url = match.text.startsWith("http") ? match.text : `https://${match.text}`;
+              Linking.openURL(url);
+            }}
+          >
+            {match.text}
+          </Text>
+        );
+      } else if (match.type === "hashtag") {
+        components.push(
+          <TouchableOpacity
+            key={`hashtag-${i}`}
+            onPress={() => {
+              // Add navigation/filter logic per hashtag
+              alert("Hashtag tapped: " + match.text);
+            }}
+          >
+            <Text
+              style={{
+                color: "#E6161A",
+                fontWeight: "bold",
+                backgroundColor: "#FFF0F3",
+                paddingHorizontal: 2,
+                borderRadius: 3,
+              }}
+            >
+              {match.text}
+            </Text>
+          </TouchableOpacity>
+        );
+      }
+      lastIndex = match.index + match.length;
+    });
+
+    if (lastIndex < text.length) {
+      components.push(
+        <Text key="end" style={{ color: "#111827" }}>
+          {text.substring(lastIndex)}
+        </Text>
+      );
+    }
+
+    return components;
+  };
+
+
 import { Video } from 'react-native-compressor';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -339,6 +443,8 @@ export default function CreatePost() {
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [isEducationalEnabled, setIsEducationalEnabled] = useState<boolean>(false);
   const scaleFactor = 0.7; // Smaller: 0.7 (70% of original size)
+  const [inputHeight, setInputHeight] = useState(50); // Initial small height
+
 
   // Handler function to invert the state when the switch is toggled.
   const toggleSwitch = () => {
@@ -1127,7 +1233,7 @@ const compressAndGetUrl = async (localUri) => {
           >
             <View style={{ flexDirection: "row", alignItems: "flex-start", padding: 16 }}>
               <Image
-                source={{ uri: 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg' }}
+                source={{ uri:userImage || 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg' }}
                 style={{ 
                   width: 40, 
                   height: 40, 
@@ -1137,24 +1243,51 @@ const compressAndGetUrl = async (localUri) => {
                 }}
                 resizeMode="cover"
               />
-              <View style={{ flex: 1 }}>
-                <TextInput
-                  style={{
-                    fontSize: 16,
-                    color: "#000",
-                    minHeight: 80,
-                    maxHeight: 120,
-                    lineHeight: 22,
-                    paddingTop: 0,
-                    paddingBottom: 10,
-                  }}
-                  placeholder="Type your message here..."
-                  placeholderTextColor="#9CA3AF"
-                  value={postText}
-                  onChangeText={setPostText}
-                  multiline
-                  textAlignVertical="top"
-                />
+              <View style={{ padding: 16 }}>
+                <View style={{
+                  minHeight: 50,
+                  maxHeight: 180,
+                  backgroundColor: "#fff",
+                  borderRadius: 18,
+                  borderWidth: 1,
+                  borderColor: "#E5E7EB",
+                  marginBottom: 2,
+                  paddingHorizontal: 0,
+                  justifyContent: "flex-start",
+                }}>
+                  <TextInput
+                    multiline
+                    maxLength={MAX_CHARACTERS}
+                    value={postText}
+                    onChangeText={setPostText}
+                    onContentSizeChange={(e) => {
+                      setInputHeight(Math.min(180, Math.max(50, e.nativeEvent.contentSize.height)));
+                    }}
+                    style={{
+                      height: inputHeight,
+                      minHeight: 50,
+                      maxHeight: 180,
+                      fontSize: 19,
+                      paddingHorizontal: 18,
+                      paddingVertical: 12,
+                      color: "#333",
+                      backgroundColor: "#fff",
+                      borderRadius: 18,
+                      overflow: "hidden",
+                      textAlignVertical: "top",
+                    }}
+                    placeholder="Type your message here..."
+                    placeholderTextColor="#B7BAC3"
+                  />
+                </View>
+                <Text style={{
+                  fontSize: 15,
+                  color: postText.length >= MAX_CHARACTERS ? "#f44336" : "#A1A1AA",
+                  marginLeft: 8,
+                  marginTop: 2
+                }}>
+                  {postText.length}/{MAX_CHARACTERS} characters
+                </Text>
               </View>
             </View>
 
@@ -1211,7 +1344,7 @@ const compressAndGetUrl = async (localUri) => {
                             borderRadius: 12,
                             backgroundColor: "#F3F4F6",
                           }}
-                          resizeMode="contain"
+                          resizeMode="cover"
                         />
                       ) : (
                         <View
