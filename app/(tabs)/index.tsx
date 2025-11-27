@@ -870,7 +870,7 @@ export default function SentinelFeed(): React.JSX.Element {
   //Lasy loading
   const [lastVisible, setLastVisible] = useState<any>(null); // Use the correct Snapshot type if possible
   const [hasMore, setHasMore] = useState(true); // To check if there are more documents to load
-  const BATCH_SIZE = 20; // Define your lazy load batch size
+  const BATCH_SIZE = 10; // Define your lazy load batch size
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [unsubscribers, setUnsubscribers] = useState<(() => void)[]>([]);
   
