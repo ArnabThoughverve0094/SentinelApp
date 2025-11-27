@@ -434,6 +434,7 @@ export default function CreatePost() {
   const [postText, setPostText] = useState("");
   const [userImage, setUserImage] = useState("");
   const [userName, setUserName] = useState("");
+  const [userNickName, setUserNickName] = useState("");
   const [userId, setUserId] = useState("");
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia[]>([]);
   const [loading, setLoading] = useState(false);
@@ -555,6 +556,7 @@ export default function CreatePost() {
       const fetchUserImage = await AsyncStorage.getItem('profilePicUrl');
       const fetchuserID = await AsyncStorage.getItem('userId');
       const fetchCreateType = await AsyncStorage.getItem('createType');
+      const fetchuseNickrName = await AsyncStorage.getItem('userNickName');
 
       if(fetchuserName !== null) {
         console.log("userName: ", fetchuserName);
@@ -578,6 +580,11 @@ export default function CreatePost() {
         }
       } else {
         setIsEducationalEnabled(false);
+      }
+
+      if(fetchuseNickrName !== null) {
+        console.log("userNickName: ", fetchuseNickrName);
+        setUserNickName(fetchuseNickrName);
       }
       
     } catch (error) {
@@ -1058,6 +1065,7 @@ const compressAndGetUrl = async (localUri) => {
       await addDoc(collection(db, 'SentinelPosts'), {
         AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
         AuthorName: userName,
+        AuthorNickName: userNickName,
         AuthorUserID: userId,
         ContentDate: new Date(),
         ContentDesc: postText,
