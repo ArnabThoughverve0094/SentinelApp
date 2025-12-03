@@ -2,12 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
+  Linking,
   ScrollView,
   StatusBar,
   Text,
   TouchableOpacity,
   View,
-  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -44,7 +44,7 @@ export default function PrivacyPolicy(): React.JSX.Element {
               </View>
               <View className="flex-1">
                 <Text className="text-2xl font-bold text-gray-900 mb-1">
-                  Sentinel Privacy Policy
+                  IronExSafe Privacy Policy
                 </Text>
                 <Text className="text-sm text-gray-600">
                   Effective Date: October 7, 2025
@@ -55,7 +55,7 @@ export default function PrivacyPolicy(): React.JSX.Element {
               </View>
             </View>
             <Text className="text-base text-gray-700 leading-6">
-              Sentinel ("we," "our," "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, store, and protect information when you use the Sentinel platform ("Platform").
+              IronExSafe ("we," "our," "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, store, and protect information when you use the IronExSafe platform ("Platform").
             </Text>
           </View>
 
@@ -150,7 +150,7 @@ export default function PrivacyPolicy(): React.JSX.Element {
                   <View>
                     <Text className="text-base font-medium text-gray-900 mb-2">For Legal Reasons:</Text>
                     <Text className="text-base text-gray-700 leading-6">
-                      To comply with a legal obligation, protect against fraud or security issues, or defend the rights of Sentinel, our users, or the public.
+                      To comply with a legal obligation, protect against fraud or security issues, or defend the rights of IronExSafe, our users, or the public.
                     </Text>
                   </View>
                   <View>
@@ -175,7 +175,7 @@ export default function PrivacyPolicy(): React.JSX.Element {
               </View>
               <View className="space-y-3 ml-11">
                 <Text className="text-base text-gray-700 leading-6">
-                  • Reports you submit may be approved and posted publicly on the Sentinel timeline.
+                  • Reports you submit may be approved and posted publicly on the IronExSafe timeline.
                 </Text>
                 <Text className="text-base text-gray-700 leading-6">
                   • Identifying information is not displayed publicly unless you choose to include it.
@@ -252,7 +252,7 @@ export default function PrivacyPolicy(): React.JSX.Element {
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6">
-                  Sentinel is not directed to children under 13 (or 16 in the EU/UK). We do not knowingly collect personal information from children.
+                  IronExSafe is not directed to children under 13 (or 16 in the EU/UK). We do not knowingly collect personal information from children.
                 </Text>
               </View>
             </View>
@@ -286,7 +286,7 @@ export default function PrivacyPolicy(): React.JSX.Element {
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6">
-                  If you are located outside the United States, your information may be processed and stored in the United States. As a registered User and using Sentinel, you consent to this.
+                  If you are located outside the United States, your information may be processed and stored in the United States. As a registered User and using IronExSafe, you consent to this.
                 </Text>
               </View>
             </View>

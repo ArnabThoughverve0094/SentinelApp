@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Link, router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated,ImageBackground, Image, KeyboardAvoidingView, Modal, Platform, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Animated, ImageBackground, KeyboardAvoidingView, Modal, Platform, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Custom Modal Component
@@ -314,15 +314,16 @@ export default function ForgotPassword(): React.JSX.Element {
               <TouchableOpacity className="flex-row items-center">
                 <View className="ml-2">
                   <View className="flex-row items-center">
-                    <View className="w-8 h-8 mr-0">
+                    {/* <View className="w-8 h-8 mr-0">
                       <Image
                         source={require("../../assets/images/new_logo.png")}
                         style={{ flex: 1, width: undefined, height: undefined }}
                         resizeMode="contain"
                       />
-                    </View>
+                    </View> */}
                     {/* Sentinel Text */}
-                    <Text className="text-3xl font-extrabold text-[#281C20]">entinel</Text>
+                    {/* <Text className="text-3xl font-extrabold text-[#281C20]">entinel</Text> */}
+                    <Text className="text-3xl font-extrabold text-[#281C20]">IronExSafe</Text>
                   </View>
                   {/* Logo Icon */}
                   <Text className="text-sm text-[#281C20]">

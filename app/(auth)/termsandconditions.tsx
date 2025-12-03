@@ -44,7 +44,7 @@ export default function TermsOfUse(): React.JSX.Element {
               </View>
               <View className="flex-1">
                 <Text className="text-2xl font-bold text-gray-900 mb-1">
-                  Sentinel Terms of Use
+                IronExSafe Terms of Use
                 </Text>
                 <Text className="text-sm text-gray-600">
                   Effective Date: October 7, 2025
@@ -55,7 +55,7 @@ export default function TermsOfUse(): React.JSX.Element {
               </View>
             </View>
             <Text className="text-base text-gray-700 leading-6">
-              Welcome to Sentinel. By creating an account, accessing, or using the Sentinel platform ("Platform"), you agree to these Terms of Use ("Terms"). If you do not agree, you may not use Sentinel and should therefore not register.
+              Welcome to IronExSafe. By creating an account, accessing, or using the IronExSafe platform ("Platform"), you agree to these Terms of Use ("Terms"). If you do not agree, you may not use IronExSafe and should therefore not register.
             </Text>
           </View>
 
@@ -79,7 +79,7 @@ export default function TermsOfUse(): React.JSX.Element {
                   • Registration requires accurate, current information. You are responsible for safeguarding your account credentials.
                 </Text>
                 <Text className="text-base text-gray-700 leading-6">
-                  • Sentinel reserves the right at its sole discretion to suspend or terminate accounts for violations of these Terms.
+                  • IronExSafe reserves the right at its sole discretion to suspend or terminate accounts for violations of these Terms.
                 </Text>
               </View>
             </View>
@@ -96,7 +96,7 @@ export default function TermsOfUse(): React.JSX.Element {
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6 mb-3">
-                  By using Sentinel, you agree that you will not submit, upload, or transmit any content that:
+                  By using IronExSafe, you agree that you will not submit, upload, or transmit any content that:
                 </Text>
                 <View className="space-y-2">
                   <Text className="text-base text-gray-700 leading-6">• Is defamatory, libelous, harassing, threatening, or invasive of privacy.</Text>
@@ -130,7 +130,7 @@ export default function TermsOfUse(): React.JSX.Element {
                 </View>
                 <View className="space-y-3">
                   <Text className="text-base text-gray-700 leading-6">
-                    • All reports are reviewed by a Sentinel moderator before being released to the public timeline. You agree that the Moderator has sole authority and discretion to release/publish to the Sentinel platform.
+                    • All reports are reviewed by a IronExSafe moderator before being released to the public timeline. You agree that the Moderator has sole authority and discretion to release/publish to the IronExSafe platform.
                   </Text>
                   <Text className="text-base text-gray-700 leading-6">
                     • Moderators may approve or decline submissions but will not alter or redact content.
@@ -157,7 +157,7 @@ export default function TermsOfUse(): React.JSX.Element {
                   • Approved reports are published on the public-facing timeline, accessible to all (whether registered or not).
                 </Text>
                 <Text className="text-base text-gray-700 leading-6">
-                  • Sentinel does not verify the truth of user submissions and makes no guarantees about accuracy.
+                  • IronExSafe does not verify the truth of user submissions and makes no guarantees about accuracy.
                 </Text>
                 <Text className="text-base text-gray-700 leading-6">
                   • Reports are labeled as user-submitted content.
@@ -177,10 +177,10 @@ export default function TermsOfUse(): React.JSX.Element {
               </View>
               <View className="space-y-3 ml-11">
                 <Text className="text-base text-gray-700 leading-6">
-                  • Sentinel respects intellectual property rights. If you believe content infringes your rights, notify us at SentinelTerms@gmail.com.
+                  • IronExSafe respects intellectual property rights. If you believe content infringes your rights, notify us at SentinelTerms@gmail.com.
                 </Text>
                 <Text className="text-base text-gray-700 leading-6">
-                  • By submitting content, you grant Sentinel a worldwide, non-exclusive, royalty-free license to use, display, and distribute that content on the Platform.
+                  • By submitting content, you grant IronExSafe a worldwide, non-exclusive, royalty-free license to use, display, and distribute that content on the Platform.
                 </Text>
               </View>
             </View>
@@ -199,16 +199,16 @@ export default function TermsOfUse(): React.JSX.Element {
                 <View>
                   <Text className="text-base font-medium text-gray-900 mb-2">United States:</Text>
                   <Text className="text-base text-gray-700 leading-6">
-                    Under Section 230 of the Communications Decency Act (47 U.S.C. § 230), Sentinel is not the publisher or speaker of user-submitted content. Sentinel is not liable for statements or representations made by Users.
+                    Under Section 230 of the Communications Decency Act (47 U.S.C. § 230), IronExSafe is not the publisher or speaker of user-submitted content. IronExSafe is not liable for statements or representations made by Users.
                   </Text>
                 </View>
                 <View>
                   <Text className="text-base font-medium text-gray-900 mb-2">European Union / United Kingdom:</Text>
                   <Text className="text-base text-gray-700 leading-6 mb-2">
-                    Sentinel qualifies as a "hosting service." We are not liable for unlawful user content unless we have actual knowledge and fail to act.
+                  IronExSafe qualifies as a "hosting service." We are not liable for unlawful user content unless we have actual knowledge and fail to act.
                   </Text>
                   <Text className="text-base text-gray-700 leading-6">
-                    Users may flag unlawful content. Sentinel will review and may remove such content promptly in accordance with the EU Digital Services Act and UK Online Safety Act.
+                    Users may flag unlawful content. IronExSafe will review and may remove such content promptly in accordance with the EU Digital Services Act and UK Online Safety Act.
                   </Text>
                 </View>
               </View>
@@ -226,10 +226,10 @@ export default function TermsOfUse(): React.JSX.Element {
               </View>
               <View className="space-y-3 ml-11">
                 <Text className="text-base text-gray-700 leading-6">
-                  • Sentinel, in its sole discretion, may suspend or terminate your account if you violate these Terms or applicable law.
+                  • IronExSafe, in its sole discretion, may suspend or terminate your account if you violate these Terms or applicable law.
                 </Text>
                 <Text className="text-base text-gray-700 leading-6">
-                  • Sentinel, in its sole discretion, may remove any content deemed unlawful, harmful, or violative of these Terms.
+                  • IronExSafe, in its sole discretion, may remove any content deemed unlawful, harmful, or violative of these Terms.
                 </Text>
               </View>
             </View>
@@ -246,10 +246,10 @@ export default function TermsOfUse(): React.JSX.Element {
               </View>
               <View className="space-y-3 ml-11">
                 <Text className="text-base text-gray-700 leading-6">
-                  • Sentinel provides the Platform "as is." We disclaim all warranties, express or implied.
+                  • IronExSafe provides the Platform "as is." We disclaim all warranties, express or implied.
                 </Text>
                 <Text className="text-base text-gray-700 leading-6">
-                  • Sentinel is not liable for damages arising from your use of the Platform, except as required by law.
+                  • IronExSafe is not liable for damages arising from your use of the Platform, except as required by law.
                 </Text>
               </View>
             </View>
@@ -266,7 +266,7 @@ export default function TermsOfUse(): React.JSX.Element {
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6">
-                  You agree to indemnify and hold harmless Sentinel, its directors, officers, employees, and partners (including David J Hart PA and Digital Iron Dome, Inc.) from any claims, damages, or expenses arising from your use of the Platform or violation of these Terms.
+                  You agree to indemnify and hold harmless IronExSafe, its directors, officers, employees, and partners (including David J Hart PA and Digital Iron Dome, Inc.) from any claims, damages, or expenses arising from your use of the Platform or violation of these Terms.
                 </Text>
               </View>
             </View>
@@ -283,7 +283,7 @@ export default function TermsOfUse(): React.JSX.Element {
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6">
-                  Sentinel may update these Terms at any time. Continued use of the Platform after changes are posted constitutes acceptance.
+                  IronExSafe may update these Terms at any time. Continued use of the Platform after changes are posted constitutes acceptance.
                 </Text>
               </View>
             </View>
@@ -356,7 +356,7 @@ export default function TermsOfUse(): React.JSX.Element {
                 </Text>
               </View>
               <Text className="text-base text-blue-700 leading-6">
-                By using Sentinel, you acknowledge that you have read, understood, and agree to be bound by these Terms of Use. Please review these terms carefully.
+                By using IronExSafe, you acknowledge that you have read, understood, and agree to be bound by these Terms of Use. Please review these terms carefully.
               </Text>
             </View>
 
@@ -382,7 +382,7 @@ export default function TermsOfUse(): React.JSX.Element {
                 </Text>
               </View>
               <Text className="text-base text-purple-700 leading-6">
-                Sentinel operates in compliance with applicable laws and regulations. We reserve the right to take appropriate action to ensure platform safety and legal compliance.
+                IronExSafe operates in compliance with applicable laws and regulations. We reserve the right to take appropriate action to ensure platform safety and legal compliance.
               </Text>
             </View>
           </View>
