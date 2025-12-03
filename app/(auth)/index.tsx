@@ -1097,15 +1097,16 @@ export default function Index(): React.JSX.Element {
               <TouchableOpacity className="flex-row items-center">
                 <View className="ml-2">
                   <View className="flex-row items-center">
-                    <View className="w-8 h-8 mr-0">
+                    {/* <View className="w-8 h-8 mr-0">
                       <Image
                         source={require("../../assets/images/new_logo.png")}
                         style={{ flex: 1, width: undefined, height: undefined }}
                         resizeMode="contain"
                       />
-                    </View>
+                    </View> */}
                     {/* Sentinel Text */}
-                    <Text className="text-3xl font-extrabold text-[#281C20]">entinel</Text>
+                    {/* <Text className="text-3xl font-extrabold text-[#281C20]">entinel</Text> */}
+                    <Text className="text-3xl font-extrabold text-[#281C20]">IronExSafe</Text>
                   </View>
                   {/* Logo Icon */}
                   <Text className="text-sm text-[#281C20]">
@@ -1252,7 +1253,7 @@ export default function Index(): React.JSX.Element {
           <View className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
             <View className="bg-pink-50 px-5 py-4">
               <View className="flex-row items-center justify-between mb-2">
-                <Text className="text-base font-bold text-gray-900">Welcome to Sentinel</Text>
+                <Text className="text-base font-bold text-gray-900">Welcome to IronExSafe</Text>
                 <TouchableOpacity onPress={() => setShowAuthPopup(false)}>
                   <Ionicons name="close" size={22} color="#64748b" />
                 </TouchableOpacity>

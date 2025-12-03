@@ -1478,23 +1478,26 @@ export default function SentinelFeed(): React.JSX.Element {
         setFetchedData(postsData);
         setHasMore(sentinelSnapshot.docs.length === BATCH_SIZE); // Check if more data exists
 
-        fetchedData.forEach(post => {
-          onSnapshot(
-            collection(doc(db, post.postType, post.id), 'Comments'),
-            commentsSnap => {
-              let totalComments = 0;
-              totalComments = commentsSnap.size;
+        // fetchedData.forEach(post => {
+        //   onSnapshot(
+        //     collection(doc(db, post.postType, post.id), 'Comments'),
+        //     commentsSnap => {
+        //       let totalComments = 0;
+        //       totalComments = commentsSnap.size;
 
-              setFetchedData(prev =>
-                prev.map(p =>
-                  p.id === post.id
-                  ? { ...p, ContentCommentCount: totalComments }
-                  : p
-                )
-              );
-            }
-          )
-        });
+        //       setFetchedData(prev =>
+        //         prev.map(p =>
+        //           p.id === post.id
+        //           ? { ...p, ContentCommentCount: totalComments }
+        //           : p
+        //         )
+        //       );
+        //     }
+        //   )
+        // });
+        
+        fetchPostComments();
+
       });
       
       if (sentinelData.length <= 0) {
@@ -1553,23 +1556,25 @@ export default function SentinelFeed(): React.JSX.Element {
       setFetchedData(postsXData);
         console.log('OnSnapshot Fetched and Sorted', `Total: ${fetchedData.length} documents`);
 
-        fetchedData.forEach(post => {
-          onSnapshot(
-            collection(doc(db, post.postType, post.id), 'Comments'),
-            commentsSnap => {
-              let totalComments = 0;
-              totalComments = commentsSnap.size;
+        // fetchedData.forEach(post => {
+        //   onSnapshot(
+        //     collection(doc(db, post.postType, post.id), 'Comments'),
+        //     commentsSnap => {
+        //       let totalComments = 0;
+        //       totalComments = commentsSnap.size;
 
-              setFetchedData(prev =>
-                prev.map(p =>
-                  p.id === post.id
-                  ? { ...p, ContentCommentCount: totalComments }
-                  : p
-                )
-              );
-            }
-          )
-        });
+        //       setFetchedData(prev =>
+        //         prev.map(p =>
+        //           p.id === post.id
+        //           ? { ...p, ContentCommentCount: totalComments }
+        //           : p
+        //         )
+        //       );
+        //     }
+        //   )
+        // });
+
+      fetchPostComments();
       
       return () => {
         unsubscribeXData();
@@ -1666,23 +1671,25 @@ export default function SentinelFeed(): React.JSX.Element {
 
         setFetchedData(prevData => [...prevData, ...postsData]); // Append new data
 
-        fetchedData.forEach(post => {
-          onSnapshot(
-            collection(doc(db, post.postType, post.id), 'Comments'),
-            commentsSnap => {
-              let totalComments = 0;
-              totalComments = commentsSnap.size;
+        // fetchedData.forEach(post => {
+        //   onSnapshot(
+        //     collection(doc(db, post.postType, post.id), 'Comments'),
+        //     commentsSnap => {
+        //       let totalComments = 0;
+        //       totalComments = commentsSnap.size;
 
-              setFetchedData(prev =>
-                prev.map(p =>
-                  p.id === post.id
-                  ? { ...p, ContentCommentCount: totalComments }
-                  : p
-                )
-              );
-            }
-          )
-        });
+        //       setFetchedData(prev =>
+        //         prev.map(p =>
+        //           p.id === post.id
+        //           ? { ...p, ContentCommentCount: totalComments }
+        //           : p
+        //         )
+        //       );
+        //     }
+        //   )
+        // });
+
+        fetchPostComments();
 
         const newLastDoc = nextSnapshot.docs[nextSnapshot.docs.length - 1];
         setLastVisible(newLastDoc);
@@ -1765,6 +1772,33 @@ export default function SentinelFeed(): React.JSX.Element {
       setLoading(false);
     }
   },[]);
+
+  const fetchPostComments = useCallback(async () => {
+    try {
+      fetchedData.forEach(post => {
+        onSnapshot(
+          collection(doc(db, post.postType, post.id), 'Comments'),
+          commentsSnap => {
+            let totalComments = 0;
+            totalComments = commentsSnap.size;
+
+            setFetchedData(prev =>
+              prev.map(p =>
+                p.id === post.id
+                ? { ...p, ContentCommentCount: totalComments }
+                : p
+              )
+            );
+          }
+        )
+      });
+
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  },[fetchedData]);
 
   const fetchUpdate = useCallback(async () => {
     try {
@@ -1863,6 +1897,7 @@ export default function SentinelFeed(): React.JSX.Element {
     //   commentUnsubscribesRef.current.forEach(unsubscribe => unsubscribe());
     // };
 
+    
   }, []);
 
   useFocusEffect(
@@ -1886,6 +1921,7 @@ export default function SentinelFeed(): React.JSX.Element {
       
       checkCommentUpdate();
       fetchUpdate();
+      fetchPostComments();
     }, [isInitialized, fetchSinglePostComments])
   );
 
@@ -2475,6 +2511,17 @@ export default function SentinelFeed(): React.JSX.Element {
       });
     }
 
+    setFetchedData(prevData => 
+      prevData.map(item => 
+        item.id === postItem.id 
+          ? { ...item, Liked: !item.Liked,
+            ContentLikeCount: item.Liked 
+              ? item.ContentLikeCount - 1 
+              : item.ContentLikeCount + 1 }
+          : item
+      )
+    );
+
     if (fullScreenCard && fullScreenCard.uniqueId === postItem.uniqueId) {
       setFullScreenCard((prev: PostItem | null) => prev ? ({
         ...prev,
@@ -2765,6 +2812,14 @@ export default function SentinelFeed(): React.JSX.Element {
         visibilityTime: 2000,
       });
     }
+
+    setFetchedData(prevData => 
+      prevData.map(item => 
+        item.id === postItem.id 
+          ? { ...item, Bookmarked: !item.Bookmarked }
+          : item
+      )
+    );
 
     if (fullScreenCard && fullScreenCard.uniqueId === postItem.uniqueId) {
       setFullScreenCard((prev: PostItem | null) => prev ? ({
@@ -3836,15 +3891,16 @@ export default function SentinelFeed(): React.JSX.Element {
               <TouchableOpacity className="flex-row items-center">
                 <View className="ml-2">
                   <View className="flex-row items-center">
-                    <View className="w-8 h-8 mr-0">
+                    {/* <View className="w-8 h-8 mr-0">
                       <Image
                         source={require("../../assets/images/new_logo.png")}
                         style={{ flex: 1, width: undefined, height: undefined }}
                         resizeMode="contain"
                       />
-                    </View>
+                    </View> */}
                     {/* Sentinel Text */}
-                    <Text className="text-3xl font-extrabold text-[#281C20]">entinel</Text>
+                    {/* <Text className="text-3xl font-extrabold text-[#281C20]">entinel</Text> */}
+                    <Text className="text-3xl font-extrabold text-[#281C20]">IronExSafe</Text>
                   </View>
                   {/* Logo Icon */}
                   <Text className="text-sm text-[#281C20]">

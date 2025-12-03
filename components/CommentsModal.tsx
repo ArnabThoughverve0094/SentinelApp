@@ -880,7 +880,6 @@ export default function CommentScreen({
     return null;
   };
 
-
   const renderStructuredComment = (comment: Comment | Reply) => {
     if (comment.commentType === 'structured' && comment.selectedOptions && comment.selectedOptions.length > 0) {
       return (
