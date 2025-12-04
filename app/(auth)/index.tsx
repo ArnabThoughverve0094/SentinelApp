@@ -1,7 +1,7 @@
 import { db } from '@/FirebaseConfig';
 import { LoadingComponent } from '@/components/LoadingComponent';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
-import { Link, router } from 'expo-router';
+import { router } from 'expo-router';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { collection, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -1093,34 +1093,19 @@ export default function Index(): React.JSX.Element {
           className="px-4 py-3 flex-row items-center justify-between"
           style={{ paddingTop: Platform.OS === 'ios' ? 10 : 10 }}
         >
-          <Link href="/" asChild>
-              <TouchableOpacity className="flex-row items-center">
-                <View className="ml-2">
-                  <View className="flex-row items-center">
-                    {/* <View className="w-8 h-8 mr-0">
-                      <Image
-                        source={require("../../assets/images/new_logo.png")}
-                        style={{ flex: 1, width: undefined, height: undefined }}
-                        resizeMode="contain"
-                      />
-                    </View> */}
-                    {/* Sentinel Text */}
-                    {/* <Text className="text-3xl font-extrabold text-[#281C20]">entinel</Text> */}
-                    <Text className="text-3xl font-extrabold text-[#281C20]">IronExSafe</Text>
-                  </View>
-                  {/* Logo Icon */}
-                  <Text className="text-sm text-[#281C20]">
-                    Exposing Antisemitism
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            </Link>
-          
-          <TouchableOpacity 
-            className="p-2 rounded-full"
-            onPress={navigateToAuthScreen}
-          >
-            <Ionicons name="search" size={30} color="#000000" />
+          <View>
+            <Text className="text-3xl font-bold text-gray-900">Sentinel</Text>
+            <Text className="text-gray-500 text-sm mt-1">Your social feed</Text>
+          </View>
+          <TouchableOpacity className="p-3 rounded-full bg-gray-100 shadow-sm"
+          onPress={(e) => {
+            loginScreen();
+          }}>
+            <Image
+              source={require("../../assets/images/Union.png")}
+              className="w-6 h-6"
+              resizeMode="contain"
+            />
           </TouchableOpacity>
         </View>
       </View>
@@ -1154,112 +1139,13 @@ export default function Index(): React.JSX.Element {
           listItems
         ) : (
           <View className="flex-1 justify-center items-center py-20">
-            <LoadingComponent visible={true} size="large" />
-          </View>
-        )}
-      </ScrollView>
-      
-      {/* ✅ FIXED BOTTOM NAVIGATION */}
-      <View 
-        style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          backgroundColor: 'white',
-          borderTopWidth: 1,
-          borderTopColor: '#e5e7eb',
-          paddingBottom: Platform.OS === 'ios' ? 20 : 8,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 8,
-          elevation: 10,
-        }}
-      >
-        <View className="flex-row items-center justify-around px-2 py-2">
-          <TouchableOpacity 
-            className="items-center justify-center"
-            onPress={navigateToAuthScreen}
-            style={{ flex: 1 }}
-          >
-            {/* <Ionicons name="home" size={26} color="#000" /> */}
-            <MaterialIcons
-              name="home"
-              size={28}
-              color="#000000"
-            />
-            <Text className="text-xs text-black mt-1 font-medium">Home</Text>
-                        
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            className="items-center justify-center"
-            onPress={navigateToAuthScreen}
-            style={{ flex: 1 }}
-          >
-            <Ionicons name="bookmark-outline" size={26} color="#64748b" />
-            <Text className="text-xs text-gray-500 mt-1">Bookmark</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            className="items-center justify-center"
-            onPress={navigateToAuthScreen}
-            style={{ flex: 1 }}
-          >
-            <Ionicons name="add-circle-outline" size={26} color="#64748b" />
-            <Text className="text-xs text-gray-500 mt-1">Create</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            className="items-center justify-center"
-            onPress={navigateToAuthScreen}
-            style={{ flex: 1 }}
-          >
-            <Ionicons name="notifications-outline" size={26} color="#64748b" />
-            <Text className="text-xs text-gray-500 mt-1">Notifications</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            className="items-center justify-center"
-            onPress={navigateToAuthScreen}
-            style={{ flex: 1 }}
-          >
-            <Ionicons name="person-circle-outline" size={26} color="#64748b" />
-            <Text className="text-xs text-gray-500 mt-1">Profile</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* ✅ AUTH POPUP - Appears after 2-3 scrolls */}
-      {showAuthPopup && (
-        <Animated.View
-          style={{
-            position: 'absolute',
-            bottom: Platform.OS === 'ios' ? 95 : 85,
-            left: 16,
-            right: 16,
-            transform: [
-              {
-                translateY: popupAnimation.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [200, 0],
-                }),
-              },
-            ],
-            opacity: popupAnimation,
-          }}
-        >
-          <View className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
-            <View className="bg-pink-50 px-5 py-4">
-              <View className="flex-row items-center justify-between mb-2">
-                <Text className="text-base font-bold text-gray-900">Welcome to IronExSafe</Text>
-                <TouchableOpacity onPress={() => setShowAuthPopup(false)}>
-                  <Ionicons name="close" size={22} color="#64748b" />
-                </TouchableOpacity>
+            <View className="bg-white p-8 rounded-3xl shadow-lg items-center">
+              <View className="w-20 h-20 bg-gray-100 rounded-full items-center justify-center mb-4">
+                <Ionicons name="document-outline" size={32} color="#9ca3af" />
               </View>
-              <Text className="text-sm text-gray-600 leading-5">
-                Login now to stay updated with all the latest information near you
+              <Text className="text-gray-700 text-xl font-bold mb-2">No posts yet</Text>
+              <Text className="text-gray-500 text-center text-base px-4 leading-6">
+                Be the first to share something amazing with the community!
               </Text>
             </View>
             

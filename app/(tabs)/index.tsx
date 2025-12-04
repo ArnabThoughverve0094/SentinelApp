@@ -1497,7 +1497,6 @@ export default function SentinelFeed(): React.JSX.Element {
         // });
         
         fetchPostComments();
-
       });
       
       if (sentinelData.length <= 0) {
@@ -1690,6 +1689,7 @@ export default function SentinelFeed(): React.JSX.Element {
         // });
 
         fetchPostComments();
+
 
         const newLastDoc = nextSnapshot.docs[nextSnapshot.docs.length - 1];
         setLastVisible(newLastDoc);
@@ -1897,7 +1897,6 @@ export default function SentinelFeed(): React.JSX.Element {
     //   commentUnsubscribesRef.current.forEach(unsubscribe => unsubscribe());
     // };
 
-    
   }, []);
 
   useFocusEffect(
@@ -1922,6 +1921,7 @@ export default function SentinelFeed(): React.JSX.Element {
       checkCommentUpdate();
       fetchUpdate();
       fetchPostComments();
+
     }, [isInitialized, fetchSinglePostComments])
   );
 
@@ -2812,7 +2812,6 @@ export default function SentinelFeed(): React.JSX.Element {
         visibilityTime: 2000,
       });
     }
-
     setFetchedData(prevData => 
       prevData.map(item => 
         item.id === postItem.id 

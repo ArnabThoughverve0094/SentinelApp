@@ -1235,69 +1235,105 @@ const compressAndGetUrl = async (localUri) => {
 
           {/* Post Input */}
           <ScrollView
+              style={{ flex: 1 }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View style={{ flexDirection: "row", alignItems: "flex-start", padding: 16 }}>
+                <Image
+                  source={{ uri: userImage || 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg' }}
+                  style={{ 
+                    width: 40, 
+                    height: 40, 
+                    borderRadius: 20, 
+                    marginRight: 12, 
+                    backgroundColor: "#F3F4F6" 
+                  }}
+                  resizeMode="cover"
+                />
+                <View style={{ flex: 1 }}>
+                  <View style={{
+                    minHeight: 50,
+                    maxHeight: 180,
+                    backgroundColor: "#fff",
+                    borderRadius: 18,
+                    borderWidth: 1,
+                    borderColor: "#E5E7EB",
+                    marginBottom: 2,
+                    justifyContent: "flex-start",
+                  }}>
+                    <TextInput
+                      multiline
+                      maxLength={MAX_CHARACTERS}
+                      value={postText}
+                      onChangeText={setPostText}
+                      onContentSizeChange={(e) => {
+                        setInputHeight(Math.min(180, Math.max(50, e.nativeEvent.contentSize.height)));
+                      }}
+                      style={{
+                        height: inputHeight,
+                        minHeight: 50,
+                        maxHeight: 180,
+                        fontSize: 19,
+                        paddingHorizontal: 18,
+                        paddingVertical: 12,
+                        color: "#333",
+                        backgroundColor: "#fff",
+                        borderRadius: 18,
+                        textAlignVertical: "top",
+                        textAlign: "left",
+                        lineHeight: 26,
+                      }}
+                      placeholder="Type your message here..."
+                      placeholderTextColor="#B7BAC3"
+                    />
+                  </View>
+                  <Text style={{
+                    fontSize: 15,
+                    color: postText.length >= MAX_CHARACTERS ? "#f44336" : "#A1A1AA",
+                    marginLeft: 8,
+                    marginTop: 2
+                  }}>
+                    {postText.length}/{MAX_CHARACTERS} characters
+                  </Text>
+                </View>
+              </View>
+            </ScrollView>
+
+          <ScrollView
             style={{ flex: 1 }}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            <View style={{ flexDirection: "row", alignItems: "flex-start", padding: 16 }}>
-              <Image
-                source={{ uri:userImage || 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg' }}
-                style={{ 
-                  width: 40, 
-                  height: 40, 
-                  borderRadius: 20, 
-                  marginRight: 12, 
-                  backgroundColor: "#F3F4F6" 
-                }}
-                resizeMode="cover"
-              />
-              <View style={{ padding: 16 }}>
+
+            {/* Upload Progress Indicator - Add this in your render method */}
+              {loading && selectedMedia.length > 0 && (
                 <View style={{
-                  minHeight: 50,
-                  maxHeight: 180,
-                  backgroundColor: "#fff",
-                  borderRadius: 18,
-                  borderWidth: 1,
-                  borderColor: "#E5E7EB",
-                  marginBottom: 2,
-                  paddingHorizontal: 0,
-                  justifyContent: "flex-start",
+                  position: 'absolute',
+                  bottom: 100,
+                  left: 16,
+                  right: 16,
+                  backgroundColor: 'white',
+                  borderRadius: 12,
+                  padding: 16,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 4,
+                  elevation: 5,
                 }}>
-                  <TextInput
-                    multiline
-                    maxLength={MAX_CHARACTERS}
-                    value={postText}
-                    onChangeText={setPostText}
-                    onContentSizeChange={(e) => {
-                      setInputHeight(Math.min(180, Math.max(50, e.nativeEvent.contentSize.height)));
-                    }}
-                    style={{
-                      height: inputHeight,
-                      minHeight: 50,
-                      maxHeight: 180,
-                      fontSize: 19,
-                      paddingHorizontal: 18,
-                      paddingVertical: 12,
-                      color: "#333",
-                      backgroundColor: "#fff",
-                      borderRadius: 18,
-                      overflow: "hidden",
-                      textAlignVertical: "top",
-                    }}
-                    placeholder="Type your message here..."
-                    placeholderTextColor="#B7BAC3"
-                  />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                    <ActivityIndicator size="small" color="#8B5CF6" />
+                    <Text style={{ marginLeft: 8, fontSize: 14, fontWeight: '600', color: '#333' }}>
+                      Uploading {selectedMedia.length} file(s)...
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 12, color: '#666' }}>
+                    Please wait while your media is being uploaded
+                  </Text>
                 </View>
-                <Text style={{
-                  fontSize: 15,
-                  color: postText.length >= MAX_CHARACTERS ? "#f44336" : "#A1A1AA",
-                  marginLeft: 8,
-                  marginTop: 2
-                }}>
-                  {postText.length}/{MAX_CHARACTERS} characters
-                </Text>
-              </View>
-            </View>
+              )}
+
 
             {/* Upload Progress Indicator - Add this in your render method */}
               {loading && selectedMedia.length > 0 && (
