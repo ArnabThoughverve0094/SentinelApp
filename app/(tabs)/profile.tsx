@@ -3228,14 +3228,49 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
               </TouchableOpacity>
 
               {/* Name and Username - Next to Image */}
-              <View className="flex-1">
+              <View className="flex-1 mr-2">
                 <Text className="text-xl font-bold text-gray-900 mb-1">
-                  {userName || userNickName || 'User'}
+                {userName || userNickName || 'User'}
                 </Text>
                 <Text className="text-gray-500 text-base">
                   @{userNickName || userName || 'username'}
                 </Text>
               </View>
+
+              {/* Action Buttons */}
+              <View className="flex-row space-x-2">
+                <View>
+                  <TouchableOpacity 
+                    className="flex-1 bg-gray-900 py-2 px-3 rounded-xl"
+                    onPress={() => setEditVisible(true)}>
+                      <Text className="text-white font-semibold text-center text-base">Edit Profile</Text>
+                  </TouchableOpacity>
+                  {userData && (
+                    <EditProfileScreen
+                      visible={editVisible}
+                      onClose={() => setEditVisible(false)}
+                      onSuccess={(data) => {
+                        console.log("✅ Profile updated, refreshing display...");
+                        loadProfileData(); // 👈 Call the function here to refresh
+                        Toast.show({
+                          type: 'success',
+                          text1: 'Profile Updated',
+                          text2: 'Your profile has been updated successfully.',
+                          position: 'bottom',
+                          visibilityTime: 2000,
+                        });
+                      }}
+                    />
+                  )}
+                </View>
+                {/* <TouchableOpacity 
+                  className="flex-1 border-2 border-gray-200 py-4 px-6 rounded-xl bg-white"
+                  onPress={handleShareProfile}
+                >
+                  <Text className="text-gray-900 font-semibold text-center text-base">Share Profile</Text>
+                </TouchableOpacity> */}
+              </View>
+
             </View>
 
             {/* Stats Section - Below Profile Header */}
@@ -3255,46 +3290,14 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
             </View> */}
 
             {/* Bio Section - Below Stats */}
-            <View className="mb-6">
+            <View className="mb-1">
               <Text className="text-gray-700 leading-6 text-justify">
                 {userBio || "Welcome to my profile! I love sharing moments and connecting with amazing people. Let's create something beautiful together! ✨"}
                 
               </Text>
             </View>
 
-            {/* Action Buttons - Below Bio */}
-            <View className="flex-row space-x-4 mb-4">
-              <View>
-                <TouchableOpacity 
-                className="flex-1 bg-gray-900 py-4 px-6 rounded-xl mr-4"
-                onPress={() => setEditVisible(true)}>
-                <Text className="text-white font-semibold text-center text-base">Edit Profile</Text>
-                </TouchableOpacity>
-                {userData && (
-                  <EditProfileScreen
-                    visible={editVisible}
-                    onClose={() => setEditVisible(false)}
-                    onSuccess={(data) => {
-                      console.log("✅ Profile updated, refreshing display...");
-                      loadProfileData(); // 👈 Call the function here to refresh
-                      Toast.show({
-                        type: 'success',
-                        text1: 'Profile Updated',
-                        text2: 'Your profile has been updated successfully.',
-                        position: 'bottom',
-                        visibilityTime: 2000,
-                      });
-                    }}
-                  />
-                )}
-              </View>
-              <TouchableOpacity 
-                className="flex-1 border-2 border-gray-200 py-4 px-6 rounded-xl bg-white"
-                onPress={handleShareProfile}
-              >
-                <Text className="text-gray-900 font-semibold text-center text-base">Share Profile</Text>
-              </TouchableOpacity>
-            </View>
+            
           </View>
         </View>
 

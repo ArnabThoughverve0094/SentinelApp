@@ -1121,7 +1121,7 @@ export default function CommentScreen({
                               onPress={(event) => handleThreeDotsPress(comment.id, event)}
                               style={{ marginLeft: 'auto', padding: 4 }}
                             >
-                              <MaterialIcons name="more-vert" size={16} color="#8e8e93" />
+                              <MaterialIcons name="more-horiz" size={16} color="#8e8e93" />
                             </TouchableOpacity>
                           )}
                         </View>
