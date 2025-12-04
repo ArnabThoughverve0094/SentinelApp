@@ -890,28 +890,40 @@ export default function TotalSentiment({
                     </View>
 
                     {/* Sentiment Bars */}
-                    {/* Sentiment Bars */}
-                    {/* Sentiment Bars */}
                     <View style={{ marginBottom: 30 }}>
                       {RESPONSE_OPTIONS.map((option, index) => {
                         const percentage = sentimentData[option.id] || 0;
                         return (
                           <View key={option.id} style={{ marginBottom: 16 }}>
-                            {/* Icon and Label only */}
+                            {/* Icon and Label */}
                             <View style={{ 
                               flexDirection: 'row', 
-                              alignItems: 'center', 
-                              marginBottom: 6 
+                              alignItems: 'flex-start', 
+                              marginBottom: 6
                             }}>
                               {option.icon && (
                                 <Image
                                   source={{ uri: option.icon}}
-                                  style={{ width: 24, height: 24, marginRight: 8 }}
+                                  style={{ 
+                                    width: 24, 
+                                    height: 24, 
+                                    marginRight: 8,
+                                    flexShrink: 0
+                                  }}
                                   resizeMode="contain"
                                   resizeMethod="resize"
                                 />
                               )}
-                              <Text style={{ fontSize: 15, color: '#000', fontWeight: '500' }}>
+                              <Text 
+                                style={{ 
+                                  fontSize: 15, 
+                                  color: '#000', 
+                                  fontWeight: '500',
+                                  flex: 1,
+                                  lineHeight: 22,
+                                  marginRight: 8
+                                }}
+                              >
                                 {option.label}
                               </Text>
                             </View>
@@ -919,8 +931,7 @@ export default function TotalSentiment({
                             {/* Progress bar with percentage at the right end */}
                             <View style={{ 
                               flexDirection: 'row', 
-                              alignItems: 'center',
-                              gap: 8
+                              alignItems: 'center'
                             }}>
                               {/* Progress bar container */}
                               <View style={{ 
@@ -928,7 +939,8 @@ export default function TotalSentiment({
                                 height: 8, 
                                 backgroundColor: '#f0f0f0', 
                                 borderRadius: 4,
-                                overflow: 'hidden'
+                                overflow: 'hidden',
+                                marginRight: 8
                               }}>
                                 <View style={{ 
                                   height: '100%', 
@@ -943,7 +955,6 @@ export default function TotalSentiment({
                                 fontSize: 15, 
                                 color: '#000', 
                                 fontWeight: 'bold',
-                                minWidth: 45,
                                 textAlign: 'right'
                               }}>
                                 {percentage}%
@@ -953,10 +964,10 @@ export default function TotalSentiment({
                         );
                       })}
                     </View>
-
-
                   </View>
                 )}
+
+
               </ScrollView>
 
               {/* Fixed Add/Edit Response Button at Bottom */}
