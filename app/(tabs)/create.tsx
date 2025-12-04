@@ -1239,7 +1239,7 @@ const compressAndGetUrl = async (localUri) => {
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
-              <View style={{ flexDirection: "row", alignItems: "flex-start", padding: 16 }}>
+              <View style={{ flexDirection: "row", alignItems: "flex-start", paddingTop: 10, paddingLeft: 16, paddingRight: 16, paddingBottom: 5 }}>
                 <Image
                   source={{ uri: userImage || 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg' }}
                   style={{ 
@@ -1272,11 +1272,11 @@ const compressAndGetUrl = async (localUri) => {
                       }}
                       style={{
                         height: inputHeight,
-                        minHeight: 50,
+                        minHeight: 60,
                         maxHeight: 180,
-                        fontSize: 19,
-                        paddingHorizontal: 18,
-                        paddingVertical: 12,
+                        fontSize: 16,
+                        paddingHorizontal: 10,
+                        paddingVertical: 2,
                         color: "#333",
                         backgroundColor: "#fff",
                         borderRadius: 18,
@@ -1289,7 +1289,7 @@ const compressAndGetUrl = async (localUri) => {
                     />
                   </View>
                   <Text style={{
-                    fontSize: 15,
+                    fontSize: 11,
                     color: postText.length >= MAX_CHARACTERS ? "#f44336" : "#A1A1AA",
                     marginLeft: 8,
                     marginTop: 2
@@ -1315,7 +1315,7 @@ const compressAndGetUrl = async (localUri) => {
                   right: 16,
                   backgroundColor: 'white',
                   borderRadius: 12,
-                  padding: 16,
+                  paddingTop: 5, paddingLeft: 16, paddingRight: 16, paddingBottom: 10,
                   shadowColor: '#000',
                   shadowOffset: { width: 0, height: 2 },
                   shadowOpacity: 0.1,

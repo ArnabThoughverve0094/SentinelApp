@@ -1,5 +1,6 @@
 // app/help.tsx  (or screens/HelpScreen.tsx if you use a custom navigator)
 import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Platform,
@@ -252,7 +253,19 @@ const HelpScreen: React.FC = () => {
             </Text>
           </View>
           <View className="flex-row items-center">
-            <Ionicons name="help-circle" size={26} color="#ef4444" />
+            {/* <Ionicons name="help-circle" size={26} color="#ef4444" /> */}
+            {/* Right: Close Button */}
+            <TouchableOpacity 
+              onPress={() => router.back()} 
+              style={{ 
+                width: 32, 
+                height: 32, 
+                alignItems: "center", 
+                justifyContent: "center" 
+              }}
+              >
+              <Ionicons name="close" size={26} color="#000" />
+            </TouchableOpacity>
           </View>
         </View>
       </View>
