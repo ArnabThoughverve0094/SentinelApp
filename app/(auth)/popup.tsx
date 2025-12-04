@@ -4,12 +4,12 @@ import React, { useState } from "react";
 import {
   Image,
   ImageBackground,
-  SafeAreaView,
   StatusBar,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 
 export default function Index(): React.JSX.Element {
@@ -28,6 +28,12 @@ export default function Index(): React.JSX.Element {
 
   const handleClosePress = () => {
     router.back();
+  };
+
+
+  const handleHelpPress = () => {
+    // change path if your Help screen lives elsewhere
+    router.push("/help");
   };
 
 
