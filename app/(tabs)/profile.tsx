@@ -3,6 +3,7 @@ import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from "@expo/
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VideoView, useVideoPlayer } from 'expo-video';
 
+import AppInfoModal from '@/components/AppInfoModal'; // Add this line
 import EditProfileScreen from '@/components/EditProfileScreen';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -32,6 +33,7 @@ import Toast from 'react-native-toast-message';
 import CommentsModal from '../../components/CommentsModal';
 import SentinelFAQ from '../../components/SentinelFAQ';
 import TotalSentiment from '../../components/TotalSentiment';
+
  // Adjust path to your toastConfig file
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -1197,6 +1199,9 @@ export default function ProfilePage(): React.JSX.Element {
   const currentPost = userPosts.find(item => item.id === selectedPostId);
   const [fullScreenDoc, setFullScreenDoc] = useState<string | null>(null);
   const [isDocModalVisible, setIsDocModalVisible] = useState(false);
+  const [showAppInfo, setShowAppInfo] = useState(false);
+  const [isAppInfoModalVisible, setIsAppInfoModalVisible] = useState(false);
+
 
   // Add this function in your ProfilePage component
 const loadProfileData = async () => {
@@ -3056,19 +3061,11 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
   };
 
   const handleAppSettings = () => {
-    setShowAccountModal(false);
-    showCustomAlert(
-      'info',
-      'Coming Soon',
-      'App settings feature is under development and will be available soon.',
-      [
-        {
-          text: 'OK',
-          onPress: hideModal
-        }
-      ]
-    );
-  };
+  setShowAccountModal(false);
+  hideModal();
+  setShowAppInfo(true); // Open App Info Modal
+};
+
 
   const handleHelpSupport = () => {
   setShowAccountModal(false);
@@ -3839,6 +3836,10 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
             </View>
           </View>
         </Modal>
+        <AppInfoModal 
+        visible={showAppInfo} 
+        onClose={() => setShowAppInfo(false)} 
+      />
 
     {/* <Toast config={toastConfig} /> */}
     
