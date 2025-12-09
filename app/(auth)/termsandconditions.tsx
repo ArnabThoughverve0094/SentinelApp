@@ -22,17 +22,17 @@ export default function TermsOfUse(): React.JSX.Element {
       <View className="bg-white shadow-sm pt-5 pb-3 border-b border-gray-200">
         <View className="px-6 pt-4 pb-6">
           <View className="flex-row items-center justify-between">
+            <Text className="text-lg font-semibold text-gray-900">Terms of Use</Text>
             <TouchableOpacity 
               className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center"
               onPress={() => router.back()}
             >
-              <Ionicons name="arrow-back" size={20} color="#374151" />
+              <Ionicons name="close" size={24} color="#374151" />
             </TouchableOpacity>
-            <Text className="text-lg font-semibold text-gray-900">Terms of Use</Text>
-            <View className="w-10" />
           </View>
         </View>
       </View>
+
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         <View className="px-6 py-6">
