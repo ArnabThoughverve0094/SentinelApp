@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React from 'react';
 import { Linking, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
@@ -10,6 +11,7 @@ interface AppInfoModalProps {
 const AppInfoModal: React.FC<AppInfoModalProps> = ({ visible, onClose }) => {
   const APP_VERSION = '1.0.0';
   const BUILD_NUMBER = '100';
+  const router = useRouter();
 
   const handleLink = async (url: string) => {
     try {
@@ -20,6 +22,20 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({ visible, onClose }) => {
     } catch (error) {
       console.error('Error opening link:', error);
     }
+  };
+
+  const handleTermsPress = () => {
+    onClose(); // Close modal first
+    setTimeout(() => {
+      router.push('/(auth)/termsandconditions');
+    }, 100);
+  };
+
+  const handlePrivacyPress = () => {
+    onClose(); // Close modal first
+    setTimeout(() => {
+      router.push('/(auth)/privacypolicy');
+    }, 100);
   };
 
   interface InfoSectionProps {
@@ -45,7 +61,7 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({ visible, onClose }) => {
     icon: string;
     label: string;
     value: string;
-    onPress?: () => void; // MAKE IT OPTIONAL WITH ?
+    onPress?: () => void;
   }
 
   const InfoItem: React.FC<InfoItemProps> = ({ icon, label, value, onPress }) => (
@@ -154,7 +170,7 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({ visible, onClose }) => {
               color: '#111827',
               marginBottom: 4 
             }}>
-              Sentinel
+              IronExSafe
             </Text>
             <Text style={{ fontSize: 15, color: '#6B7280' }}>
               Your Voice, Verified
@@ -187,7 +203,7 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({ visible, onClose }) => {
                 color: '#374151', 
                 lineHeight: 24 
               }}>
-                Sentinel is a community-driven platform where voices are verified and opinions matter. 
+                IronExSafe is a community-driven platform where voices are verified and opinions matter. 
                 Share your thoughts, participate in discussions, and help build a more transparent 
                 and accountable digital space.
               </Text>
@@ -198,21 +214,21 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({ visible, onClose }) => {
           <InfoSection title="Legal & Support">
             <InfoItem 
               icon="document-text-outline" 
-              label="Terms of Service" 
+              label="Terms & Conditions" 
               value="Read our terms"
-              onPress={() => handleLink('https://yourapp.com/terms')}
+              onPress={handleTermsPress}
             />
             <InfoItem 
               icon="shield-outline" 
               label="Privacy Policy" 
               value="How we protect your data"
-              onPress={() => handleLink('https://yourapp.com/privacy')}
+              onPress={handlePrivacyPress}
             />
             <InfoItem 
               icon="help-circle-outline" 
               label="Help & Support" 
               value="Get assistance"
-              onPress={() => handleLink('mailto:support@sentinel.com')}
+              onPress={() => handleLink('mailto:IronExSafe@gmail.com')}
             />
           </InfoSection>
 
@@ -231,34 +247,6 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({ visible, onClose }) => {
                 }}
               >
                 <Ionicons name="logo-twitter" size={28} color="#fff" />
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                onPress={() => handleLink('https://instagram.com/yourapp')}
-                style={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: 28,
-                  backgroundColor: '#E1306C',
-                  justifyContent: 'center',
-                  alignItems: 'center'
-                }}
-              >
-                <Ionicons name="logo-instagram" size={28} color="#fff" />
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                onPress={() => handleLink('https://facebook.com/yourapp')}
-                style={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: 28,
-                  backgroundColor: '#1877F2',
-                  justifyContent: 'center',
-                  alignItems: 'center'
-                }}
-              >
-                <Ionicons name="logo-facebook" size={28} color="#fff" />
               </TouchableOpacity>
               
               <TouchableOpacity
@@ -285,11 +273,8 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({ visible, onClose }) => {
             marginBottom: 24,
             alignItems: 'center'
           }}>
-            <Text style={{ fontSize: 13, color: '#6B7280', textAlign: 'center' }}>
-              Made with ❤️ by Sentinel Team
-            </Text>
-            <Text style={{ fontSize: 13, color: '#9CA3AF', marginTop: 4 }}>
-              © 2025 Sentinel. All rights reserved.
+            <Text style={{ fontSize: 13, color: '#9CA3AF' }}>
+              © 2026 Token Land, LLC (IronEx) All Rights Reserved.
             </Text>
           </View>
         </ScrollView>
