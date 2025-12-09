@@ -833,7 +833,7 @@ export default function TotalSentiment({
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                       <Text style={{ fontSize: 24, marginRight: 8 }}>📊</Text>
                       <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#000' }}>
-                        Sentiment Distribution
+                        Sentiment Barometer
                       </Text>
                     </View>
                     <Text style={{ fontSize: 14, color: '#8e8e93', marginBottom: 20 }}>
