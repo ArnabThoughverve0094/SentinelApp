@@ -36,7 +36,7 @@ export default function TermsOfUse(): React.JSX.Element {
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         <View className="px-6 py-6">
-          {/* Hero section with gradient background */}
+          {/* Hero section */}
           <View className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 mb-6 border border-blue-100">
             <View className="flex-row items-center mb-3">
               <View className="w-12 h-12 bg-blue-600 rounded-xl items-center justify-center mr-4">
@@ -44,238 +44,298 @@ export default function TermsOfUse(): React.JSX.Element {
               </View>
               <View className="flex-1">
                 <Text className="text-2xl font-bold text-gray-900 mb-1">
-                IronExSafe Terms of Use
+                  IronEx Terms of Use
                 </Text>
                 <Text className="text-sm text-gray-600">
-                  Effective Date: October 7, 2025
-                </Text>
-                <Text className="text-sm text-gray-600">
-                  Last Updated: October 7, 2025
+                  Last Updated: December 9, 2025
                 </Text>
               </View>
             </View>
-            <Text className="text-base text-gray-700 leading-6">
-              Welcome to IronExSafe. By creating an account, accessing, or using the IronExSafe platform ("Platform"), you agree to these Terms of Use ("Terms"). If you do not agree, you may not use IronExSafe and should therefore not register.
+            <Text className="text-base text-gray-700 leading-6 mb-3">
+              These Terms of Use ("Terms") govern your use of the IronEx website, mobile application, and related services ("Service"). By accessing or using IronEx, you agree to be bound by these Terms.
             </Text>
+            <View className="bg-white rounded-lg p-4">
+              <Text className="text-sm text-gray-900 font-medium mb-1">
+                "IronEx," "we," "us," and "our" refer to:
+              </Text>
+              <Text className="text-sm text-gray-700">Token Land, LLC</Text>
+              <Text className="text-sm text-gray-700">7300 Biscayne Blvd, Suite 200</Text>
+              <Text className="text-sm text-gray-700">Miami, FL 33138, USA</Text>
+              <Text 
+                className="text-sm text-blue-600 underline mt-1"
+                onPress={() => Linking.openURL('mailto:IronEx@gmail.com')}
+              >
+                IronEx@gmail.com
+              </Text>
+            </View>
           </View>
 
-          {/* Terms sections with enhanced styling */}
+          {/* Terms sections */}
           <View className="space-y-4">
-            {/* Section 1 */}
+            {/* Section 1: Acceptance of Terms */}
             <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
               <View className="flex-row items-center mb-4">
                 <View className="w-8 h-8 bg-blue-100 rounded-lg items-center justify-center mr-3">
                   <Text className="text-blue-600 font-bold text-sm">1</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  Eligibility and Account Registration
+                  Acceptance of These Terms
                 </Text>
               </View>
-              <View className="space-y-3 ml-11">
+              <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6">
-                  • Only registered users ("Users" or "User") may submit incident reports and participate in the sentiment polls.
-                </Text>
-                <Text className="text-base text-gray-700 leading-6">
-                  • Registration requires accurate, current information. You are responsible for safeguarding your account credentials.
-                </Text>
-                <Text className="text-base text-gray-700 leading-6">
-                  • IronExSafe reserves the right at its sole discretion to suspend or terminate accounts for violations of these Terms.
+                  If you do not agree to these Terms, do not use the Service.
                 </Text>
               </View>
             </View>
 
-            {/* Section 2 */}
+            {/* Section 2: Eligibility */}
             <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
               <View className="flex-row items-center mb-4">
                 <View className="w-8 h-8 bg-green-100 rounded-lg items-center justify-center mr-3">
                   <Text className="text-green-600 font-bold text-sm">2</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  User Responsibilities
+                  Eligibility
                 </Text>
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6 mb-3">
-                  By using IronExSafe, you agree that you will not submit, upload, or transmit any content that:
+                  You must be at least 18 years old to use IronEx. By using the Service, you represent that:
                 </Text>
                 <View className="space-y-2">
-                  <Text className="text-base text-gray-700 leading-6">• Is defamatory, libelous, harassing, threatening, or invasive of privacy.</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Promotes hate, violence, or discrimination.</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Violates or infringes upon any trademark, copyright, patent, trade secret, or other intellectual property rights.</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Contains false or misleading information intended to deceive.</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Contains viruses, malware, or other harmful code.</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Violates any applicable laws or regulations.</Text>
+                  <Text className="text-base text-gray-700 leading-6">• You are 18 or older</Text>
+                  <Text className="text-base text-gray-700 leading-6">• You have legal capacity to enter into these Terms</Text>
+                  <Text className="text-base text-gray-700 leading-6">• If using on behalf of an organization, you are authorized to do so</Text>
                 </View>
               </View>
             </View>
 
-            {/* Section 3 */}
+            {/* Section 3: Description of Service */}
             <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
               <View className="flex-row items-center mb-4">
                 <View className="w-8 h-8 bg-orange-100 rounded-lg items-center justify-center mr-3">
                   <Text className="text-orange-600 font-bold text-sm">3</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  Reporting and Moderation
+                  Description of the Service
                 </Text>
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6 mb-3">
-                  Users may submit reports of antisemitic, anti-Israel, or related incidents in three categories:
+                  IronEx provides a sentiment-driven educational platform designed for safe engagement around antisemitism, antizionism, anti-Israel, and related topics. Features may include:
                 </Text>
-                <View className="space-y-2 mb-4">
-                  <Text className="text-base text-gray-700 leading-6">• Digital incidents (online content).</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Physical incidents (events in real-world spaces).</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Personal experiences (first-hand accounts).</Text>
+                <View className="space-y-2 mb-3">
+                  <Text className="text-base text-gray-700 leading-6">• Educational content and modules</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Sentiment-selection engagement tools</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Live or scheduled digital events</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Aggregated analytics</Text>
+                  <Text className="text-base text-gray-700 leading-6">• AI-powered safety and content classification</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Third-party integrations</Text>
                 </View>
-                <View className="space-y-3">
-                  <Text className="text-base text-gray-700 leading-6">
-                    • All reports are reviewed by a IronExSafe moderator before being released to the public timeline. You agree that the Moderator has sole authority and discretion to release/publish to the IronExSafe platform.
-                  </Text>
-                  <Text className="text-base text-gray-700 leading-6">
-                    • Moderators may approve or decline submissions but will not alter or redact content.
-                  </Text>
-                  <Text className="text-base text-gray-700 leading-6">
-                    • Released reports may include structured polls or opinion-choice mechanisms for user engagement. Users cannot submit comments, replies, or free-form text.
-                  </Text>
-                </View>
+                <Text className="text-base text-gray-700 leading-6">
+                  We may modify, suspend, or discontinue any part of the Service at any time, in our sole discretion.
+                </Text>
               </View>
             </View>
 
-            {/* Section 4 */}
+            {/* Section 4: Account Security */}
             <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
               <View className="flex-row items-center mb-4">
                 <View className="w-8 h-8 bg-purple-100 rounded-lg items-center justify-center mr-3">
                   <Text className="text-purple-600 font-bold text-sm">4</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  Public Timeline and Content Disclaimer
+                  Account Security
                 </Text>
               </View>
-              <View className="space-y-3 ml-11">
-                <Text className="text-base text-gray-700 leading-6">
-                  • Approved reports are published on the public-facing timeline, accessible to all (whether registered or not).
+              <View className="ml-11">
+                <Text className="text-base text-gray-700 leading-6 mb-3">
+                  You will need to create an account to access certain features. You agree to:
                 </Text>
+                <View className="space-y-2 mb-3">
+                  <Text className="text-base text-gray-700 leading-6">• Provide accurate information</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Keep your password confidential (do not share)</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Notify us immediately of unauthorized use</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Accept responsibility for all activities under your account</Text>
+                </View>
                 <Text className="text-base text-gray-700 leading-6">
-                  • IronExSafe does not verify the truth of user submissions and makes no guarantees about accuracy.
-                </Text>
-                <Text className="text-base text-gray-700 leading-6">
-                  • Reports are labeled as user-submitted content.
+                  We may suspend or terminate accounts violating these Terms.
                 </Text>
               </View>
             </View>
 
-            {/* Section 5 */}
+            {/* Section 5: Acceptable Use */}
             <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
               <View className="flex-row items-center mb-4">
                 <View className="w-8 h-8 bg-red-100 rounded-lg items-center justify-center mr-3">
                   <Text className="text-red-600 font-bold text-sm">5</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  Intellectual Property
+                  Acceptable Use
                 </Text>
               </View>
-              <View className="space-y-3 ml-11">
-                <Text className="text-base text-gray-700 leading-6">
-                  • IronExSafe respects intellectual property rights. If you believe content infringes your rights, notify us at SentinelTerms@gmail.com.
+              <View className="ml-11">
+                <Text className="text-base text-gray-700 leading-6 mb-3">
+                  You agree NOT to:
                 </Text>
+                <View className="space-y-2 mb-3">
+                  <Text className="text-base text-gray-700 leading-6">• Use IronEx unlawfully or to harm others</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Send abusive, hateful, or threatening inputs</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Attempt to bypass sentiment-only interactions</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Use bots or scrapers without written consent</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Reverse engineer or modify IronEx systems</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Interfere with the Service's functionality or security</Text>
+                </View>
                 <Text className="text-base text-gray-700 leading-6">
-                  • By submitting content, you grant IronExSafe a worldwide, non-exclusive, royalty-free license to use, display, and distribute that content on the Platform.
+                  Violation may result in termination.
                 </Text>
               </View>
             </View>
 
-            {/* Section 6 */}
+            {/* Section 6: Intellectual Property */}
             <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
               <View className="flex-row items-center mb-4">
                 <View className="w-8 h-8 bg-indigo-100 rounded-lg items-center justify-center mr-3">
                   <Text className="text-indigo-600 font-bold text-sm">6</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  Legal Protections and Disclaimers
+                  Intellectual Property Rights
                 </Text>
               </View>
-              <View className="space-y-4 ml-11">
-                <View>
-                  <Text className="text-base font-medium text-gray-900 mb-2">United States:</Text>
-                  <Text className="text-base text-gray-700 leading-6">
-                    Under Section 230 of the Communications Decency Act (47 U.S.C. § 230), IronExSafe is not the publisher or speaker of user-submitted content. IronExSafe is not liable for statements or representations made by Users.
-                  </Text>
+              <View className="ml-11">
+                <Text className="text-base font-medium text-gray-900 mb-2">6.1 IronEx Content</Text>
+                <Text className="text-base text-gray-700 leading-6 mb-3">
+                  All platform content, including text, graphics, logos, data, software, and designs, belongs to Token Land, LLC, or under license from a third party. You may use IronEx content solely for personal, non-commercial purposes.
+                </Text>
+                
+                <Text className="text-base font-medium text-gray-900 mb-2">6.2 User Content</Text>
+                <Text className="text-base text-gray-700 leading-6 mb-2">
+                  When submitting content (e.g., sentiment selections), you grant IronEx a worldwide, royalty-free, sublicensable license to:
+                </Text>
+                <View className="space-y-2 mb-3">
+                  <Text className="text-base text-gray-700 leading-6">• Use, store, process, and display such content</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Analyze it, including in anonymized or aggregated forms</Text>
                 </View>
-                <View>
-                  <Text className="text-base font-medium text-gray-900 mb-2">European Union / United Kingdom:</Text>
-                  <Text className="text-base text-gray-700 leading-6 mb-2">
-                  IronExSafe qualifies as a "hosting service." We are not liable for unlawful user content unless we have actual knowledge and fail to act.
-                  </Text>
-                  <Text className="text-base text-gray-700 leading-6">
-                    Users may flag unlawful content. IronExSafe will review and may remove such content promptly in accordance with the EU Digital Services Act and UK Online Safety Act.
-                  </Text>
-                </View>
+                <Text className="text-base text-gray-700 leading-6">
+                  You represent your submissions are lawful and do not violate third-party rights, including trademark or other intellectual property rights.
+                </Text>
               </View>
             </View>
 
-            {/* Section 7 */}
+            {/* Section 7: Third-Party Links */}
             <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
               <View className="flex-row items-center mb-4">
                 <View className="w-8 h-8 bg-teal-100 rounded-lg items-center justify-center mr-3">
                   <Text className="text-teal-600 font-bold text-sm">7</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  Termination
+                  Third-Party Links
                 </Text>
               </View>
-              <View className="space-y-3 ml-11">
+              <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6">
-                  • IronExSafe, in its sole discretion, may suspend or terminate your account if you violate these Terms or applicable law.
-                </Text>
-                <Text className="text-base text-gray-700 leading-6">
-                  • IronExSafe, in its sole discretion, may remove any content deemed unlawful, harmful, or violative of these Terms.
+                  IronEx may link to third-party websites or services. We are not responsible for their content or privacy practices.
                 </Text>
               </View>
             </View>
 
-            {/* Section 8 */}
+            {/* Section 8: No Professional Advice */}
             <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
               <View className="flex-row items-center mb-4">
                 <View className="w-8 h-8 bg-pink-100 rounded-lg items-center justify-center mr-3">
                   <Text className="text-pink-600 font-bold text-sm">8</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  Limitation of Liability
+                  No Professional Advice
                 </Text>
               </View>
-              <View className="space-y-3 ml-11">
+              <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6">
-                  • IronExSafe provides the Platform "as is." We disclaim all warranties, express or implied.
-                </Text>
-                <Text className="text-base text-gray-700 leading-6">
-                  • IronExSafe is not liable for damages arising from your use of the Platform, except as required by law.
+                  Content on IronEx is informational only and does not constitute legal, medical, or professional advice.
                 </Text>
               </View>
             </View>
 
-            {/* Section 9 */}
+            {/* Section 9: Disclaimer of Warranties */}
             <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
               <View className="flex-row items-center mb-4">
                 <View className="w-8 h-8 bg-cyan-100 rounded-lg items-center justify-center mr-3">
                   <Text className="text-cyan-600 font-bold text-sm">9</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  Indemnification
+                  Disclaimer of Warranties
                 </Text>
               </View>
               <View className="ml-11">
+                <Text className="text-base text-gray-700 leading-6 mb-3">
+                  IronEx is provided "AS IS" and "AS AVAILABLE", without warranties of any kind, including:
+                </Text>
+                <View className="space-y-2 mb-3">
+                  <Text className="text-base text-gray-700 leading-6">• Accuracy</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Uninterrupted service</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Security</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Compatibility</Text>
+                </View>
                 <Text className="text-base text-gray-700 leading-6">
-                  You agree to indemnify and hold harmless IronExSafe, its directors, officers, employees, and partners (including David J Hart PA and Digital Iron Dome, Inc.) from any claims, damages, or expenses arising from your use of the Platform or violation of these Terms.
+                  Use is at your own risk.
                 </Text>
               </View>
             </View>
 
-            {/* Section 10 */}
+            {/* Section 10: Limitation of Liability */}
             <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
               <View className="flex-row items-center mb-4">
                 <View className="w-8 h-8 bg-amber-100 rounded-lg items-center justify-center mr-3">
                   <Text className="text-amber-600 font-bold text-sm">10</Text>
+                </View>
+                <Text className="text-lg font-semibold text-gray-900 flex-1">
+                  Limitation of Liability
+                </Text>
+              </View>
+              <View className="ml-11">
+                <Text className="text-base text-gray-700 leading-6 mb-3">
+                  To the fullest extent permitted by law, Token Land, LLC shall not be liable for:
+                </Text>
+                <View className="space-y-2 mb-3">
+                  <Text className="text-base text-gray-700 leading-6">• Indirect, incidental, or consequential damages</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Loss of profits, data, or goodwill</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Unauthorized access to your data</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Errors or omissions in the Service</Text>
+                </View>
+                <Text className="text-base text-gray-700 leading-6">
+                  Maximum liability is the greater of: amounts paid by you in the prior 12 months, OR $100 USD.
+                </Text>
+              </View>
+            </View>
+
+            {/* Section 11: Indemnification */}
+            <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+              <View className="flex-row items-center mb-4">
+                <View className="w-8 h-8 bg-lime-100 rounded-lg items-center justify-center mr-3">
+                  <Text className="text-lime-600 font-bold text-sm">11</Text>
+                </View>
+                <Text className="text-lg font-semibold text-gray-900 flex-1">
+                  Indemnification
+                </Text>
+              </View>
+              <View className="ml-11">
+                <Text className="text-base text-gray-700 leading-6 mb-3">
+                  You agree to indemnify and hold harmless Token Land, LLC from claims arising out of:
+                </Text>
+                <View className="space-y-2">
+                  <Text className="text-base text-gray-700 leading-6">• Your use of IronEx</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Your violation of these Terms</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Your violation of any rights of others</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Section 12: Changes to Terms */}
+            <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+              <View className="flex-row items-center mb-4">
+                <View className="w-8 h-8 bg-emerald-100 rounded-lg items-center justify-center mr-3">
+                  <Text className="text-emerald-600 font-bold text-sm">12</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
                   Changes to Terms
@@ -283,16 +343,36 @@ export default function TermsOfUse(): React.JSX.Element {
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6">
-                  IronExSafe may update these Terms at any time. Continued use of the Platform after changes are posted constitutes acceptance.
+                  We may update these Terms at any time. Continued use signifies acceptance.
                 </Text>
               </View>
             </View>
 
-            {/* Section 11 */}
+            {/* Section 13: Termination */}
             <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
               <View className="flex-row items-center mb-4">
-                <View className="w-8 h-8 bg-lime-100 rounded-lg items-center justify-center mr-3">
-                  <Text className="text-lime-600 font-bold text-sm">11</Text>
+                <View className="w-8 h-8 bg-violet-100 rounded-lg items-center justify-center mr-3">
+                  <Text className="text-violet-600 font-bold text-sm">13</Text>
+                </View>
+                <Text className="text-lg font-semibold text-gray-900 flex-1">
+                  Termination
+                </Text>
+              </View>
+              <View className="ml-11">
+                <Text className="text-base text-gray-700 leading-6 mb-2">
+                  We may suspend or terminate access to the Service immediately if you violate these Terms.
+                </Text>
+                <Text className="text-base text-gray-700 leading-6">
+                  Upon termination, all rights granted to you cease.
+                </Text>
+              </View>
+            </View>
+
+            {/* Section 14: Governing Law */}
+            <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+              <View className="flex-row items-center mb-4">
+                <View className="w-8 h-8 bg-rose-100 rounded-lg items-center justify-center mr-3">
+                  <Text className="text-rose-600 font-bold text-sm">14</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
                   Governing Law
@@ -300,89 +380,58 @@ export default function TermsOfUse(): React.JSX.Element {
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6">
-                  These Terms are governed by the laws of the State of Delaware (for U.S. users) and by applicable law in your jurisdiction for international users.
+                  These Terms are governed by the laws of Florida, with exclusive jurisdiction in Miami-Dade County courts.
                 </Text>
               </View>
             </View>
 
-            {/* Section 12 */}
+            {/* Section 15: Contact */}
             <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
               <View className="flex-row items-center mb-4">
-                <View className="w-8 h-8 bg-emerald-100 rounded-lg items-center justify-center mr-3">
-                  <Text className="text-emerald-600 font-bold text-sm">12</Text>
+                <View className="w-8 h-8 bg-sky-100 rounded-lg items-center justify-center mr-3">
+                  <Text className="text-sky-600 font-bold text-sm">15</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  Contact Information
+                  Contact
                 </Text>
               </View>
               <View className="ml-11">
-                <Text className="text-base text-gray-700 leading-6 mb-4">
-                  Questions about these Terms may be sent to:
-                </Text>
                 <View className="bg-gray-50 rounded-lg p-4">
-                <View className="mb-2">
-                  <Text className="text-base text-gray-900 font-medium">
-                    📧 Email:{' '}
-                    <Text 
-                      className="text-base text-blue-600 underline"
-                      onPress={() => {
-                        const email = 'SentinelTerms@gmail.com';
-                        const subject = 'Terms of Use Inquiry';
-                        const url = `mailto:${email}?subject=${encodeURIComponent(subject)}`;
-                        Linking.openURL(url).catch(err => console.error('Error opening email:', err));
-                      }}
-                    >
-                      SentinelTerms@gmail.com
-                    </Text>
+                  <Text 
+                    className="text-base text-blue-600 underline mb-2"
+                    onPress={() => Linking.openURL('mailto:IronExSafe@gmail.com')}
+                  >
+                    📧 IronExSafe@gmail.com
+                  </Text>
+                  <Text className="text-base text-gray-700">
+                    📍 7300 Biscayne Blvd, Suite 200, Miami, FL 33138, USA
                   </Text>
                 </View>
-                <Text className="text-base text-gray-700 mb-2">
-                  📍 Address: C/O David J. Hart PA
-                </Text>
-                <Text className="text-base text-gray-700">
-                  7300 Biscayne Blvd Suite 200, Miami FL 33138 USA
-                </Text>
-              </View>
-
               </View>
             </View>
 
-            {/* Important Terms Notice */}
+            {/* Notice Boxes */}
             <View className="bg-blue-50 rounded-xl p-6 border border-blue-200">
               <View className="flex-row items-center mb-3">
-                <Ionicons name="document-text" size={20} color="#2563EB" />
+                <Ionicons name="information-circle" size={20} color="#2563EB" />
                 <Text className="text-lg font-semibold text-blue-800 ml-2">
-                  Terms Agreement
+                  Important Notice
                 </Text>
               </View>
               <Text className="text-base text-blue-700 leading-6">
-                By using IronExSafe, you acknowledge that you have read, understood, and agree to be bound by these Terms of Use. Please review these terms carefully.
+                By using IronEx, you acknowledge that you have read, understood, and agree to be bound by these Terms of Use.
               </Text>
             </View>
 
-            {/* User Responsibility Notice */}
             <View className="bg-green-50 rounded-xl p-6 border border-green-200">
               <View className="flex-row items-center mb-3">
-                <Ionicons name="checkmark-circle" size={20} color="#059669" />
+                <Ionicons name="shield-checkmark" size={20} color="#059669" />
                 <Text className="text-lg font-semibold text-green-800 ml-2">
-                  User Responsibility
+                  Safe Platform
                 </Text>
               </View>
               <Text className="text-base text-green-700 leading-6">
-                Users are responsible for ensuring their submissions comply with our community guidelines and applicable laws. Help us maintain a respectful and safe environment for all.
-              </Text>
-            </View>
-
-            {/* Legal Compliance Notice */}
-            <View className="bg-purple-50 rounded-xl p-6 border border-purple-200">
-              <View className="flex-row items-center mb-3">
-                <Ionicons name="scale" size={20} color="#7C3AED" />
-                <Text className="text-lg font-semibold text-purple-800 ml-2">
-                  Legal Compliance
-                </Text>
-              </View>
-              <Text className="text-base text-purple-700 leading-6">
-                IronExSafe operates in compliance with applicable laws and regulations. We reserve the right to take appropriate action to ensure platform safety and legal compliance.
+                IronEx is committed to providing a safe, educational environment for discussing sensitive topics with sentiment-based engagement.
               </Text>
             </View>
           </View>
