@@ -5,6 +5,7 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 
 import AppInfoModal from '@/components/AppInfoModal'; // Add this line
 import EditProfileScreen from '@/components/EditProfileScreen';
+import PasswordVerificationModal from '@/components/PasswordVerificationModal';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
@@ -1200,6 +1201,8 @@ export default function ProfilePage(): React.JSX.Element {
   const [isDocModalVisible, setIsDocModalVisible] = useState(false);
   const [showAppInfo, setShowAppInfo] = useState(false);
   const [isAppInfoModalVisible, setIsAppInfoModalVisible] = useState(false);
+  const [showPasswordVerify, setShowPasswordVerify] = useState<boolean>(false);
+
 
 
   // Add this function in your ProfilePage component
@@ -3071,7 +3074,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
   showCustomAlert(
     'info',
     'Help & Support',
-    'Need help? Please contact our support team at support@sentinel.com or visit our FAQ section.',
+    'Need help? Please contact our support team at IronExSafe@gmail.com or visit our FAQ section.',
     [
       {
         text: 'Contact Support',
@@ -3081,7 +3084,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
           showCustomAlert(
             'info',
             'Contact Support',
-            'You can reach our support team at support@sentinel.com',
+            'You can reach our support team at IronExSafe@gmail.com',
             [
               {
                 text: 'OK',
@@ -3108,8 +3111,14 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
     setShowFAQModal(true);
   };
 
+  const handlePasswordVerified = () => {
+  console.log('✅ [Profile] Password verified, opening edit profile...');
+  setEditVisible(true); // Now open the edit profile modal
+  };
+
   const handleEditProfile = () => {
-    setEditVisible(true); // This shows your EditProfileScreen modal/component
+  console.log('📝 [Profile] Opening password verification...');
+  setShowPasswordVerify(true); // Show password verification first
   };
 
   const handleShareProfile = () => {
@@ -3239,38 +3248,51 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
 
               {/* Action Buttons */}
               <View className="flex-row space-x-2">
-                <View>
-                  <TouchableOpacity 
-                    className="flex-1 bg-gray-900 py-2 px-3 rounded-xl"
-                    onPress={() => setEditVisible(true)}>
-                      <Text className="text-white font-semibold text-center text-base">Edit Profile</Text>
-                  </TouchableOpacity>
-                  {userData && (
-                    <EditProfileScreen
-                      visible={editVisible}
-                      onClose={() => setEditVisible(false)}
-                      onSuccess={(data) => {
-                        console.log("✅ Profile updated, refreshing display...");
-                        loadProfileData(); // 👈 Call the function here to refresh
-                        Toast.show({
-                          type: 'success',
-                          text1: 'Profile Updated',
-                          text2: 'Your profile has been updated successfully.',
-                          position: 'bottom',
-                          visibilityTime: 2000,
-                        });
-                      }}
-                    />
-                  )}
-                </View>
-                {/* <TouchableOpacity 
-                  className="flex-1 border-2 border-gray-200 py-4 px-6 rounded-xl bg-white"
-                  onPress={handleShareProfile}
-                >
-                  <Text className="text-gray-900 font-semibold text-center text-base">Share Profile</Text>
-                </TouchableOpacity> */}
-              </View>
+                <View className="flex-row space-x-2">
+                  <View>
+                    <TouchableOpacity 
+                      className="flex-1 bg-gray-900 py-2 px-3 rounded-xl"
+                      onPress={handleEditProfile}  // ✅ Correct - Opens password modal first
+                    >
+                      <Text className="text-white font-semibold text-center text-base">
+                        Edit Profile
+                      </Text>
+                    </TouchableOpacity>
 
+                    {/* Password Verification Modal */}
+                    <PasswordVerificationModal
+                      visible={showPasswordVerify}
+                      onClose={() => setShowPasswordVerify(false)}
+                      onSuccess={handlePasswordVerified}
+                    />
+
+                    {/* Edit Profile Screen - Opens after password verification */}
+                    {userData && (
+                      <EditProfileScreen
+                        visible={editVisible}
+                        onClose={() => setEditVisible(false)}
+                        onSuccess={(data) => {
+                          console.log('Profile updated, refreshing display...');
+                          loadProfileData();
+                          Toast.show({
+                            type: 'success',
+                            text1: 'Profile Updated',
+                            text2: 'Your profile has been updated successfully.',
+                            position: 'bottom',
+                            visibilityTime: 2000,
+                          });
+                        }}
+                      />
+                    )}
+                  </View>
+                  {/* <TouchableOpacity 
+                    className="flex-1 border-2 border-gray-200 py-4 px-6 rounded-xl bg-white"
+                    onPress={handleShareProfile}
+                  >
+                    <Text className="text-gray-900 font-semibold text-center text-base">Share Profile</Text>
+                  </TouchableOpacity> */}
+                </View>
+              </View>
             </View>
 
             {/* Stats Section - Below Profile Header */}
@@ -3293,11 +3315,8 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
             <View className="mb-1">
               <Text className="text-gray-700 leading-6 text-justify">
                 {userBio || "Welcome to my profile! I love sharing moments and connecting with amazing people. Let's create something beautiful together! ✨"}
-                
               </Text>
             </View>
-
-            
           </View>
         </View>
 
@@ -3441,10 +3460,10 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
                   <View className="w-10 h-10 bg-green-100 rounded-full items-center justify-center mr-4">
                     <Ionicons name="settings-outline" size={20} color="#10B981" />
                   </View>
-                  <Text className="flex-1 text-gray-900 font-medium">App Settings</Text>
+                  <Text className="flex-1 text-gray-900 font-medium">App Info</Text>
                   <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
                 </TouchableOpacity>
-                <TouchableOpacity 
+                {/* <TouchableOpacity 
                   onPress={handleHelpSupport}
                   className="flex-row items-center p-4 rounded-xl active:bg-gray-50"
                 >
@@ -3453,7 +3472,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
                   </View>
                   <Text className="flex-1 text-gray-900 font-medium">Help & Support</Text>
                   <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
-                </TouchableOpacity>
+                </TouchableOpacity> */}
                 {/* FAQ Option */}
                 <TouchableOpacity 
                   onPress={handleFAQ}
@@ -3522,7 +3541,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
                   showCustomAlert(
                     'info',
                     'Contact Support',
-                    'You can reach our support team at support@sentinel.com',
+                    'You can reach our support team at IronExSafe@gmail.com',
                     [
                       {
                         text: 'OK',
@@ -3548,6 +3567,11 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
         message={modalConfig.message}
         buttons={modalConfig.buttons}
         onClose={hideModal}
+      />
+      <PasswordVerificationModal
+        visible={showPasswordVerify}
+        onClose={() => setShowPasswordVerify(false)}
+        onSuccess={handlePasswordVerified}
       />
 
       {/* Toast Notification */}
