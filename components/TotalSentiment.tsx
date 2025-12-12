@@ -971,7 +971,7 @@ export default function TotalSentiment({
               </ScrollView>
 
               {/* Fixed Add/Edit Response Button at Bottom */}
-              <View style={{ 
+              {/* <View style={{ 
                 position: 'absolute', 
                 bottom: 0,
                 left: 0,
@@ -1018,7 +1018,7 @@ export default function TotalSentiment({
                     {userExistingComment ? 'Edit Response' : 'Add Response'}
                   </Text>
                 </TouchableOpacity>
-              </View>
+              </View> */}
             </View>
           )}
         </View>
