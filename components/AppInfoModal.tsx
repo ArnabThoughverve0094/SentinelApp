@@ -25,14 +25,14 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({ visible, onClose }) => {
   };
 
   const handleTermsPress = () => {
-    onClose(); // Close modal first
+    onClose();
     setTimeout(() => {
       router.push('/(auth)/termsandconditions');
     }, 100);
   };
 
   const handlePrivacyPress = () => {
-    onClose(); // Close modal first
+    onClose();
     setTimeout(() => {
       router.push('/(auth)/privacypolicy');
     }, 100);
@@ -170,10 +170,10 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({ visible, onClose }) => {
               color: '#111827',
               marginBottom: 4 
             }}>
-              IronExSafe
+              IronEx
             </Text>
             <Text style={{ fontSize: 15, color: '#6B7280' }}>
-              Your Voice, Verified
+              Expose Hate, Not Users
             </Text>
           </View>
 
@@ -191,8 +191,82 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({ visible, onClose }) => {
             />
           </InfoSection>
 
-          {/* About */}
-          <InfoSection title="About">
+          {/* About IronEx */}
+          <InfoSection title="About IronEx">
+            <View style={{
+              backgroundColor: '#F9FAFB',
+              borderRadius: 12,
+              padding: 16,
+              marginBottom: 12
+            }}>
+              <Text style={{ 
+                fontSize: 15, 
+                color: '#374151', 
+                lineHeight: 24,
+                marginBottom: 12
+              }}>
+                IronEx is a mobile-first platform built to help users document, understand, and respond to antisemitic, antizionist, and anti-Israel incidents—whether witnessed online or in the real world.
+              </Text>
+              <Text style={{ 
+                fontSize: 15, 
+                color: '#374151', 
+                lineHeight: 24,
+                marginBottom: 12
+              }}>
+                To protect users and maintain civility, IronEx does not allow comments or direct replies. Each verified report is published with pre-curated "sentiment choices," allowing viewers to express how they interpret content without triggering harassment.
+              </Text>
+              <Text style={{ 
+                fontSize: 14, 
+                color: '#6B7280', 
+                lineHeight: 22,
+                fontStyle: 'italic'
+              }}>
+                Every submission is reviewed before publication, anonymized when necessary, and presented in a structured format that encourages clarity and reflection.
+              </Text>
+            </View>
+          </InfoSection>
+
+          {/* Two Modes */}
+          <InfoSection title="Two Modes">
+            <View style={{
+              backgroundColor: '#F9FAFB',
+              borderRadius: 12,
+              padding: 16,
+              marginBottom: 8
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <Ionicons name="newspaper-outline" size={20} color="#111827" style={{ marginRight: 8 }} />
+                <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827' }}>
+                  Published Posts (Live Feed)
+                </Text>
+              </View>
+              <Text style={{ fontSize: 14, color: '#374151', lineHeight: 22 }}>
+                Verified incident reports revealing real-time patterns of antisemitism and anti-Israel hostility across online and offline environments.
+              </Text>
+            </View>
+            
+            <View style={{
+              backgroundColor: '#F9FAFB',
+              borderRadius: 12,
+              padding: 16
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <Ionicons name="school-outline" size={20} color="#111827" style={{ marginRight: 8 }} />
+                <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827' }}>
+                  Educational Mode (Learning Hub)
+                </Text>
+              </View>
+              <Text style={{ fontSize: 14, color: '#374151', lineHeight: 22, marginBottom: 8 }}>
+                A curated library to help users understand the historical, rhetorical, and ideological forces behind modern antisemitism and antizionism.
+              </Text>
+              <Text style={{ fontSize: 13, color: '#6B7280', lineHeight: 20 }}>
+                Includes: Short explainers • Definitions of tropes and symbols • Video commentary from experts • Scholar-written essays • Practical guides for responding to misinformation
+              </Text>
+            </View>
+          </InfoSection>
+
+          {/* Expert Contributions */}
+          <InfoSection title="Expert Contributions">
             <View style={{
               backgroundColor: '#F9FAFB',
               borderRadius: 12,
@@ -201,11 +275,17 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({ visible, onClose }) => {
               <Text style={{ 
                 fontSize: 15, 
                 color: '#374151', 
-                lineHeight: 24 
+                lineHeight: 24,
+                marginBottom: 12
               }}>
-                IronExSafe is a community-driven platform where voices are verified and opinions matter. 
-                Share your thoughts, participate in discussions, and help build a more transparent 
-                and accountable digital space.
+                IronEx actively invites historians, journalists, academics, policy analysts, commentators, and subject-matter experts to submit essays, videos, analyses, and educational materials.
+              </Text>
+              <Text style={{ 
+                fontSize: 14, 
+                color: '#6B7280', 
+                lineHeight: 22
+              }}>
+                Submissions that meet IronEx's standards for accuracy and relevance become part of the Learning Hub, ensuring users receive trusted, authoritative resources.
               </Text>
             </View>
           </InfoSection>
