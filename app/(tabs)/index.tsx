@@ -3010,7 +3010,7 @@ export default function SentinelFeed(): React.JSX.Element {
   const filteredData = useMemo(() => {
     let baseData = fetchedData.filter(item => {
       if (userRole === "User") {
-        return (item.isApproved && !item.isNew) || item.uniqueId.includes('xdata');
+        return (item.isApproved && !item.isNew) || item.postType.includes('X-Data');
       }
       return true;
     });
@@ -3026,7 +3026,7 @@ export default function SentinelFeed(): React.JSX.Element {
 
     let publishedData = fetchedData.filter(item => {
       if (userRole === "User") {
-        return (item.isApproved && !item.isNew && !item.isEducational) || item.uniqueId.includes('xdata');
+        return (item.isApproved && !item.isNew && !item.isEducational) || item.postType.includes('X-Data');
       } else {
         return !item.isEducational;
       }
@@ -3311,7 +3311,7 @@ export default function SentinelFeed(): React.JSX.Element {
             {renderRepostContent(item)}
   
             {/* {(!item.isRepost || item.repostComment) && renderMediaContent(item, index)} */}
-            {renderMediaContent(item, index)}
+            {item.postType !== "X-Data" && renderMediaContent(item, index)}
   
             <View className="flex-row items-center">
               <View className="flex-1"> 
