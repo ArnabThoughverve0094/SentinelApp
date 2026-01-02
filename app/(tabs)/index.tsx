@@ -2848,32 +2848,35 @@ export default function SentinelFeed(): React.JSX.Element {
     try {
       const postUrl = `https://main.d29wx1onz1k3b1.amplifyapp.com/post/${postItem?.id}`;
       
-      const shareMessage = postItem.isAnonymous
-        ? `✨ SENTINEL POST ✨
+      // const shareMessage = postItem.isAnonymous
+      //   ? `✨ SENTINEL POST ✨
 
-      👤 Shared by Anonymous
+      // 👤 Shared by Anonymous
 
-      💭 ${postItem.ContentDesc}
+      // 💭 ${postItem.ContentDesc}
 
-      🔗 Tap to view this amazing post:
-      ${postUrl}
+      // 🔗 Tap to view this amazing post:
+      // ${postUrl}
 
-      ━━━━━━━━━━━━━━━
-      📱 Join the conversation on Sentinel and discover more!`
-        : `✨ SENTINEL POST ✨
+      // ━━━━━━━━━━━━━━━
+      // 📱 Join the conversation on Sentinel and discover more!`
+      //   : `✨ SENTINEL POST ✨
 
-      🌟 Shared by ${postItem.AuthorName}
+      // 🌟 Shared by ${postItem.AuthorName}
 
-      💭 ${postItem.ContentDesc}
+      // 💭 ${postItem.ContentDesc}
 
-      🔗 Tap to view this amazing post:
-      ${postUrl}
+      // 🔗 Tap to view this amazing post:
+      // ${postUrl}
 
-      ━━━━━━━━━━━━━━━
-      📱 Join the conversation on Sentinel and discover more!`;
+      // ━━━━━━━━━━━━━━━
+      // 📱 Join the conversation on Sentinel and discover more!`;
+
+      const shareMessage = `🔗 Tap to view on ironex:
+      ${postUrl}`;
 
       await Share.share({
-        message: shareMessage,
+        message: `${shareMessage}\n${postUrl}`,
         url: postUrl,
         title: '✨ Check out this Sentinel post',
       });
