@@ -1218,13 +1218,13 @@ export default function SentinelFeed(): React.JSX.Element {
     try {
       let totalComments = 0;
       
-      const commentsRef = collection(db, postType, postId, 'Comments');
+      const commentsRef = collection(db, "SentinelPosts", postId, 'Comments');
       const commentsSnapshot = await getDocs(commentsRef);
       
       totalComments = commentsSnapshot.size;
       
       for (const commentDoc of commentsSnapshot.docs) {
-        const repliesRef = collection(db, postType, postId, 'Comments', commentDoc.id, 'Replies');
+        const repliesRef = collection(db, "SentinelPosts", postId, 'Comments', commentDoc.id, 'Replies');
         const repliesSnapshot = await getDocs(repliesRef);
         totalComments += repliesSnapshot.size;
       }
@@ -1777,7 +1777,7 @@ export default function SentinelFeed(): React.JSX.Element {
     try {
       fetchedData.forEach(post => {
         onSnapshot(
-          collection(doc(db, post.postType, post.id), 'Comments'),
+          collection(doc(db, "SentinelPosts", post.id), 'Comments'),
           commentsSnap => {
             let totalComments = 0;
             totalComments = commentsSnap.size;
@@ -2065,7 +2065,7 @@ export default function SentinelFeed(): React.JSX.Element {
   const handleDropdownChange = async (item: {name: string }, postItem: PostItem) => {
     setSelectedCommentTemplate(item.name);
     console.log('Selected option:', item.name);
-    const postRef = doc(db, postItem.postType, postItem.id);
+    const postRef = doc(db, "SentinelPosts", postItem.id);
     await updateDoc(postRef, {
       CommentTemplate: item.name,
     });
@@ -2494,7 +2494,7 @@ export default function SentinelFeed(): React.JSX.Element {
       setUserId(fetchuserID);
     }
 
-    const postRef = doc(db, postItem.postType, postItem.id);
+    const postRef = doc(db, "SentinelPosts", postItem.id);
     if(postItem.Liked) {
       console.log("itemID: ", postItem.id);
       console.log("item Liked: ", postItem.Liked);
@@ -2591,7 +2591,7 @@ export default function SentinelFeed(): React.JSX.Element {
           visibilityTime: 2000,
         });
       } else {
-        const postRef = doc(db, selectedRepostPost.postType, selectedRepostPost.id);
+        const postRef = doc(db, "SentinelPosts", selectedRepostPost.id);
         await updateDoc(postRef, {
           ContentRepostCount: selectedRepostPost.ContentRepostCount + 1,
           RepostedBy: arrayUnion(fetchuserID),
@@ -2603,8 +2603,8 @@ export default function SentinelFeed(): React.JSX.Element {
           AuthorUserID: fetchuserID,
           ContentDate: new Date(),
           ContentDesc: selectedRepostPost.ContentDesc || '',
-          ContentURL: selectedRepostPost.ContentURL || '',
-          ContentURLs: selectedRepostPost.ContentURLs || [],
+          ContentURL: selectedRepostPost.postType === 'X-Data' ? "" : (selectedRepostPost.ContentURL || ''),
+          ContentURLs: selectedRepostPost.postType === 'X-Data' ? [] : (selectedRepostPost.ContentURLs || []),
           ContentLikeCount: 0,
           ContentRepostCount: 0,
           ContentCommentCount: 0,
@@ -2623,7 +2623,7 @@ export default function SentinelFeed(): React.JSX.Element {
             AuthorImageURL: selectedRepostPost.AuthorImageURL || dummyAuthorImage,
             ContentDesc: selectedRepostPost.ContentDesc || '',
             ContentDate: selectedRepostPost.ContentDate || new Date(),
-            postType: selectedRepostPost.postType || 'Unknown',
+            postType: selectedRepostPost.postType || "SentinelPosts",
             isAnonymous: selectedRepostPost.isAnonymous || false,
             contentType: selectedRepostPost.contentType || 'My Thoughts'
           },
@@ -2689,7 +2689,7 @@ export default function SentinelFeed(): React.JSX.Element {
           visibilityTime: 2000,
         });
       } else {
-        const postRef = doc(db, selectedRepostPost.postType, selectedRepostPost.id);
+        const postRef = doc(db, "SentinelPosts", selectedRepostPost.id);
         await updateDoc(postRef, {
           ContentRepostCount: selectedRepostPost.ContentRepostCount + 1,
           RepostedBy: arrayUnion(fetchuserID),
@@ -2721,7 +2721,7 @@ export default function SentinelFeed(): React.JSX.Element {
             AuthorImageURL: selectedRepostPost.AuthorImageURL || dummyAuthorImage,
             ContentDesc: selectedRepostPost.ContentDesc || '',
             ContentDate: selectedRepostPost.ContentDate || new Date(),
-            postType: selectedRepostPost.postType || 'Unknown',
+            postType: selectedRepostPost.postType || "SentinelPosts",
             isAnonymous: selectedRepostPost.isAnonymous || false,
             contentType: selectedRepostPost.contentType || 'My Thoughts'
           },
@@ -2784,7 +2784,7 @@ export default function SentinelFeed(): React.JSX.Element {
       setUserId(fetchuserID);
     }
 
-    const postRef = doc(db, postItem.postType, postItem.id);
+    const postRef = doc(db, "SentinelPosts", postItem.id);
     if(postItem.Bookmarked) {
       console.log("itemID: ", postItem.id);
       console.log("item Bookmarked: ", postItem.Bookmarked);
