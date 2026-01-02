@@ -435,7 +435,7 @@ export default function CommentScreen({
   const fetchPostData = async (itemId: string, itemType: string) => {
     setPostLoading(true);
     try {
-      const postDoc = await getDoc(doc(db, itemType, itemId));
+      const postDoc = await getDoc(doc(db, "SentinelPosts", itemId));
       if (postDoc.exists()) {
         const data = postDoc.data();
         setPostDataState({
@@ -601,7 +601,7 @@ export default function CommentScreen({
   const fetchCommentFirestore = async (item: any, type: any) => {
     setLoading(true);
     try {
-      const collCommentRefPost = collection(db, type, item, 'Comments');
+      const collCommentRefPost = collection(db, "SentinelPosts", item, 'Comments');
       const queryComment = query(
         collCommentRefPost,
         orderBy('CommentDate', 'desc')
@@ -662,7 +662,7 @@ export default function CommentScreen({
       const commentText = selectedOptionData?.label || '';
       
       if (isEditMode && userExistingComment) {
-        const commentRef = doc(db, postType, postId, 'Comments', userExistingComment.id);
+        const commentRef = doc(db, "SentinelPosts", postId, 'Comments', userExistingComment.id);
         await updateDoc(commentRef, {
           Comment: commentText,
           // selectedOptions: [selectedOption],
@@ -684,7 +684,7 @@ export default function CommentScreen({
       //   });
       //   console.log('Structured Reply Post ID: ', postDocRef.id);
       } else {
-        const commentRef = collection(db, postType, postId, 'Comments');
+        const commentRef = collection(db, "SentinelPosts", postId, 'Comments');
         const postDocRef = await addDoc(commentRef, {
           AuthorImageURL: userImage || dummyAuthorImage,
           AuthorName: userName,
@@ -728,7 +728,7 @@ export default function CommentScreen({
           style: "destructive",
           onPress: async () => {
             try {
-              const commentRef = doc(db, postType, postId, 'Comments', commentId);
+              const commentRef = doc(db, "SentinelPosts", postId, 'Comments', commentId);
               await deleteDoc(commentRef);
               console.log('Comment deleted successfully');
               

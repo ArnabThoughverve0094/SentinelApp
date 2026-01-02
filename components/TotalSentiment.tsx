@@ -438,7 +438,7 @@ export default function TotalSentiment({
 
     setLoading(true);
     try {
-      const commentsRef = collection(db, postType, postId, 'Comments');
+      const commentsRef = collection(db, "SentinelPosts", postId, 'Comments');
 
       const unsubscribeCommentData = onSnapshot(commentsRef, commentsSnapshot => {
         const commentDataArr = commentsSnapshot.docs.map(doc => ({
