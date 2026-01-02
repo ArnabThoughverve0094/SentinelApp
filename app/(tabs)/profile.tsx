@@ -3483,7 +3483,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
                   <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
                 </TouchableOpacity>
 
-                {/* FAQ Option
+                { /* FAQ Option */ }
                 <TouchableOpacity 
                   onPress={handleFAQ}
                   className="flex-row items-center p-4 rounded-xl active:bg-gray-50"
