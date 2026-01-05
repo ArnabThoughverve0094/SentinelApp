@@ -1099,14 +1099,14 @@ export default function UserProfileScreen() {
             <View className="flex-row items-center">
               <View className="w-10 h-10 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
                 <Image
-                  source={{ uri: item.AuthorImageURL || dummyAuthorImage }}
+                  source={{ uri: displayAuthorImage || dummyAuthorImage }}
                   className="w-full h-full"
                   resizeMode="cover"
                 />
               </View>
 
               <View className="flex-1">
-                <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text>
+                <Text className="font-bold text-gray-900 text-sm">{displayAuthorName}</Text>
                 <Text className="text-gray-500 text-xs">{getTimeAgo(item.ContentDate)}</Text>
               </View>
 
