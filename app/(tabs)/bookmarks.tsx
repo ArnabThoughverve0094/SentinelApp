@@ -899,6 +899,7 @@ export default function BookmarksPage(): React.JSX.Element {
               id: postId,
               AuthorImageURL: postData.AuthorImageURL,
               AuthorName: postData.AuthorName,
+              AuthorUserID: postData.AuthorUserID || postData.repostedBy || '123456',
               ContentDate: postData.ContentDate,
               ContentDesc: postData.ContentDesc,
               ContentURL: postData.ContentURL,
@@ -908,9 +909,9 @@ export default function BookmarksPage(): React.JSX.Element {
               ContentCommentCount: postData.ContentCommentCount || 0,
               isApproved: postData.isApproved || false,
               isNew: postData.isNew !== undefined ? postData.isNew : true,
-              postType: "SentinelPosts",
+              postType: postData.postType || "SentinelPosts",
               Liked: (postData.LikedBy?.includes(fetchuserID) || false),
-              Reposted: false,
+              Reposted: (postData.RepostedBy?.includes(fetchuserID) || false),
               Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
               createdAt: postData.createdAt || postData.ContentDate,
               CommentTemplate: postData.CommentTemplate || "Sentinel Default Template",
@@ -920,7 +921,8 @@ export default function BookmarksPage(): React.JSX.Element {
               repostedBy: postData.repostedBy || '',
               repostedAt: postData.repostedAt || null,
               isAnonymous: postData.isAnonymous || false,
-              contentType: postData.contentType || 'My Thoughts'
+              contentType: postData.contentType || 'My Thoughts',
+              isEducational: postData.isEducational || false,
             });
           }
 
@@ -1503,7 +1505,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
   
           {renderRepostContent(item)}
 
-          {renderMediaContent(item, index)}
+          {item.postType !== "X-Data" && renderMediaContent(item, index)}
           <View className="flex-row items-center">
               <View className="flex-1"> 
                 <View className="flex-row items-center mt-1.5">

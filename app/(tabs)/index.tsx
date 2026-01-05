@@ -3575,7 +3575,7 @@ export default function SentinelFeed(): React.JSX.Element {
                 </View>
               </TouchableOpacity>
             )}
-            {userRole !== "User" && item.postType === "SentinelPosts" && (
+            {userRole !== "User" && (
               <TouchableOpacity
                 onPress={(e) => e.stopPropagation()}
                 activeOpacity={1}
@@ -3977,14 +3977,12 @@ export default function SentinelFeed(): React.JSX.Element {
                     <Text className="text-3xl font-extrabold text-[#281C20]">IronEx</Text>
                   </View>
                   {/* Logo Icon */}
-                  <Text className="text-sm text-[#281C20]">
-                    Exposing Antisemitism
+                  <Text className="text-xs text-[#281C20]">
+                    Structured Antisemitism Reporting
                   </Text>
                 </View>
               </TouchableOpacity>
             </Link>
-
-
           
           <TouchableOpacity 
               className="p-2 "
