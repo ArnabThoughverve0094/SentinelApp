@@ -3468,7 +3468,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
 
               {/* Menu Options */}
               <View className="space-y-2">
-                <TouchableOpacity 
+                {/* <TouchableOpacity 
                   onPress={handleProfileSettings}
                   className="flex-row items-center p-4 rounded-xl active:bg-gray-50"
                 >
@@ -3477,7 +3477,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
                   </View>
                   <Text className="flex-1 text-gray-900 font-medium">Profile Settings</Text>
                   <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
-                </TouchableOpacity>
+                </TouchableOpacity> */}
                 <TouchableOpacity 
                   onPress={handleAppSettings}
                   className="flex-row items-center p-4 rounded-xl active:bg-gray-50"
