@@ -6,6 +6,7 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 import AppInfoModal from '@/components/AppInfoModal'; // Add this line
 import EditProfileScreen from '@/components/EditProfileScreen';
 import PasswordVerificationModal from '@/components/PasswordVerificationModal';
+import HelpScreen from '@/components/HelpScreen';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
@@ -1202,6 +1203,8 @@ export default function ProfilePage(): React.JSX.Element {
   const [showAppInfo, setShowAppInfo] = useState(false);
   const [isAppInfoModalVisible, setIsAppInfoModalVisible] = useState(false);
   const [showPasswordVerify, setShowPasswordVerify] = useState<boolean>(false);
+  const [showHelpScreen, setShowHelpScreen] = useState(false);
+
 
 
 
@@ -3067,43 +3070,47 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
   hideModal();
   setShowAppInfo(true); // Open App Info Modal
 };
-
-
-  const handleHelpSupport = () => {
-  setShowAccountModal(false);
-  showCustomAlert(
-    'info',
-    'Help & Support',
-    'Need help? Please contact our support team at IronExSafe@gmail.com or visit our FAQ section.',
-    [
-      {
-        text: 'Contact Support',
-        onPress: () => {
-          hideModal();
-          // Show the contact support alert
-          showCustomAlert(
-            'info',
-            'Contact Support',
-            'You can reach our support team at IronExSafe@gmail.com',
-            [
-              {
-                text: 'OK',
-                onPress: hideModal
-              }
-            ]
-          );
-        }
-      },
-      {
-        text: 'View FAQ',
-        onPress: () => {
-          hideModal();
-          handleFAQ();
-        }
-      }
-    ]
-  );
+    const handleHelpSupport = () => {
+    setShowAccountModal(false);
+    setShowHelpScreen(true); // open App Guide
   };
+
+
+  // const handleHelpSupport = () => {
+  // setShowAccountModal(false);
+  // showCustomAlert(
+  //   'info',
+  //   'Help & Support',
+  //   'Need help? Please contact our support team at IronExSafe@gmail.com or visit our FAQ section.',
+  //   [
+  //     {
+  //       text: 'Contact Support',
+  //       onPress: () => {
+  //         hideModal();
+  //         // Show the contact support alert
+  //         showCustomAlert(
+  //           'info',
+  //           'Contact Support',
+  //           'You can reach our support team at IronExSafe@gmail.com',
+  //           [
+  //             {
+  //               text: 'OK',
+  //               onPress: hideModal
+  //             }
+  //           ]
+  //         );
+  //       }
+  //     },
+  //     {
+  //       text: 'View FAQ',
+  //       onPress: () => {
+  //         hideModal();
+  //         handleFAQ();
+  //       }
+  //     }
+  //   ]
+  // );
+  // };
 
 
   const handleFAQ = () => {
@@ -3463,17 +3470,20 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
                   <Text className="flex-1 text-gray-900 font-medium">App Info</Text>
                   <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
                 </TouchableOpacity>
-                {/* <TouchableOpacity 
+                <TouchableOpacity
                   onPress={handleHelpSupport}
                   className="flex-row items-center p-4 rounded-xl active:bg-gray-50"
                 >
                   <View className="w-10 h-10 bg-orange-100 rounded-full items-center justify-center mr-4">
                     <Ionicons name="help-circle-outline" size={20} color="#F59E0B" />
                   </View>
-                  <Text className="flex-1 text-gray-900 font-medium">Help & Support</Text>
+                  <Text className="flex-1 text-gray-900 font-medium">
+                    App Guide
+                  </Text>
                   <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
-                </TouchableOpacity> */}
-                {/* FAQ Option */}
+                </TouchableOpacity>
+
+                { /* FAQ Option */ }
                 <TouchableOpacity 
                   onPress={handleFAQ}
                   className="flex-row items-center p-4 rounded-xl active:bg-gray-50"
@@ -3568,6 +3578,14 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
         buttons={modalConfig.buttons}
         onClose={hideModal}
       />
+      <Modal
+        visible={showHelpScreen}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setShowHelpScreen(false)}
+      >
+        <HelpScreen onClose={() => setShowHelpScreen(false)} />
+      </Modal>
       <PasswordVerificationModal
         visible={showPasswordVerify}
         onClose={() => setShowPasswordVerify(false)}

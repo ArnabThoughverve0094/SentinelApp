@@ -969,7 +969,20 @@ export default function SentinelFeed(): React.JSX.Element {
   const BATCH_SIZE = 10; // Define your lazy load batch size
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [unsubscribers, setUnsubscribers] = useState<(() => void)[]>([]);
-  
+
+  const openUserProfile = (item: PostItem) => {
+    const authorId = item.AuthorUserID || item.repostedBy; // choose what you consider profile id
+    if (!authorId) return;
+
+    router.push({
+      pathname: "/profile/[userId]",
+      params: {
+        userId: authorId,                 // item.AuthorUserID
+        authorName: item.AuthorName,      // from post
+        authorImageUrl: item.AuthorImageURL, // from post
+      },
+    });
+  }; 
 
   // UPDATED: Create video player for fullscreen modal
   const fullScreenVideoPlayer = useVideoPlayer(fullScreenVideo || '', (player) => {
@@ -3261,17 +3274,23 @@ export default function SentinelFeed(): React.JSX.Element {
         <EnhancedCard postId={item.uniqueId}>
           <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
             <View className="flex-row items-center">
-              <View className="relative">
-                <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
-                  <Image
-                    // source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
-                    source={{ uri: AuthorImage || dummyAuthorImage }}
-                    className="w-full h-full"
-                    resizeMode="cover"
-                    resizeMethod="resize"
-                  />
+                <View className="relative">
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => openUserProfile(item)}
+                  >
+                    <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
+                      <Image
+                        source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
+                        className="w-full h-full"
+                        resizeMode="cover"
+                        resizeMethod="resize"
+                      />
+                    </View>
+                  </TouchableOpacity>
                 </View>
-              </View>
+
+
               <View className="flex-1">
                 <Text className="font-bold text-gray-900 text-sm">{AuthorName}</Text>
                 <View className="flex-row items-center mt-0.5">
@@ -3620,17 +3639,24 @@ export default function SentinelFeed(): React.JSX.Element {
         <EnhancedCard postId={item.uniqueId}>
           <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
             <View className="flex-row items-center">
-              <View className="relative">
-                <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
-                  <Image
-                    // source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
-                    source={{ uri: AuthorImage || dummyAuthorImage }}
-                    className="w-full h-full"
-                    resizeMode="cover"
-                    resizeMethod="resize"
-                  />
+                <View className="relative">
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() =>
+                      openFullScreenImage(item?.AuthorImageURL || dummyAuthorImage)
+                    }
+                  >
+                    <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
+                      <Image
+                        source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
+                        className="w-full h-full"
+                        resizeMode="cover"
+                        resizeMethod="resize"
+                      />
+                    </View>
+                  </TouchableOpacity>
                 </View>
-              </View>
+
               <View className="flex-1">
               <Text className="font-bold text-gray-900 text-sm">{AuthorName}</Text>
                 <View className="flex-row items-center mt-0.5">
@@ -3902,7 +3928,7 @@ export default function SentinelFeed(): React.JSX.Element {
                     </View> */}
                     {/* Sentinel Text */}
                     {/* <Text className="text-3xl font-extrabold text-[#281C20]">entinel</Text> */}
-                    <Text className="text-3xl font-extrabold text-[#281C20]">IronExSafe</Text>
+                    <Text className="text-3xl font-extrabold text-[#281C20]">IronEx</Text>
                   </View>
                   {/* Logo Icon */}
                   <Text className="text-sm text-[#281C20]">
