@@ -590,7 +590,20 @@ export default function BookmarksPage(): React.JSX.Element {
   const [selectedRepostPost, setSelectedRepostPost] = useState<PostItem | null>(null);
 
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
+  
+  const openUserProfile = (item: PostItem) => {
+    const authorId = item.AuthorUserID || item.repostedBy; // choose what you consider profile id
+    if (!authorId) return;
 
+    router.push({
+      pathname: "/profile/[userId]",
+      params: {
+        userId: authorId,                 // item.AuthorUserID
+        authorName: item.AuthorName,      // from post
+        authorImageUrl: item.AuthorImageURL, // from post
+      },
+    });
+  };
   // IMPROVED TIME AGO FUNCTION
   const getTimeAgo = useCallback((dateString: any) => {
     if (!dateString) return 'Just now';
@@ -1445,16 +1458,20 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
           <View className="flex-row items-center justify-between">
             <View className="flex-row items-center flex-1">
               <View className="relative">
-                <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
-                  <Image
-                    // source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
-                    source={{ uri: AuthorImage || dummyAuthorImage }}
-                    className="w-full h-full"
-                    resizeMode="cover"
-                    resizeMethod="resize"
-                  />
-                </View>
-              </View>
+                                <TouchableOpacity
+                                  activeOpacity={0.8}
+                                  onPress={() => openUserProfile(item)}
+                                >
+                                  <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
+                                    <Image
+                                      source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
+                                      className="w-full h-full"
+                                      resizeMode="cover"
+                                      resizeMethod="resize"
+                                    />
+                                  </View>
+                                </TouchableOpacity>
+                              </View>
               <View className="flex-1">
                 <Text className="font-bold text-gray-900 text-sm">{AuthorName}</Text>
                 <View className="flex-row items-center mt-0.5">
