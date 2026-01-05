@@ -2511,6 +2511,20 @@ export default function SentinelFeed(): React.JSX.Element {
     if(postItem.Liked) {
       console.log("itemID: ", postItem.id);
       console.log("item Liked: ", postItem.Liked);
+
+      // STATE: Manually update for "Unlike" action
+      setFetchedData(prevData =>
+        prevData.map(item =>
+        item.id === postItem.id
+          ? { 
+              ...item, 
+              Liked: false, 
+              ContentLikeCount: item.ContentLikeCount - 1 
+            }
+          : item
+        )
+      );
+
       await updateDoc(postRef, {
         ContentLikeCount: postItem.ContentLikeCount - 1,
         LikedBy: arrayRemove(fetchuserID),
@@ -2518,22 +2532,36 @@ export default function SentinelFeed(): React.JSX.Element {
     } else {
       console.log("itemID: ", postItem.id);
       console.log("item Liked: ", postItem.Liked);
+
+      // STATE: Manually update for "Unlike" action
+      setFetchedData(prevData =>
+        prevData.map(item =>
+        item.id === postItem.id
+          ? { 
+              ...item, 
+              Liked: true, 
+              ContentLikeCount: item.ContentLikeCount + 1 
+            }
+          : item
+        )
+      );
+
       await updateDoc(postRef, {
         ContentLikeCount: postItem.ContentLikeCount + 1,
         LikedBy: arrayUnion(fetchuserID),
       });
     }
 
-    setFetchedData(prevData => 
-      prevData.map(item => 
-        item.id === postItem.id 
-          ? { ...item, Liked: !item.Liked,
-            ContentLikeCount: item.Liked 
-              ? item.ContentLikeCount - 1 
-              : item.ContentLikeCount + 1 }
-          : item
-      )
-    );
+    // setFetchedData(prevData => 
+    //   prevData.map(item => 
+    //     item.id === postItem.id 
+    //       ? { ...item, Liked: !item.Liked,
+    //         ContentLikeCount: item.Liked 
+    //           ? item.ContentLikeCount - 1 
+    //           : item.ContentLikeCount + 1 }
+    //       : item
+    //   )
+    // );
 
     if (fullScreenCard && fullScreenCard.uniqueId === postItem.uniqueId) {
       setFullScreenCard((prev: PostItem | null) => prev ? ({
@@ -2801,6 +2829,15 @@ export default function SentinelFeed(): React.JSX.Element {
     if(postItem.Bookmarked) {
       console.log("itemID: ", postItem.id);
       console.log("item Bookmarked: ", postItem.Bookmarked);
+      
+      setFetchedData(prevData => 
+        prevData.map(item => 
+          item.id === postItem.id 
+            ? { ...item, Bookmarked: false }
+            : item
+        )
+      );
+
       await updateDoc(postRef, {
         BookmarkedBy: arrayRemove(fetchuserID),
       });
@@ -2814,6 +2851,15 @@ export default function SentinelFeed(): React.JSX.Element {
     } else {
       console.log("itemID: ", postItem.id);
       console.log("item Bookmarked: ", postItem.Bookmarked);
+
+      setFetchedData(prevData => 
+        prevData.map(item => 
+          item.id === postItem.id 
+            ? { ...item, Bookmarked: true }
+            : item
+        )
+      );
+
       await updateDoc(postRef, {
         BookmarkedBy: arrayUnion(fetchuserID),
       });
@@ -2825,13 +2871,13 @@ export default function SentinelFeed(): React.JSX.Element {
         visibilityTime: 2000,
       });
     }
-    setFetchedData(prevData => 
-      prevData.map(item => 
-        item.id === postItem.id 
-          ? { ...item, Bookmarked: !item.Bookmarked }
-          : item
-      )
-    );
+    // setFetchedData(prevData => 
+    //   prevData.map(item => 
+    //     item.id === postItem.id 
+    //       ? { ...item, Bookmarked: !item.Bookmarked }
+    //       : item
+    //   )
+    // );
 
     if (fullScreenCard && fullScreenCard.uniqueId === postItem.uniqueId) {
       setFullScreenCard((prev: PostItem | null) => prev ? ({
