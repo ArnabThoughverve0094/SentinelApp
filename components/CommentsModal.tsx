@@ -92,11 +92,8 @@ interface CommentScreenProps {
   commentTemplate: string | null;
 }
 
-
-
 let RESPONSE_OPTIONS: any[] = [];
 
-// Usage: <Text>{renderStyledCommentText(commentText)}</Text>
 const renderStyledPostText = (text) => {
   if (!text) return null;
 
@@ -162,7 +159,6 @@ const renderStyledPostText = (text) => {
           key={`hashtag-${i}`}
           onPress={() => {
             alert("Hashtag tapped: " + match.text);
-            // Or custom navigation/filter
           }}
         >
           <Text
@@ -193,7 +189,6 @@ const renderStyledPostText = (text) => {
   return components;
 };
 
-
 export default function CommentScreen({ 
   visible, 
   onClose, 
@@ -218,7 +213,6 @@ export default function CommentScreen({
   const [showSentimentPage, setShowSentimentPage] = useState(false);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(-1);
   
-  // NEW: Full screen media states - SAME AS LANDING PAGE
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
   const [isImageModalVisible, setIsImageModalVisible] = useState(false);
   const [fullScreenVideo, setFullScreenVideo] = useState<string | null>(null);
@@ -235,13 +229,11 @@ export default function CommentScreen({
   
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
 
-  // NEW: Full screen video player - SAME AS LANDING PAGE
   const fullScreenVideoPlayer = useVideoPlayer(fullScreenVideo || '', (player) => {
     player.loop = false;
     player.play();
   });
 
-  // NEW: Full screen handlers - SAME AS LANDING PAGE
   const openFullScreenImage = useCallback((imageUrl: string) => {
     setFullScreenImage(imageUrl);
     setIsImageModalVisible(true);
@@ -262,7 +254,7 @@ export default function CommentScreen({
     setFullScreenVideo(null);
   }, []);
 
-  // IMPROVED TIME AGO FUNCTION
+  // ✅ UPDATED: Time ago function with "1 day ago", "1 week ago", "1 month ago" format
   const getTimeAgo = useCallback((dateString: any) => {
     if (!dateString) return 'Just now';
     
@@ -295,25 +287,33 @@ export default function CommentScreen({
       const diffInMonths = Math.floor(diffInDays / 30);
       const diffInYears = Math.floor(diffInDays / 365);
 
+      // Less than 1 minute
       if (diffInSeconds < 60) {
         return diffInSeconds <= 0 ? 'Just now' : `${diffInSeconds}s ago`;
-      } else if (diffInMinutes < 60) {
-        return `${diffInMinutes}m ago`;
-      } else if (diffInHours < 24) {
-        return `${diffInHours}h ago`;
-      } else if (diffInDays < 7) {
-        return `${diffInDays}d ago`;
-      } else {
-        const dateObj = new Date(postDate.getTime());
-        const year  = dateObj.getFullYear();
-        const month = String(dateObj.getMonth() + 1).padStart(2, '0'); // months are 0-based
-        const day   = String(dateObj.getDate()).padStart(2, '0');
-        const hours   = String(dateObj.getHours()).padStart(2, '0');
-        const minutes = String(dateObj.getMinutes()).padStart(2, '0');
-
-        // Example formatted string: "YYYY-MM-DD HH:mm"
-        const formatted = `${year}-${month}-${day} ${hours}:${minutes}`;
-        return `${formatted}`;
+      } 
+      // Less than 1 hour
+      else if (diffInMinutes < 60) {
+        return diffInMinutes === 1 ? '1 minute ago' : `${diffInMinutes} minutes ago`;
+      } 
+      // Less than 1 day
+      else if (diffInHours < 24) {
+        return diffInHours === 1 ? '1 hour ago' : `${diffInHours} hours ago`;
+      } 
+      // Less than 1 week
+      else if (diffInDays < 7) {
+        return diffInDays === 1 ? '1 day ago' : `${diffInDays} days ago`;
+      } 
+      // Less than 1 month
+      else if (diffInWeeks < 4) {
+        return diffInWeeks === 1 ? '1 week ago' : `${diffInWeeks} weeks ago`;
+      } 
+      // Less than 1 year
+      else if (diffInMonths < 12) {
+        return diffInMonths === 1 ? '1 month ago' : `${diffInMonths} months ago`;
+      } 
+      // 1 year or more
+      else {
+        return diffInYears === 1 ? '1 year ago' : `${diffInYears} years ago`;
       }
     } catch (error) {
       console.error('Error parsing date:', error);
@@ -381,8 +381,7 @@ export default function CommentScreen({
     }
   };
 
-  // UPDATED: VideoPlayer component - SAME AS LANDING PAGE
-    const VideoPlayer = useCallback(({ videoUrl, index }: { videoUrl: string; index?: number }) => {
+  const VideoPlayer = useCallback(({ videoUrl, index }: { videoUrl: string; index?: number }) => {
     const player = useVideoPlayer(videoUrl, (player) => {
       player.loop = true;
       player.muted = true;
@@ -411,9 +410,9 @@ export default function CommentScreen({
             player={player}
             style={{ 
               width: '100%', 
-              aspectRatio: 16 / 9  // Changed from fixed height to responsive aspectRatio
+              aspectRatio: 16 / 9
             }}
-            contentFit="cover"  // Changed from "contain" to "cover"
+            contentFit="cover"
             nativeControls={false}
           />
           <View style={{ position: 'absolute', top: 8, right: 8, padding: 6, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.5)' }}>
@@ -430,7 +429,6 @@ export default function CommentScreen({
       </TouchableOpacity>
     );
   }, [currentVideoIndex, openFullScreenVideo]);
-
 
   const fetchPostData = async (itemId: string, itemType: string) => {
     setPostLoading(true);
@@ -548,7 +546,6 @@ export default function CommentScreen({
 
   const fetchCommentTemplate = useCallback(async (passedCommentTemplate: any) => {
     try {
-      // const collCommentTempPost = collection(db, 'SentimentTemplates');
       const collCommentTempPost = collection(db, 'templates');
       console.log("Comment Template Called");
 
@@ -565,12 +562,10 @@ export default function CommentScreen({
           console.log("Comment Template Passed: ", passedCommentTemplate);
           console.log("Comment Template Fetched: ", postData);
 
-          // if("Sentinel Default Template" == postData.name) {
           if(passedCommentTemplate == postData.name) {
             const optionsField = postData.options;
 
             optionsField.map((nestedOption, index) => {
-              // Get the key (e.g., "option1") and the value (the {icon, title} map)
               const optionKey = Object.keys(nestedOption)[0];
               const optionDetails = nestedOption[optionKey];
 
@@ -652,45 +647,28 @@ export default function CommentScreen({
   };
 
   const handleSubmitResponse = async (optionId: string) => {
-    // if (!selectedOption || !postId || !postType) return;
-
     setIsSubmitting(true);
     
     try {
-      // const selectedOptionData = RESPONSE_OPTIONS.find(opt => opt.id === selectedOption);
       const selectedOptionData = RESPONSE_OPTIONS.find(opt => opt.id === optionId);
       const commentText = selectedOptionData?.label || '';
       
       if (isEditMode && userExistingComment) {
-        const commentRef = doc(db, postType, postId, 'Comments', userExistingComment.id);
+        const commentRef = doc(db, postType!, postId!, 'Comments', userExistingComment.id);
         await updateDoc(commentRef, {
           Comment: commentText,
-          // selectedOptions: [selectedOption],
           selectedOptions: [optionId],
           commentType: 'structured'
         });
         console.log('Comment updated successfully');
         setIsEditMode(false);
-      // } else if (replyingTo) {
-      //   const repliesRef = collection(db, postType, postId, 'Comments', replyingTo, 'Replies');
-      //   const postDocRef = await addDoc(repliesRef, {
-      //     AuthorImageURL: userImage || dummyAuthorImage,
-      //     AuthorName: userName,
-      //     CommentDate: new Date(),
-      //     Comment: commentText,
-      //     selectedOptions: [selectedOption],
-      //     commentType: 'structured',
-      //     userId: userId
-      //   });
-      //   console.log('Structured Reply Post ID: ', postDocRef.id);
       } else {
-        const commentRef = collection(db, postType, postId, 'Comments');
+        const commentRef = collection(db, postType!, postId!, 'Comments');
         const postDocRef = await addDoc(commentRef, {
           AuthorImageURL: userImage || dummyAuthorImage,
           AuthorName: userName,
           CommentDate: new Date(),
           Comment: commentText,
-          // selectedOptions: [selectedOption],
           selectedOptions: [optionId],
           commentType: 'structured',
           userId: userId
@@ -823,8 +801,7 @@ export default function CommentScreen({
     }
   };
 
-  // UPDATED: Render media content with click to fullscreen - SAME AS LANDING PAGE
-    const renderMediaContent = (post: PostData) => {
+  const renderMediaContent = (post: PostData) => {
     const mediaUrls = post.ContentURLs && post.ContentURLs.length > 0 ? post.ContentURLs : 
                     (post.ContentURL ? [post.ContentURL] : []);
     
@@ -841,14 +818,13 @@ export default function CommentScreen({
             activeOpacity={0.95}
           >
             <View style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', backgroundColor: '#f5f5f5' }}>
-              {/* Single Full-Width Image - No Blur Background */}
               <Image
                 source={{ uri: primaryMediaUrl }}
                 style={{
                   width: '100%',
-                  aspectRatio: 16 / 9, // Changed from fixed height to responsive
+                  aspectRatio: 16 / 9,
                 }}
-                resizeMode="cover" // Changed from 'contain' to fill entire area
+                resizeMode="cover"
                 resizeMethod="resize"
                 onError={(error) => {
                   console.log("Image load error:", error.nativeEvent.error);
@@ -880,41 +856,37 @@ export default function CommentScreen({
     return null;
   };
 
-
   const renderStructuredComment = (comment: Comment | Reply) => {
     if (comment.commentType === 'structured' && comment.selectedOptions && comment.selectedOptions.length > 0) {
       return (
-        <View style={{ marginTop: 4 }}>
+        <View style={{ marginTop: 6 }}>
           {comment.selectedOptions.map((option, index) => {
             const optionData = RESPONSE_OPTIONS.find(opt => opt.id === option);
             return (
               <View 
                 key={index}
                 style={{
-                  backgroundColor: '#f0f8ff',
+                  backgroundColor: '#f8f8f8',
                   borderRadius: 8,
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
+                  paddingHorizontal: 10,
+                  paddingVertical: 8,
                   marginBottom: 4,
-                  borderLeftWidth: 3,
-                  borderLeftColor: '#007aff',
                   flexDirection: 'row',
                   alignItems: 'center'
                 }}
               >
                 <Image
                   source={{ uri: optionData?.icon}}
-                  style={{ width: 64, height: 40 }}
+                  style={{ width: 28, height: 28, marginRight: 8 }}
                   resizeMode="contain"
                   resizeMethod="resize"
                 />
                 <View style={{ flex: 1 }}> 
                   <Text 
                     style={{ 
-                      fontSize: 13, 
-                      color: '#007aff', 
-                      fontWeight: '500', 
-                      // Option to force wrap, though usually default
+                      fontSize: 14, 
+                      color: '#000', 
+                      fontWeight: '400',
                       flexWrap: 'wrap', 
                   }}
                   >
@@ -929,7 +901,7 @@ export default function CommentScreen({
     }
     
     return (
-      <Text style={{ fontSize: 14, color: '#000', lineHeight: 18, marginBottom: 8 }}>
+      <Text style={{ fontSize: 14, color: '#000', lineHeight: 18, marginTop: 4 }}>
         {comment.Comment}
       </Text>
     );
@@ -951,7 +923,6 @@ export default function CommentScreen({
       setIsEditMode(false);
       setShowMenuModal(false);
       setSelectedCommentId(null);
-      // NEW: Close full screen modals
       closeFullScreenImage();
       closeFullScreenVideo();
     }
@@ -977,16 +948,16 @@ export default function CommentScreen({
               alignItems: 'center',
               justifyContent: 'space-between',
               paddingHorizontal: 16,
-              paddingTop: Platform.OS === 'ios' ? insets.top + 12 : insets.top + 20,
-              paddingBottom: 16,
+              paddingTop: Platform.OS === 'ios' ? insets.top + 8 : insets.top + 16,
+              paddingBottom: 12,
               borderBottomWidth: 0.5,
               borderBottomColor: '#e5e5e5'
             }}
           >
-            <TouchableOpacity onPress={onClose} style={{ padding: 8 }}>
+            <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
               <Ionicons name="close" size={24} color="#000" />
             </TouchableOpacity>
-            <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#000' }}>
+            <Text style={{ fontSize: 17, fontWeight: '600', color: '#000' }}>
               Comments
             </Text>
             <TouchableOpacity 
@@ -994,14 +965,14 @@ export default function CommentScreen({
               onPress={handleGraphPress}
               activeOpacity={0.7}
             >
-              <Feather name="bar-chart-2" size={21} color="#000" />
+              <Feather name="bar-chart-2" size={20} color="#000" />
             </TouchableOpacity>
           </View>
 
           <ScrollView 
             style={{ flex: 1 }}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 100 }}
+            contentContainerStyle={{ paddingBottom: userExistingComment ? 20 : 100 }}
           >
             {/* POST CONTENT SECTION */}
             {postLoading ? (
@@ -1009,39 +980,37 @@ export default function CommentScreen({
                 <ActivityIndicator size="large" color="#0ea5e9" />
               </View>
             ) : postDataState ? (
-              <View style={{ backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 20 }}>
+              <View style={{ backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 16 }}>
                 {/* Post Header */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
                   <Image
-                    // source={{ uri: postDataState.AuthorImageURL || dummyAuthorImage }}
-                    source={{ uri: changedAuthorImage }}
+                    source={{ uri: changedAuthorImage || dummyAuthorImage }}
                     style={{ 
-                      width: 48, 
-                      height: 48, 
-                      borderRadius: 24, 
-                      marginRight: 12,
+                      width: 32, 
+                      height: 32, 
+                      borderRadius: 16, 
+                      marginRight: 10,
                       backgroundColor: '#e8e8e8' 
                     }}
                     resizeMode="cover"
                     resizeMethod="resize"
                   />
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontWeight: 'bold', fontSize: 16, color: '#000' }}>
-                      {/* {postDataState.AuthorName} */}
+                    <Text style={{ fontWeight: '600', fontSize: 15, color: '#000' }}>
                       {changedAuthorName}
                     </Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                    {postDataState.postType != 'X-Data' && (
-                      <View className="bg-blue-100 px-1 py-0.5 rounded-full mr-1.5">
-                        <Text className="text-blue-600 text-xs font-regular">• {postDataState.contentType}</Text>
-                      </View>
-                    )}
-                    {postDataState.postType === 'X-Data' && (
-                      <View className="bg-blue-100 px-0.5 py-0.5 rounded-full mr-1.5">
-                        <Text className="text-blue-600 text-xs font-semibold">𝕏 POST</Text>
-                      </View>
-                    )}
-                      <Text style={{ fontSize: 14, color: '#8e8e93', marginLeft: 8 }}>
+                      {postDataState.postType != 'X-Data' && (
+                        <View style={{ backgroundColor: '#e8f4ff', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, marginRight: 6 }}>
+                          <Text style={{ color: '#0066cc', fontSize: 11, fontWeight: '400' }}>• {postDataState.contentType}</Text>
+                        </View>
+                      )}
+                      {postDataState.postType === 'X-Data' && (
+                        <View style={{ backgroundColor: '#e8f4ff', paddingHorizontal: 4, paddingVertical: 2, borderRadius: 10, marginRight: 6 }}>
+                          <Text style={{ color: '#0066cc', fontSize: 11, fontWeight: '600' }}>𝕏 POST</Text>
+                        </View>
+                      )}
+                      <Text style={{ fontSize: 13, color: '#8e8e93' }}>
                         {getTimeAgo(postDataState.ContentDate)}
                       </Text>
                     </View>
@@ -1049,8 +1018,8 @@ export default function CommentScreen({
                 </View>
 
                 {/* Post Content */}
-                <View style={{ padding: 16 }}>
-                  <Text style={{ fontSize: 16, color: "#000", lineHeight: 20, marginBottom: 8 }}>
+                <View style={{ paddingVertical: 4 }}>
+                  <Text style={{ fontSize: 14, color: "#000", lineHeight: 18, marginBottom: 8 }}>
                     {renderStyledPostText(postDataState.ContentDesc)}
                   </Text>
                 </View>
@@ -1071,15 +1040,15 @@ export default function CommentScreen({
             {loading ? (
               <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 50 }}>
                 <ActivityIndicator size="large" color="#0ea5e9" />
-                <Text style={{ color: '#8e8e93', fontSize: 16, marginTop: 12 }}>Loading comments...</Text>
+                <Text style={{ color: '#8e8e93', fontSize: 14, marginTop: 12 }}>Loading comments...</Text>
               </View>
             ) : comments.length === 0 ? (
               <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 100 }}>
                 <Ionicons name="chatbubble-outline" size={60} color="#c7c7cc" />
-                <Text style={{ fontSize: 20, color: '#000', fontWeight: 'bold', marginTop: 16 }}>
+                <Text style={{ fontSize: 18, color: '#000', fontWeight: '600', marginTop: 16 }}>
                   No responses yet
                 </Text>
-                <Text style={{ color: '#8e8e93', fontSize: 16, marginTop: 8 }}>
+                <Text style={{ color: '#8e8e93', fontSize: 14, marginTop: 8 }}>
                   Be the first to respond!
                 </Text>
               </View>
@@ -1091,16 +1060,17 @@ export default function CommentScreen({
                     <View style={{
                       flexDirection: 'row',
                       paddingHorizontal: 16,
-                      paddingVertical: 12,
+                      paddingVertical: 10,
                       alignItems: 'flex-start'
                     }}>
+                      {/* Avatar - 32x32 */}
                       <Image 
                         source={{ uri: comment.AuthorImageURL || dummyAuthorImage }} 
                         style={{ 
                           width: 32, 
                           height: 32, 
                           borderRadius: 16, 
-                          marginRight: 12,
+                          marginRight: 10,
                           backgroundColor: '#e8e8e8' 
                         }}
                         resizeMode="cover"
@@ -1108,31 +1078,36 @@ export default function CommentScreen({
                       />
                       
                       <View style={{ flex: 1 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginBottom: 2 }}>
-                          <Text style={{ fontWeight: 'bold', fontSize: 14, color: '#000', marginRight: 12 }}>
+                        {/* Username Row with 3 dots on RIGHT */}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <Text style={{ fontWeight: '600', fontSize: 14, color: '#000' }}>
                             {comment.AuthorName}
                           </Text>
-                          <Text style={{ fontSize: 12, color: '#8e8e93' }}>
-                            {getTimeAgo(comment.CommentDate)}
-                          </Text>
                           
+                          {/* Three dots menu */}
                           {comment.userId === userId && (
                             <TouchableOpacity 
                               onPress={(event) => handleThreeDotsPress(comment.id, event)}
-                              style={{ marginLeft: 'auto', padding: 4 }}
+                              style={{ padding: 4 }}
                             >
-                              <MaterialIcons name="more-horiz" size={16} color="#8e8e93" />
+                              <MaterialIcons name="more-horiz" size={18} color="#8e8e93" />
                             </TouchableOpacity>
                           )}
                         </View>
+
+                        {/* "added a comment" on NEW LINE below username */}
+                        <Text style={{ fontSize: 12, color: '#999', marginTop: 2, marginBottom: 6 }}>
+                          added a comment · {getTimeAgo(comment.CommentDate)}
+                        </Text>
                         
+                        {/* Comment Content */}
                         {renderStructuredComment(comment)}
                       </View>
                     </View>
 
                     {/* Replies */}
                     {comment.replies && comment.replies.length > 0 && (
-                      <View style={{ marginLeft: 60, borderLeftWidth: 1, borderLeftColor: '#f2f2f2' }}>
+                      <View style={{ marginLeft: 58, borderLeftWidth: 1, borderLeftColor: '#f2f2f2' }}>
                         {comment.replies.map((reply) => (
                           <View 
                             key={reply.id}
@@ -1157,14 +1132,12 @@ export default function CommentScreen({
                             />
                             
                             <View style={{ flex: 1 }}>
-                              <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginBottom: 2 }}>
-                                <Text style={{ fontWeight: 'bold', fontSize: 13, color: '#000', marginRight: 8 }}>
-                                  {reply.AuthorName}
-                                </Text>
-                                <Text style={{ fontSize: 11, color: '#8e8e93' }}>
-                                  {getTimeAgo(reply.CommentDate)}
-                                </Text>
-                              </View>
+                              <Text style={{ fontWeight: '600', fontSize: 13, color: '#000' }}>
+                                {reply.AuthorName}
+                              </Text>
+                              <Text style={{ fontSize: 11, color: '#999', marginTop: 2, marginBottom: 4 }}>
+                                added a comment · {getTimeAgo(reply.CommentDate)}
+                              </Text>
                               
                               {renderStructuredComment(reply)}
                             </View>
@@ -1178,61 +1151,47 @@ export default function CommentScreen({
             )}
           </ScrollView>
 
-          {/* Add Response Button */}
-          <View style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            backgroundColor: '#fff',
-            borderTopWidth: 0.5,
-            borderTopColor: '#e5e5e5',
-            paddingHorizontal: 16,
-            paddingVertical: 12,
-            paddingBottom: insets.bottom + 12
-          }}>
-            <TouchableOpacity
-              onPress={() => {
-                if (userExistingComment) {
-                  Alert.alert(
-                    "Edit Your Response",
-                    "You have already responded to this post. Would you like to edit your existing response?",
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      { 
-                        text: "Edit", 
-                        onPress: () => handleEditComment(userExistingComment)
-                      }
-                    ]
-                  );
-                } else {
-                  setShowResponseModal(true);
-                }
-              }}
-              style={{
-                backgroundColor: userExistingComment ? '#000000' : '#FF3B30',
-                borderRadius: 12,
-                paddingVertical: 16,
-                alignItems: 'center',
-                flexDirection: 'row',
-                justifyContent: 'center'
-              }}
-            >
-              <Ionicons 
-                name={userExistingComment ? "pencil" : "add"} 
-                size={20} 
-                color="#fff" 
-                style={{ marginRight: 8 }} 
-              />
-              <Text style={{
-                color: '#fff',
-                fontSize: 18,
-                fontWeight: '600'
-              }}>
-                {userExistingComment ? 'Edit Response' : 'Add Response'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          {/* ✅ UPDATED: Show "Add Response" button ONLY if user has NOT commented yet */}
+          {!userExistingComment && (
+            <View style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              backgroundColor: '#fff',
+              borderTopWidth: 0.5,
+              borderTopColor: '#e5e5e5',
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              paddingBottom: insets.bottom + 12
+            }}>
+              <TouchableOpacity
+                onPress={() => setShowResponseModal(true)}
+                style={{
+                  backgroundColor: '#FF3B30',
+                  borderRadius: 12,
+                  paddingVertical: 14,
+                  alignItems: 'center',
+                  flexDirection: 'row',
+                  justifyContent: 'center'
+                }}
+              >
+                <Ionicons 
+                  name="add" 
+                  size={18} 
+                  color="#fff" 
+                  style={{ marginRight: 8 }} 
+                />
+                <Text style={{
+                  color: '#fff',
+                  fontSize: 16,
+                  fontWeight: '600'
+                }}>
+                  Add Response
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* Three Dots Menu Modal */}
           {showMenuModal && (
@@ -1264,11 +1223,12 @@ export default function CommentScreen({
                   shadowRadius: 8,
                   elevation: 8,
                 }}>
-                  {/* <TouchableOpacity
+                  <TouchableOpacity
                     onPress={() => {
-                      // const comment = comments.find(c => c.id === selectedCommentId);
-                      // if (comment) handleEditComment(comment);
-                      if(userExistingComment) handleEditComment(userExistingComment);
+                      const comment = comments.find(c => c.id === selectedCommentId);
+                      if (comment) {
+                        handleEditComment(comment);
+                      }
                     }}
                     style={{
                       paddingHorizontal: 16,
@@ -1281,7 +1241,7 @@ export default function CommentScreen({
                     <Text style={{ marginLeft: 10, fontSize: 14, color: '#007AFF' }}>
                       Edit
                     </Text>
-                  </TouchableOpacity> */}
+                  </TouchableOpacity>
                   
                   <View style={{ height: 0.5, backgroundColor: '#e5e5e5', marginHorizontal: 8 }} />
                   
@@ -1297,7 +1257,7 @@ export default function CommentScreen({
                     }}
                   >
                     <Ionicons name="trash" size={16} color="#FF3B30" />
-                    <Text style={{ marginLeft: 10, fontSize: 14, color: '#FF3B30' }}>
+                    <Text style={{ marginLeft: 10, fontSize: 14, color:"#FF3B30" }}>
                       Delete
                     </Text>
                   </TouchableOpacity>
@@ -1308,7 +1268,7 @@ export default function CommentScreen({
         </View>
       </Modal>
 
-      {/* NEW: IMAGE MODAL - SAME AS LANDING PAGE */}
+      {/* IMAGE MODAL */}
       <Modal
         visible={isImageModalVisible}
         transparent={true}
@@ -1333,7 +1293,7 @@ export default function CommentScreen({
           </TouchableOpacity>
           
           <TouchableOpacity 
-            className="flex-1 justify-center items-center"
+            style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
             activeOpacity={1}
             onPress={closeFullScreenImage}
           >
@@ -1342,10 +1302,9 @@ export default function CommentScreen({
                 source={{ uri: fullScreenImage }}
                 style={{
                   width: '100%',
-                  height: '100%', // Fills the parent View
+                  height: '100%',
                 }}
-                // No className here, as the background image is now handled by the other Image
-                resizeMode="contain" // Ensures the full foreground image is visible
+                resizeMode="contain"
                 resizeMethod="resize"
                 onError={(error) => {
                   console.log("Image load error:", error.nativeEvent.error);
@@ -1356,7 +1315,7 @@ export default function CommentScreen({
         </View>
       </Modal>
 
-      {/* NEW: VIDEO MODAL - SAME AS LANDING PAGE */}
+      {/* VIDEO MODAL */}
       <Modal
         visible={isVideoModalVisible}
         transparent={true}
@@ -1461,83 +1420,54 @@ export default function CommentScreen({
 
             {/* Response Options Grid */}
             {isSubmitting ? (
-                    <ActivityIndicator size="large" color="#000" />
-                  ) : (
-                    <View style={{
-                      flexDirection: 'row',
-                      flexWrap: 'wrap',
-                      justifyContent: 'space-between',
-                      marginBottom: 24
+              <ActivityIndicator size="large" color="#000" />
+            ) : (
+              <View style={{
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                justifyContent: 'space-between',
+                marginBottom: 24
+              }}>
+                {RESPONSE_OPTIONS.map((option) => (
+                  <TouchableOpacity
+                    key={option.index}
+                    onPress={() => handleOptionSelect(option.id)}
+                    style={{
+                      width: '48%',
+                      backgroundColor: '#f5f5f5',
+                      borderRadius: 16,
+                      paddingVertical: 24,
+                      paddingHorizontal: 16,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: 12,
+                      borderWidth: selectedOption === option.id ? 3 : 0,
+                      borderColor: selectedOption === option.id ? '#000000' : 'transparent',
+                      shadowColor: selectedOption === option.id ? '#000000' : 'transparent',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: selectedOption === option.id ? 0.1 : 0,
+                      shadowRadius: 4,
+                      elevation: selectedOption === option.id ? 4 : 0,
+                    }}
+                  >
+                    <Image
+                      source={{ uri: option.icon}}
+                      style={{ width: 64, height: 40 }}
+                      resizeMode="contain"
+                      resizeMethod="resize"
+                    />
+                    <Text style={{
+                      fontSize: 16,
+                      fontWeight: '600',
+                      color: '#000',
+                      textAlign: 'center'
                     }}>
-                      {RESPONSE_OPTIONS.map((option) => (
-                        <TouchableOpacity
-                          key={option.index}
-                          onPress={() => handleOptionSelect(option.id)}
-                          style={{
-                            width: '48%',
-                            backgroundColor: '#f5f5f5',
-                            borderRadius: 16,
-                            paddingVertical: 24,
-                            paddingHorizontal: 16,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            marginBottom: 12,
-                            borderWidth: selectedOption === option.id ? 3 : 0,
-                            borderColor: selectedOption === option.id ? '#000000' : 'transparent',
-                            shadowColor: selectedOption === option.id ? '#000000' : 'transparent',
-                            shadowOffset: { width: 0, height: 2 },
-                            shadowOpacity: selectedOption === option.id ? 0.1 : 0,
-                            shadowRadius: 4,
-                            elevation: selectedOption === option.id ? 4 : 0,
-                          }}
-                        >
-                          <Image
-                            source={{ uri: option.icon}}
-                            style={{ width: 64, height: 40 }}
-                            resizeMode="contain"
-                            resizeMethod="resize"
-                          />
-                          <Text style={{
-                            fontSize: 16,
-                            fontWeight: '600',
-                            color: '#000',
-                            textAlign: 'center'
-                          }}>
-                            {option.label}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
-            
-
-            {/* Submit Button */}
-            {/* <TouchableOpacity
-              onPress={handleSubmitResponse}
-              disabled={isSubmitting || !selectedOption}
-              style={{
-                backgroundColor: selectedOption ? '#FF3B30' : '#E5E5E5',
-                borderRadius: 12,
-                paddingVertical: 16,
-                alignItems: 'center',
-                opacity: (isSubmitting || !selectedOption) ? 0.6 : 1
-              }}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={{
-                  color: selectedOption ? '#fff' : '#999',
-                  fontSize: 18,
-                  fontWeight: '600'
-                }}>
-                  {selectedOption 
-                    ? `${isEditMode ? 'Update' : 'Submit'} "${RESPONSE_OPTIONS.find(opt => opt.id === selectedOption)?.label}"` 
-                    : 'Select Your Response'
-                  }
-                </Text>
-              )}
-            </TouchableOpacity> */}
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
         </View>
       </Modal>
