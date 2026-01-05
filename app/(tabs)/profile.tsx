@@ -2647,19 +2647,31 @@ const handleRepost = useCallback(async (postItem: PostItem) => {
   }
 
   try {
-    const shareContent = {
-      title: `Post by ${postItem.AuthorName}`,
-      message: `Check out this post: ${renderStyledPostText(postItem.ContentDesc.substring(0, 100))}${postItem.ContentDesc.length > 100 ? '...' : ''}`,
-      url: postItem.ContentURL || undefined,
-    };
-    await Share.share(shareContent);
-    Toast.show({
-      type: 'success',
-      text1: 'Post Shared',
-      text2: 'Post shared successfully!',
-      position: 'bottom',
-      visibilityTime: 2000,
-    });
+    // const shareContent = {
+    //   title: `Post by ${postItem.AuthorName}`,
+    //   message: `Check out this post: ${renderStyledPostText(postItem.ContentDesc.substring(0, 100))}${postItem.ContentDesc.length > 100 ? '...' : ''}`,
+    //   url: postItem.ContentURL || undefined,
+    // };
+    // await Share.share(shareContent);
+    // Toast.show({
+    //   type: 'success',
+    //   text1: 'Post Shared',
+    //   text2: 'Post shared successfully!',
+    //   position: 'bottom',
+    //   visibilityTime: 2000,
+    // });
+
+    const postUrl = `https://main.d29wx1onz1k3b1.amplifyapp.com/post/${postItem?.id}`;
+
+    const shareMessage = `🔗 Tap to view on ironex:
+      ${postUrl}`;
+
+      await Share.share({
+        message: `${shareMessage}\n${postUrl}`,
+        url: postUrl,
+        title: '✨ Check out this Sentinel post',
+      });
+
   } catch (error) {
     console.error('Error sharing post:', error);
     Toast.show({
