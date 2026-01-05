@@ -5,8 +5,8 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 
 import AppInfoModal from '@/components/AppInfoModal'; // Add this line
 import EditProfileScreen from '@/components/EditProfileScreen';
-import PasswordVerificationModal from '@/components/PasswordVerificationModal';
 import HelpScreen from '@/components/HelpScreen';
+import PasswordVerificationModal from '@/components/PasswordVerificationModal';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
@@ -1680,6 +1680,7 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
         fetchuserName,
         fetchuserNickName,
         fetchProfilePic,
+        fetchUserBio,
         fetchAccessToken
       ] = await AsyncStorage.multiGet([
         'userId',
@@ -1687,6 +1688,7 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
         'userName',
         'userNickName',
         'profilePicUrl',
+        'userBio',
         'userToken'
       ]);
       
@@ -1709,6 +1711,10 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
       if (fetchProfilePic[1]) {
         setProfilePicUrl(fetchProfilePic[1]);
         console.log("✅ profilePicUrl loaded and set:", fetchProfilePic[1]);
+      }
+      if (fetchUserBio[1]) {
+        setUserBio(fetchUserBio[1]);
+        console.log("✅ userBio loaded and set:", fetchUserBio[1]);
       }
 
     } catch (error) {
