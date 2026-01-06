@@ -70,6 +70,26 @@ interface PostItem {
   isAnonymous: boolean;
   contentType: string;
   isEducational: boolean;
+  moderationData?: {
+    categories?: {
+      harassment?: boolean;
+      'harassment/threatening'?: boolean;
+      hate?: boolean;
+      'hate/threatening'?: boolean;
+      illicit?: boolean;
+      'illicit/violent'?: boolean;
+      'self-harm'?: boolean;
+      'self-harm/instructions'?: boolean;
+      'self-harm/intent'?: boolean;
+      sexual?: boolean;
+      'sexual/minors'?: boolean;
+      violence?: boolean;
+      'violence/graphic'?: boolean;
+    };
+    checkedAt?: any;
+    flagged?: boolean;
+    violations?: string[];
+  };
 }
 
 interface MediaCarouselProps {
@@ -1476,6 +1496,8 @@ export default function SentinelFeed(): React.JSX.Element {
             isAnonymous: postData.isAnonymous || false,
             contentType: postData.contentType || 'My Thoughts',
             isEducational: postData.isEducational || false,
+            moderationData: postData.moderationData || null,
+
           });
         }
 
@@ -1678,6 +1700,8 @@ export default function SentinelFeed(): React.JSX.Element {
             isAnonymous: postData.isAnonymous || false,
             contentType: postData.contentType || 'My Thoughts',
             isEducational: postData.isEducational || false,
+            moderationData: postData.moderationData || null,
+
           });
         }
 
@@ -3493,86 +3517,90 @@ export default function SentinelFeed(): React.JSX.Element {
                 onPress={(e) => e.stopPropagation()}
                 activeOpacity={1}
               >
-                <View className="mt-3 px-3 py-2.5 bg-white rounded-lg border border-gray-200">
-                  {/* Single row with icon, text, and buttons */}
-                  <View className="flex-row items-center justify-between">
-                    {/* Left side: Icon + Post Status + Description */}
-                    <View className="flex-1 mr-3">
-                      <View className="flex-row items-center mb-1">
-                        <Ionicons
-                          name="information-circle-outline"
-                          size={18}
-                          color="#64748b"
-                        />
-                        <Text className="font-semibold text-gray-900 text-sm ml-1.5">
-                          Post Status
+                <View className="mt-3 px-3 py-3 bg-white rounded-lg border border-gray-200">
+                  {/* Header Row */}
+                  <View className="flex-row items-center mb-1">
+                    <Ionicons
+                      name="information-circle-outline"
+                      size={18}
+                      color="#64748b"
+                    />
+                    <Text className="font-semibold text-gray-900 text-sm ml-1.5">
+                      Post Status
+                    </Text>
+                  </View>
+                  
+                  {/* Status Text */}
+                  <Text className="text-gray-500 text-xs leading-4 mb-2">
+                    {item.isNew
+                      ? "This post is new and awaiting review"
+                      : item.isApproved
+                      ? "This post is approved and visible to users"
+                      : "This post is rejected and not visible to users"}
+                  </Text>
+                  
+                  {/* Violations Display - Full width row */}
+                  {item.isNew && item.moderationData?.violations && item.moderationData.violations.length > 0 && (
+                    <View className="flex-row items-center mb-3 bg-amber-50 px-2 py-1.5 rounded-lg">
+                      <Ionicons name="alert-circle" size={12} color="#f59e0b" />
+                      <Text className="text-xs text-gray-600 ml-1 flex-1">
+                        <Text className="text-amber-700 font-medium">
+                          This post is flagged for: {item.moderationData.violations.join(", ")}
                         </Text>
-                      </View>
-                      <Text className="text-gray-500 text-xs leading-4">
-                        {item.isNew
-                          ? "This post is new and awaiting review"
-                          : item.isApproved
-                          ? "This post is approved and visible to users"
-                          : "This post is rejected and not visible to users"}
                       </Text>
                     </View>
-
-                    {/* Right side: Buttons in a row */}
-                    <View className="flex-row items-center gap-2">
-                      {/* ✅ APPROVE BUTTON - Direct approval */}
-                      <TouchableOpacity
-                        onPress={() => handleApprovalToggle(item.id, true, false, item.AuthorUserID)}
-                        className={`flex-row items-center justify-center px-3 py-1.5 rounded-lg ${
-                          item.isApproved && !item.isNew
-                            ? "bg-green-500"
-                            : "bg-white border border-green-500"
+                  )}
+                  
+                  {/* Buttons Row */}
+                  <View className="flex-row items-center gap-2">
+                    <TouchableOpacity
+                      onPress={() => handleApprovalToggle(item.id, true, false, item.AuthorUserID)}
+                      className={`flex-1 flex-row items-center justify-center py-2 rounded-lg ${
+                        item.isApproved && !item.isNew
+                          ? "bg-green-500"
+                          : "bg-white border border-green-500"
+                      }`}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={14}
+                        color={item.isApproved && !item.isNew ? "#fff" : "#22c55e"}
+                      />
+                      <Text
+                        className={`ml-1 text-xs font-semibold ${
+                          item.isApproved && !item.isNew ? "text-white" : "text-green-500"
                         }`}
-                        activeOpacity={0.7}
                       >
-                        <Ionicons
-                          name="checkmark-circle"
-                          size={14}
-                          color={item.isApproved && !item.isNew ? "#fff" : "#22c55e"}
-                        />
-                        <Text
-                          className={`ml-1 text-xs font-semibold ${
-                            item.isApproved && !item.isNew
-                              ? "text-white"
-                              : "text-green-500"
-                          }`}
-                        >
-                          Approve
-                        </Text>
-                      </TouchableOpacity>
+                        Approve
+                      </Text>
+                    </TouchableOpacity>
 
-                      {/* ✅ REJECT BUTTON - Opens rejection modal */}
-                      <TouchableOpacity
-                        onPress={() => openRejectionModal(item.id)}
-                        className={`flex-row items-center justify-center px-3 py-1.5 rounded-lg ${
-                          !item.isApproved && !item.isNew
-                            ? "bg-red-500"
-                            : "bg-white border border-red-500"
+                    <TouchableOpacity
+                      onPress={() => openRejectionModal(item.id)}
+                      className={`flex-1 flex-row items-center justify-center py-2 rounded-lg ${
+                        !item.isApproved && !item.isNew
+                          ? "bg-red-500"
+                          : "bg-white border border-red-500"
+                      }`}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name="close-circle"
+                        size={14}
+                        color={!item.isApproved && !item.isNew ? "#fff" : "#ef4444"}
+                      />
+                      <Text
+                        className={`ml-1 text-xs font-semibold ${
+                          !item.isApproved && !item.isNew ? "text-white" : "text-red-500"
                         }`}
-                        activeOpacity={0.7}
                       >
-                        <Ionicons
-                          name="close-circle"
-                          size={14}
-                          color={!item.isApproved && !item.isNew ? "#fff" : "#ef4444"}
-                        />
-                        <Text
-                          className={`ml-1 text-xs font-semibold ${
-                            !item.isApproved && !item.isNew
-                              ? "text-white"
-                              : "text-red-500"
-                          }`}
-                        >
-                          Reject
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
+                        Reject
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
+
               </TouchableOpacity>
             )}
             {userRole !== "User" && (
