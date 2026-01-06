@@ -1067,9 +1067,12 @@ const compressAndGetUrl = async (localUri) => {
       postText, 
       uploadedUrls.length > 0 ? uploadedUrls[0] : null
     );
+    console.log("🤖 AI Moderation Result:", uploadedUrls[0]);
+    console.log(moderationResult);
+    console.log("🚦 Post status:", postText);
     
     // Step 2: Determine approval status based on AI analysis
-    const isContentApproved = moderationResult.postStatus === 'appropriate';
+    const isContentApproved = moderationResult.postStatus === 'approved';
     const isFlagged = moderationResult.flagged;
     
     // Step 3: Save post to Firestore with moderation results
