@@ -42,6 +42,7 @@ interface Template {
 }
 
 interface PostItem {
+  AuthorBio: string;
   id: string;
   uniqueId: string;
   AuthorImageURL: string;
@@ -1000,6 +1001,9 @@ export default function SentinelFeed(): React.JSX.Element {
         userId: authorId,                 // item.AuthorUserID
         authorName: item.AuthorName,      // from post
         authorImageUrl: item.AuthorImageURL, // from post
+        isAnonymous: item.isAnonymous ? 'true' : 'false', // ✅ ADD THIS LINE
+        userBio: item.AuthorBio || '',  // ✅ ADD THIS LINE
+
       },
     });
   }; 
@@ -1472,6 +1476,7 @@ export default function SentinelFeed(): React.JSX.Element {
             id: postId,
             AuthorImageURL: postData.AuthorImageURL,
             AuthorName: postData.AuthorName,
+            AuthorBio: postData.AuthorBio || postData.Bio || '',  // ✅ ADD THIS
             AuthorUserID: postData.AuthorUserID || postData.repostedBy || '123456',
             ContentDate: postData.ContentDate,
             ContentDesc: postData.ContentDesc,
@@ -1557,6 +1562,7 @@ export default function SentinelFeed(): React.JSX.Element {
             id: postId,
             AuthorImageURL: postData.AuthorImageURL,
             AuthorName: postData.AuthorName,
+            AuthorBio: postData.AuthorBio || postData.Bio || '',  // ✅ ADD THIS
             AuthorUserID: postData.AuthorUserID || '',
             ContentDate: postData.ContentDate,
             ContentDesc: postData.ContentDesc,
@@ -1676,6 +1682,7 @@ export default function SentinelFeed(): React.JSX.Element {
             id: postId,
             AuthorImageURL: postData.AuthorImageURL,
             AuthorName: postData.AuthorName,
+            AuthorBio: postData.AuthorBio || postData.Bio || '',  // ✅ ADD THIS
             AuthorUserID: postData.AuthorUserID || postData.repostedBy || '123456',
             ContentDate: postData.ContentDate,
             ContentDesc: postData.ContentDesc,
@@ -3351,7 +3358,7 @@ export default function SentinelFeed(): React.JSX.Element {
                   >
                     <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
                       <Image
-                        source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
+                        source={{ uri: AuthorImage || dummyAuthorImage }}
                         className="w-full h-full"
                         resizeMode="cover"
                         resizeMethod="resize"
@@ -3722,7 +3729,7 @@ export default function SentinelFeed(): React.JSX.Element {
                   >
                     <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
                       <Image
-                        source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
+                        source={{ uri: AuthorImage || dummyAuthorImage }}
                         className="w-full h-full"
                         resizeMode="cover"
                         resizeMethod="resize"
