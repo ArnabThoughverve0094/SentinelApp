@@ -38,8 +38,9 @@ import Toast from "react-native-toast-message";
 import CommentsModal from "@/components/CommentsModal";
 import TotalSentiment from "@/components/TotalSentiment";
 
-const dummyAuthorImage =
-  "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person1029948-7040.jpg";
+const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
+
+
 
 const dummyHeaderImage =
   "https://images.pexels.com/photos/674010/pexels-photo-674010.jpeg";
@@ -247,17 +248,22 @@ const RepostModal: React.FC<RepostModalProps> = ({
   );
 };
 
-const getFullImageUrl = (profilePath?: string): string | undefined => {
-  if (!profilePath) return undefined;
+const getFullImageUrl = (profilePath?: string): string => {
+  const dummy = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
+  
+  if (!profilePath) return dummy;  // ✅ Return dummy instead of undefined
   if (profilePath.startsWith("http")) return profilePath;
   return `https://sentinal-uploads.s3.us-west-2.amazonaws.com${profilePath}`;
 };
 
 export default function UserProfileScreen() {
-  const { userId, authorName, authorImageUrl } = useLocalSearchParams<{
+  const { userId, authorName, authorImageUrl,isAnonymous,userBio } = useLocalSearchParams<{
     userId: string;
     authorName?: string;
     authorImageUrl?: string;
+    isAnonymous?: string;
+    userBio?: string;  // ✅ ADD THIS LINE
+
   }>();
 
   const router = useRouter();
@@ -458,7 +464,7 @@ export default function UserProfileScreen() {
               userName: (authorName as string) || "",
               userNickName: "",
               profilePicUrl: (authorImageUrl as string) || "",
-              userBio: "",
+              userBio: (userBio as string) || "",  // ✅ USE PARAM INSTEAD OF ""
               Website: undefined,
               website: undefined,
               FollowersCount: 0,
@@ -1038,12 +1044,24 @@ export default function UserProfileScreen() {
     await new Promise((r) => setTimeout(r, 200));
   }, []);
 
-  const avatar = getFullImageUrl(userDoc?.profilePicUrl) || dummyAuthorImage;
+    const avatar = React.useMemo(() => {
+    if (isAnonymous === 'true') {
+      return dummyAuthorImage;
+    }
+    
+    if (!userDoc?.profilePicUrl) {
+      return dummyAuthorImage;
+    }
+    
+    return getFullImageUrl(userDoc.profilePicUrl) || dummyAuthorImage;
+  }, [isAnonymous, userDoc?.profilePicUrl]);
 
-  const displayName =
-    (userDoc?.userName && userDoc.userName.trim()) ||
-    (userDoc?.userNickName && userDoc.userNickName.trim()) ||
-    "Unknown user";
+  const displayName = 
+  isAnonymous === 'true' 
+    ? 'Anonymous'
+    : (userDoc?.userName && userDoc.userName.trim()) ||
+      (userDoc?.userNickName && userDoc.userNickName.trim()) ||
+      "Unknown user";
 
   const handleWebsitePress = () => {
     const url = userDoc?.Website || userDoc?.website;
@@ -1258,10 +1276,20 @@ export default function UserProfileScreen() {
 
       <View className="absolute top-28 left-4 z-40">
         <Image
-          source={{ uri: avatar }}
+          source={{ 
+            uri: avatar || 'https://ui-avatars.com/api/?name=Anonymous&background=4F46E5'
+          }}
           className="w-24 h-24 rounded-full border-4 border-white bg-gray-200"
           resizeMode="cover"
+          key={`avatar-${isAnonymous}-${avatar}`}
+          onError={(error) => {
+            console.log('❌ IMAGE ERROR:', error.nativeEvent);
+          }}
+          onLoad={() => {
+            console.log('✅ IMAGE LOADED:', avatar);
+          }}
         />
+
       </View>
 
       <ScrollView
@@ -1291,12 +1319,18 @@ export default function UserProfileScreen() {
             )}
           </View>
 
+          {/* Display Name - Bold and Large */}
           <Text className="text-xl font-bold text-gray-900">{displayName}</Text>
-          {userDoc?.userNickName ? (
-            <Text className="text-sm text-gray-500">@{userDoc.userNickName}</Text>
-          ) : userDoc?.userName ? (
-            <Text className="text-sm text-gray-500">@{userDoc.userName}</Text>
-          ) : null}
+
+          {/* Username Handle - Small and Gray */}
+          {isAnonymous === 'true' ? (
+            <Text className="text-sm text-gray-500">@Anonymous</Text>
+          ) : (
+            <Text className="text-sm text-gray-500">
+              @{userDoc?.userNickName || userDoc?.userName || 'user'}
+            </Text>
+          )}
+  
 
           {loading ? (
             <View className="flex-row items-center mt-3">
