@@ -1476,7 +1476,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
                                 >
                                   <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
                                     <Image
-                                      source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
+                                      source={{ uri: AuthorImage || dummyAuthorImage }}
                                       className="w-full h-full"
                                       resizeMode="cover"
                                       resizeMethod="resize"
