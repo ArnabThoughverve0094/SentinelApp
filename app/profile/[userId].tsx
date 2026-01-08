@@ -38,8 +38,9 @@ import Toast from "react-native-toast-message";
 import CommentsModal from "@/components/CommentsModal";
 import TotalSentiment from "@/components/TotalSentiment";
 
-const dummyAuthorImage =
-  "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person1029948-7040.jpg";
+const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
+
+
 
 const dummyHeaderImage =
   "https://images.pexels.com/photos/674010/pexels-photo-674010.jpeg";
@@ -247,17 +248,22 @@ const RepostModal: React.FC<RepostModalProps> = ({
   );
 };
 
-const getFullImageUrl = (profilePath?: string): string | undefined => {
-  if (!profilePath) return undefined;
+const getFullImageUrl = (profilePath?: string): string => {
+  const dummy = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
+  
+  if (!profilePath) return dummy;  // ✅ Return dummy instead of undefined
   if (profilePath.startsWith("http")) return profilePath;
   return `https://sentinal-uploads.s3.us-west-2.amazonaws.com${profilePath}`;
 };
 
 export default function UserProfileScreen() {
-  const { userId, authorName, authorImageUrl } = useLocalSearchParams<{
+  const { userId, authorName, authorImageUrl,isAnonymous,userBio } = useLocalSearchParams<{
     userId: string;
     authorName?: string;
     authorImageUrl?: string;
+    isAnonymous?: string;
+    userBio?: string;  // ✅ ADD THIS LINE
+
   }>();
 
   const router = useRouter();
@@ -299,6 +305,9 @@ export default function UserProfileScreen() {
 
   // IMPROVED: Fetch current user's following list with real-time updates
   const fetchUserFollowing = useCallback(async () => {
+    if (isAnonymous === 'true') {
+      return;
+    }
     try {
       let fetchuserID = currentUserId;
       if (!fetchuserID) {
@@ -358,14 +367,34 @@ export default function UserProfileScreen() {
   }, [userId, followingUserIds]);
 
   // IMPROVED: Fetch profile user data with REAL-TIME UPDATES
+    // ✅ MODIFIED: Handle Anonymous profile data
   useEffect(() => {
     const fetchUser = async () => {
       if (!userId) return;
       setLoading(true);
+      
       try {
+        // ✅ If Anonymous user, set dummy data
+        if (isAnonymous === 'true') {
+          const mapped: UserDoc = {
+            userID: 'anonymous',
+            userName: 'Anonymous',
+            userNickName: 'Anonymous',
+            profilePicUrl: dummyAuthorImage,
+            userBio: userBio as string || 'This is an anonymous user',
+            Website: undefined,
+            website: undefined,
+            FollowersCount: 0,
+            Following: [],
+            PostsCount: 0,
+          };
+          setUserDoc(mapped);
+          setLoading(false);
+          return;
+        }
+
         const storedUserId = await AsyncStorage.getItem("userId");
 
-        // If viewing own profile, get data from AsyncStorage
         if (storedUserId && storedUserId === userId) {
           const [name, nickname, email, country, bio, profilePicUrl] =
             await AsyncStorage.multiGet([
@@ -377,7 +406,6 @@ export default function UserProfileScreen() {
               "profilePicUrl",
             ]);
 
-          // But still fetch real-time follower/following counts from Firestore
           const usersRef = collection(db, "SentinelUsers");
           const qSnap = query(usersRef, where("userID", "==", storedUserId));
           
@@ -410,7 +438,6 @@ export default function UserProfileScreen() {
           return () => unsubscribe();
         }
 
-        // For other users, fetch with real-time updates
         const usersRef = collection(db, "SentinelUsers");
         const qSnap = query(usersRef, where("userID", "==", userId as string));
 
@@ -418,7 +445,7 @@ export default function UserProfileScreen() {
           if (!snapshot.empty) {
             const userDocData = snapshot.docs[0];
             const data = userDocData.data() as DocumentData;
-            setProfileUserDocId(userDocData.id); // Store the document ID
+            setProfileUserDocId(userDocData.id);
 
             const mapped: UserDoc = {
               userID: data.userID || data.userId,
@@ -452,13 +479,12 @@ export default function UserProfileScreen() {
             setUserDoc(mapped);
             setLoading(false);
           } else {
-            // Create basic user info if document doesn't exist
             const mapped: UserDoc = {
               userID: userId,
               userName: (authorName as string) || "",
               userNickName: "",
               profilePicUrl: (authorImageUrl as string) || "",
-              userBio: "",
+              userBio: (userBio as string) || "",
               Website: undefined,
               website: undefined,
               FollowersCount: 0,
@@ -479,17 +505,27 @@ export default function UserProfileScreen() {
     };
 
     fetchUser();
-  }, [userId, authorName, authorImageUrl]);
+  }, [userId, authorName, authorImageUrl, isAnonymous, userBio]);
 
-  const fetchUserPosts = useCallback(async () => {
+ const fetchUserPosts = useCallback(async () => {
     if (!userId) return;
 
     try {
       const collSentinelRefPost = collection(db, "SentinelPosts");
-      const querySentinel = query(
-        collSentinelRefPost,
-        where("AuthorUserID", "==", userId as string)
-      );
+      
+      // ✅ If Anonymous profile, only show anonymous posts
+      let querySentinel;
+      if (isAnonymous === 'true') {
+        querySentinel = query(
+          collSentinelRefPost,
+          where("isAnonymous", "==", true)
+        );
+      } else {
+        querySentinel = query(
+          collSentinelRefPost,
+          where("AuthorUserID", "==", userId as string)
+        );
+      }
 
       const unsubscribeSentinel = onSnapshot(querySentinel, async (sentinelSnapshot) => {
         const sentineldataArr = sentinelSnapshot.docs.map((doc) => ({
@@ -506,6 +542,16 @@ export default function UserProfileScreen() {
 
           // FILTER: Only include APPROVED posts
           if (!postData.isApproved || postData.isNew) {
+            continue;
+          }
+
+          // ✅ Additional filter for anonymous profile: only show anonymous posts
+          if (isAnonymous === 'true' && !postData.isAnonymous) {
+            continue;
+          }
+
+          // ✅ Additional filter for regular profile: only show non-anonymous posts
+          if (isAnonymous !== 'true' && postData.isAnonymous) {
             continue;
           }
 
@@ -548,7 +594,6 @@ export default function UserProfileScreen() {
 
         setUserPosts(sortedPosts);
 
-        // Fetch comment counts
         sortedPosts.forEach((post) => {
           onSnapshot(collection(doc(db, post.postType, post.id), "Comments"), (commentsSnap) => {
             let totalComments = 0;
@@ -572,7 +617,7 @@ export default function UserProfileScreen() {
     } catch (error) {
       console.error("Error fetching user posts:", error);
     }
-  }, [userId]);
+  }, [userId, isAnonymous]);
 
   useEffect(() => {
     fetchUserPosts();
@@ -1038,12 +1083,24 @@ export default function UserProfileScreen() {
     await new Promise((r) => setTimeout(r, 200));
   }, []);
 
-  const avatar = getFullImageUrl(userDoc?.profilePicUrl) || dummyAuthorImage;
+    const avatar = React.useMemo(() => {
+    if (isAnonymous === 'true') {
+      return dummyAuthorImage;
+    }
+    
+    if (!userDoc?.profilePicUrl) {
+      return dummyAuthorImage;
+    }
+    
+    return getFullImageUrl(userDoc.profilePicUrl) || dummyAuthorImage;
+  }, [isAnonymous, userDoc?.profilePicUrl]);
 
-  const displayName =
-    (userDoc?.userName && userDoc.userName.trim()) ||
-    (userDoc?.userNickName && userDoc.userNickName.trim()) ||
-    "Unknown user";
+  const displayName = 
+  isAnonymous === 'true' 
+    ? 'Anonymous'
+    : (userDoc?.userName && userDoc.userName.trim()) ||
+      (userDoc?.userNickName && userDoc.userNickName.trim()) ||
+      "Unknown user";
 
   const handleWebsitePress = () => {
     const url = userDoc?.Website || userDoc?.website;
@@ -1258,10 +1315,20 @@ export default function UserProfileScreen() {
 
       <View className="absolute top-28 left-4 z-40">
         <Image
-          source={{ uri: avatar }}
+          source={{ 
+            uri: avatar || 'https://ui-avatars.com/api/?name=Anonymous&background=4F46E5'
+          }}
           className="w-24 h-24 rounded-full border-4 border-white bg-gray-200"
           resizeMode="cover"
+          key={`avatar-${isAnonymous}-${avatar}`}
+          onError={(error) => {
+            console.log('❌ IMAGE ERROR:', error.nativeEvent);
+          }}
+          onLoad={() => {
+            console.log('✅ IMAGE LOADED:', avatar);
+          }}
         />
+
       </View>
 
       <ScrollView
@@ -1274,7 +1341,11 @@ export default function UserProfileScreen() {
           <View className="h-5" />
 
           <View className="flex-row justify-end mb-3">
-            {isOwnProfile ? (
+            {isAnonymous === 'true' ? (
+              <View className="px-4 py-2 rounded-lg bg-gray-100">
+                <Text className="text-sm font-semibold text-gray-600">Anonymous User</Text>
+              </View>
+            ) : isOwnProfile ? (
               <View className="px-4 py-2 rounded-lg bg-blue-50">
                 <Text className="text-sm font-semibold text-blue-600">You</Text>
               </View>
@@ -1291,12 +1362,18 @@ export default function UserProfileScreen() {
             )}
           </View>
 
+          {/* Display Name - Bold and Large */}
           <Text className="text-xl font-bold text-gray-900">{displayName}</Text>
-          {userDoc?.userNickName ? (
-            <Text className="text-sm text-gray-500">@{userDoc.userNickName}</Text>
-          ) : userDoc?.userName ? (
-            <Text className="text-sm text-gray-500">@{userDoc.userName}</Text>
-          ) : null}
+
+          {/* Username Handle - Small and Gray */}
+          {isAnonymous === 'true' ? (
+            <Text className="text-sm text-gray-500">@Anonymous</Text>
+          ) : (
+            <Text className="text-sm text-gray-500">
+              @{userDoc?.userNickName || userDoc?.userName || 'user'}
+            </Text>
+          )}
+  
 
           {loading ? (
             <View className="flex-row items-center mt-3">
@@ -1316,14 +1393,17 @@ export default function UserProfileScreen() {
             </TouchableOpacity>
           )}
 
-          <View className="flex-row mt-3 mb-3">
-            <Text className="mr-4 text-sm text-gray-900">
-              <Text className="font-semibold">{userDoc?.Following?.length ?? 0}</Text> Following
-            </Text>
-            <Text className="text-sm text-gray-900">
-              <Text className="font-semibold">{userDoc?.FollowersCount ?? 0}</Text> Followers
-            </Text>
-          </View>
+          {/* ✅ MODIFIED: Hide follower/following counts for Anonymous users */}
+          {isAnonymous !== 'true' && (
+            <View className="flex-row mt-3 mb-3">
+              <Text className="mr-4 text-sm text-gray-900">
+                <Text className="font-semibold">{userDoc?.Following?.length ?? 0}</Text> Following
+              </Text>
+              <Text className="text-sm text-gray-900">
+                <Text className="font-semibold">{userDoc?.FollowersCount ?? 0}</Text> Followers
+              </Text>
+            </View>
+          )}
         </View>
 
         <View className="border-t border-gray-200 mt-2 pt-4">

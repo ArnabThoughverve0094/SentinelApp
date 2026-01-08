@@ -35,6 +35,7 @@ interface PostItem {
   AuthorUserID?: string;
   AuthorImageURL: string;
   AuthorName: string;
+  AuthorBio?: string;
   ContentDate: string;
   ContentDesc: string;
   ContentURL: string;
@@ -601,6 +602,8 @@ export default function BookmarksPage(): React.JSX.Element {
         userId: authorId,                 // item.AuthorUserID
         authorName: item.AuthorName,      // from post
         authorImageUrl: item.AuthorImageURL, // from post
+        isAnonymous: item.isAnonymous ? 'true' : 'false', // ✅ ADD THIS LINE
+        userBio: item.AuthorBio || '',  // ✅ ADD THIS LINE
       },
     });
   };
@@ -1476,7 +1479,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
                                 >
                                   <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
                                     <Image
-                                      source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
+                                      source={{ uri: AuthorImage || dummyAuthorImage }}
                                       className="w-full h-full"
                                       resizeMode="cover"
                                       resizeMethod="resize"
