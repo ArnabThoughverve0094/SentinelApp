@@ -1,15 +1,15 @@
-import React, { useState } from "react";
-import {
-  Text,
-  View,
-  TouchableOpacity,
-  SafeAreaView,
-  StatusBar,
-  Image,
-  ImageBackground,
-} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Link, router } from "expo-router";
+import React, { useState } from "react";
+import {
+  Image,
+  ImageBackground,
+  SafeAreaView,
+  StatusBar,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 
 export default function Index(): React.JSX.Element {
@@ -76,7 +76,7 @@ export default function Index(): React.JSX.Element {
           {/* Welcome text section */}
           <View className="mb-16">
             <Text className="text-3xl font-bold text-black mb-3 leading-tight">
-              Welcome{"\n"}to IronExSafe
+              Welcome{"\n"}to IronEx
             </Text>
             <Text className="text-base text-black/80 leading-6">
               Connect with your community and stay updated every time,

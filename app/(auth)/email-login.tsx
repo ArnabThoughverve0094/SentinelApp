@@ -332,11 +332,11 @@ export default function EmailLogin(): React.JSX.Element {
                     </View> */}
                     {/* Sentinel Text */}
                     {/* <Text className="text-3xl font-extrabold text-[#281C20]">entinel</Text> */}
-                    <Text className="text-3xl font-extrabold text-[#281C20]">IronExSafe</Text>
+                    <Text className="text-3xl font-extrabold text-[#281C20]">IronEx</Text>
                   </View>
                   {/* Logo Icon */}
-                  <Text className="text-sm text-[#281C20]">
-                    Exposing Antisemitism
+                  <Text className="text-xs text-[#281C20]">
+                  Structured Antisemitism Reporting
                   </Text>
                 </View>
               </TouchableOpacity>
