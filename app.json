@@ -11,8 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "in.thoughtverve.sentinel",
-      "icon": "./assets/images/new_logo.png",
-      "usesAppleSignIn": true
+      "icon": "./assets/images/new_logo.png"
     },
     "android": {
       "adaptiveIcon": {
