@@ -35,6 +35,7 @@ interface PostItem {
   AuthorUserID?: string;
   AuthorImageURL: string;
   AuthorName: string;
+  AuthorBio?: string;
   ContentDate: string;
   ContentDesc: string;
   ContentURL: string;
@@ -601,6 +602,8 @@ export default function BookmarksPage(): React.JSX.Element {
         userId: authorId,                 // item.AuthorUserID
         authorName: item.AuthorName,      // from post
         authorImageUrl: item.AuthorImageURL, // from post
+        isAnonymous: item.isAnonymous ? 'true' : 'false', // ✅ ADD THIS LINE
+        userBio: item.AuthorBio || '',  // ✅ ADD THIS LINE
       },
     });
   };
