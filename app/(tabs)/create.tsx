@@ -1061,101 +1061,186 @@ const compressAndGetUrl = async (localUri) => {
 
   // **NEW: Separated post creation**
   const createPost = async (uploadedUrls: string[], failedUploads: string[]) => {
-    try {
-      await addDoc(collection(db, 'SentinelPosts'), {
-        AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
-        AuthorName: userName,
-        AuthorNickName: userNickName,
-        AuthorUserID: userId,
-        ContentDate: new Date(),
-        ContentDesc: postText,
-        ContentURL: uploadedUrls.length > 0 ? uploadedUrls[0] : null,
-        ContentURLs: uploadedUrls,
-        ContentLikeCount: 0,
-        ContentRepostCount: 0,
-        CommentTemplate: "Sentinel Default Template",
-        isApproved: false,
-        isLiked: false,
-        isNew: true,
-        isAnonymous: isAnonymous,
-        contentType: selectedType,
-        isEducational: isEducationalEnabled, 
-      });
+  try {
+    // Step 1: Call AI moderation API to check content
+    const moderationResult = await checkPostContent(
+      postText, 
+      uploadedUrls.length > 0 ? uploadedUrls[0] : null
+    );
+    console.log("🤖 AI Moderation Result:", uploadedUrls[0]);
+    console.log(moderationResult);
+    console.log("🚦 Post status:", postText);
+    
+    // Step 2: Determine approval status based on AI analysis
+    const isContentApproved = moderationResult.postStatus === 'approved';
+    const isFlagged = moderationResult.flagged;
+    
+    // Step 3: Save post to Firestore with moderation results
+    await addDoc(collection(db, 'SentinelPosts'), {
+      AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+      AuthorName: userName,
+      AuthorNickName: userNickName,
+      AuthorUserID: userId,
+      ContentDate: new Date(),
+      ContentDesc: postText,
+      ContentURL: uploadedUrls.length > 0 ? uploadedUrls[0] : null,
+      ContentURLs: uploadedUrls,
+      ContentLikeCount: 0,
+      ContentRepostCount: 0,
+      CommentTemplate: "Sentinel Default Template",
+      isApproved: isContentApproved,
+      isLiked: false,
+      isNew: !isContentApproved, // If approved, not new for admin; if flagged, new for review
+      isAnonymous: isAnonymous,
+      contentType: selectedType,
+      isEducational: isEducationalEnabled,
+      // Add moderation metadata
+      moderationData: {
+        flagged: isFlagged,
+        violations: moderationResult.violations || [],
+        categories: moderationResult.categories || {},
+        checkedAt: new Date()
+      }
+    });
 
-      setPostText('');
-      setSelectedMedia([]);
-      
-      // Show success message with details
-      let successMessage = `Post submitted successfully! Kindly await admin review.`;
-      if (uploadedUrls.length > 0) {
-        successMessage += `\n\n✅ ${uploadedUrls.length} file(s) uploaded successfully`;
-      }
-      if (failedUploads.length > 0) {
-        successMessage += `\n⚠️ ${failedUploads.length} file(s) couldn't be uploaded due to size/connection issues`;
-      }
-      
-      showCustomAlert(
-        'success',
-        'Post Submitted!',
-        successMessage,
-        [
-          {
-            text: 'Continue',
-            onPress: () => {
-              hideModal();
-              setTimeout(() => router.back(), 500);
-            }
-          }
-        ],
-        'checkmark-circle'
-      );
-
-      // Create Notification
-      if (currentUserDocId) {
-        const userRef = doc(db, "SentinelUsers", currentUserDocId);
-        await updateDoc(userRef, {
-          Notification: arrayUnion({
-            AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
-            AuthorName: userName,
-            AuthorUserID: await AsyncStorage.getItem('userId'),
-            ContentDate: new Date(),
-            Description: 'Congrats! Your post has been submitted successfully and awaiting admin approval',
-            NotifyType: 'post_submitted',
-            ShowButtons: false,
-            Status: 'submitted',
-            isRead: true,
-          }),
-        });
-        console.log(`✅ Submitted post`);
-      } else {
-        // Create new document if it doesn't exist
-        await addDoc(collection(db, 'SentinelUsers'), {
-          userID: await AsyncStorage.getItem('userId'),
-          Notification: [{
-            AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
-            AuthorName: userName,
-            AuthorUserID: await AsyncStorage.getItem('userId'),
-            ContentDate: new Date(),
-            Description: 'Congrats! Your post has been submitted successfully and awaiting admin approval',
-            NotifyType: 'post_submitted',
-            ShowButtons: false,
-            Status: 'submitted',
-            isRead: true,
-          }],
-        });
-        console.log(`✅ Created new user document and notification`);
-      }
-    } catch (e) {
-      console.error("❌ Firebase error:", e);
-      showCustomAlert(
-        'error',
-        'Post Creation Failed',
-        'Failed to save your post to the server. Please check your internet connection and try again.',
-        [{ text: 'OK', onPress: hideModal }],
-        'cloud-offline-outline'
-      );
+    setPostText('');
+    setSelectedMedia([]);
+    
+    // Step 4: Show success message based on moderation result
+    let successTitle = '';
+    let successMessage = '';
+    let notificationDescription = '';
+    let notificationStatus = '';
+    
+    if (isContentApproved) {
+      successTitle = 'Post Published!';
+      successMessage = `Your post has been published successfully!`;
+      notificationDescription = 'Congrats! Your post has been published successfully.';
+      notificationStatus = 'approved';
+    } else {
+      successTitle = 'Post Submitted!';
+      successMessage = `Post submitted successfully! Kindly await admin review.`;
+      notificationDescription = 'Your post has been submitted and is awaiting admin approval due to content moderation.';
+      notificationStatus = 'submitted';
     }
-  };
+    
+    if (uploadedUrls.length > 0) {
+      successMessage += `\n\n✅ ${uploadedUrls.length} file(s) uploaded successfully`;
+    }
+    if (failedUploads.length > 0) {
+      successMessage += `\n⚠️ ${failedUploads.length} file(s) couldn't be uploaded due to size/connection issues`;
+    }
+    
+    showCustomAlert(
+      'success',
+      successTitle,
+      successMessage,
+      [
+        {
+          text: 'Continue',
+          onPress: () => {
+            hideModal();
+            setTimeout(() => router.back(), 500);
+          }
+        }
+      ],
+      'checkmark-circle'
+    );
+
+    // Step 5: Create Notification
+    if (currentUserDocId) {
+      const userRef = doc(db, "SentinelUsers", currentUserDocId);
+      await updateDoc(userRef, {
+        Notification: arrayUnion({
+          AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+          AuthorName: userName,
+          AuthorUserID: await AsyncStorage.getItem('userId'),
+          ContentDate: new Date(),
+          Description: notificationDescription,
+          NotifyType: 'post_submitted',
+          ShowButtons: false,
+          Status: notificationStatus,
+          isRead: false,
+          isApproved: isContentApproved,
+        }),
+      });
+      console.log(`✅ ${isContentApproved ? 'Published' : 'Submitted'} post`);
+    } else {
+      // Create new document if it doesn't exist
+      await addDoc(collection(db, 'SentinelUsers'), {
+        userID: await AsyncStorage.getItem('userId'),
+        Notification: [{
+          AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+          AuthorName: userName,
+          AuthorUserID: await AsyncStorage.getItem('userId'),
+          ContentDate: new Date(),
+          Description: notificationDescription,
+          NotifyType: 'post_submitted',
+          ShowButtons: false,
+          Status: notificationStatus,
+          isRead: false,
+          isApproved: isContentApproved,
+        }],
+      });
+      console.log(`✅ Created new user document and notification`);
+    }
+  } catch (e) {
+    console.error("❌ Error creating post:", e);
+    showCustomAlert(
+      'error',
+      'Post Creation Failed',
+      'Failed to save your post to the server. Please check your internet connection and try again.',
+      [{ text: 'OK', onPress: hideModal }],
+      'cloud-offline-outline'
+    );
+  }
+};
+
+// Helper function to call the AI moderation API
+const checkPostContent = async (postText: string, imageUrl: string | null) => {
+  try {
+    console.log('🔍 Checking content with AI moderation...');
+    
+    const response = await fetch(
+      'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/ai-based-post-analysis',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          postText: postText,
+          imageUrl: imageUrl
+        })
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`API request failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    console.log('✅ Moderation check complete:', data);
+    
+    return {
+      postStatus: data.postStatus, // "appropriate" or "inappropriate"
+      flagged: data.flagged,
+      violations: data.violations || [],
+      categories: data.categories || {}
+    };
+  } catch (error) {
+    console.error('❌ Error checking post content:', error);
+    // Fallback: if API fails, flag for manual review for safety
+    return {
+      postStatus: 'inappropriate',
+      flagged: true,
+      violations: ['api_error'],
+      categories: {}
+    };
+  }
+};
+
 
   useEffect(() => {
     fetchUserData();
