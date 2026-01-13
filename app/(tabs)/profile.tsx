@@ -1204,6 +1204,8 @@ export default function ProfilePage(): React.JSX.Element {
   const [isAppInfoModalVisible, setIsAppInfoModalVisible] = useState(false);
   const [showPasswordVerify, setShowPasswordVerify] = useState<boolean>(false);
   const [showHelpScreen, setShowHelpScreen] = useState(false);
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [postToDelete, setPostToDelete] = useState<string | null>(null);
 
 
 
@@ -2694,34 +2696,40 @@ const handleRepost = useCallback(async (postItem: PostItem) => {
   };
 
   const handleDeletePost = async (postId: string) => {
-    Alert.alert(
-     "Delete Post",
-     "Are you sure you want to delete your post? This action cannot be undone.",
-     [
-       {
-         text: "Cancel",
-         style: "cancel"
-       },
-       {
-         text: "Delete",
-         style: "destructive",
-         onPress: async () => {
-           try {
-             const postRef = doc(db, "SentinelPosts", postId);
-             await deleteDoc(postRef);
-             console.log('Comment deleted successfully');
-             
-             setShowMenuModal(false);
-             setSelectedPostId(null);
-           } catch (error) {
-             console.error('Error deleting comment:', error);
-             Alert.alert("Error", "Failed to delete response. Please try again.");
-           }
-         }
-       }
-     ]
-   );
- };
+  setPostToDelete(postId);
+  setIsDeleteModalVisible(true);
+};
+
+const confirmDeletePost = async () => {
+  if (!postToDelete) return;
+  
+  try {
+    const postRef = doc(db, "SentinelPosts", postToDelete);
+    await deleteDoc(postRef);
+    console.log('Post deleted successfully');
+    
+    setIsDeleteModalVisible(false);
+    setShowMenuModal(false);
+    setSelectedPostId(null);
+    setPostToDelete(null);
+    
+    // Optional: Show success message
+    Toast.show({
+      type: 'success',
+      text1: 'Success',
+      text2: 'Post deleted successfully',
+      position: 'top',
+      visibilityTime: 3000,
+    });
+  } catch (error) {
+    console.error('Error deleting post:', error);
+    setIsDeleteModalVisible(false);
+     setShowMenuModal(false);
+    
+    // Show error with CustomModal
+    setIsDeleteModalVisible(true);
+  }
+};
 
  const renderRepostContent = useCallback((item: PostItem) => {
   if (!item.isRepost || !item.originalPost) return null;
@@ -3703,6 +3711,35 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
           </TouchableOpacity>
         </Modal>
       )}
+      {/* DELETE POST MODAL */}
+        <CustomModal
+          visible={isDeleteModalVisible}
+          type="warning"
+          title="Delete Post"
+          message="Are you sure you want to delete this post? This action cannot be undone."
+          buttons={[
+            {
+              text: "Cancel",
+              style: "cancel",
+              onPress: () => {
+                setIsDeleteModalVisible(false);
+                setPostToDelete(null);
+                 setShowMenuModal(false);
+              }
+            },
+            {
+              text: "Delete",
+              style: "destructive",
+              onPress: confirmDeletePost
+            }
+          ]}
+          onClose={() => {
+            setIsDeleteModalVisible(false);
+            setPostToDelete(null);
+             setShowMenuModal(false);
+          }}
+        />
+
 
       {/* IMAGE MODAL */}
       <Modal
