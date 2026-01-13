@@ -46,8 +46,7 @@ export default function PrivacyPolicy(): React.JSX.Element {
                   IronEx Privacy Policy
                 </Text>
                 <Text className="text-sm text-gray-600">
-                  Last Updated: [Insert Date]{'\n'}
-                  Effective Date: [Insert Date]
+                  Last Updated: December 9, 2025          
                 </Text>
               </View>
             </View>
