@@ -63,7 +63,8 @@ export default function Index(): React.JSX.Element {
 
         <View className="flex-1 px-6 justify-center pt-56">
           {/* Logo positioned above welcome text */}
-          <View className="items-start mb-8">
+          <Link href="/" asChild>
+          <TouchableOpacity className="items-start mb-8">
             <View className="w-14 h-14 rounded-xl bg-transparent justify-center items-center">
               <Image
                 source={require("../../assets/images/new_logo.png")}
@@ -71,7 +72,8 @@ export default function Index(): React.JSX.Element {
                 resizeMode="contain"
               />
             </View>
-          </View>
+          </TouchableOpacity>
+          </Link>
 
           {/* Welcome text section */}
           <View className="mb-16">
