@@ -188,6 +188,146 @@ const renderStyledPostText = (text) => {
 
   return components;
 };
+// Add this CustomModal component
+interface CustomModalProps {
+  visible: boolean;
+  type: 'success' | 'error' | 'info' | 'warning';
+  title: string;
+  message: string;
+  buttons: Array<{
+    text: string;
+    onPress: () => void;
+    style?: 'default' | 'cancel' | 'destructive';
+  }>;
+  onClose?: () => void;
+}
+
+const CustomModal: React.FC<CustomModalProps> = ({ 
+  visible, 
+  type, 
+  title, 
+  message, 
+  buttons, 
+  onClose 
+}) => {
+  const getModalStyle = () => {
+    switch (type) {
+      case 'success':
+        return { iconName: 'checkmark-circle' as const, iconColor: '#22C55E', iconBg: '#dcfce7' };
+      case 'error':
+        return { iconName: 'close-circle' as const, iconColor: '#EF4444', iconBg: '#fee2e2' };
+      case 'warning':
+        return { iconName: 'warning' as const, iconColor: '#F59E0B', iconBg: '#fef3c7' };
+      default:
+        return { iconName: 'information-circle' as const, iconColor: '#3B82F6', iconBg: '#dbeafe' };
+    }
+  };
+
+  const modalStyle = getModalStyle();
+
+  if (!visible) return null;
+
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
+        <View style={{ 
+          backgroundColor: '#fff', 
+          borderRadius: 20, 
+          padding: 20, 
+          alignItems: 'center', 
+          width: '100%', 
+          maxWidth: 340,
+          shadowColor: '#000', 
+          shadowOffset: { width: 0, height: 4 }, 
+          shadowOpacity: 0.3, 
+          shadowRadius: 12, 
+          elevation: 8 
+        }}>
+          {/* Icon - Smaller */}
+          <View style={{ 
+            width: 56, 
+            height: 56, 
+            backgroundColor: modalStyle.iconBg, 
+            borderRadius: 28, 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            marginBottom: 12 
+          }}>
+            <Ionicons name={modalStyle.iconName} size={28} color={modalStyle.iconColor} />
+          </View>
+
+          {/* Title - Smaller */}
+          <Text style={{ 
+            fontSize: 18, 
+            fontWeight: 'bold', 
+            color: '#000', 
+            textAlign: 'center', 
+            marginBottom: 6 
+          }}>
+            {title}
+          </Text>
+
+          {/* Message - Smaller */}
+          <Text style={{ 
+            fontSize: 13, 
+            color: '#666', 
+            textAlign: 'center', 
+            marginBottom: 20, 
+            lineHeight: 18,
+            paddingHorizontal: 4
+          }}>
+            {message}
+          </Text>
+
+          {/* Buttons - Horizontal Layout */}
+          <View style={{ 
+            flexDirection: 'row', 
+            width: '100%', 
+            gap: 10 
+          }}>
+            {buttons.map((button, index) => (
+              <TouchableOpacity
+                key={index}
+                onPress={button.onPress}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  borderRadius: 10,
+                  alignItems: 'center',
+                  backgroundColor: 
+                    button.style === 'cancel' ? '#f3f4f6' : 
+                    button.style === 'destructive' ? '#EF4444' : '#000',
+                  shadowColor: button.style === 'destructive' ? '#EF4444' : '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 3,
+                  elevation: 2
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={{ 
+                  fontSize: 15, 
+                  fontWeight: '600',
+                  color: button.style === 'cancel' ? '#374151' : '#fff'
+                }}>
+                  {button.text}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+
 
 export default function CommentScreen({ 
   visible, 
@@ -226,6 +366,11 @@ export default function CommentScreen({
 
   const [changedAuthorImage, setChangedAuthorImage] = useState<string | null>(null);
   const [changedAuthorName, setChangedAuthorName] = useState<string | null>(null);
+
+  const [isDeleteCommentModalVisible, setIsDeleteCommentModalVisible] = useState(false);
+  const [commentToDelete, setCommentToDelete] = useState<string | null>(null);
+  const [isDeletingComment, setIsDeletingComment] = useState(false);
+
   
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
 
@@ -690,38 +835,42 @@ export default function CommentScreen({
     }
   };
 
-  const handleDeleteComment = async (commentId: string) => {
-    if (!postId || !postType) return;
-
-    Alert.alert(
-      "Delete Response",
-      "Are you sure you want to delete your response? This action cannot be undone.",
-      [
-        {
-          text: "Cancel",
-          style: "cancel"
-        },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              const commentRef = doc(db, "SentinelPosts", postId, 'Comments', commentId);
-              await deleteDoc(commentRef);
-              console.log('Comment deleted successfully');
-              
-              setUserExistingComment(null);
-              setShowMenuModal(false);
-              setSelectedCommentId(null);
-            } catch (error) {
-              console.error('Error deleting comment:', error);
-              Alert.alert("Error", "Failed to delete response. Please try again.");
-            }
-          }
-        }
-      ]
-    );
+const handleDeleteComment = async (commentId: string) => {
+  if (!postId || !postType) return;
+  
+  setCommentToDelete(commentId);
+  setIsDeleteCommentModalVisible(true);
   };
+
+const confirmDeleteComment = async () => {
+  if (!commentToDelete || !postId || !postType) return;
+  
+  setIsDeletingComment(true);
+  
+  try {
+    const commentRef = doc(db, "SentinelPosts", postId, 'Comments', commentToDelete);
+    await deleteDoc(commentRef);
+    console.log('Comment deleted successfully');
+    
+    setIsDeleteCommentModalVisible(false);
+    setUserExistingComment(null);
+    setShowMenuModal(false); // ✅ This should already be here
+    setSelectedCommentId(null);
+    setCommentToDelete(null);
+  } catch (error) {
+    console.error('Error deleting comment:', error);
+    setIsDeleteCommentModalVisible(false);
+    setShowMenuModal(false); // ✅ ADD THIS LINE - Close menu on error too
+    
+    setTimeout(() => {
+      Alert.alert("Error", "Failed to delete response. Please try again.");
+    }, 300);
+  } finally {
+    setIsDeletingComment(false);
+  }
+};
+
+
 
   const handleEditComment = (comment: Comment) => {
     setSelectedOption(comment.selectedOptions?.[0] || null);
@@ -1471,6 +1620,38 @@ export default function CommentScreen({
           </View>
         </View>
       </Modal>
+      {/* DELETE COMMENT MODAL */}
+        <CustomModal
+          visible={isDeleteCommentModalVisible}
+          type="warning"
+          title="Delete Response"
+          message="Are you sure you want to delete your response? This action cannot be undone."
+          buttons={[
+            {
+              text: "Cancel",
+              style: "cancel",
+              onPress: () => {
+                setIsDeleteCommentModalVisible(false);
+                setCommentToDelete(null);
+                setShowMenuModal(false); // ✅ ADD THIS LINE - Close the menu
+              }
+            },
+            {
+              text: isDeletingComment ? "Deleting..." : "Delete",
+              style: "destructive",
+              onPress: confirmDeleteComment
+            }
+          ]}
+          onClose={() => {
+            if (!isDeletingComment) {
+              setIsDeleteCommentModalVisible(false);
+              setCommentToDelete(null);
+              setShowMenuModal(false); // ✅ ADD THIS LINE - Close the menu
+            }
+          }}
+        />
+
+   
 
       {/* Total Sentiment Page */}
       <TotalSentiment
