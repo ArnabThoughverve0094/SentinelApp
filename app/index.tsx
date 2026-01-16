@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 
+
 export default function Index() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
@@ -65,7 +66,7 @@ export default function Index() {
   return (
     <View className="flex-1 bg-violet-500 items-center justify-center">
       <ActivityIndicator size="large" color="white" />
-      <Text className="text-white text-lg mt-4 font-semibold">Sentinel</Text>
+      <Text className="text-white text-lg mt-4 font-semibold">IronEx</Text>
       <Text className="text-white text-sm mt-2">Loading your experience...</Text>
     </View>
   );
