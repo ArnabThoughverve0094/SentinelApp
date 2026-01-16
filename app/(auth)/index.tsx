@@ -1318,13 +1318,13 @@ export default function Index(): React.JSX.Element {
               <TouchableOpacity className="flex-row items-center">
                 <View className="ml-2">
                   <View className="flex-row items-center">
-                    {/* <View className="w-8 h-8 mr-0">
+                    <View className="w-8 h-8 mr-0">
                       <Image
                         source={require("../../assets/images/new_logo.png")}
                         style={{ flex: 1, width: undefined, height: undefined }}
                         resizeMode="contain"
                       />
-                    </View> */}
+                    </View>
                     {/* Sentinel Text */}
                     {/* <Text className="text-3xl font-extrabold text-[#281C20]">entinel</Text> */}
                     <Text className="text-3xl font-extrabold text-[#281C20]">IronEx</Text>

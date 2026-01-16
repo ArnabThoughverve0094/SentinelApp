@@ -1,15 +1,14 @@
 // components/HelpScreen.tsx
+import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  Platform,
   ScrollView,
   StatusBar,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type HelpSectionKey =
   | 'welcome'
@@ -236,12 +235,13 @@ const HelpScreen: React.FC<HelpScreenProps> = ({ onClose }) => {
   const [activeKey, setActiveKey] = useState<HelpSectionKey>('welcome');
   const active = sections.find(s => s.key === activeKey) ?? sections[0];
 
+  const insets = useSafeAreaInsets();
+
   return (
-    <SafeAreaView className="flex-1 bg-slate-50">
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#f8fafc' }} edges={['right', 'left', 'top']}>
       <StatusBar
         barStyle="dark-content"
-        backgroundColor={Platform.OS === 'android' ? '#f8fafc' : 'transparent'}
-      />
+        />
 
       {/* Header */}
       <View className="bg-white border-b border-slate-200">
@@ -275,7 +275,7 @@ const HelpScreen: React.FC<HelpScreenProps> = ({ onClose }) => {
         <View className="w-40 bg-white border-r border-slate-200">
           <ScrollView
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingVertical: 8 }}
+            contentContainerStyle={{ paddingVertical: 8, paddingBottom: insets.bottom + 20 }}
           >
             {sections.map(item => {
               const isActive = item.key === activeKey;
@@ -312,7 +312,7 @@ const HelpScreen: React.FC<HelpScreenProps> = ({ onClose }) => {
         <View className="flex-1">
           <ScrollView
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ padding: 16 }}
+            contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 20 }}
           >
             <View className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
               <View className="flex-row items-center mb-3">
