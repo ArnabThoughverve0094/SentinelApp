@@ -1,4 +1,6 @@
+import { NotificationProvider } from '@/context/NotificationContext';
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, useFonts } from '@expo-google-fonts/inter';
+import * as Notifications from "expo-notifications";
 import { Stack, useRootNavigationState } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect, useState } from 'react';
@@ -7,6 +9,15 @@ import Toast from 'react-native-toast-message';
 import '../global.css';
 import { toastConfig } from '../utils/toastConfig';
 
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+    shouldShowBanner: true, 
+    shouldShowList: true,
+  }),
+});
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -177,16 +188,18 @@ export default function RootLayout(): React.JSX.Element {
   }
 
   return (
-    <>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="index" />
-      </Stack>
+    <NotificationProvider>
+      <>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="index" />
+        </Stack>
       
-      {/* Toast component - MUST be at the bottom */}
-      <Toast config={toastConfig} />
-    </>
+        {/* Toast component - MUST be at the bottom */}
+        <Toast config={toastConfig} />
+      </>
+    </NotificationProvider>
   );
 }
 //Layout
