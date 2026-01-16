@@ -1018,19 +1018,29 @@ export default function Index(): React.JSX.Element {
     );
   }, [cardAnimations]);
 
-  const renderPostUserContent = useCallback((item: PostItem, index: number) => (
-    <TouchableOpacity 
-      activeOpacity={0.95}
-      onPress={() => openFullScreenCard(item)}
-    >
-      <EnhancedCard postId={item.uniqueId}>
+  const renderPostUserContent = useCallback((item: PostItem, index: number) => {
+    const AuthorName = item.isAnonymous ? 'Anonymous' : item.AuthorName;
+    const AuthorImage = item.isAnonymous ? dummyAuthorImage : (item.AuthorImageURL || dummyAuthorImage);
+    return (
+      <TouchableOpacity 
+        activeOpacity={0.95}
+        onPress={() => openFullScreenCard(item)}
+      >
+        <EnhancedCard postId={item.uniqueId}>
+        <TouchableOpacity 
+          onPress={(e) => {
+            e.stopPropagation();
+            navigateToAuthScreen();
+          }}
+          activeOpacity={0.7}
+        >
         <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
           <View className="flex-row items-center">
             <View className="relative">
               <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
                 <Image
                   // source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
-                  source={{uri: item?.AuthorImageURL || dummyAuthorImage }}
+                  source={{uri: AuthorImage || dummyAuthorImage }}
                   className="w-full h-full"
                   resizeMode="cover"
                   resizeMethod="resize"
@@ -1038,7 +1048,7 @@ export default function Index(): React.JSX.Element {
               </View>
             </View>
             <View className="flex-1">
-              <Text className="font-bold text-gray-900 text-sm">{(item.isAnonymous) ? 'Anonymous' : item.AuthorName}</Text>
+              <Text className="font-bold text-gray-900 text-sm">{AuthorName}</Text>
               <View className="flex-row items-center mt-0.5">
                 {item.postType != 'X-Data' && (
                   <View className="bg-blue-100 px-1 py-0.5 rounded-full mr-1.5">
@@ -1057,6 +1067,7 @@ export default function Index(): React.JSX.Element {
 
           </View>
         </View>
+        </TouchableOpacity>
 
         <View className="px-3 py-2.5">
           <Text className="text-gray-800 text-sm leading-5 mb-2"  numberOfLines={2}>{item.ContentDesc}</Text>
@@ -1260,7 +1271,8 @@ export default function Index(): React.JSX.Element {
         </View>
       </EnhancedCard>
     </TouchableOpacity>
-  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, dummyAuthorImage, navigateToAuthScreen, renderRepostContent]);
+    );
+  }, [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, dummyAuthorImage, navigateToAuthScreen, renderRepostContent]);
 
   const initializeCardAnimation = useCallback((postId: string) => {
     if (!cardAnimations[postId]) {
