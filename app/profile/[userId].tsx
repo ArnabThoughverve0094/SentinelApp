@@ -1,46 +1,44 @@
 // app/profile/[userId].tsx
-import { db } from "@/FirebaseConfig";
-import CommentsModal from "@/components/CommentsModal";
-import TotalSentiment from "@/components/TotalSentiment";
-import Feather from "@expo/vector-icons/Feather";
+import React, { useEffect, useState, useCallback } from "react";
+import {
+  View,
+  Text,
+  Image,
+  ActivityIndicator,
+  ScrollView,
+  TouchableOpacity,
+  Linking,
+  RefreshControl,
+  Share,
+  Modal,
+  TextInput,
+} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import Feather from "@expo/vector-icons/Feather";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
-  DocumentData,
-  addDoc,
-  arrayRemove,
-  arrayUnion,
   collection,
-  doc,
-  increment,
-  onSnapshot,
+  getDocs,
   query,
-  setDoc,
+  where,
+  DocumentData,
+  onSnapshot,
+  doc,
   updateDoc,
-  where
+  arrayUnion,
+  arrayRemove,
+  addDoc,
+  increment,
+  setDoc,
 } from "firebase/firestore";
-import React, { useCallback, useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Image,
-  Linking,
-  Modal,
-  RefreshControl,
-  ScrollView,
-  Share,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { db } from "@/FirebaseConfig";
 import Toast from "react-native-toast-message";
+import CommentsModal from "@/components/CommentsModal";
+import TotalSentiment from "@/components/TotalSentiment";
 
 const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
-
-
-
 const dummyHeaderImage =
   "https://images.pexels.com/photos/674010/pexels-photo-674010.jpeg";
 
@@ -87,7 +85,6 @@ interface PostItem {
   contentType: string;
 }
 
-// Repost Modal Component (keeping same as before)
 interface RepostModalProps {
   visible: boolean;
   onClose: () => void;
@@ -250,19 +247,18 @@ const RepostModal: React.FC<RepostModalProps> = ({
 const getFullImageUrl = (profilePath?: string): string => {
   const dummy = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
   
-  if (!profilePath) return dummy;  // ✅ Return dummy instead of undefined
+  if (!profilePath) return dummy;
   if (profilePath.startsWith("http")) return profilePath;
   return `https://sentinal-uploads.s3.us-west-2.amazonaws.com${profilePath}`;
 };
 
 export default function UserProfileScreen() {
-  const { userId, authorName, authorImageUrl,isAnonymous,userBio } = useLocalSearchParams<{
+  const { userId, authorName, authorImageUrl, isAnonymous, userBio } = useLocalSearchParams<{
     userId: string;
     authorName?: string;
     authorImageUrl?: string;
     isAnonymous?: string;
-    userBio?: string;  // ✅ ADD THIS LINE
-
+    userBio?: string;
   }>();
 
   const router = useRouter();
@@ -273,26 +269,72 @@ export default function UserProfileScreen() {
   const [userPosts, setUserPosts] = useState<PostItem[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>("");
 
-  // Follow functionality
   const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
   const [currentUserDocId, setCurrentUserDocId] = useState("");
-  const [profileUserDocId, setProfileUserDocId] = useState(""); // NEW: Store profile user's document ID
+  const [profileUserDocId, setProfileUserDocId] = useState("");
   const [isFollowing, setIsFollowing] = useState(false);
 
-  // Comment modal states
   const [isCommentModalVisible, setIsCommentModalVisible] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedPostType, setSelectedPostType] = useState<string | null>(null);
   const [selectedCommentTemplate, setSelectedCommentTemplate] = useState<string | null>(null);
 
-  // Graph modal states
   const [isGraphModalVisible, setIsGraphModalVisible] = useState(false);
   const [selectedGraphPostId, setSelectedGraphPostId] = useState<string | null>(null);
   const [selectedGraphPostType, setSelectedGraphPostType] = useState<string | null>(null);
 
-  // Repost modal
   const [isRepostModalVisible, setIsRepostModalVisible] = useState(false);
   const [selectedRepostPost, setSelectedRepostPost] = useState<PostItem | null>(null);
+  const [isImageModalVisible, setIsImageModalVisible] = useState(false);
+
+  const ImageFullScreenModal = () => (
+    <Modal
+      visible={isImageModalVisible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={() => setIsImageModalVisible(false)}
+    >
+      <View className="flex-1 bg-black">
+        <View className="absolute top-0 left-0 right-0 z-50 bg-black/80">
+          <View className="flex-row items-center justify-between px-4 pt-12 pb-4">
+            <TouchableOpacity
+              onPress={() => setIsImageModalVisible(false)}
+              className="w-10 h-10 rounded-full bg-gray-800/60 items-center justify-center"
+            >
+              <Ionicons name="arrow-back" size={24} color="#ffffff" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              className="w-10 h-10 rounded-full bg-gray-800/60 items-center justify-center"
+            >
+              <Feather name="more-vertical" size={24} color="#ffffff" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View className="flex-1 items-center justify-center">
+          <Image
+            source={{ uri: avatar }}
+            style={{ width: '100%', height: '100%' }}
+            resizeMode="contain"
+          />
+        </View>
+
+        <View className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent">
+          <View className="px-6 pb-8 pt-4">
+            <Text className="text-white text-lg font-semibold">
+              {displayName}
+            </Text>
+            {userDoc?.userBio && (
+              <Text className="text-white/80 text-sm mt-1">
+                {userDoc.userBio}
+              </Text>
+            )}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
 
   useEffect(() => {
     const loadCurrentUser = async () => {
@@ -302,8 +344,10 @@ export default function UserProfileScreen() {
     loadCurrentUser();
   }, []);
 
-  // IMPROVED: Fetch current user's following list with real-time updates
   const fetchUserFollowing = useCallback(async () => {
+    if (isAnonymous === 'true') {
+      return;
+    }
     try {
       let fetchuserID = currentUserId;
       if (!fetchuserID) {
@@ -325,7 +369,6 @@ export default function UserProfileScreen() {
             setFollowingUserIds(following);
             console.log("✅ Following list updated:", following);
 
-            // Check if currently viewing user is in following list
             if (userId) {
               const isUserFollowing = following.includes(userId);
               setIsFollowing(isUserFollowing);
@@ -346,14 +389,12 @@ export default function UserProfileScreen() {
       setFollowingUserIds([]);
       setIsFollowing(false);
     }
-  }, [currentUserId, userId]);
+  }, [currentUserId, userId, isAnonymous]);
 
-  // Initialize following status
   useEffect(() => {
     fetchUserFollowing();
   }, [fetchUserFollowing]);
 
-  // Update following status when userId or followingUserIds changes
   useEffect(() => {
     if (userId) {
       const isUserFollowing = followingUserIds.includes(userId);
@@ -362,15 +403,32 @@ export default function UserProfileScreen() {
     }
   }, [userId, followingUserIds]);
 
-  // IMPROVED: Fetch profile user data with REAL-TIME UPDATES
   useEffect(() => {
     const fetchUser = async () => {
       if (!userId) return;
       setLoading(true);
+      
       try {
+        if (isAnonymous === 'true') {
+          const mapped: UserDoc = {
+            userID: 'anonymous',
+            userName: 'Anonymous',
+            userNickName: 'Anonymous',
+            profilePicUrl: dummyAuthorImage,
+            userBio: userBio as string || 'This is an anonymous user',
+            Website: undefined,
+            website: undefined,
+            FollowersCount: 0,
+            Following: [],
+            PostsCount: 0,
+          };
+          setUserDoc(mapped);
+          setLoading(false);
+          return;
+        }
+
         const storedUserId = await AsyncStorage.getItem("userId");
 
-        // If viewing own profile, get data from AsyncStorage
         if (storedUserId && storedUserId === userId) {
           const [name, nickname, email, country, bio, profilePicUrl] =
             await AsyncStorage.multiGet([
@@ -382,7 +440,6 @@ export default function UserProfileScreen() {
               "profilePicUrl",
             ]);
 
-          // But still fetch real-time follower/following counts from Firestore
           const usersRef = collection(db, "SentinelUsers");
           const qSnap = query(usersRef, where("userID", "==", storedUserId));
           
@@ -415,7 +472,6 @@ export default function UserProfileScreen() {
           return () => unsubscribe();
         }
 
-        // For other users, fetch with real-time updates
         const usersRef = collection(db, "SentinelUsers");
         const qSnap = query(usersRef, where("userID", "==", userId as string));
 
@@ -423,7 +479,7 @@ export default function UserProfileScreen() {
           if (!snapshot.empty) {
             const userDocData = snapshot.docs[0];
             const data = userDocData.data() as DocumentData;
-            setProfileUserDocId(userDocData.id); // Store the document ID
+            setProfileUserDocId(userDocData.id);
 
             const mapped: UserDoc = {
               userID: data.userID || data.userId,
@@ -457,13 +513,12 @@ export default function UserProfileScreen() {
             setUserDoc(mapped);
             setLoading(false);
           } else {
-            // Create basic user info if document doesn't exist
             const mapped: UserDoc = {
               userID: userId,
               userName: (authorName as string) || "",
               userNickName: "",
               profilePicUrl: (authorImageUrl as string) || "",
-              userBio: (userBio as string) || "",  // ✅ USE PARAM INSTEAD OF ""
+              userBio: (userBio as string) || "",
               Website: undefined,
               website: undefined,
               FollowersCount: 0,
@@ -484,17 +539,26 @@ export default function UserProfileScreen() {
     };
 
     fetchUser();
-  }, [userId, authorName, authorImageUrl]);
+  }, [userId, authorName, authorImageUrl, isAnonymous, userBio]);
 
   const fetchUserPosts = useCallback(async () => {
     if (!userId) return;
 
     try {
       const collSentinelRefPost = collection(db, "SentinelPosts");
-      const querySentinel = query(
-        collSentinelRefPost,
-        where("AuthorUserID", "==", userId as string)
-      );
+      
+      let querySentinel;
+      if (isAnonymous === 'true') {
+        querySentinel = query(
+          collSentinelRefPost,
+          where("isAnonymous", "==", true)
+        );
+      } else {
+        querySentinel = query(
+          collSentinelRefPost,
+          where("AuthorUserID", "==", userId as string)
+        );
+      }
 
       const unsubscribeSentinel = onSnapshot(querySentinel, async (sentinelSnapshot) => {
         const sentineldataArr = sentinelSnapshot.docs.map((doc) => ({
@@ -509,8 +573,15 @@ export default function UserProfileScreen() {
           const postData = doc.data;
           const postId = doc.id;
 
-          // FILTER: Only include APPROVED posts
           if (!postData.isApproved || postData.isNew) {
+            continue;
+          }
+
+          if (isAnonymous === 'true' && !postData.isAnonymous) {
+            continue;
+          }
+
+          if (isAnonymous !== 'true' && postData.isAnonymous) {
             continue;
           }
 
@@ -553,7 +624,6 @@ export default function UserProfileScreen() {
 
         setUserPosts(sortedPosts);
 
-        // Fetch comment counts
         sortedPosts.forEach((post) => {
           onSnapshot(collection(doc(db, post.postType, post.id), "Comments"), (commentsSnap) => {
             let totalComments = 0;
@@ -577,7 +647,7 @@ export default function UserProfileScreen() {
     } catch (error) {
       console.error("Error fetching user posts:", error);
     }
-  }, [userId]);
+  }, [userId, isAnonymous]);
 
   useEffect(() => {
     fetchUserPosts();
@@ -589,7 +659,6 @@ export default function UserProfileScreen() {
     setRefreshing(false);
   }, [fetchUserPosts]);
 
-  // IMPROVED: Handle follow/unfollow with FOLLOWER COUNT UPDATE
   const handleFollowPress = useCallback(async () => {
     if (!userId) return;
 
@@ -599,14 +668,12 @@ export default function UserProfileScreen() {
 
     try {
       if (isFollowing) {
-        // Unfollow
         if (currentUserDocId) {
           const userRef = doc(db, "SentinelUsers", currentUserDocId);
           await updateDoc(userRef, {
             Following: arrayRemove(userId),
           });
 
-          // CRITICAL: Decrease follower count for profile user
           if (profileUserDocId) {
             const profileRef = doc(db, "SentinelUsers", profileUserDocId);
             await updateDoc(profileRef, {
@@ -625,14 +692,12 @@ export default function UserProfileScreen() {
           });
         }
       } else {
-        // Follow
         if (currentUserDocId) {
           const userRef = doc(db, "SentinelUsers", currentUserDocId);
           await updateDoc(userRef, {
             Following: arrayUnion(userId),
           });
 
-          // CRITICAL: Increase follower count for profile user
           if (profileUserDocId) {
             const profileRef = doc(db, "SentinelUsers", profileUserDocId);
             await updateDoc(profileRef, {
@@ -640,7 +705,6 @@ export default function UserProfileScreen() {
             });
             console.log("✅ Increased follower count for profile user");
           } else {
-            // Create document for profile user if doesn't exist
             console.log("📝 Creating new document for profile user...");
             const profileRef = doc(db, "SentinelUsers", `user_${userId}`);
             await setDoc(profileRef, {
@@ -662,7 +726,6 @@ export default function UserProfileScreen() {
             visibilityTime: 2000,
           });
         } else {
-          // Create new document for current user
           console.log("📝 Creating new user document...");
           const newDocRef = await addDoc(collection(db, "SentinelUsers"), {
             userID: currentUserId,
@@ -670,14 +733,12 @@ export default function UserProfileScreen() {
           });
           setCurrentUserDocId(newDocRef.id);
 
-          // Also increase follower count for profile user
           if (profileUserDocId) {
             const profileRef = doc(db, "SentinelUsers", profileUserDocId);
             await updateDoc(profileRef, {
               FollowersCount: increment(1),
             });
           } else {
-            // Create document for profile user if doesn't exist
             const profileRef = doc(db, "SentinelUsers", `user_${userId}`);
             await setDoc(profileRef, {
               userID: userId,
@@ -699,7 +760,6 @@ export default function UserProfileScreen() {
         }
       }
 
-      // onSnapshot will automatically update the UI
       console.log("⏳ Waiting for onSnapshot to update UI...\n");
     } catch (error) {
       console.error("❌ Error handling follow/unfollow:", error);
@@ -713,7 +773,6 @@ export default function UserProfileScreen() {
     }
   }, [currentUserDocId, currentUserId, userId, isFollowing, userDoc, profileUserDocId]);
 
-  // All other handlers remain the same (toggleLike, openCommentsModal, handleRepost, etc.)
   const toggleLike = useCallback(async (postItem: PostItem) => {
     let fetchuserID = currentUserId;
     if (!fetchuserID) {
@@ -1043,7 +1102,7 @@ export default function UserProfileScreen() {
     await new Promise((r) => setTimeout(r, 200));
   }, []);
 
-    const avatar = React.useMemo(() => {
+  const avatar = React.useMemo(() => {
     if (isAnonymous === 'true') {
       return dummyAuthorImage;
     }
@@ -1056,11 +1115,11 @@ export default function UserProfileScreen() {
   }, [isAnonymous, userDoc?.profilePicUrl]);
 
   const displayName = 
-  isAnonymous === 'true' 
-    ? 'Anonymous'
-    : (userDoc?.userName && userDoc.userName.trim()) ||
-      (userDoc?.userNickName && userDoc.userNickName.trim()) ||
-      "Unknown user";
+    isAnonymous === 'true' 
+      ? 'Anonymous'
+      : (userDoc?.userName && userDoc.userName.trim()) ||
+        (userDoc?.userNickName && userDoc.userNickName.trim()) ||
+        "Unknown user";
 
   const handleWebsitePress = () => {
     const url = userDoc?.Website || userDoc?.website;
@@ -1104,7 +1163,8 @@ export default function UserProfileScreen() {
 
   const renderPost = (item: PostItem, index: number) => {
     const displayAuthorName = item.isAnonymous ? "Anonymous" : item.AuthorName;
-  const displayAuthorImage = item.isAnonymous ? dummyAuthorImage : (item.AuthorImageURL || dummyAuthorImage);
+    const displayAuthorImage = item.isAnonymous ? dummyAuthorImage : (item.AuthorImageURL || dummyAuthorImage);
+
     return (
       <TouchableOpacity
         key={`post-${item.uniqueId}-${index}`}
@@ -1273,23 +1333,24 @@ export default function UserProfileScreen() {
         </TouchableOpacity>
       </View>
 
-      <View className="absolute top-28 left-4 z-40">
-        <Image
-          source={{ 
-            uri: avatar || 'https://ui-avatars.com/api/?name=Anonymous&background=4F46E5'
-          }}
-          className="w-24 h-24 rounded-full border-4 border-white bg-gray-200"
-          resizeMode="cover"
-          key={`avatar-${isAnonymous}-${avatar}`}
-          onError={(error) => {
-            console.log('❌ IMAGE ERROR:', error.nativeEvent);
-          }}
-          onLoad={() => {
-            console.log('✅ IMAGE LOADED:', avatar);
-          }}
-        />
+      <TouchableOpacity 
+        onPress={() => setIsImageModalVisible(true)}
+        activeOpacity={0.9}
+        className="absolute top-28 left-4 z-40"
+      >
+        <View className="w-24 h-24 rounded-full border-4 border-white bg-gray-200 shadow-lg">
+          <Image
+            source={{ 
+              uri: avatar || 'https://ui-avatars.com/api/?name=Anonymous&background=4F46E5'
+            }}
+            className="w-full h-full rounded-full"
+            resizeMode="cover"
+            key={`avatar-${isAnonymous}-${avatar}`}
+          />
+        </View>
+      </TouchableOpacity>
 
-      </View>
+      <ImageFullScreenModal />
 
       <ScrollView
         className="flex-1 bg-white"
@@ -1301,7 +1362,11 @@ export default function UserProfileScreen() {
           <View className="h-5" />
 
           <View className="flex-row justify-end mb-3">
-            {isOwnProfile ? (
+            {isAnonymous === 'true' ? (
+              <View className="px-4 py-2 rounded-lg bg-gray-100">
+                <Text className="text-sm font-semibold text-gray-600">Anonymous User</Text>
+              </View>
+            ) : isOwnProfile ? (
               <View className="px-4 py-2 rounded-lg bg-blue-50">
                 <Text className="text-sm font-semibold text-blue-600">You</Text>
               </View>
@@ -1318,10 +1383,8 @@ export default function UserProfileScreen() {
             )}
           </View>
 
-          {/* Display Name - Bold and Large */}
           <Text className="text-xl font-bold text-gray-900">{displayName}</Text>
 
-          {/* Username Handle - Small and Gray */}
           {isAnonymous === 'true' ? (
             <Text className="text-sm text-gray-500">@Anonymous</Text>
           ) : (
@@ -1329,7 +1392,6 @@ export default function UserProfileScreen() {
               @{userDoc?.userNickName || userDoc?.userName || 'user'}
             </Text>
           )}
-  
 
           {loading ? (
             <View className="flex-row items-center mt-3">
@@ -1349,14 +1411,16 @@ export default function UserProfileScreen() {
             </TouchableOpacity>
           )}
 
-          <View className="flex-row mt-3 mb-3">
-            <Text className="mr-4 text-sm text-gray-900">
-              <Text className="font-semibold">{userDoc?.Following?.length ?? 0}</Text> Following
-            </Text>
-            <Text className="text-sm text-gray-900">
-              <Text className="font-semibold">{userDoc?.FollowersCount ?? 0}</Text> Followers
-            </Text>
-          </View>
+          {isAnonymous !== 'true' && (
+            <View className="flex-row mt-3 mb-3">
+              <Text className="mr-4 text-sm text-gray-900">
+                <Text className="font-semibold">{userDoc?.Following?.length ?? 0}</Text> Following
+              </Text>
+              <Text className="text-sm text-gray-900">
+                <Text className="font-semibold">{userDoc?.FollowersCount ?? 0}</Text> Followers
+              </Text>
+            </View>
+          )}
         </View>
 
         <View className="border-t border-gray-200 mt-2 pt-4">

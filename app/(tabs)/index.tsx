@@ -990,6 +990,8 @@ export default function SentinelFeed(): React.JSX.Element {
   const BATCH_SIZE = 10; // Define your lazy load batch size
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [unsubscribers, setUnsubscribers] = useState<(() => void)[]>([]);
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [postToDelete, setPostToDelete] = useState<string | null>(null);
 
   const openUserProfile = (item: PostItem) => {
     const authorId = item.AuthorUserID || item.repostedBy; // choose what you consider profile id
@@ -2368,35 +2370,44 @@ export default function SentinelFeed(): React.JSX.Element {
     setShowMenuModal(true);
   };
 
-  const handleDeletePost = async (postId: string) => {
-     Alert.alert(
-      "Delete Post",
-      "Are you sure you want to delete your post? This action cannot be undone.",
-      [
-        {
-          text: "Cancel",
-          style: "cancel"
-        },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              const postRef = doc(db, "SentinelPosts", postId);
-              await deleteDoc(postRef);
-              console.log('Comment deleted successfully');
-              
-              setShowMenuModal(false);
-              setSelectedPostId(null);
-            } catch (error) {
-              console.error('Error deleting comment:', error);
-              Alert.alert("Error", "Failed to delete response. Please try again.");
-            }
-          }
-        }
-      ]
-    );
-  };
+    const handleDeletePost = async (postId: string) => {
+      setPostToDelete(postId);
+      setIsDeleteModalVisible(true);
+    };
+
+    const confirmDeletePost = async () => {
+      if (!postToDelete) return;
+      
+      try {
+        const postRef = doc(db, "SentinelPosts", postToDelete);
+        await deleteDoc(postRef);
+        console.log('Post deleted successfully');
+        
+        setIsDeleteModalVisible(false);
+        setShowMenuModal(false);
+        setSelectedPostId(null);
+        setPostToDelete(null);
+        
+        
+        // Optional: Show success message
+        Toast.show({
+          type: 'success',
+          text1: 'Success',
+          text2: 'Post deleted successfully',
+          position: 'top',
+          visibilityTime: 3000,
+        });
+      } catch (error) {
+        console.error('Error deleting post:', error);
+        setIsDeleteModalVisible(false);
+        setShowMenuModal(false);
+        setSelectedPostId(null);
+        setPostToDelete(null);
+        
+        // Show error with CustomModal
+        setIsDeleteModalVisible(true);
+      }
+    };
 
   // APPROVAL TOGGLE WITH TOAST
   const handleApprovalToggle = useCallback(async (postId: string, newApprovedStatus: boolean, newIsNew: boolean = false, postUserID: string) => {
@@ -4358,6 +4369,35 @@ export default function SentinelFeed(): React.JSX.Element {
           </View>
         </View>
       </Modal>
+      {/* DELETE POST MODAL */}
+        <CustomModal
+          visible={isDeleteModalVisible}
+          type="warning"
+          title="Delete Post"
+          message="Are you sure you want to delete this post? This action cannot be undone."
+          buttons={[
+            {
+              text: "Cancel",
+              style: "cancel",
+              onPress: () => {
+                setIsDeleteModalVisible(false);
+                setPostToDelete(null);
+                setShowMenuModal(false); 
+              }
+            },
+            {
+              text: "Delete",
+              style: "destructive",
+              onPress: confirmDeletePost
+            }
+          ]}
+          onClose={() => {
+            setIsDeleteModalVisible(false);
+            setPostToDelete(null);
+            setShowMenuModal(false);
+          }}
+        />
+
 
       <RepostModal
         visible={isRepostModalVisible}

@@ -1204,6 +1204,8 @@ export default function ProfilePage(): React.JSX.Element {
   const [isAppInfoModalVisible, setIsAppInfoModalVisible] = useState(false);
   const [showPasswordVerify, setShowPasswordVerify] = useState<boolean>(false);
   const [showHelpScreen, setShowHelpScreen] = useState(false);
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [postToDelete, setPostToDelete] = useState<string | null>(null);
 
 
 
@@ -1419,7 +1421,7 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
   );
 
   // IMPROVED TIME AGO FUNCTION
-  const getTimeAgo = useCallback((dateString: any) => {
+    const getTimeAgo = useCallback((dateString: any) => {
     if (!dateString) return 'Just now';
     
     try {
@@ -1451,6 +1453,7 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
       const diffInMonths = Math.floor(diffInDays / 30);
       const diffInYears = Math.floor(diffInDays / 365);
 
+      // Return relative time for recent posts
       if (diffInSeconds < 60) {
         return diffInSeconds <= 0 ? 'Just now' : `${diffInSeconds}s ago`;
       } else if (diffInMinutes < 60) {
@@ -1459,23 +1462,29 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
         return `${diffInHours}h ago`;
       } else if (diffInDays < 7) {
         return `${diffInDays}d ago`;
+      } else if (diffInWeeks < 4) {
+        return `${diffInWeeks}w ago`;
+      } else if (diffInMonths < 12) {
+        return `${diffInMonths}mo ago`;
+      } else if (diffInYears >= 1) {
+        return `${diffInYears}y ago`;
       } else {
+        // For older posts (beyond normal relative time), show formatted date
         const dateObj = new Date(postDate.getTime());
-        const year  = dateObj.getFullYear();
-        const month = String(dateObj.getMonth() + 1).padStart(2, '0'); // months are 0-based
-        const day   = String(dateObj.getDate()).padStart(2, '0');
-        const hours   = String(dateObj.getHours()).padStart(2, '0');
-        const minutes = String(dateObj.getMinutes()).padStart(2, '0');
-
-        // Example formatted string: "YYYY-MM-DD HH:mm"
-        const formatted = `${year}-${month}-${day} ${hours}:${minutes}`;
-        return `${formatted}`;
+        const month = dateObj.toLocaleString('default', { month: 'short' });
+        const day = dateObj.getDate();
+        const year = dateObj.getFullYear();
+        const currentYear = new Date().getFullYear();
+        
+        // If same year, show "Jan 7", otherwise "Jan 7, 2025"
+        return currentYear === year ? `${month} ${day}` : `${month} ${day}, ${year}`;
       }
     } catch (error) {
       console.error('Error parsing date:', error);
       return 'Just now';
     }
   }, []);
+
 
   const getMediaType = useCallback((url: string) => {
     if (!url) return 'unknown';
@@ -2694,34 +2703,40 @@ const handleRepost = useCallback(async (postItem: PostItem) => {
   };
 
   const handleDeletePost = async (postId: string) => {
-    Alert.alert(
-     "Delete Post",
-     "Are you sure you want to delete your post? This action cannot be undone.",
-     [
-       {
-         text: "Cancel",
-         style: "cancel"
-       },
-       {
-         text: "Delete",
-         style: "destructive",
-         onPress: async () => {
-           try {
-             const postRef = doc(db, "SentinelPosts", postId);
-             await deleteDoc(postRef);
-             console.log('Comment deleted successfully');
-             
-             setShowMenuModal(false);
-             setSelectedPostId(null);
-           } catch (error) {
-             console.error('Error deleting comment:', error);
-             Alert.alert("Error", "Failed to delete response. Please try again.");
-           }
-         }
-       }
-     ]
-   );
- };
+  setPostToDelete(postId);
+  setIsDeleteModalVisible(true);
+};
+
+const confirmDeletePost = async () => {
+  if (!postToDelete) return;
+  
+  try {
+    const postRef = doc(db, "SentinelPosts", postToDelete);
+    await deleteDoc(postRef);
+    console.log('Post deleted successfully');
+    
+    setIsDeleteModalVisible(false);
+    setShowMenuModal(false);
+    setSelectedPostId(null);
+    setPostToDelete(null);
+    
+    // Optional: Show success message
+    Toast.show({
+      type: 'success',
+      text1: 'Success',
+      text2: 'Post deleted successfully',
+      position: 'top',
+      visibilityTime: 3000,
+    });
+  } catch (error) {
+    console.error('Error deleting post:', error);
+    setIsDeleteModalVisible(false);
+     setShowMenuModal(false);
+    
+    // Show error with CustomModal
+    setIsDeleteModalVisible(true);
+  }
+};
 
  const renderRepostContent = useCallback((item: PostItem) => {
   if (!item.isRepost || !item.originalPost) return null;
@@ -3703,6 +3718,35 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
           </TouchableOpacity>
         </Modal>
       )}
+      {/* DELETE POST MODAL */}
+        <CustomModal
+          visible={isDeleteModalVisible}
+          type="warning"
+          title="Delete Post"
+          message="Are you sure you want to delete this post? This action cannot be undone."
+          buttons={[
+            {
+              text: "Cancel",
+              style: "cancel",
+              onPress: () => {
+                setIsDeleteModalVisible(false);
+                setPostToDelete(null);
+                 setShowMenuModal(false);
+              }
+            },
+            {
+              text: "Delete",
+              style: "destructive",
+              onPress: confirmDeletePost
+            }
+          ]}
+          onClose={() => {
+            setIsDeleteModalVisible(false);
+            setPostToDelete(null);
+             setShowMenuModal(false);
+          }}
+        />
+
 
       {/* IMAGE MODAL */}
       <Modal

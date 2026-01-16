@@ -608,7 +608,7 @@ export default function BookmarksPage(): React.JSX.Element {
     });
   };
   // IMPROVED TIME AGO FUNCTION
-  const getTimeAgo = useCallback((dateString: any) => {
+    const getTimeAgo = useCallback((dateString: any) => {
     if (!dateString) return 'Just now';
     
     try {
@@ -640,6 +640,7 @@ export default function BookmarksPage(): React.JSX.Element {
       const diffInMonths = Math.floor(diffInDays / 30);
       const diffInYears = Math.floor(diffInDays / 365);
 
+      // Return relative time for recent posts
       if (diffInSeconds < 60) {
         return diffInSeconds <= 0 ? 'Just now' : `${diffInSeconds}s ago`;
       } else if (diffInMinutes < 60) {
@@ -648,17 +649,22 @@ export default function BookmarksPage(): React.JSX.Element {
         return `${diffInHours}h ago`;
       } else if (diffInDays < 7) {
         return `${diffInDays}d ago`;
+      } else if (diffInWeeks < 4) {
+        return `${diffInWeeks}w ago`;
+      } else if (diffInMonths < 12) {
+        return `${diffInMonths}mo ago`;
+      } else if (diffInYears >= 1) {
+        return `${diffInYears}y ago`;
       } else {
+        // For older posts (beyond normal relative time), show formatted date
         const dateObj = new Date(postDate.getTime());
-        const year  = dateObj.getFullYear();
-        const month = String(dateObj.getMonth() + 1).padStart(2, '0'); // months are 0-based
-        const day   = String(dateObj.getDate()).padStart(2, '0');
-        const hours   = String(dateObj.getHours()).padStart(2, '0');
-        const minutes = String(dateObj.getMinutes()).padStart(2, '0');
-
-        // Example formatted string: "YYYY-MM-DD HH:mm"
-        const formatted = `${year}-${month}-${day} ${hours}:${minutes}`;
-        return `${formatted}`;
+        const month = dateObj.toLocaleString('default', { month: 'short' });
+        const day = dateObj.getDate();
+        const year = dateObj.getFullYear();
+        const currentYear = new Date().getFullYear();
+        
+        // If same year, show "Jan 7", otherwise "Jan 7, 2025"
+        return currentYear === year ? `${month} ${day}` : `${month} ${day}, ${year}`;
       }
     } catch (error) {
       console.error('Error parsing date:', error);
