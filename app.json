@@ -39,6 +39,14 @@
           "backgroundColor": "#ffffff"
         }
       ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#ffffff",
+          "sounds": ["./assets/notification-sound.wav"]
+        }
+      ],
       "react-native-compressor",
       "expo-font",
       "expo-video",
