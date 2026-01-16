@@ -625,21 +625,59 @@ const handleCountrySelect = (selectedCountry: string) => {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         {/* Header with back button */}
-        <View className="px-6 pt-16 pb-4">
+        {/* <View className="px-6 pt-16 pb-4">
           <Link href="/(auth)/email-login" asChild>
             <TouchableOpacity className="w-10 h-10 rounded-full bg-white/95 items-center justify-center shadow-lg border border-white/30">
               <Ionicons name="arrow-back" size={20} color="#374151" />
             </TouchableOpacity>
           </Link>
-        </View>
+        </View> */}
 
         <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          {/* Header with back button */}
+          <View className="px-6 pt-5 pb-4 flex-row items-center justify-between">
+              {/* Left: Logo and Text */}
+              <Link href="/" asChild>
+              <TouchableOpacity className="flex-row items-center">
+                <View className="ml-2">
+                  <View className="flex-row items-center">
+                    {/* <View className="w-8 h-8 mr-0">
+                      <Image
+                        source={require("../../assets/images/new_logo.png")}
+                        style={{ flex: 1, width: undefined, height: undefined }}
+                        resizeMode="contain"
+                      />
+                    </View> */}
+                    <Text className="text-3xl font-extrabold text-[#281C20]">IronEx</Text>
+                  </View>
+                  {/* Logo Icon */}
+                  <Text className="text-xs text-[#281C20]">
+                  Structured Antisemitism Reporting
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </Link>
+
+              {/* Right: Close Button */}
+              <TouchableOpacity 
+                onPress={() => router.back()} 
+                style={{ 
+                  width: 32, 
+                  height: 32, 
+                  alignItems: "center", 
+                  justifyContent: "center" 
+                }}
+              >
+                <Ionicons name="close" size={26} color="#000" />
+              </TouchableOpacity>
+            </View>
+            
           {/* Main content */}
           <View className="px-6">
             {/* Title section */}
             <View className="mb-2">
-              <Text className="text-3xl font-bold text-black mb-3 leading-tight">
-                Create New {'\n'}Account
+              <Text className="text-2xl font-bold text-black mb-2 leading-tight">
+                Create New Account
               </Text>
               {/* Sign in link */}
               <View className="flex-row mb-8">

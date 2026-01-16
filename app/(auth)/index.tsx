@@ -3,7 +3,7 @@ import { LoadingComponent } from '@/components/LoadingComponent';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { Link, router } from 'expo-router';
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { collection, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { collection, doc, getDocs, limit, onSnapshot, orderBy, query, startAfter } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Dimensions, Image, Linking, Modal, Platform, RefreshControl, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -303,6 +303,13 @@ export default function Index(): React.JSX.Element {
   const flipCardRef = useRef<any>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
+  //Lasy loading
+  const [lastVisible, setLastVisible] = useState<any>(null); // Use the correct Snapshot type if possible
+  const [hasMore, setHasMore] = useState(true); // To check if there are more documents to load
+  const BATCH_SIZE = 10; // Define your lazy load batch size
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [unsubscribers, setUnsubscribers] = useState<(() => void)[]>([]);
+
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
 
   const filteredData = useMemo(() => {
@@ -390,67 +397,162 @@ export default function Index(): React.JSX.Element {
     }
   }, [showAuthPopup]);
 
+  // const handleFetchAllData = useCallback(async (forceRefresh: boolean = false) => {
+  //   const currentTime = Date.now();
+  //   const cacheValidTime = 5 * 60 * 1000;
+
+  //   setLoading(true);
+  //   try {
+  //     const postsXData: any = [];
+
+  //     const collXDataRefPost = collection(db, 'X-Data');
+  //     const queryXData = query(
+  //       collXDataRefPost,
+  //       orderBy('ContentDate', 'desc')
+  //     );
+  //     const unsubscribeXData = onSnapshot(queryXData, async xDataSnapshot => {
+  //       const xdataDataArr = xDataSnapshot.docs.map(doc => ({
+  //         id: doc.id,
+  //         data: doc.data(),
+  //       }))
+
+  //       for (const doc of xdataDataArr) {
+  //         const postData = doc.data;
+  //         const postId = doc.id;
+
+  //         postsXData.push({
+  //           uniqueId: `xdata-${postId}`,
+  //           id: postId,
+  //           liked: false,
+  //           AuthorImageURL: postData.AuthorImageURL,
+  //           AuthorName: postData.AuthorName,
+  //           ContentDate: postData.ContentDate,
+  //           ContentDesc: postData.ContentDesc,
+  //           ContentURL: postData.ContentURL,
+  //           ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+  //           ContentLikeCount: postData.ContentLikeCount || 0,
+  //           ContentRepostCount: postData.ContentRepostCount || 0,
+  //           ContentCommentCount: postData.ContentCommentCount || 0,
+  //           isApproved: true,
+  //           postType: "X-Data",
+  //           Liked: false,
+  //           Reposted: false,
+  //           Bookmarked: false,
+  //           createdAt: postData.createdAt || postData.ContentDate,
+  //           isRepost: postData.isRepost || false,
+  //           originalPost: postData.originalPost || null,
+  //           repostComment: postData.repostComment || '',
+  //           repostedBy: postData.repostedBy || '',
+  //           repostedAt: postData.repostedAt || null,
+  //           isAnonymous: false,
+  //           contentType: postData.contentType || 'My Thoughts',
+  //         });
+  //       }
+
+  //       setFetchedXData(postsXData);
+  //     });
+      
+  //     const collSentinelRefPost = collection(db, 'SentinelPosts');
+  //     const querySentinel = query(
+  //       collSentinelRefPost,
+  //       orderBy('ContentDate', 'desc')
+  //     );
+      
+  //     console.log("Sentinel OnSnapshot");
+  //     const unsubscribeSentinel = onSnapshot(querySentinel, async sentinelSnapshot => {
+  //       const sentineldataArr = sentinelSnapshot.docs.map(doc => ({
+  //         id: doc.id,
+  //         data: doc.data(),
+  //       }))
+
+  //       const postsData = [];
+  //       for (const doc of sentineldataArr) {
+  //         const postData = doc.data;
+  //         const postId = doc.id;
+
+  //         postsData.push({
+  //           uniqueId: `sentinel-${postId}`,
+  //           id: postId,
+  //           liked: false,
+  //           AuthorImageURL: postData.AuthorImageURL,
+  //           AuthorName: postData.AuthorName,
+  //           ContentDate: postData.ContentDate,
+  //           ContentDesc: postData.ContentDesc,
+  //           ContentURL: postData.ContentURL,
+  //           ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+  //           ContentLikeCount: postData.ContentLikeCount || 0,
+  //           ContentRepostCount: postData.ContentRepostCount || 0,
+  //           ContentCommentCount: postData.ContentCommentCount || 0,
+  //           isApproved: postData.isApproved || false,
+  //           postType: "SentinelPosts",
+  //           Liked: false,
+  //           Reposted: false,
+  //           Bookmarked: false,
+  //           createdAt: postData.createdAt || postData.ContentDate,
+  //           isRepost: postData.isRepost || false,
+  //           originalPost: postData.originalPost || null,
+  //           repostComment: postData.repostComment || '',
+  //           repostedBy: postData.repostedBy || '',
+  //           repostedAt: postData.repostedAt || null,
+  //           isAnonymous: postData.isAnonymous || false,
+  //           contentType: postData.contentType || 'My Thoughts',
+  //         });
+
+  //       }
+
+  //       const allData = postsData.concat(postsXData);
+  //       setFetchedData(allData);
+  //       console.log('OnSnapshot Fetched and Sorted', `Total: ${allData.length} documents`);
+
+  //       allData.forEach(post =>
+  //         onSnapshot(
+  //           collection(doc(db, post.postType, post.id), 'Comments'),
+  //           commentsSnap => {
+  //             setFetchedData(prev =>
+  //               prev.map(p =>
+  //                 p.id === post.id
+  //                   ? { ...p, ContentCommentCount: commentsSnap.size }
+  //                   : p
+  //               )
+  //             );
+  //           }
+  //         )
+  //       );
+  //     });
+      
+  //     setLastFetchTime(currentTime);
+  //     console.log('All Data Fetched and Sorted', `Total: ${fetchedData.length} documents`);
+      
+  //     setIsInitialized(true);
+
+  //     return () => {
+  //       unsubscribeSentinel();
+  //       unsubscribeXData();
+  //     };
+      
+  //   } catch (error) {
+  //     console.error('Error fetching data:', error);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // }, [isInitialized, fetchedData.length, lastFetchTime]);
+
   const handleFetchAllData = useCallback(async (forceRefresh: boolean = false) => {
     const currentTime = Date.now();
-    const cacheValidTime = 5 * 60 * 1000;
+
+    if (!forceRefresh && isInitialized && (currentTime - lastFetchTime < 10000)) {
+      return;
+    }
 
     setLoading(true);
     try {
-      const postsXData: any = [];
-
-      const collXDataRefPost = collection(db, 'X-Data');
-      const queryXData = query(
-        collXDataRefPost,
-        orderBy('ContentDate', 'desc')
-      );
-      const unsubscribeXData = onSnapshot(queryXData, async xDataSnapshot => {
-        const xdataDataArr = xDataSnapshot.docs.map(doc => ({
-          id: doc.id,
-          data: doc.data(),
-        }))
-
-        for (const doc of xdataDataArr) {
-          const postData = doc.data;
-          const postId = doc.id;
-
-          postsXData.push({
-            uniqueId: `xdata-${postId}`,
-            id: postId,
-            liked: false,
-            AuthorImageURL: postData.AuthorImageURL,
-            AuthorName: postData.AuthorName,
-            ContentDate: postData.ContentDate,
-            ContentDesc: postData.ContentDesc,
-            ContentURL: postData.ContentURL,
-            ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
-            ContentLikeCount: postData.ContentLikeCount || 0,
-            ContentRepostCount: postData.ContentRepostCount || 0,
-            ContentCommentCount: postData.ContentCommentCount || 0,
-            isApproved: true,
-            postType: "X-Data",
-            Liked: false,
-            Reposted: false,
-            Bookmarked: false,
-            createdAt: postData.createdAt || postData.ContentDate,
-            isRepost: postData.isRepost || false,
-            originalPost: postData.originalPost || null,
-            repostComment: postData.repostComment || '',
-            repostedBy: postData.repostedBy || '',
-            repostedAt: postData.repostedAt || null,
-            isAnonymous: false,
-            contentType: postData.contentType || 'My Thoughts',
-          });
-        }
-
-        setFetchedXData(postsXData);
-      });
-      
       const collSentinelRefPost = collection(db, 'SentinelPosts');
-      const querySentinel = query(
+      let querySentinel = query(
         collSentinelRefPost,
-        orderBy('ContentDate', 'desc')
-      );
-      
+        orderBy('ContentDate', 'desc'),
+        limit(BATCH_SIZE) // Apply the limit for the initial batch
+    );
+
       console.log("Sentinel OnSnapshot");
       const unsubscribeSentinel = onSnapshot(querySentinel, async sentinelSnapshot => {
         const sentineldataArr = sentinelSnapshot.docs.map(doc => ({
@@ -466,9 +568,10 @@ export default function Index(): React.JSX.Element {
           postsData.push({
             uniqueId: `sentinel-${postId}`,
             id: postId,
-            liked: false,
             AuthorImageURL: postData.AuthorImageURL,
             AuthorName: postData.AuthorName,
+            AuthorBio: postData.AuthorBio || postData.Bio || '',  // ✅ ADD THIS
+            AuthorUserID: postData.AuthorUserID || postData.repostedBy || '123456',
             ContentDate: postData.ContentDate,
             ContentDesc: postData.ContentDesc,
             ContentURL: postData.ContentURL,
@@ -477,11 +580,13 @@ export default function Index(): React.JSX.Element {
             ContentRepostCount: postData.ContentRepostCount || 0,
             ContentCommentCount: postData.ContentCommentCount || 0,
             isApproved: postData.isApproved || false,
-            postType: "SentinelPosts",
+            isNew: postData.isNew !== undefined ? postData.isNew : true,
+            postType: postData.postType || "SentinelPosts",
             Liked: false,
             Reposted: false,
             Bookmarked: false,
             createdAt: postData.createdAt || postData.ContentDate,
+            CommentTemplate: postData.CommentTemplate || "Sentinel Default Template",
             isRepost: postData.isRepost || false,
             originalPost: postData.originalPost || null,
             repostComment: postData.repostComment || '',
@@ -489,28 +594,24 @@ export default function Index(): React.JSX.Element {
             repostedAt: postData.repostedAt || null,
             isAnonymous: postData.isAnonymous || false,
             contentType: postData.contentType || 'My Thoughts',
-          });
+            isEducational: postData.isEducational || false,
+            moderationData: postData.moderationData || null,
 
+          });
         }
 
-        const allData = postsData.concat(postsXData);
-        setFetchedData(allData);
-        console.log('OnSnapshot Fetched and Sorted', `Total: ${allData.length} documents`);
+        // 1. Get the last document snapshot
+        const lastDoc = sentinelSnapshot.docs[sentinelSnapshot.docs.length - 1];
+            
+        // 2. Set the last visible state for subsequent fetches
+        // This is crucial for the lazy loading of the next batch
+        setLastVisible(lastDoc); 
 
-        allData.forEach(post =>
-          onSnapshot(
-            collection(doc(db, post.postType, post.id), 'Comments'),
-            commentsSnap => {
-              setFetchedData(prev =>
-                prev.map(p =>
-                  p.id === post.id
-                    ? { ...p, ContentCommentCount: commentsSnap.size }
-                    : p
-                )
-              );
-            }
-          )
-        );
+        // 3. Set the posts data (Initial batch)
+        setFetchedData(postsData);
+        setHasMore(sentinelSnapshot.docs.length === BATCH_SIZE); // Check if more data exists
+        
+        fetchPostComments();
       });
       
       setLastFetchTime(currentTime);
@@ -519,8 +620,8 @@ export default function Index(): React.JSX.Element {
       setIsInitialized(true);
 
       return () => {
+        console.log('unsubscribeSentinel');
         unsubscribeSentinel();
-        unsubscribeXData();
       };
       
     } catch (error) {
@@ -529,6 +630,118 @@ export default function Index(): React.JSX.Element {
       setLoading(false);
     }
   }, [isInitialized, fetchedData.length, lastFetchTime]);
+
+  const handleLoadMore = useCallback(async () => {
+    
+    if (!hasMore || loading || isFetchingMore || !lastVisible) return; // Prevent multiple fetches or fetching if no more data
+
+    setIsFetchingMore(true); // Use a separate loading state if needed for 'loading more' indicator
+    try {
+        const collSentinelRefPost = collection(db, 'SentinelPosts');
+        let queryNext = query(
+            collSentinelRefPost,
+            orderBy('ContentDate', 'desc'),
+            startAfter(lastVisible), // Start after the last document fetched
+            limit(BATCH_SIZE)
+        );
+
+        // *** Use getDocs for the lazy load to avoid a new onSnapshot listener ***
+        const nextSnapshot = await getDocs(queryNext);
+
+        if (nextSnapshot.empty) {
+            setHasMore(false);
+            setIsFetchingMore(false);
+            return;
+        }
+        
+        // ... (Map nextSnapshot.docs to postsData and append) ...
+        const nextPostsData = nextSnapshot.docs.map(doc => ({
+          id: doc.id,
+          data: doc.data(),
+        }))
+
+        const postsData = [];
+        for (const doc of nextPostsData) {
+          const postData = doc.data;
+          const postId = doc.id;
+
+          postsData.push({
+            uniqueId: `sentinel-${postId}`,
+            id: postId,
+            AuthorImageURL: postData.AuthorImageURL,
+            AuthorName: postData.AuthorName,
+            AuthorBio: postData.AuthorBio || postData.Bio || '',  // ✅ ADD THIS
+            AuthorUserID: postData.AuthorUserID || postData.repostedBy || '123456',
+            ContentDate: postData.ContentDate,
+            ContentDesc: postData.ContentDesc,
+            ContentURL: postData.ContentURL,
+            ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+            ContentLikeCount: postData.ContentLikeCount || 0,
+            ContentRepostCount: postData.ContentRepostCount || 0,
+            ContentCommentCount: postData.ContentCommentCount || 0,
+            isApproved: postData.isApproved || false,
+            isNew: postData.isNew !== undefined ? postData.isNew : true,
+            postType: postData.postType || "SentinelPosts",
+            Liked: false,
+            Reposted: false,
+            Bookmarked: false,
+            createdAt: postData.createdAt || postData.ContentDate,
+            CommentTemplate: postData.CommentTemplate || "Sentinel Default Template",
+            isRepost: postData.isRepost || false,
+            originalPost: postData.originalPost || null,
+            repostComment: postData.repostComment || '',
+            repostedBy: postData.repostedBy || '',
+            repostedAt: postData.repostedAt || null,
+            isAnonymous: postData.isAnonymous || false,
+            contentType: postData.contentType || 'My Thoughts',
+            isEducational: postData.isEducational || false,
+            moderationData: postData.moderationData || null,
+
+          });
+        }
+
+        setFetchedData(prevData => [...prevData, ...postsData]); // Append new data
+
+        fetchPostComments();
+
+
+        const newLastDoc = nextSnapshot.docs[nextSnapshot.docs.length - 1];
+        setLastVisible(newLastDoc);
+        setHasMore(nextSnapshot.docs.length === BATCH_SIZE); // Check if this batch filled the limit
+
+    } catch (error) {
+        console.error('Error loading more data:', error);
+    } finally {
+      setIsFetchingMore(false);
+    }
+  }, [hasMore, loading, lastVisible, isFetchingMore]);
+
+  const fetchPostComments = useCallback(async () => {
+    try {
+      fetchedData.forEach(post => {
+        onSnapshot(
+          collection(doc(db, "SentinelPosts", post.id), 'Comments'),
+          commentsSnap => {
+            let totalComments = 0;
+            totalComments = commentsSnap.size;
+
+            setFetchedData(prev =>
+              prev.map(p =>
+                p.id === post.id
+                ? { ...p, ContentCommentCount: totalComments }
+                : p
+              )
+            );
+          }
+        )
+      });
+
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  },[fetchedData]);
 
   const getCommentsCount = useCallback((postId: string) => {
     return commentsData[postId] || 0;
@@ -734,21 +947,17 @@ export default function Index(): React.JSX.Element {
 
   // ✅ NEW: Handle scroll with counter for popup trigger
   const handleScroll = useCallback((event: any) => {
-    const { contentOffset, layoutMeasurement } = event.nativeEvent;
+    const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
     const currentScrollY = contentOffset.y;
     const viewHeight = layoutMeasurement.height;
     const viewCenter = currentScrollY + viewHeight / 2;
 
-    // Track scroll direction and count
-    if (currentScrollY > lastScrollY + 100) {
-      setScrollCount(prev => {
-        const newCount = prev + 1;
-        if (newCount >= 2 && !showAuthPopup) { // Trigger after 2 scrolls
-          setShowAuthPopup(true);
-        }
-        return newCount;
-      });
-      setLastScrollY(currentScrollY);
+    // Check if the user is 90% of the way down the content
+    const isCloseToBottom = 
+      contentOffset.y + layoutMeasurement.height >= contentSize.height * 0.9; 
+
+    if (isCloseToBottom && hasMore && !loading) {
+      handleLoadMore(); // Call the lazy loading function
     }
 
     filteredData.forEach((item, index) => {
@@ -766,7 +975,7 @@ export default function Index(): React.JSX.Element {
         }
       }
     });
-  }, [filteredData, getMediaType, currentVideoIndex, lastScrollY, showAuthPopup]);
+  }, [filteredData, getMediaType, currentVideoIndex, hasMore, loading, handleLoadMore]);
 
   const EnhancedCard = useCallback(({ children, postId }: { children: React.ReactNode, postId: string }) => {
     const animValue = cardAnimations[postId] || new Animated.Value(0);
@@ -1146,7 +1355,7 @@ export default function Index(): React.JSX.Element {
           />
         }
       >
-        {loading ? (
+        {/* {loading ? (
           <View className="flex-1 justify-center items-center py-20">
             <LoadingComponent visible={true} size="large" />
           </View>
@@ -1156,6 +1365,35 @@ export default function Index(): React.JSX.Element {
           <View className="flex-1 justify-center items-center py-20">
             <LoadingComponent visible={true} size="large" />
           </View>
+        )} */}
+
+        {loading && !isFetchingMore ? (
+            // Full-screen loader for initial/refresh load
+            <View className="flex-1 justify-center items-center py-20">
+                <LoadingComponent visible={true} size="large" />
+            </View>
+        ) : listItems.length > 0 ? (
+            // The list of items
+            listItems
+        ) : (
+             // Fallback loader if list is empty after initial load (optional)
+            <View className="flex-1 justify-center items-center py-20">
+                <LoadingComponent visible={true} size="large" />
+            </View>
+        )}
+
+        {/* 👇 5. Small Loader for Pagination */}
+        {isFetchingMore && (
+            <View className="py-4 justify-center items-center">
+                <LoadingComponent visible={true} size="small" /> 
+            </View>
+        )}
+
+        {/* 👇 6. "No More Data" Indicator (Optional) */}
+        {!hasMore && listItems.length > BATCH_SIZE && (
+            <View className="py-4 justify-center items-center">
+                <Text className="text-gray-500">You've reached the end of the feed.</Text>
+            </View>
         )}
       </ScrollView>
       
