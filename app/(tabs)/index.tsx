@@ -8,7 +8,6 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDocs, limit, onSnapshot, orderBy, query, startAfter, updateDoc, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   Animated,
   Dimensions,
   Image,
@@ -4011,13 +4010,13 @@ export default function SentinelFeed(): React.JSX.Element {
               <TouchableOpacity className="flex-row items-center">
                 <View className="ml-2">
                   <View className="flex-row items-center">
-                    {/* <View className="w-8 h-8 mr-0">
+                    <View className="w-8 h-8 mr-0">
                       <Image
                         source={require("../../assets/images/new_logo.png")}
                         style={{ flex: 1, width: undefined, height: undefined }}
                         resizeMode="contain"
                       />
-                    </View> */}
+                    </View>
                     {/* Sentinel Text */}
                     {/* <Text className="text-3xl font-extrabold text-[#281C20]">entinel</Text> */}
                     <Text className="text-3xl font-extrabold text-[#281C20]">IronEx</Text>
