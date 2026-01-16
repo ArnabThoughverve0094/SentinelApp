@@ -2,7 +2,6 @@
 // import { Amplify } from 'aws-amplify';
 // import * as Linking from 'expo-linking';
 // import * as WebBrowser from 'expo-web-browser';
-import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 // import 'react-native-get-random-values';
 // import 'react-native-url-polyfill/auto';
@@ -41,7 +40,7 @@ export default function AuthCallback() {
 
   useEffect(() => {
     console.log("AuthCallback screen called");
-    router.replace('/(auth)');
+    // router.replace('/(auth)');
     // checkUser();
   }, []);
 
