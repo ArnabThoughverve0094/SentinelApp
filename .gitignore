@@ -37,3 +37,5 @@ yarn-error.*
 *.tsbuildinfo
 
 app-example
+
+fanday-6370e-firebase-adminsdk-fbsvc-b313e0fb9a.json
