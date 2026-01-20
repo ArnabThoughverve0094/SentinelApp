@@ -816,7 +816,7 @@ export default function BookmarksPage(): React.JSX.Element {
       await Share.share({
         message: `${shareMessage}\n${postUrl}`,
         url: postUrl,
-        title: '✨ Check out this Sentinel post',
+        title: '✨ Check out this IronEx post',
       });
       
     } catch (error) {

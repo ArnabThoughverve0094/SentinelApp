@@ -325,7 +325,7 @@ export default function Index(): React.JSX.Element {
           {/* Welcome text section */}
           <View className="mb-10">
             <Text className="text-3xl font-bold text-black mb-3 leading-tight">
-              Welcome{"\n"}to IronEx
+              Welcome{"\n"}to IronExSafe™
             </Text>
             <Text className="text-base text-black/80 leading-6">
               Connect with your community and stay updated every time,
