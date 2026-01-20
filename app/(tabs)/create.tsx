@@ -1,5 +1,6 @@
 import { db } from "@/FirebaseConfig";
 import compressImage from "@/components/CompressImage";
+import { getMediaType } from '../../utils/mediaHelpers';
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
@@ -1062,20 +1063,27 @@ const compressAndGetUrl = async (localUri) => {
   // **NEW: Separated post creation**
   const createPost = async (uploadedUrls: string[], failedUploads: string[]) => {
   try {
-    // Step 1: Call AI moderation API to check content
+    // Step 1: Filter out video files for moderation
+    const nonVideoUrl = uploadedUrls.find(url => {
+      const mediaType = getMediaType(url);
+      return mediaType === 'image' || mediaType === 'gif' || mediaType === 'doc';
+    }) || null;
+    
+    console.log("📹 Filtered media for moderation:", nonVideoUrl ? "Using non-video media" : "Only text will be checked");
+    
+    // Step 2: Call AI moderation API to check content (without video)
     const moderationResult = await checkPostContent(
       postText, 
-      uploadedUrls.length > 0 ? uploadedUrls[0] : null
+      nonVideoUrl
     );
-    console.log("🤖 AI Moderation Result:", uploadedUrls[0]);
-    console.log(moderationResult);
-    console.log("🚦 Post status:", postText);
+    console.log("🤖 AI Moderation Result:", moderationResult);
+    console.log("🚦 Post status:", moderationResult.postStatus);
     
-    // Step 2: Determine approval status based on AI analysis
+    // Step 3: Determine approval status based on AI analysis
     const isContentApproved = moderationResult.postStatus === 'approved';
     const isFlagged = moderationResult.flagged;
     
-    // Step 3: Save post to Firestore with moderation results
+    // Step 4: Save post to Firestore with moderation results
     await addDoc(collection(db, 'SentinelPosts'), {
       AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
       AuthorName: userName,
@@ -1099,14 +1107,15 @@ const compressAndGetUrl = async (localUri) => {
         flagged: isFlagged,
         violations: moderationResult.violations || [],
         categories: moderationResult.categories || {},
-        checkedAt: new Date()
+        checkedAt: new Date(),
+        videoSkipped: uploadedUrls.some(url => getMediaType(url) === 'video') // Track if video was present
       }
     });
 
     setPostText('');
     setSelectedMedia([]);
     
-    // Step 4: Show success message based on moderation result
+    // Step 5: Show success message based on moderation result
     let successTitle = '';
     let successMessage = '';
     let notificationDescription = '';
@@ -1147,7 +1156,7 @@ const compressAndGetUrl = async (localUri) => {
       'checkmark-circle'
     );
 
-    // Step 5: Create Notification
+    // Step 6: Create Notification
     if (currentUserDocId) {
       const userRef = doc(db, "SentinelUsers", currentUserDocId);
       await updateDoc(userRef, {
@@ -1200,6 +1209,8 @@ const compressAndGetUrl = async (localUri) => {
 const checkPostContent = async (postText: string, imageUrl: string | null) => {
   try {
     console.log('🔍 Checking content with AI moderation...');
+    console.log('📝 Text:', postText ? 'Present' : 'Empty');
+    console.log('🖼️ Image URL:', imageUrl ? 'Present (non-video)' : 'None');
     
     const response = await fetch(
       'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/ai-based-post-analysis',
@@ -1210,7 +1221,7 @@ const checkPostContent = async (postText: string, imageUrl: string | null) => {
         },
         body: JSON.stringify({
           postText: postText,
-          imageUrl: imageUrl
+          imageUrl: imageUrl // Will be null if only video, or the first non-video media
         })
       }
     );
@@ -1224,7 +1235,7 @@ const checkPostContent = async (postText: string, imageUrl: string | null) => {
     console.log('✅ Moderation check complete:', data);
     
     return {
-      postStatus: data.postStatus, // "appropriate" or "inappropriate"
+      postStatus: data.postStatus, // "approved" or "inappropriate"
       flagged: data.flagged,
       violations: data.violations || [],
       categories: data.categories || {}
@@ -1240,6 +1251,7 @@ const checkPostContent = async (postText: string, imageUrl: string | null) => {
     };
   }
 };
+
 
 
   useEffect(() => {
