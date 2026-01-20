@@ -13,7 +13,6 @@ import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, onSnapshot
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   Dimensions,
   Image,
@@ -1563,7 +1562,7 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
             Reposted: (postData.RepostedBy?.includes(fetchuserID) || false),
             Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
             createdAt: postData.createdAt || postData.ContentDate,
-            CommentTemplate: postData.CommentTemplate || "Sentinel Default Template",
+            CommentTemplate: postData.CommentTemplate || "Standard Template",
             isRepost: postData.isRepost || false,
             originalPost: postData.originalPost || null,
             repostComment: postData.repostComment || '',
@@ -2403,7 +2402,7 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
         RepostedBy: [],
         BookmarkedBy: [],
         createdAt: new Date(),
-        CommentTemplate: selectedRepostPost.CommentTemplate || "Sentinel Default Template",
+        CommentTemplate: selectedRepostPost.CommentTemplate || "Standard Template",
         isRepost: true,
         originalPost: {
           id: selectedRepostPost.id || '',
@@ -2492,7 +2491,7 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
         RepostedBy: [],
         BookmarkedBy: [],
         createdAt: new Date(),
-        CommentTemplate: selectedRepostPost.CommentTemplate || "Sentinel Default Template",
+        CommentTemplate: selectedRepostPost.CommentTemplate || "Standard Template",
         isRepost: true,
         originalPost: {
           id: selectedRepostPost.id || '',
