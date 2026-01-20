@@ -1027,7 +1027,7 @@ export default function SentinelFeed(): React.JSX.Element {
   ];
 
   const areInteractionsDisabled = useCallback((item: PostItem) => {
-    return !item.isApproved && !item.isNew;
+    return !item.isApproved || !item.isNew;
   }, []);
 
   const fetchUserFollowing = useCallback(async () => {
@@ -2118,6 +2118,15 @@ export default function SentinelFeed(): React.JSX.Element {
   
   const openCommentsModal = useCallback((item: PostItem) => {
     if (areInteractionsDisabled(item)) {
+    if (item.isNew) {
+      Toast.show({
+        type: 'warning',
+        text1: 'Post Under Review',
+        text2: 'Comments are disabled until this post is approved by moderators.',
+        position: 'bottom',
+        visibilityTime: 3000,
+      });
+    } else {
       Toast.show({
         type: 'error',
         text1: 'Post Not Available',
@@ -2125,8 +2134,9 @@ export default function SentinelFeed(): React.JSX.Element {
         position: 'bottom',
         visibilityTime: 3000,
       });
-      return;
     }
+    return;
+  }
 
     setSelectedPostId(item.id);
     setSelectedPostType(item.postType);
@@ -2143,6 +2153,15 @@ export default function SentinelFeed(): React.JSX.Element {
 
   const openGraphModal = useCallback((item: PostItem) => {
     if (areInteractionsDisabled(item)) {
+    if (item.isNew) {
+      Toast.show({
+        type: 'warning',
+        text1: 'Post Under Review',
+        text2: 'Sentiment analysis is available after moderation approval.',
+        position: 'bottom',
+        visibilityTime: 3000,
+      });
+    } else {
       Toast.show({
         type: 'error',
         text1: 'Post Not Available',
@@ -2150,8 +2169,9 @@ export default function SentinelFeed(): React.JSX.Element {
         position: 'bottom',
         visibilityTime: 3000,
       });
-      return;
     }
+    return;
+  }
 
     console.log("Graph ID: ", item.id);
     setSelectedGraphPostId(item.id);
@@ -2532,15 +2552,25 @@ export default function SentinelFeed(): React.JSX.Element {
 
   const toggleLike = useCallback(async (postItem: PostItem) => {
     if (areInteractionsDisabled(postItem)) {
+    if (postItem.isNew) {
+      Toast.show({
+        type: 'warning',
+        text1: 'Post Under Review',
+        text2: 'This post is awaiting moderation. Interactions will be enabled once approved.',
+        position: 'bottom',
+        visibilityTime: 3000,
+      });
+    } else {
       Toast.show({
         type: 'error',
-        text1: 'Action Not Available',
+        text1: 'Post Not Available',
         text2: 'This post has been rejected and interactions are disabled.',
         position: 'bottom',
         visibilityTime: 3000,
       });
-      return;
     }
+    return;
+  }
 
     let fetchuserID = userId;
     if(fetchuserID === ""){
@@ -2619,6 +2649,15 @@ export default function SentinelFeed(): React.JSX.Element {
 
   const openRepostModal = useCallback((postItem: PostItem) => {
     if (areInteractionsDisabled(postItem)) {
+    if (postItem.isNew) {
+      Toast.show({
+        type: 'warning',
+        text1: 'Post Under Review',
+        text2: 'Reposting is disabled until this post is approved by moderators.',
+        position: 'bottom',
+        visibilityTime: 3000,
+      });
+    } else {
       Toast.show({
         type: 'error',
         text1: 'Action Not Available',
@@ -2626,8 +2665,9 @@ export default function SentinelFeed(): React.JSX.Element {
         position: 'bottom',
         visibilityTime: 3000,
       });
-      return;
     }
+    return;
+  }
 
     if (postItem.Reposted) {
       Toast.show({
@@ -2848,6 +2888,15 @@ export default function SentinelFeed(): React.JSX.Element {
 
   const handleBookmark = useCallback(async (postItem: PostItem) => {
     if (areInteractionsDisabled(postItem)) {
+    if (postItem.isNew) {
+      Toast.show({
+        type: 'warning',
+        text1: 'Post Under Review',
+        text2: 'Bookmarking is disabled until this post is approved by moderators.',
+        position: 'bottom',
+        visibilityTime: 3000,
+      });
+    } else {
       Toast.show({
         type: 'error',
         text1: 'Action Not Available',
@@ -2855,8 +2904,9 @@ export default function SentinelFeed(): React.JSX.Element {
         position: 'bottom',
         visibilityTime: 3000,
       });
-      return;
     }
+    return;
+  }
 
     console.log("Bookmark pressed:", postItem.id);
     
@@ -2972,13 +3022,13 @@ export default function SentinelFeed(): React.JSX.Element {
       // ━━━━━━━━━━━━━━━
       // 📱 Join the conversation on Sentinel and discover more!`;
 
-      const shareMessage = `🔗 Tap to view on ironex:
+      const shareMessage = `🔗 Tap to view on IronExSafe™:
       ${postUrl}`;
 
       await Share.share({
         message: `${shareMessage}\n${postUrl}`,
         url: postUrl,
-        title: '✨ Check out this Sentinel post',
+        title: '✨ Check out this IronExSafe™ post',
       });
 
 
@@ -4019,11 +4069,11 @@ export default function SentinelFeed(): React.JSX.Element {
                     </View>
                     {/* Sentinel Text */}
                     {/* <Text className="text-3xl font-extrabold text-[#281C20]">entinel</Text> */}
-                    <Text className="text-3xl font-extrabold text-[#281C20]">IronEx</Text>
+                    <Text className="text-3xl font-extrabold text-[#281C20]">IronExSafe™</Text>
                   </View>
                   {/* Logo Icon */}
-                  <Text className="text-xs text-[#281C20]">
-                    Structured Antisemitism Reporting
+                  <Text className="text-lg text-[#281C20]">
+                    Report. Expose. Educate.
                   </Text>
                 </View>
               </TouchableOpacity>

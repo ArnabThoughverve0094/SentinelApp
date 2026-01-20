@@ -323,11 +323,11 @@ export default function ForgotPassword(): React.JSX.Element {
                     </View>
                     {/* Sentinel Text */}
                     {/* <Text className="text-3xl font-extrabold text-[#281C20]">entinel</Text> */}
-                    <Text className="text-3xl font-extrabold text-[#281C20]">IronEx</Text>
+                    <Text className="text-3xl font-extrabold text-[#281C20]">IronExSafe™</Text>
                   </View>
                   {/* Logo Icon */}
                   <Text className="text-xs text-[#281C20]">
-                    Structured Antisemitism Reporting
+                    Report. Expose. Educate.
                   </Text>
                 </View>
               </TouchableOpacity>
