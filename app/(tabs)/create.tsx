@@ -1095,7 +1095,7 @@ const compressAndGetUrl = async (localUri) => {
       ContentURLs: uploadedUrls,
       ContentLikeCount: 0,
       ContentRepostCount: 0,
-      CommentTemplate: "Sentinel Default Template",
+      CommentTemplate: "Standard Template",
       isApproved: isContentApproved,
       isLiked: false,
       isNew: !isContentApproved, // If approved, not new for admin; if flagged, new for review

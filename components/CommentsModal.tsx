@@ -596,11 +596,11 @@ export default function CommentScreen({
           postType: itemType,
           Liked: false,
           Reposted: false,
-          CommentTemplate: data.CommentTemplate || 'Sentinel Default Template',
+          CommentTemplate: data.CommentTemplate || 'Standard Template',
           isAnonymous: data.isAnonymous || false,
           contentType: data.contentType || 'My Thoughts'
         });
-        fetchCommentTemplate(data.CommentTemplate || 'Sentinel Default Template');
+        fetchCommentTemplate(data.CommentTemplate || 'Standard Template');
 
         if (data.isAnonymous || false) {
           setChangedAuthorImage(dummyAuthorImage);
@@ -633,12 +633,12 @@ export default function CommentScreen({
       postType: postType || '',
       Liked: passedPostData.Liked || false,
       Reposted: passedPostData.Reposted || false,
-      CommentTemplate: passedPostData.CommentTemplate || 'Sentinel Default Template',
+      CommentTemplate: passedPostData.CommentTemplate || 'Standard Template',
       isAnonymous: passedPostData.isAnonymous || false,
       contentType: passedPostData.contentType || 'My Thoughts'
 
     });
-    fetchCommentTemplate(passedPostData.CommentTemplate || 'Sentinel Default Template');
+    fetchCommentTemplate(passedPostData.CommentTemplate || 'Standard Template');
 
     if (passedPostData.isAnonymous || false) {
       setChangedAuthorImage(dummyAuthorImage);

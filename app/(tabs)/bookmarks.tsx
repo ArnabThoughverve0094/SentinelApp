@@ -876,7 +876,7 @@ export default function BookmarksPage(): React.JSX.Element {
               Reposted: false,
               Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
               createdAt: postData.createdAt || postData.ContentDate,
-              CommentTemplate: postData.CommentTemplate || "Sentinel Default Template",
+              CommentTemplate: postData.CommentTemplate || "Standard Template",
               isAnonymous: postData.isAnonymous || false,
               contentType: postData.contentType || 'My Thoughts'
             });
@@ -933,7 +933,7 @@ export default function BookmarksPage(): React.JSX.Element {
               Reposted: (postData.RepostedBy?.includes(fetchuserID) || false),
               Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
               createdAt: postData.createdAt || postData.ContentDate,
-              CommentTemplate: postData.CommentTemplate || "Sentinel Default Template",
+              CommentTemplate: postData.CommentTemplate || "Standard Template",
               isRepost: postData.isRepost || false,
               originalPost: postData.originalPost || null,
               repostComment: postData.repostComment || '',
@@ -1163,7 +1163,7 @@ export default function BookmarksPage(): React.JSX.Element {
           RepostedBy: [],
           BookmarkedBy: [],
           createdAt: new Date(),
-          CommentTemplate: selectedRepostPost.CommentTemplate || "Sentinel Default Template",
+          CommentTemplate: selectedRepostPost.CommentTemplate || "Standard Template",
           isRepost: true,
           originalPost: {
             id: selectedRepostPost.id || '',
@@ -1252,7 +1252,7 @@ export default function BookmarksPage(): React.JSX.Element {
           RepostedBy: [],
           BookmarkedBy: [],
           createdAt: new Date(),
-          CommentTemplate: selectedRepostPost.CommentTemplate || "Sentinel Default Template",
+          CommentTemplate: selectedRepostPost.CommentTemplate || "Standard Template",
           isRepost: true,
           originalPost: {
             id: selectedRepostPost.id || '',
