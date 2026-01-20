@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Linking, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Linking, Modal, ScrollView, Text, TouchableOpacity, View ,Image} from 'react-native';
 
 interface AppInfoModalProps {
   visible: boolean;
@@ -147,22 +147,26 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({ visible, onClose }) => {
           contentContainerStyle={{ padding: 16 }}
         >
           {/* App Logo & Name */}
-          <View style={{ alignItems: 'center', marginBottom: 32, marginTop: 16 }}>
+          <View style={{ alignItems: 'center', marginBottom: 5, marginTop: 5 }}>
             <View style={{
               width: 100,
               height: 100,
-              borderRadius: 24,
-              backgroundColor: '#000',
+              // borderRadius: 24,
+              // backgroundColor: '#000',
               justifyContent: 'center',
               alignItems: 'center',
-              marginBottom: 16,
+              // marginBottom: 5,
               shadowColor: '#000',
               shadowOffset: { width: 0, height: 4 },
               shadowOpacity: 0.1,
               shadowRadius: 8,
               elevation: 5
             }}>
-              <Ionicons name="shield-checkmark" size={48} color="#fff" />
+              <Image
+                source={require("../assets/images/new_logo.png")}
+                style={{ width: 60, height: 60 }}
+                resizeMode="contain"
+              />
             </View>
             <Text style={{ 
               fontSize: 24, 
@@ -170,12 +174,13 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({ visible, onClose }) => {
               color: '#111827',
               marginBottom: 4 
             }}>
-              IronEx
+              IronExSafe™ 
             </Text>
             <Text style={{ fontSize: 15, color: '#6B7280' }}>
-              Expose Hate, Not Users
+              Report. Expose. Educate.
             </Text>
           </View>
+
 
           {/* Version Info */}
           <InfoSection title="Version Information">
