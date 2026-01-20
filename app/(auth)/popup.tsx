@@ -1,7 +1,9 @@
 import { db } from "@/FirebaseConfig";
+import { NotificationProvider, useNotification } from "@/context/NotificationContext";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ResponseType, TokenResponse, makeRedirectUri, useAuthRequest } from "expo-auth-session";
+import * as Notifications from "expo-notifications";
 import { Link, router } from "expo-router";
 import * as WebBrowser from 'expo-web-browser';
 import { addDoc, collection, onSnapshot, query, where } from "firebase/firestore";
@@ -15,6 +17,16 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+    shouldShowBanner: true, 
+    shouldShowList: true,
+  }),
+});
 
 // Allows the browser to close after auth
 WebBrowser.maybeCompleteAuthSession();
@@ -50,6 +62,7 @@ type LoginResponse = {
 };
 
 export default function Index(): React.JSX.Element {
+  const { notification, expoPushToken, error } = useNotification();
   const [agreeToTerms, setAgreeToTerms] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -126,6 +139,9 @@ export default function Index(): React.JSX.Element {
     } else {
       console.log("Social Login Failed! Code: ", response);
     }
+
+    console.log("Expo push token: ", expoPushToken);
+    console.log("Expo notification: ", JSON.stringify(notification, null, 2));
 
   }, [response]);
 
@@ -279,7 +295,8 @@ export default function Index(): React.JSX.Element {
   }, []);
 
   return (
-    <SafeAreaView className="flex-1">
+    <NotificationProvider>
+      <SafeAreaView className="flex-1">
       <StatusBar
         barStyle="light-content"
         backgroundColor="transparent"
@@ -419,5 +436,6 @@ export default function Index(): React.JSX.Element {
         </View>
       </ImageBackground>
     </SafeAreaView>
+    </NotificationProvider>
   );
 }

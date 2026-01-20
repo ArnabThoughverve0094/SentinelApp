@@ -1,4 +1,3 @@
-import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
@@ -14,6 +13,7 @@ export async function registerForPushNotificationAsync() {
     }
 
     if (Device.isDevice){
+        console.log('Correct Device');
         const { status: existingStatus } = await Notifications.getPermissionsAsync();
         let finalStatus = existingStatus;
 
@@ -22,25 +22,32 @@ export async function registerForPushNotificationAsync() {
             finalStatus = status;
         }
 
+        console.log('finalStatus: ', finalStatus);
+
         if (finalStatus !== "granted") {
             throw new Error("Permission not granted to get push notification!");
         }
 
-        const projectId = 
-            Constants?.expoConfig?.extra?.eas?.projectId ?? 
-            Constants?.easConfig?.projectId;
+        // const projectId = 
+        //     Constants?.expoConfig?.extra?.eas?.projectId ?? 
+        //     Constants?.easConfig?.projectId; //7929b56b-fdaf-4894-9b78-3e25f380baee
+        const projectId = "7929b56b-fdaf-4894-9b78-3e25f380baee"; 
         if (!projectId) {
             throw new Error("Project Id not found");
         }
+
+        console.log('projectId: ', projectId);
+
         try {
             const pushTokenString = (
                 await Notifications.getExpoPushTokenAsync({
                     projectId,
                 })
             ).data;
-            console.log(pushTokenString);
+            console.log('PushTokenString: ',pushTokenString);
             return pushTokenString;
         } catch (error) {
+            console.log('PushTokenString Error: ', error);
             throw new Error("PushTokenString Error", error);
         }
     } else {
