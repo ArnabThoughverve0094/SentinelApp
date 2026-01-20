@@ -476,7 +476,7 @@ export default function EmailLogin(): React.JSX.Element {
               userID: userId,
               // deviceToken: expoPushToken,
             });
-            console.log('📱 No user document found');
+            console.log('📱 No user document found. New user created');
           }
         });
 

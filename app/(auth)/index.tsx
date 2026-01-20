@@ -1297,8 +1297,19 @@ export default function Index(): React.JSX.Element {
     return filteredData.map((item, index) => {
       initializeCardAnimation(item.uniqueId);
       
+      const baseKey = `${item.postType}-${item.id}`;
+      const contextKey = `feed-${index}`;
+      const getTimestamp = (date: any) => {
+        if (date && typeof date === 'object' && 'seconds' in date) return date.seconds;
+        if (typeof date === 'number') return date;
+        if (typeof date === 'string') return date;
+        return '';
+      };
+      const timestampKey = getTimestamp(item.createdAt) || getTimestamp(item.ContentDate) || index;
+      const uniqueKey = `${baseKey}-${contextKey}-${timestampKey}`;
+
       return (
-        <React.Fragment key={item.uniqueId}>
+        <React.Fragment key={uniqueKey}>
           {renderPostUserContent(item, index)}
         </React.Fragment>
       );
