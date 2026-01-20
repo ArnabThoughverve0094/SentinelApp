@@ -75,7 +75,7 @@ const sections: HelpSection[] = [
     key: 'signup',
     title: 'Signup',
     icon: <Ionicons name="person-add-outline" size={20} color="#10b981" />,
-    short: 'Create a new Sentinel account.',
+    short: 'Create a new IronEx account.',
     bullets: [
       'Fill Name, Email, Password, Nickname and Country, then confirm you are 18+.',
       'Accept Terms & Conditions and Privacy Policy before tapping Sign Up.',
@@ -198,7 +198,7 @@ const sections: HelpSection[] = [
     icon: <MaterialIcons name="help-outline" size={20} color="#0f766e" />,
     short: 'Expandable list of common questions.',
     bullets: [
-      'Each row expands to reveal an answer about topics like Project Sentinel, anonymity or location tracking.',
+      'Each row expands to reveal an answer about topics like Project IronEx, anonymity or location tracking.',
       'Users can quickly scan the list and only expand the questions they care about.',
       'Consider linking to full policies or external resources where necessary.',
     ],
@@ -251,7 +251,7 @@ const HelpScreen: React.FC<HelpScreenProps> = ({ onClose }) => {
               App Guide
             </Text>
             <Text className="text-xs text-slate-500 mt-1">
-              Learn how to use every screen in Sentinel.
+              Learn how to use every screen in IronEx.
             </Text>
           </View>
           <View className="flex-row items-center">
