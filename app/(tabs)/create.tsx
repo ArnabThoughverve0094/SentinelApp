@@ -1,6 +1,5 @@
 import { db } from "@/FirebaseConfig";
 import compressImage from "@/components/CompressImage";
-import { getMediaType } from '../../utils/mediaHelpers';
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
@@ -28,6 +27,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { getMediaType } from '../../utils/mediaHelpers';
 const MAX_CHARACTERS = 2000;
 
   // Returns styled, clickable React Native text from input value
@@ -765,7 +765,7 @@ const compressAndGetUrl = async (localUri) => {
     const compressedUri = await Video.compress(
       localUri,
       {
-        compressionMethod: 'auto', 
+        compressionMethod: 'manual', //auto
         maxHeight: 854, // Target 480p/540p resolution
         maxWidth: 480,
         bitrate: 1500000, // Very low 1.5 Mbps

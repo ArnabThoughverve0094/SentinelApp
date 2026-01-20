@@ -7,7 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ResponseType, TokenResponse, makeRedirectUri, useAuthRequest } from 'expo-auth-session';
 import { Link, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { addDoc, collection, onSnapshot, query, where } from 'firebase/firestore';
+import { addDoc, collection, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Image, ImageBackground, KeyboardAvoidingView, Platform, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -453,39 +453,44 @@ export default function EmailLogin(): React.JSX.Element {
     }
   };
 
-  const fetchUserData = useCallback(async (userId: string) => {
-    try {
-      if (userId) {
-        console.log('🔄 Fetching following list for user:', userId);
-        
-        const sentinelUsersRef = collection(db, 'SentinelUsers');
-        const q = query(sentinelUsersRef, where('userID', '==', userId));
-        
-        const unsubscribe = onSnapshot(q, async (snapshot) => {
-          if (!snapshot.empty) {
-            const userDoc = snapshot.docs[0];
-            
-            // const userRef = doc(db, "SentinelUsers", userDoc.id);
-            // await updateDoc(userRef, {
-            //   deviceToken: expoPushToken,
-            // });
-            console.log('✅ Current user doc updated');
-
-          } else {
-            await addDoc(collection(db, 'SentinelUsers'), {
-              userID: userId,
-              // deviceToken: expoPushToken,
-            });
-            console.log('📱 No user document found. New user created');
-          }
-        });
-
-        return unsubscribe;
+  const fetchUserData = useCallback((userId: string) => {
+    if (!userId) return;
+  
+    const sentinelUsersRef = collection(db, 'SentinelUsers');
+    const q = query(sentinelUsersRef, where('userID', '==', userId));
+  
+    // 1. Setup the Real-time Listener
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      if (snapshot.empty) {
+        // 2. Handle missing user (Create)
+        try {
+          await addDoc(collection(db, 'SentinelUsers'), {
+            userID: userId,
+            deviceToken: expoPushToken || '',
+            createdAt: new Date()
+          });
+          console.log('📱 New user created');
+        } catch (err) {
+          console.error("Error creating user:", err);
+        }
+      } else {
+        // 3. Handle existing user
+        const userDoc = snapshot.docs[0];
+        const userData = userDoc.data();
+  
+        // Only update if the token has actually changed to avoid loops
+        if (userData.deviceToken !== expoPushToken) {
+          const userRef = doc(db, "SentinelUsers", userDoc.id);
+          await updateDoc(userRef, { deviceToken: expoPushToken || '' });
+          console.log('✅ Device token synced');
+        }
       }
-    } catch (error) {
-      console.error('Error fetching following list:', error);
-    }
-  }, []);
+    }, (error) => {
+      console.error('Snapshot error:', error);
+    });
+  
+    return unsubscribe;
+  }, [expoPushToken]); // Dependency on token ensures listener updates if token changes
 
   // useEffect(() => {
   //   registerForPushNotificationsAsync().then(token => {
