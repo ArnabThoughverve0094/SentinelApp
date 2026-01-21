@@ -314,12 +314,9 @@ export default function Index(): React.JSX.Element {
 
   const filteredData = useMemo(() => {
     return fetchedData.filter(item => {
-      if (userRole === "User") {
-        return item.isApproved;
-      }
-      return true;
+      return (item.isApproved) || item.postType.includes('X-Data');
     });
-  }, [fetchedData, userRole]);
+  }, [fetchedData]);
 
   const fullScreenVideoPlayer = useVideoPlayer(fullScreenVideo || '', (player) => {
     player.loop = false;
@@ -395,6 +392,7 @@ export default function Index(): React.JSX.Element {
         useNativeDriver: true,
       }).start();
     }
+    handleFetchAllData();
   }, [showAuthPopup]);
 
   // const handleFetchAllData = useCallback(async (forceRefresh: boolean = false) => {
@@ -540,9 +538,9 @@ export default function Index(): React.JSX.Element {
   const handleFetchAllData = useCallback(async (forceRefresh: boolean = false) => {
     const currentTime = Date.now();
 
-    if (!forceRefresh && isInitialized && (currentTime - lastFetchTime < 10000)) {
-      return;
-    }
+    // if (!forceRefresh && isInitialized && (currentTime - lastFetchTime < 10000)) {
+    //   return;
+    // }
 
     setLoading(true);
     try {
@@ -747,9 +745,9 @@ export default function Index(): React.JSX.Element {
     return commentsData[postId] || 0;
   }, [commentsData]);
 
-  useEffect(() => {
-    handleFetchAllData();
-  }, []);
+  // useEffect(() => {
+  //   handleFetchAllData();
+  // }, []);
 
   const openFullScreenImage = useCallback((imageUrl: string) => {
     setFullScreenImage(imageUrl);
@@ -1074,7 +1072,7 @@ export default function Index(): React.JSX.Element {
 
           {renderRepostContent(item)}
 
-          {renderMediaContent(item, index)}
+          {item.postType !== "X-Data" && renderMediaContent(item, index)}
 
           <View className="flex-row items-center">
               <View className="flex-1"> 
@@ -1358,6 +1356,7 @@ export default function Index(): React.JSX.Element {
       </View>
 
       <ScrollView 
+        key={`feed`}
         ref={scrollViewRef}
         className="flex-1" 
         showsVerticalScrollIndicator={false}
@@ -1378,18 +1377,6 @@ export default function Index(): React.JSX.Element {
           />
         }
       >
-        {/* {loading ? (
-          <View className="flex-1 justify-center items-center py-20">
-            <LoadingComponent visible={true} size="large" />
-          </View>
-        ) : listItems.length > 0 ? (
-          listItems
-        ) : (
-          <View className="flex-1 justify-center items-center py-20">
-            <LoadingComponent visible={true} size="large" />
-          </View>
-        )} */}
-
         {loading && !isFetchingMore ? (
             // Full-screen loader for initial/refresh load
             <View className="flex-1 justify-center items-center py-20">

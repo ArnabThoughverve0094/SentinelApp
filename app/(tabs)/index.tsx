@@ -1540,87 +1540,87 @@ export default function SentinelFeed(): React.JSX.Element {
         fetchPostComments();
       });
       
-      if (sentinelData.length <= 0) {
-        const postsXData: any = [];
+      // if (sentinelData.length <= 0) {
+      //   const postsXData: any = [];
       
-      const collXDataRefPost = collection(db, 'X-Data');
-      const queryXData = query(
-        collXDataRefPost,
-        orderBy('ContentDate', 'desc')
-      );
-      const unsubscribeXData = onSnapshot(queryXData, async xDataSnapshot => {
-        const xdataDataArr = xDataSnapshot.docs.map(doc => ({
-          id: doc.id,
-          data: doc.data(),
-        }))
+      // const collXDataRefPost = collection(db, 'X-Data');
+      // const queryXData = query(
+      //   collXDataRefPost,
+      //   orderBy('ContentDate', 'desc')
+      // );
+      // const unsubscribeXData = onSnapshot(queryXData, async xDataSnapshot => {
+      //   const xdataDataArr = xDataSnapshot.docs.map(doc => ({
+      //     id: doc.id,
+      //     data: doc.data(),
+      //   }))
 
-        for (const doc of xdataDataArr) {
-          const postData = doc.data;
-          const postId = doc.id;
+      //   for (const doc of xdataDataArr) {
+      //     const postData = doc.data;
+      //     const postId = doc.id;
 
-          postsXData.push({
-            uniqueId: `xdata-${postId}`,
-            id: postId,
-            AuthorImageURL: postData.AuthorImageURL,
-            AuthorName: postData.AuthorName,
-            AuthorBio: postData.AuthorBio || postData.Bio || '',  // ✅ ADD THIS
-            AuthorUserID: postData.AuthorUserID || '',
-            ContentDate: postData.ContentDate,
-            ContentDesc: postData.ContentDesc,
-            ContentURL: postData.ContentURL,
-            ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
-            ContentLikeCount: postData.ContentLikeCount || 0,
-            ContentRepostCount: postData.ContentRepostCount || 0,
-            ContentCommentCount: postData.ContentCommentCount || 0,
-            isApproved: true,
-            isNew: false,
-            postType: "X-Data",
-            Liked: (postData.LikedBy?.includes(fetchuserID) || false),
-            Reposted: (postData.RepostedBy?.includes(fetchuserID) || false),
-            Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
-            createdAt: postData.createdAt || postData.ContentDate,
-            CommentTemplate: postData.CommentTemplate || "Standard Template",
-            isRepost: postData.isRepost || false,
-            originalPost: postData.originalPost || null,
-            repostComment: postData.repostComment || '',
-            repostedBy: postData.repostedBy || '',
-            repostedAt: postData.repostedAt || null,
-            isAnonymous: false,
-            contentType: postData.contentType || 'My Thoughts',
-            isEducational: postData.isEducational || false,
-          });
-        }
+      //     postsXData.push({
+      //       uniqueId: `xdata-${postId}`,
+      //       id: postId,
+      //       AuthorImageURL: postData.AuthorImageURL,
+      //       AuthorName: postData.AuthorName,
+      //       AuthorBio: postData.AuthorBio || postData.Bio || '',  // ✅ ADD THIS
+      //       AuthorUserID: postData.AuthorUserID || '',
+      //       ContentDate: postData.ContentDate,
+      //       ContentDesc: postData.ContentDesc,
+      //       ContentURL: postData.ContentURL,
+      //       ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+      //       ContentLikeCount: postData.ContentLikeCount || 0,
+      //       ContentRepostCount: postData.ContentRepostCount || 0,
+      //       ContentCommentCount: postData.ContentCommentCount || 0,
+      //       isApproved: true,
+      //       isNew: false,
+      //       postType: "X-Data",
+      //       Liked: (postData.LikedBy?.includes(fetchuserID) || false),
+      //       Reposted: (postData.RepostedBy?.includes(fetchuserID) || false),
+      //       Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
+      //       createdAt: postData.createdAt || postData.ContentDate,
+      //       CommentTemplate: postData.CommentTemplate || "Standard Template",
+      //       isRepost: postData.isRepost || false,
+      //       originalPost: postData.originalPost || null,
+      //       repostComment: postData.repostComment || '',
+      //       repostedBy: postData.repostedBy || '',
+      //       repostedAt: postData.repostedAt || null,
+      //       isAnonymous: false,
+      //       contentType: postData.contentType || 'My Thoughts',
+      //       isEducational: postData.isEducational || false,
+      //     });
+      //   }
 
-        setFetchedXData(postsXData);
-      });
+      //   setFetchedXData(postsXData);
+      // });
 
-      setFetchedData(postsXData);
-        console.log('OnSnapshot Fetched and Sorted', `Total: ${fetchedData.length} documents`);
+      // setFetchedData(postsXData);
+      //   console.log('OnSnapshot Fetched and Sorted', `Total: ${fetchedData.length} documents`);
 
-        // fetchedData.forEach(post => {
-        //   onSnapshot(
-        //     collection(doc(db, post.postType, post.id), 'Comments'),
-        //     commentsSnap => {
-        //       let totalComments = 0;
-        //       totalComments = commentsSnap.size;
+      //   // fetchedData.forEach(post => {
+      //   //   onSnapshot(
+      //   //     collection(doc(db, post.postType, post.id), 'Comments'),
+      //   //     commentsSnap => {
+      //   //       let totalComments = 0;
+      //   //       totalComments = commentsSnap.size;
 
-        //       setFetchedData(prev =>
-        //         prev.map(p =>
-        //           p.id === post.id
-        //           ? { ...p, ContentCommentCount: totalComments }
-        //           : p
-        //         )
-        //       );
-        //     }
-        //   )
-        // });
+      //   //       setFetchedData(prev =>
+      //   //         prev.map(p =>
+      //   //           p.id === post.id
+      //   //           ? { ...p, ContentCommentCount: totalComments }
+      //   //           : p
+      //   //         )
+      //   //       );
+      //   //     }
+      //   //   )
+      //   // });
 
-      fetchPostComments();
+      // fetchPostComments();
       
-      return () => {
-        unsubscribeXData();
-      };
-      }
+      // return () => {
+      //   unsubscribeXData();
+      // };
+      // }
       
       setLastFetchTime(currentTime);
       console.log('All Data Fetched and Sorted', `Total: ${fetchedData.length} documents`);
