@@ -484,20 +484,6 @@ export default function EmailLogin(): React.JSX.Element {
                 </Text>
               </TouchableOpacity>
 
-              {/* Cognito Sign out */}  
-               {/* <TouchableOpacity className="flex-row items-center justify-center bg-white/95 py-4 px-6 rounded-xl border border-white/30 shadow-lg"
-                onPress={() => {
-                  signOut();
-                }}>
-                <Image
-                  source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}
-                  className="w-5 h-5 mr-2"
-                  resizeMode="contain"
-                />
-                <Ionicons name="logo-apple" size={20} color="#000" />
-                <Text className="text-base text-gray-700 font-medium ml-3">Social Sign out</Text>
-              </TouchableOpacity> */}
-
               {/* Continue with Apple */}
               <TouchableOpacity 
                 className={`flex-row items-center justify-center bg-white/95 py-4 px-6 mb-2 rounded-xl border border-white/10 shadow-lg ${loading ? 'opacity-50' : ''}`}
@@ -513,7 +499,6 @@ export default function EmailLogin(): React.JSX.Element {
 
           </View>
         </KeyboardAvoidingView>
-      </ImageBackground>
     
     </SafeAreaView>
   );
