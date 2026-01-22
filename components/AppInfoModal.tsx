@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Linking, Modal, ScrollView, Text, TouchableOpacity, View ,Image} from 'react-native';
+import { Image, Linking, Modal, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface AppInfoModalProps {
   visible: boolean;
@@ -108,38 +109,42 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({ visible, onClose }) => {
     <Modal
       visible={visible}
       animationType="slide"
-      transparent={false}
+      // transparent={false}
       onRequestClose={onClose}
     >
-      <View style={{ flex: 1, backgroundColor: '#fff' }}>
-        {/* Header */}
-        <View style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingHorizontal: 16,
-          paddingTop: 50,
-          paddingBottom: 16,
-          borderBottomWidth: 1,
-          borderBottomColor: '#F3F4F6'
-        }}>
-          <TouchableOpacity
-            onPress={onClose}
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: '#F3F4F6',
-              justifyContent: 'center',
-              alignItems: 'center',
-              marginRight: 12
-            }}
-          >
-            <Ionicons name="close" size={24} color="#111827" />
-          </TouchableOpacity>
-          <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#111827' }}>
-            App Info
-          </Text>
-        </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top', 'bottom']}>
+        <StatusBar barStyle="dark-content" />
+        <View style={{ flex: 1, backgroundColor: '#fff' }}>
+          {/* Header */}
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingHorizontal: 16,
+            paddingTop: 60,
+            paddingBottom: 16,
+            borderBottomWidth: 1,
+            borderBottomColor: '#F3F4F6'
+          }}>
+          
+            <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#111827' }}>
+              App Info
+            </Text>
+            <TouchableOpacity
+              onPress={onClose}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: '#F3F4F6',
+                justifyContent: 'center',
+                alignItems: 'flex-end',
+                marginRight: 12
+              }}
+            >
+              <Ionicons name="close" size={24} color="#111827" />
+            </TouchableOpacity>
+          </View>
 
         <ScrollView 
           style={{ flex: 1 }}
@@ -364,6 +369,8 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({ visible, onClose }) => {
           </View>
         </ScrollView>
       </View>
+      </SafeAreaView>
+      
     </Modal>
   );
 };

@@ -7,8 +7,10 @@ import AppInfoModal from '@/components/AppInfoModal'; // Add this line
 import EditProfileScreen from '@/components/EditProfileScreen';
 import HelpScreen from '@/components/HelpScreen';
 import PasswordVerificationModal from '@/components/PasswordVerificationModal';
+import { makeRedirectUri } from 'expo-auth-session';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -3027,6 +3029,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
       ]);
       console.log('✅ User data cleared');
       setShowAccountModal(false);
+      // socialSignOut();
       
       showCustomAlert(
         'success',
@@ -3103,8 +3106,9 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
   hideModal();
   setShowAppInfo(true); // Open App Info Modal
 };
-    const handleHelpSupport = () => {
+  const handleHelpSupport = () => {
     setShowAccountModal(false);
+    hideModal();
     setShowHelpScreen(true); // open App Guide
   };
 
@@ -3197,6 +3201,32 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
   const selectedGraphPostData = useMemo(() => {
     return userPosts.find(post => post.id === selectedGraphPostId && post.postType === selectedGraphPostType);
   }, [userPosts, selectedGraphPostId, selectedGraphPostType]);
+
+  const socialSignOut = async () => {
+    const clientId = "u2868f22cqiddetr6db89237d";
+    const cognitoDomain = "https://us-east-27yy7pjbe8.auth.us-east-2.amazoncognito.com";
+    
+    // 1. Define the logout redirect (Must match AWS Console)
+    const logoutUri = makeRedirectUri({
+      scheme: "frontend", 
+    });
+  
+    // 2. Construct the Logout URL
+    const logoutUrl = `${cognitoDomain}/logout?client_id=${clientId}&logout_uri=${encodeURIComponent(logoutUri)}`;
+  
+    try {
+      // 3. Open the browser to clear the Cognito session
+      // This will prompt "App wants to use amazon-auth... to Sign In" 
+      // (This is normal for iOS/Android OIDC logout flows)
+      await WebBrowser.openAuthSessionAsync(logoutUrl, logoutUri, {preferEphemeralSession: true});
+      
+      // 4. Clear your local state
+      // setTokens(null); 
+      console.log("Logged out successfully");
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -3614,10 +3644,14 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
       <Modal
         visible={showHelpScreen}
         animationType="slide"
-        presentationStyle="fullScreen"
+        // presentationStyle="fullScreen"
         onRequestClose={() => setShowHelpScreen(false)}
       >
-        <HelpScreen onClose={() => setShowHelpScreen(false)} />
+        <SafeAreaView className="flex-1 bg-white">
+         <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+         <HelpScreen onClose={() => setShowHelpScreen(false)} />
+        </SafeAreaView>
+        
       </Modal>
       <PasswordVerificationModal
         visible={showPasswordVerify}

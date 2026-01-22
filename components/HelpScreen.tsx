@@ -238,9 +238,9 @@ const HelpScreen: React.FC<HelpScreenProps> = ({ onClose }) => {
   const insets = useSafeAreaInsets();
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#f8fafc' }} edges={['right', 'left', 'top']}>
+    <SafeAreaView className="flex-1 bg-white" edges={['top']}>
       <StatusBar
-        barStyle="dark-content"
+        barStyle="dark-content" backgroundColor="#ffffff"
         />
 
       {/* Header */}
