@@ -944,36 +944,68 @@ export default function Index(): React.JSX.Element {
 
 
   // ✅ NEW: Handle scroll with counter for popup trigger
-  const handleScroll = useCallback((event: any) => {
-    const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
-    const currentScrollY = contentOffset.y;
-    const viewHeight = layoutMeasurement.height;
-    const viewCenter = currentScrollY + viewHeight / 2;
+  const handleScroll = useCallback(
+    (event: any) => {
+      const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+      const currentScrollY = contentOffset.y;
+      const viewHeight = layoutMeasurement.height;
+      const viewCenter = currentScrollY + viewHeight / 2;
 
-    // Check if the user is 90% of the way down the content
-    const isCloseToBottom = 
-      contentOffset.y + layoutMeasurement.height >= contentSize.height * 0.9; 
+      // ✅ NEW: Track scroll progress to show auth popup
+      // Only track downward scrolling
+      if (currentScrollY > lastScrollY + 340) {
+        const newScrollCount = scrollCount + 1;
+        setScrollCount(newScrollCount);
+        setLastScrollY(currentScrollY);
 
-    if (isCloseToBottom && hasMore && !loading) {
-      handleLoadMore(); // Call the lazy loading function
-    }
-
-    filteredData.forEach((item, index) => {
-      const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
-                       (item.ContentURL ? [item.ContentURL] : []);
-      
-      if (mediaUrls.length > 0 && getMediaType(mediaUrls[0]) === 'video') {
-        const itemY = index * 340;
-        const itemCenter = itemY + 150;
-        
-        if (Math.abs(viewCenter - itemCenter) < 100) {
-          if (currentVideoIndex !== index) {
-            setCurrentVideoIndex(index);
-          }
+        // Show popup after 2-3 posts (3 posts for better UX)
+        if (newScrollCount >= 3 && !showAuthPopup) {
+          setShowAuthPopup(true);
         }
       }
-    });
-  }, [filteredData, getMediaType, currentVideoIndex, hasMore, loading, handleLoadMore]);
+
+      // Check if the user is 90% of the way down the content
+      const isCloseToBottom =
+        contentOffset.y + layoutMeasurement.height >= contentSize.height * 0.9;
+
+      if (isCloseToBottom && hasMore && !loading) {
+        handleLoadMore(); // Call the lazy loading function
+      }
+
+      // Video autoplay logic
+      filteredData.forEach((item, index) => {
+        const mediaUrls =
+          item.ContentURLs && item.ContentURLs.length > 0
+            ? item.ContentURLs
+            : item.ContentURL
+            ? [item.ContentURL]
+            : [];
+
+        if (mediaUrls.length > 0 && getMediaType(mediaUrls[0]) === "video") {
+          const itemY = index * 340;
+          const itemCenter = itemY + 150;
+
+          if (Math.abs(viewCenter - itemCenter) < 100) {
+            if (currentVideoIndex !== index) {
+              setCurrentVideoIndex(index);
+            }
+          }
+        }
+      });
+    },
+    [
+      filteredData,
+      getMediaType,
+      currentVideoIndex,
+      hasMore,
+      loading,
+      handleLoadMore,
+      scrollCount,
+      lastScrollY,
+      showAuthPopup,
+    ]
+  );
+
 
   const EnhancedCard = useCallback(({ children, postId }: { children: React.ReactNode, postId: string }) => {
     const animValue = cardAnimations[postId] || new Animated.Value(0);
