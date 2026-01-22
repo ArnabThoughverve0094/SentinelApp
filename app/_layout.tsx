@@ -1,3 +1,4 @@
+//app/_layout.tsx
 import { NotificationProvider } from '@/context/NotificationContext';
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, useFonts } from '@expo-google-fonts/inter';
 import * as Notifications from "expo-notifications";
@@ -191,6 +192,7 @@ export default function RootLayout(): React.JSX.Element {
     <NotificationProvider>
       <>
         <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="splash" options={{ headerShown: false }} />
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="index" />
