@@ -1,18 +1,14 @@
 import { db } from '@/FirebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-// import Constants from 'expo-constants';
-// import * as Device from 'expo-device';
-// import * as Notifications from 'expo-notifications';
 import { ResponseType, TokenResponse, makeRedirectUri, useAuthRequest } from 'expo-auth-session';
 import { Link, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { addDoc, collection, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Image, ImageBackground, KeyboardAvoidingView, Platform, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Allows the browser to close after auth
 WebBrowser.maybeCompleteAuthSession();
 
 // Cognito Configuration
@@ -40,7 +36,7 @@ type LoginResponse = {
     sub: string;
     role: string;
     termsAccepted: string;
-    profilePic?: string; // **ADDED: Profile picture field**
+    profilePic?: string;
   };
   decodedClaims: any;
 };
@@ -55,14 +51,11 @@ export default function EmailLogin(): React.JSX.Element {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
-  const [currentUserDocId, setCurrentUserDocId] = useState('');
 
-  //Social Login
   const [tokens, setTokens] = useState<TokenResponse | null>(null);
 
-  // Setup the redirect URI (this handles the "exp://" links back to your app)
   const redirectUri = makeRedirectUri({
-    scheme: "frontend", // Set this in your app.json
+    scheme: "frontend",
     path: 'AuthCallback',
     preferLocalhost: true,
   });
@@ -80,36 +73,9 @@ export default function EmailLogin(): React.JSX.Element {
     discovery
   );
 
-  const signOut = async () => {
-    // const clientId = "u2868f22cqiddetr6db89237d";
-    // const cognitoDomain = "https://us-east-27yy7pjbe8.auth.us-east-2.amazoncognito.com";
-    
-    // 1. Define the logout redirect (Must match AWS Console)
-    const logoutUri = makeRedirectUri({
-      scheme: "frontend", 
-    });
-  
-    // 2. Construct the Logout URL
-    const logoutUrl = `${cognitoDomain}/logout?client_id=${clientId}&logout_uri=${encodeURIComponent(logoutUri)}`;
-  
-    try {
-      // 3. Open the browser to clear the Cognito session
-      // This will prompt "App wants to use amazon-auth... to Sign In" 
-      // (This is normal for iOS/Android OIDC logout flows)
-      await WebBrowser.openAuthSessionAsync(logoutUrl, logoutUri);
-      
-      // 4. Clear your local state
-      // setTokens(null); 
-      console.log("Logged out successfully");
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
-  };
-
   useEffect(() => {
     if (response?.type === "success") {
       const { code } = response.params;
-      // You would typically exchange the 'code' for tokens here
       console.log("Social Login Success! Code:", code);
       exchangeCodeSocialLogin(code);
     } else {
@@ -134,98 +100,17 @@ export default function EmailLogin(): React.JSX.Element {
         const data: LoginResponse = await response.json();
         console.log('Login response:', data);
       
-      if (response.ok && data.message === "Login successful" && data.tokens?.accessToken) {
-        const items: [string, string][] = [];
-
-        // Store access token (main token for API calls)
-        if (data.tokens.accessToken) {
-          items.push(['userToken', data.tokens.accessToken]);
-          items.push(['accessToken', data.tokens.accessToken]);
-          console.log('✅ Access token stored:', data.tokens.accessToken.substring(0, 50) + '...');
-        }
-
-        // Store other tokens
-        if (data.tokens.refreshToken) {
-          items.push(['userRefreshToken', data.tokens.refreshToken]);
-          items.push(['refreshToken', data.tokens.refreshToken]);
-        }
-        if (data.tokens.idToken) {
-          items.push(['userIdToken', data.tokens.idToken]);
-          items.push(['idToken', data.tokens.idToken]);
-        }
-
-        // Store user attributes
-        if (data.userAttributes.email) {
-          items.push(['userEmail', data.userAttributes.email]);
-        }
-        if (data.userAttributes.name) {
-          items.push(['userName', data.userAttributes.name]);
-        }
-        if (data.userAttributes.nickname) {
-          items.push(['userNickName', data.userAttributes.nickname]);
+        if (response.ok && data.message === "Login successful" && data.tokens?.accessToken) {
+          await storeUserData(data);
+          console.log('✅ Login successful, tokens saved, redirecting to tabs...');
+          router.replace("/(tabs)");
         } else {
-          items.push(['userNickName', ""]);
+          setError(data.message || 'Login failed. Please check your credentials.');
         }
-        if (data.userAttributes.sub) {
-          items.push(['userId', data.userAttributes.sub]);
-          fetchUserData(data.userAttributes.sub);
-        }
-        if (data.userAttributes.role) {
-          items.push(['userRole', data.userAttributes.role]);
-        } else {
-          items.push(['userRole', 'User']);
-        }
-
-        // **FIXED: Store profile picture from login response**
-        const profilePicFromResponse = data.userAttributes.profilePic || 
-                                     data.decodedClaims?.['custom:profilePic'] || 
-                                     null;
-        
-        if (profilePicFromResponse) {
-          // Construct full URL if it's just a filename
-          const profilePicUrl = profilePicFromResponse.startsWith('http') 
-            ? profilePicFromResponse 
-            : `https://sentinal-uploads.s3.us-west-2.amazonaws.com/${profilePicFromResponse}`;
-          
-          items.push(['profilePicUrl', profilePicUrl]);
-          console.log('✅ Profile picture stored from login:', profilePicUrl);
-        } else {
-          console.log('ℹ️ No profile picture found in login response');
-        }
-
-        // Store additional data
-        if (data.userAttributes) {
-          items.push(['userData', JSON.stringify(data.userAttributes)]);
-        }
-
-        // Calculate token expiry from decoded claims
-        if (data.decodedClaims?.exp) {
-          const expiryTime = data.decodedClaims.exp * 1000;
-          items.push(['tokenExpiry', expiryTime.toString()]);
-          console.log('✅ Token expiry set:', new Date(expiryTime));
-        } else {
-          const expiryTime = Date.now() + (60 * 60 * 1000);
-          items.push(['tokenExpiry', expiryTime.toString()]);
-        }
-
-        try {
-          await AsyncStorage.multiSet(items);
-          console.log('✅ Successfully stored all login data:', items.map(([k]) => k).join(', '));
-        } catch (error) {
-          console.error('❌ Error during multiSet:', error);
-          throw new Error('Failed to save login data');
-        }
-
-        console.log('✅ Login successful, tokens saved, redirecting to tabs...');
-        router.replace("/(tabs)");
-      } else {
-        setError(data.message || 'Login failed. Please check your credentials.');
-      }
       } catch (error) {
         console.log('❌ Error during exchange code response:', error);
+        setError('Failed to process login. Please try again.');
       }
-      
-      
     } catch (err) {
       console.error('❌ Exchange code social login error:', err);
       setError('Network error. Please try again.');
@@ -234,80 +119,18 @@ export default function EmailLogin(): React.JSX.Element {
     setLoading(false);
   };
 
-  // 1. Set how notifications behave when the app is in the foreground
-  // Notifications.setNotificationHandler({
-  //   handleNotification: async () => ({
-  //     // Your original settings:
-  //     shouldShowAlert: true,
-  //     shouldPlaySound: false,
-  //     shouldSetBadge: false,
-      
-  //     // ADDED to satisfy the 'NotificationBehavior' type:
-  //     shouldShowBanner: false, // You may set this to false if you don't want a banner
-  //     shouldShowList: false,   // You may set this to false if you don't want it in the list
-  //   }),
-  // });
-
-  // --- MAIN FUNCTION TO GET THE TOKEN ---
-// async function registerForPushNotificationsAsync() {
-//   let token;
-//   const projectId = Constants.expoConfig?.extra?.eas?.projectId; // Get the project ID
-
-//   if (Platform.OS === 'android') {
-//     // Required on Android to create a notification channel
-//     await Notifications.setNotificationChannelAsync('default', {
-//       name: 'default',
-//       importance: Notifications.AndroidImportance.MAX,
-//       vibrationPattern: [0, 250, 250, 250],
-//       lightColor: '#FF231F7C',
-//     });
-//   }
-
-//   if (Device.isDevice) {
-//     // 1. Request User Permission
-//     const { status: existingStatus } = await Notifications.getPermissionsAsync();
-//     let finalStatus = existingStatus;
-    
-//     if (existingStatus !== 'granted') {
-//       const { status } = await Notifications.requestPermissionsAsync();
-//       finalStatus = status;
-//     }
-
-//     if (finalStatus !== 'granted') {
-//       alert('Failed to get push token for push notification!');
-//       return;
-//     }
-
-//     // 2. Get the Expo Push Token
-//     // Pass the projectId to ensure the token is correctly attributed to your project
-//     token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-    
-//     console.log('Expo Push Token:', token);
-
-//   } else {
-//     // Only physical devices can register for a token
-//     alert('Must use physical device for Push Notifications');
-//   }
-
-//   return token;
-// }
-
-  // Email regex validation
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
 
-  // Validate form fields
   const validateForm = (): boolean => {
     let isValid = true;
     
-    // Reset errors
     setEmailError(null);
     setPasswordError(null);
     setError(null);
 
-    // Email validation
     if (!email.trim()) {
       setEmailError('Email is required');
       isValid = false;
@@ -316,7 +139,6 @@ export default function EmailLogin(): React.JSX.Element {
       isValid = false;
     }
 
-    // Password validation
     if (!password.trim()) {
       setPasswordError('Password is required');
       isValid = false;
@@ -325,8 +147,90 @@ export default function EmailLogin(): React.JSX.Element {
     return isValid;
   };
 
+  const storeUserData = async (data: LoginResponse) => {
+    const items: [string, string][] = [];
+
+    // Store access token (main token for API calls)
+    if (data.tokens.accessToken) {
+      items.push(['userToken', data.tokens.accessToken]);
+      items.push(['accessToken', data.tokens.accessToken]);
+      console.log('✅ Access token stored:', data.tokens.accessToken.substring(0, 50) + '...');
+    }
+
+    // Store other tokens
+    if (data.tokens.refreshToken) {
+      items.push(['userRefreshToken', data.tokens.refreshToken]);
+      items.push(['refreshToken', data.tokens.refreshToken]);
+    }
+    if (data.tokens.idToken) {
+      items.push(['userIdToken', data.tokens.idToken]);
+      items.push(['idToken', data.tokens.idToken]);
+    }
+
+    // Store user attributes
+    if (data.userAttributes.email) {
+      items.push(['userEmail', data.userAttributes.email]);
+    }
+    if (data.userAttributes.name) {
+      items.push(['userName', data.userAttributes.name]);
+    }
+    if (data.userAttributes.nickname) {
+      items.push(['userNickName', data.userAttributes.nickname]);
+    } else {
+      items.push(['userNickName', ""]);
+    }
+    if (data.userAttributes.sub) {
+      items.push(['userId', data.userAttributes.sub]);
+      fetchUserData(data.userAttributes.sub);
+    }
+    if (data.userAttributes.role) {
+      items.push(['userRole', data.userAttributes.role]);
+    } else {
+      items.push(['userRole', 'User']);
+    }
+
+    // Store profile picture from login response
+    const profilePicFromResponse = data.userAttributes.profilePic || 
+                                 data.decodedClaims?.['custom:profilePic'] || 
+                                 null;
+    
+    if (profilePicFromResponse) {
+      // Construct full URL if it's just a filename
+      const profilePicUrl = profilePicFromResponse.startsWith('http') 
+        ? profilePicFromResponse 
+        : `https://sentinal-uploads.s3.us-west-2.amazonaws.com/${profilePicFromResponse}`;
+      
+      items.push(['profilePicUrl', profilePicUrl]);
+      console.log('✅ Profile picture stored from login:', profilePicUrl);
+    } else {
+      console.log('ℹ️ No profile picture found in login response');
+    }
+
+    // Store additional data
+    if (data.userAttributes) {
+      items.push(['userData', JSON.stringify(data.userAttributes)]);
+    }
+
+    // Calculate token expiry from decoded claims
+    if (data.decodedClaims?.exp) {
+      const expiryTime = data.decodedClaims.exp * 1000;
+      items.push(['tokenExpiry', expiryTime.toString()]);
+      console.log('✅ Token expiry set:', new Date(expiryTime));
+    } else {
+      const expiryTime = Date.now() + (60 * 60 * 1000);
+      items.push(['tokenExpiry', expiryTime.toString()]);
+    }
+
+    try {
+      await AsyncStorage.multiSet(items);
+      console.log('✅ Successfully stored all login data:', items.map(([k]) => k).join(', '));
+    } catch (error) {
+      console.error('❌ Error during multiSet:', error);
+      throw new Error('Failed to save login data');
+    }
+  };
+
   const handleLogin = async () => {
-    // Validate form before proceeding
     if (!validateForm()) {
       return;
     }
@@ -345,85 +249,7 @@ export default function EmailLogin(): React.JSX.Element {
       console.log('Login response:', data);
       
       if (response.ok && data.message === "Login successful" && data.tokens?.accessToken) {
-        const items: [string, string][] = [];
-
-        // Store access token (main token for API calls)
-        if (data.tokens.accessToken) {
-          items.push(['userToken', data.tokens.accessToken]);
-          items.push(['accessToken', data.tokens.accessToken]);
-          console.log('✅ Access token stored:', data.tokens.accessToken.substring(0, 50) + '...');
-        }
-
-        // Store other tokens
-        if (data.tokens.refreshToken) {
-          items.push(['userRefreshToken', data.tokens.refreshToken]);
-          items.push(['refreshToken', data.tokens.refreshToken]);
-        }
-        if (data.tokens.idToken) {
-          items.push(['userIdToken', data.tokens.idToken]);
-          items.push(['idToken', data.tokens.idToken]);
-        }
-
-        // Store user attributes
-        if (data.userAttributes.email) {
-          items.push(['userEmail', data.userAttributes.email]);
-        }
-        if (data.userAttributes.name) {
-          items.push(['userName', data.userAttributes.name]);
-        }
-        if (data.userAttributes.nickname) {
-          items.push(['userNickName', data.userAttributes.nickname]);
-        }
-        if (data.userAttributes.sub) {
-          items.push(['userId', data.userAttributes.sub]);
-          fetchUserData(data.userAttributes.sub);
-        }
-        if (data.userAttributes.role) {
-          items.push(['userRole', data.userAttributes.role]);
-        } else {
-          items.push(['userRole', 'user']);
-        }
-
-        // **FIXED: Store profile picture from login response**
-        const profilePicFromResponse = data.userAttributes.profilePic || 
-                                     data.decodedClaims?.['custom:profilePic'] || 
-                                     null;
-        
-        if (profilePicFromResponse) {
-          // Construct full URL if it's just a filename
-          const profilePicUrl = profilePicFromResponse.startsWith('http') 
-            ? profilePicFromResponse 
-            : `https://sentinal-uploads.s3.us-west-2.amazonaws.com/${profilePicFromResponse}`;
-          
-          items.push(['profilePicUrl', profilePicUrl]);
-          console.log('✅ Profile picture stored from login:', profilePicUrl);
-        } else {
-          console.log('ℹ️ No profile picture found in login response');
-        }
-
-        // Store additional data
-        if (data.userAttributes) {
-          items.push(['userData', JSON.stringify(data.userAttributes)]);
-        }
-
-        // Calculate token expiry from decoded claims
-        if (data.decodedClaims?.exp) {
-          const expiryTime = data.decodedClaims.exp * 1000;
-          items.push(['tokenExpiry', expiryTime.toString()]);
-          console.log('✅ Token expiry set:', new Date(expiryTime));
-        } else {
-          const expiryTime = Date.now() + (60 * 60 * 1000);
-          items.push(['tokenExpiry', expiryTime.toString()]);
-        }
-
-        try {
-          await AsyncStorage.multiSet(items);
-          console.log('✅ Successfully stored all login data:', items.map(([k]) => k).join(', '));
-        } catch (error) {
-          console.error('❌ Error during multiSet:', error);
-          throw new Error('Failed to save login data');
-        }
-
+        await storeUserData(data);
         console.log('✅ Login successful, tokens saved, redirecting to tabs...');
         router.replace("/(tabs)");
       } else {
@@ -437,7 +263,6 @@ export default function EmailLogin(): React.JSX.Element {
     setLoading(false);
   };
 
-  // Clear email error when user starts typing
   const handleEmailChange = (text: string) => {
     setEmail(text);
     if (emailError) {
@@ -445,7 +270,6 @@ export default function EmailLogin(): React.JSX.Element {
     }
   };
 
-  // Clear password error when user starts typing
   const handlePasswordChange = (text: string) => {
     setPassword(text);
     if (passwordError) {
@@ -459,10 +283,8 @@ export default function EmailLogin(): React.JSX.Element {
     const sentinelUsersRef = collection(db, 'SentinelUsers');
     const q = query(sentinelUsersRef, where('userID', '==', userId));
   
-    // 1. Setup the Real-time Listener
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       if (snapshot.empty) {
-        // 2. Handle missing user (Create)
         try {
           await addDoc(collection(db, 'SentinelUsers'), {
             userID: userId,
@@ -474,11 +296,9 @@ export default function EmailLogin(): React.JSX.Element {
           console.error("Error creating user:", err);
         }
       } else {
-        // 3. Handle existing user
         const userDoc = snapshot.docs[0];
         const userData = userDoc.data();
   
-        // Only update if the token has actually changed to avoid loops
         if (userData.deviceToken !== expoPushToken) {
           const userRef = doc(db, "SentinelUsers", userDoc.id);
           await updateDoc(userRef, { deviceToken: expoPushToken || '' });
@@ -490,242 +310,153 @@ export default function EmailLogin(): React.JSX.Element {
     });
   
     return unsubscribe;
-  }, [expoPushToken]); // Dependency on token ensures listener updates if token changes
-
-  // useEffect(() => {
-  //   registerForPushNotificationsAsync().then(token => {
-  //     setExpoPushToken(token);
-  //   });
-  // }, []);
+  }, [expoPushToken]);
 
   return (
-    <SafeAreaView className="flex-1">
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+    <SafeAreaView className="flex-1 bg-[#ECEDEE]">
+      <StatusBar barStyle="dark-content" backgroundColor="#ECEDEE" />
       
-      {/* Background Image */}
-      <ImageBackground
-              source={require("../../assets/images/white-bg.png")}
-              className="flex-1"
-              resizeMode="cover"
-            >
-        <KeyboardAvoidingView
-          className="flex-1"
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-          {/* Header with back button */}
-          <View className="px-6 pt-5 pb-4 flex-row items-center justify-between">
-              {/* Left: Logo and Text */}
-              <Link href="/" asChild>
-              <TouchableOpacity className="flex-row items-center">
-                <View className="ml-2">
-                  <View className="flex-row items-center">
-                    <View className="w-8 h-8 mr-0">
-                      <Image
-                        source={require("../../assets/images/new_logo.png")}
-                        style={{ flex: 1, width: undefined, height: undefined }}
-                        resizeMode="contain"
-                      />
-                    </View>
-                    {/* Sentinel Text */}
-                    {/* <Text className="text-3xl font-extrabold text-[#281C20]">entinel</Text> */}
-                    <Text className="text-3xl font-extrabold text-[#281C20]">IronExSafe™</Text>
-                  </View>
-                  {/* Logo Icon */}
-                  <Text className="text-xs text-[#281C20]">
-                  Report. Expose. Educate.
-                  </Text>
-                </View>
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        {/* Back Button */}
+        <View className="px-6 pt-2 pb-4">
+          <TouchableOpacity 
+            onPress={() => router.back()}
+            className="w-10 h-10 items-center justify-center"
+          >
+            <Ionicons name="arrow-back" size={24} color="#000" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Main Content */}
+        <View className="flex-1 px-6">
+          {/* Title */}
+          <Text className="text-2xl font-bold text-black mb-10">
+            Log in
+          </Text>
+
+          {/* Email Input */}
+          <View className="mb-6">
+            <Text className="text-xs font-medium text-gray-600 mb-2 uppercase tracking-wider">
+              YOUR EMAIL
+            </Text>
+            <View className="border-b border-gray-300">
+              <TextInput
+                className="text-base text-black py-3"
+                placeholder=""
+                value={email}
+                onChangeText={handleEmailChange}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholderTextColor="#9CA3AF"
+                style={{ fontSize: 16, lineHeight: 20 }}
+              />
+            </View>
+            {emailError && (
+              <Text className="text-red-500 text-xs mt-1">{emailError}</Text>
+            )}
+          </View>
+
+          {/* Password Input */}
+          <View className="mb-8">
+            <Text className="text-xs font-medium text-gray-600 mb-2 uppercase tracking-wider">
+              PASSWORD
+            </Text>
+            <View className="border-b border-gray-300 flex-row items-center">
+              <TextInput
+                className="text-base text-black py-3 flex-1"
+                placeholder=""
+                value={password}
+                onChangeText={handlePasswordChange}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholderTextColor="#9CA3AF"
+                style={{ fontSize: 16, lineHeight: 20 }}
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                className="ml-2"
+              >
+                <Text className="text-xs text-gray-500 uppercase">
+                  {showPassword ? 'HIDE' : 'SHOW'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            {passwordError && (
+              <Text className="text-red-500 text-xs mt-1">{passwordError}</Text>
+            )}
+          </View>
+
+          {/* Error Message */}
+          {error && (
+            <View className="mb-4">
+              <Text className="text-red-500 text-sm text-center">{error}</Text>
+            </View>
+          )}
+
+          {/* Login Button */}
+          <TouchableOpacity
+            className={`bg-black py-4 rounded-xl items-center mb-4 ${loading ? 'opacity-50' : ''}`}
+            disabled={loading}
+            onPress={handleLogin}
+          >
+            <Text className="text-white font-semibold text-base">
+              {loading ? 'Logging in...' : 'Log in'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Sign Up Link */}
+          <View className="flex-row items-center justify-center mb-3">
+            <Link href="/(auth)/register" asChild>
+              <TouchableOpacity>
+                <Text className="text-black text-base">
+                  Sign Up <Ionicons name="arrow-forward" size={16} color="#000" />
+                </Text>
               </TouchableOpacity>
             </Link>
-
-              {/* Right: Close Button */}
-              <TouchableOpacity 
-                onPress={() => router.back()} 
-                style={{ 
-                  width: 32, 
-                  height: 32, 
-                  alignItems: "center", 
-                  justifyContent: "center" 
-                }}
-              >
-                <Ionicons name="close" size={26} color="#000" />
-              </TouchableOpacity>
-            </View>
-
-
-          {/* Main content */}
-          <View className="flex-1 px-6">
-            {/* Title section */}
-            <View className="mb-8">
-              <Text className="text-3xl font-bold text-black mb-3 leading-tight">
-                Log In to Your{'\n'}Account
-              </Text>
-              {/* Sign up link */}
-            <View className="flex-row">
-              <Text className="text-black/70">Don't have an account? </Text>
-              <Link href={"/(auth)/register" as any} asChild>
-                <TouchableOpacity>
-                  <Text className="text-red-700 font-medium">Sign Up</Text>
-                </TouchableOpacity>
-              </Link>
-            </View>
-              {/* <Text className="text-base text-black font-sans">
-                Your community awaits
-              </Text> */}
-            </View>
-
-            {/* Form section */}
-            <View className="mb-8">
-              {/* Email input */}
-              <View className="mb-5">
-                <Text className="text-sm font-medium text-black/80 mb-2">
-                  Email <Text className="text-red-500">*</Text>
-                </Text>
-                <TextInput
-                  className={`w-full px-4 py-3 bg-white/95 border rounded-xl text-base text-gray-900 ${
-                    emailError ? 'border-red-500' : 'border-white/30'
-                  }`}
-                  placeholder="username@gmail.com"
-                  placeholderTextColor="#9CA3AF"
-                  value={email}
-                  onChangeText={handleEmailChange}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  style={{ fontSize: 16, lineHeight: 20 }}
-                />
-                {emailError && (
-                  <Text className="text-red-500 text-sm mt-1">{emailError}</Text>
-                )}
-              </View>
-
-              {/* Password input */}
-              <View className="mb-6">
-                <Text className="text-sm font-medium text-black/80 mb-2">
-                  Password <Text className="text-red-500">*</Text>
-                </Text>
-                <View className="relative">
-                  <TextInput
-                    className={`w-full px-4 py-3 bg-white/95 border rounded-xl text-base text-gray-900 pr-12 ${
-                      passwordError ? 'border-red-500' : 'border-white/30'
-                    }`}
-                    placeholder="••••••••••"
-                    placeholderTextColor="#9CA3AF"
-                    value={password}
-                    onChangeText={handlePasswordChange}
-                    secureTextEntry={!showPassword}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    style={{ fontSize: 16, lineHeight: 20 }}
-                  />
-                  <TouchableOpacity
-                    className="absolute right-4 top-3.5"
-                    onPress={() => setShowPassword(!showPassword)}
-                  >
-                    <Ionicons 
-                      name={showPassword ? "eye-off" : "eye"} 
-                      size={20} 
-                      color="#9CA3AF" 
-                    />
-                  </TouchableOpacity>
-                </View>
-                {passwordError && (
-                  <Text className="text-red-500 text-sm mt-1">{passwordError}</Text>
-                )}
-              </View>
-
-              {/* Forgot password */}
-              <Link href="/(auth)/forgot-password" asChild>
-                <TouchableOpacity className="mb-20">
-                  <Text className="text-red-700 font-medium text-right">Forgot Password ?</Text>
-                </TouchableOpacity>
-              </Link>
-            </View>
-
-            {/* Display error message if any */}
-            {error && (
-              <View className="mb-4">
-                <Text className="text-red-500 text-center">{error}</Text>
-              </View>
-            )}
-
-            {/* Login button with loading state */}
-            <TouchableOpacity
-              className={`bg-red-700 py-4 px-6  rounded-xl items-center shadow-lg mb-6 ${loading ? 'opacity-50' : ''}`}
-              disabled={loading}
-              onPress={handleLogin}
-            >
-              <Text className="text-base text-white font-semibold">
-                {loading ? 'Logging in...' : 'Login'}
-              </Text>
-            </TouchableOpacity>
-
-            {/* Divider */}
-            <View className="flex-row items-center mb-6">
-              <View className="flex-1 h-px bg-black/20" />
-              <Text className="px-4 text-black/70 text-sm">Or</Text>
-              <View className="flex-1 h-px bg-black/20" />
-            </View>
-
-            {/* Social login buttons */}
-            <View className="gap-3 mb-6">
-              {/* Continue with Google */}
-              <TouchableOpacity 
-                className={`flex-row items-center justify-center bg-white/95 py-4 px-6 mb-2 rounded-xl border border-white/10 shadow-lg ${loading ? 'opacity-50' : ''}`}
-                onPress={() => {
-                  promptAsync();
-                }}>
-                <Image
-                  source={{
-                    uri: "https://developers.google.com/identity/images/g-logo.png",
-                  }}
-                  className="w-5 h-5"
-                  resizeMode="contain"
-                />
-                <Text className="text-base text-gray-700 font-medium ml-3">
-                  {loading ? 'Logging in...' : 'Continue with Google'}
-                </Text>
-              </TouchableOpacity>
-
-              {/* Continue with Cognito */}  
-              {/* <TouchableOpacity className="flex-row items-center justify-center bg-white/95 py-4 px-6 rounded-xl border border-white/30 shadow-lg"
-                onPress={() => {
-                  promptAsync();
-                }}>
-                <Image
-                  source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}
-                  className="w-5 h-5 mr-2"
-                  resizeMode="contain"
-                />
-                <Ionicons name="logo-apple" size={20} color="#000" />
-                <Text className="text-base text-gray-700 font-medium ml-3">Continue with Social</Text>
-              </TouchableOpacity> */}
-
-               {/* Cognito Sign out */}  
-               {/* <TouchableOpacity className="flex-row items-center justify-center bg-white/95 py-4 px-6 rounded-xl border border-white/30 shadow-lg"
-                onPress={() => {
-                  signOut();
-                }}>
-                <Image
-                  source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}
-                  className="w-5 h-5 mr-2"
-                  resizeMode="contain"
-                />
-                <Ionicons name="logo-apple" size={20} color="#000" />
-                <Text className="text-base text-gray-700 font-medium ml-3">Social Sign out</Text>
-              </TouchableOpacity> */}
-
-              {/* Continue with Apple */}
-              {/* <TouchableOpacity className="flex-row items-center justify-center bg-white/95 py-4 px-6 rounded-xl border border-white/30 shadow-lg">
-                <Ionicons name="logo-apple" size={20} color="#000" />
-                <Text className="text-base text-gray-700 font-medium ml-3">Continue with Apple</Text>
-              </TouchableOpacity> */}
-            </View>
-
           </View>
-        </KeyboardAvoidingView>
-      </ImageBackground>
-    
+
+          {/* Trouble Logging In */}
+          <View className="items-center mb-6">
+            <Link href="/(auth)/forgot-password" asChild>
+              <TouchableOpacity>
+                <Text className="text-black text-base underline">
+                  Trouble logging in?
+                </Text>
+              </TouchableOpacity>
+            </Link>
+          </View>
+
+          {/* Divider */}
+          <View className="flex-row items-center mb-6">
+            <View className="flex-1 h-px bg-gray-300" />
+            <Text className="px-4 text-gray-500 text-sm">Or</Text>
+            <View className="flex-1 h-px bg-gray-300" />
+          </View>
+
+          {/* Google Login Button */}
+          <TouchableOpacity 
+            className={`flex-row items-center justify-center bg-white py-4 px-6 rounded-xl border border-gray-300 shadow-sm ${loading ? 'opacity-50' : ''}`}
+            disabled={loading}
+            onPress={() => promptAsync()}
+          >
+            <Image
+              source={{
+                uri: "https://developers.google.com/identity/images/g-logo.png",
+              }}
+              className="w-5 h-5"
+              resizeMode="contain"
+            />
+            <Text className="text-base text-gray-700 font-medium ml-3">
+              {loading ? 'Logging in...' : 'Continue with Google'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
