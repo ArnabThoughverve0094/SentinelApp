@@ -138,7 +138,7 @@ export default function Index(): React.JSX.Element {
       // 3. Open the browser to clear the Cognito session
       // This will prompt "App wants to use amazon-auth... to Sign In" 
       // (This is normal for iOS/Android OIDC logout flows)
-      await WebBrowser.openAuthSessionAsync(logoutUrl, logoutUri);
+      await WebBrowser.openAuthSessionAsync(logoutUrl, logoutUri, {preferEphemeralSession: true});
       
       // 4. Clear your local state
       // setTokens(null); 
@@ -393,12 +393,16 @@ export default function Index(): React.JSX.Element {
             </TouchableOpacity>
 
 
-            {/* <TouchableOpacity className="flex-row items-center justify-center bg-white/95 py-4 px-6 rounded-xl border border-white/10 shadow-lg">
-              <Ionicons name="logo-apple" size={20} color="#000" />
-              <Text className="text-base text-gray-700 font-medium ml-3">
-                Continue with Apple
-              </Text>
-            </TouchableOpacity> */}
+            <TouchableOpacity 
+                className={`flex-row items-center justify-center bg-white/95 py-4 px-6 mb-2 rounded-xl border border-white/10 shadow-lg ${loading ? 'opacity-50' : ''}`}
+                onPress={() => {
+                  promptAsync();
+                }}>
+                <Ionicons name="logo-apple" size={20} color="#000" />
+                <Text className="text-base text-gray-700 font-medium ml-3">
+                  {loading ? 'Logging in...' : 'Continue with Apple'}
+                </Text>
+              </TouchableOpacity>
 
             {/* Continue with Cognito */}  
             {/* <TouchableOpacity className="flex-row items-center justify-center bg-white/95 py-4 px-6 rounded-xl border border-white/30 shadow-lg"
