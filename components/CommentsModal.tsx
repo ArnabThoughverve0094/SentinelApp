@@ -1,6 +1,7 @@
 import { db } from '@/FirebaseConfig';
 import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import {
   addDoc,
@@ -68,6 +69,8 @@ interface PostData {
   AuthorImageURL: string;
   AuthorName: string;
   AuthorUsername?: string;
+  AuthorUserID?: string;
+  AuthorBio: string;
   ContentDate: string;
   ContentDesc: string;
   ContentURL: string;
@@ -489,7 +492,7 @@ export default function CommentScreen({
 
   const checkUserExistingComment = async (itemId: string, itemType: string, currentUserId: string) => {
     try {
-      const commentsRef = collection(db, itemType, itemId, 'Comments');
+      const commentsRef = collection(db, "SentinelPosts", itemId, 'Comments');
       const userCommentQuery = query(
         commentsRef,
         where('userId', '==', currentUserId)
@@ -586,6 +589,8 @@ export default function CommentScreen({
           AuthorImageURL: data.AuthorImageURL || '',
           AuthorName: data.AuthorName || '',
           AuthorUsername: data.AuthorUsername || '@' + (data.AuthorName || '').toLowerCase().replace(/\s+/g, ''),
+          AuthorBio: postData.AuthorBio || '',  // ✅ ADD THIS
+          AuthorUserID: postData.AuthorUserID || '123456',
           ContentDate: data.ContentDate || '',
           ContentDesc: data.ContentDesc || '',
           ContentURL: data.ContentURL || '',
@@ -623,6 +628,8 @@ export default function CommentScreen({
       AuthorImageURL: passedPostData.AuthorImageURL || '',
       AuthorName: passedPostData.AuthorName || '',
       AuthorUsername: passedPostData.AuthorUsername || '@' + (passedPostData.AuthorName || '').toLowerCase().replace(/\s+/g, ''),
+      AuthorBio: postData.AuthorBio || '',  // ✅ ADD THIS
+      AuthorUserID: postData.AuthorUserID || '123456',
       ContentDate: passedPostData.ContentDate || '',
       ContentDesc: passedPostData.ContentDesc || '',
       ContentURL: passedPostData.ContentURL || '',
@@ -821,13 +828,18 @@ export default function CommentScreen({
         console.log('Response submitted with ID: ', postDocRef.id);
       }
       
-      setSelectedOption(null);
-      setShowResponseModal(false);
-      setReplyingTo(null);
-      
+      // setSelectedOption(null);
+      // setShowResponseModal(false);
+      // setReplyingTo(null);
+
       if (postId && postType) {
         await checkUserExistingComment(postId, postType, userId);
       }
+
+      setTimeout(() => {
+        onClose(); 
+      }, 100);
+      
     } catch (error) {
       console.error('Error submitting response:', error);
     } finally {
@@ -839,6 +851,7 @@ const handleDeleteComment = async (commentId: string) => {
   if (!postId || !postType) return;
   
   setCommentToDelete(commentId);
+  setShowMenuModal(false);
   setIsDeleteCommentModalVisible(true);
   };
 
@@ -870,13 +883,14 @@ const confirmDeleteComment = async () => {
   }
 };
 
-
-
   const handleEditComment = (comment: Comment) => {
-    setSelectedOption(comment.selectedOptions?.[0] || null);
-    setIsEditMode(true);
     setShowMenuModal(false);
-    setShowResponseModal(true);
+    setTimeout(() => {
+      setShowSentimentPage(false);
+      setSelectedOption(comment.selectedOptions?.[0] || null);
+      setIsEditMode(true);
+      setShowResponseModal(true);
+    }, 100);
   };
 
   const handleThreeDotsPress = (commentId: string, event: any) => {
@@ -928,6 +942,7 @@ const confirmDeleteComment = async () => {
 
   const handleSentimentClose = () => {
     setShowSentimentPage(false);
+    onClose();
   };
 
   const handleAddResponseFromSentiment = () => {
@@ -1056,6 +1071,28 @@ const confirmDeleteComment = async () => {
     );
   };
 
+  const openUserProfile = (item: PostData) => {
+    const authorId = item.AuthorUserID; // choose what you consider profile id
+    if (authorId) {
+      onClose();
+
+      setTimeout(() => {
+        router.push({
+          pathname: "/profile/[userId]",
+          params: {
+            userId: authorId,                 // item.AuthorUserID
+            authorName: item.AuthorName,      // from post
+            authorImageUrl: item.AuthorImageURL, // from post
+            isAnonymous: item.isAnonymous ? 'true' : 'false', // ✅ ADD THIS LINE
+            userBio: item.AuthorBio || '',  // ✅ ADD THIS LINE
+    
+          },
+        });
+      }, 10);
+    }
+    
+  }; 
+
   useEffect(() => {
     if (visible && postId && postType) {
       getItem();
@@ -1132,6 +1169,10 @@ const confirmDeleteComment = async () => {
               <View style={{ backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 16 }}>
                 {/* Post Header */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => openUserProfile(postDataState)}
+                  > 
                   <Image
                     source={{ uri: changedAuthorImage || dummyAuthorImage }}
                     style={{ 
@@ -1144,6 +1185,8 @@ const confirmDeleteComment = async () => {
                     resizeMode="cover"
                     resizeMethod="resize"
                   />
+                  </TouchableOpacity>
+                  
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontWeight: '600', fontSize: 15, color: '#000' }}>
                       {changedAuthorName}
@@ -1414,6 +1457,37 @@ const confirmDeleteComment = async () => {
               </TouchableOpacity>
             </Modal>
           )}
+
+          {/* DELETE COMMENT MODAL */}
+        <CustomModal
+          visible={isDeleteCommentModalVisible}
+          type="warning"
+          title="Delete Response"
+          message="Are you sure you want to delete your response? This action cannot be undone."
+          buttons={[
+            {
+              text: "Cancel",
+              style: "cancel",
+              onPress: () => {
+                setIsDeleteCommentModalVisible(false);
+                setCommentToDelete(null);
+                setShowMenuModal(false); // ✅ ADD THIS LINE - Close the menu
+              }
+            },
+            {
+              text: isDeletingComment ? "Deleting..." : "Delete",
+              style: "destructive",
+              onPress: confirmDeleteComment
+            }
+          ]}
+          onClose={() => {
+            if (!isDeletingComment) {
+              setIsDeleteCommentModalVisible(false);
+              setCommentToDelete(null);
+              setShowMenuModal(false); // ✅ ADD THIS LINE - Close the menu
+            }
+          }}
+        />
         </View>
       </Modal>
 
@@ -1620,36 +1694,8 @@ const confirmDeleteComment = async () => {
           </View>
         </View>
       </Modal>
-      {/* DELETE COMMENT MODAL */}
-        <CustomModal
-          visible={isDeleteCommentModalVisible}
-          type="warning"
-          title="Delete Response"
-          message="Are you sure you want to delete your response? This action cannot be undone."
-          buttons={[
-            {
-              text: "Cancel",
-              style: "cancel",
-              onPress: () => {
-                setIsDeleteCommentModalVisible(false);
-                setCommentToDelete(null);
-                setShowMenuModal(false); // ✅ ADD THIS LINE - Close the menu
-              }
-            },
-            {
-              text: isDeletingComment ? "Deleting..." : "Delete",
-              style: "destructive",
-              onPress: confirmDeleteComment
-            }
-          ]}
-          onClose={() => {
-            if (!isDeletingComment) {
-              setIsDeleteCommentModalVisible(false);
-              setCommentToDelete(null);
-              setShowMenuModal(false); // ✅ ADD THIS LINE - Close the menu
-            }
-          }}
-        />
+      
+      
 
    
 

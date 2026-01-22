@@ -46,6 +46,7 @@ interface PostItem {
   AuthorUserID?: string;
   AuthorImageURL: string;
   AuthorName: string;
+  AuthorBio: string;
   ContentDate: string;
   ContentDesc: string;
   ContentURL: string;
