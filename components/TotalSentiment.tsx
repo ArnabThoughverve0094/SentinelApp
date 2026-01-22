@@ -1,5 +1,6 @@
 import { db } from '@/FirebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { useCallback, useEffect, useState } from 'react';
@@ -42,6 +43,8 @@ interface PostData {
   AuthorImageURL: string;
   AuthorName: string;
   AuthorUsername?: string;
+  AuthorUserID?: string;
+  AuthorBio: string;
   ContentDate: string;
   ContentDesc: string;
   ContentURL: string;
@@ -701,6 +704,27 @@ export default function TotalSentiment({
     );
   };
 
+  const openUserProfile = (item: PostData) => {
+    const authorId = item.AuthorUserID; // choose what you consider profile id
+    if (authorId) {
+      onClose();
+
+      setTimeout(() => {
+        router.push({
+          pathname: "/profile/[userId]",
+          params: {
+            userId: authorId,                 // item.AuthorUserID
+            authorName: item.AuthorName,      // from post
+            authorImageUrl: item.AuthorImageURL, // from post
+            isAnonymous: item.isAnonymous ? 'true' : 'false', // ✅ ADD THIS LINE
+            userBio: item.AuthorBio || '',  // ✅ ADD THIS LINE
+    
+          },
+        });
+      }, 10);
+    }
+  }; 
+
   return (
     <>
       <Modal
@@ -750,7 +774,11 @@ export default function TotalSentiment({
                 {postData && (
                   <View style={{ paddingHorizontal: 16, paddingVertical: 16 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                      <Image
+                      <TouchableOpacity
+                      activeOpacity={0.8}
+                      onPress={() => openUserProfile(postData)}
+                      > 
+                       <Image
                         source={{ uri: postData.AuthorImageURL || 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg' }}
                         style={{ 
                           width: 40, 
@@ -761,7 +789,9 @@ export default function TotalSentiment({
                         }}
                         resizeMode="cover"
                         resizeMethod="resize"
-                      />
+                        />
+                      </TouchableOpacity>
+                      
                       <View style={{ flex: 1 }}>
                         <Text style={{ fontWeight: 'bold', fontSize: 16, color: '#000' }}>
                           {(postData.isAnonymous) ? 'Anonymous' : postData.AuthorName}

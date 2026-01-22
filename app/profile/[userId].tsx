@@ -1,42 +1,43 @@
 // app/profile/[userId].tsx
-import React, { useEffect, useState, useCallback } from "react";
-import {
-  View,
-  Text,
-  Image,
-  ActivityIndicator,
-  ScrollView,
-  TouchableOpacity,
-  Linking,
-  RefreshControl,
-  Share,
-  Modal,
-  TextInput,
-} from "react-native";
-import Ionicons from "@expo/vector-icons/Ionicons";
-import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import Feather from "@expo/vector-icons/Feather";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-  DocumentData,
-  onSnapshot,
-  doc,
-  updateDoc,
-  arrayUnion,
-  arrayRemove,
-  addDoc,
-  increment,
-  setDoc,
-} from "firebase/firestore";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { db } from "@/FirebaseConfig";
-import Toast from "react-native-toast-message";
 import CommentsModal from "@/components/CommentsModal";
 import TotalSentiment from "@/components/TotalSentiment";
+import Feather from "@expo/vector-icons/Feather";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import {
+  DocumentData,
+  addDoc,
+  arrayRemove,
+  arrayUnion,
+  collection,
+  doc,
+  increment,
+  onSnapshot,
+  query,
+  setDoc,
+  updateDoc,
+  where
+} from "firebase/firestore";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Image,
+  Linking,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  Share,
+  StatusBar,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Toast from "react-native-toast-message";
 
 const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
 const dummyHeaderImage =
@@ -61,6 +62,7 @@ interface PostItem {
   AuthorUserID?: string;
   AuthorImageURL: string;
   AuthorName: string;
+  AuthorBio: string;
   ContentDate: string;
   ContentDesc: string;
   ContentURL: string;
@@ -336,6 +338,102 @@ export default function UserProfileScreen() {
     </Modal>
   );
 
+  const renderStyledPostText = (text) => {
+    if (!text) return null;
+  
+    const urlPattern = /(https?:\/\/[^\s]+)|(www\.[^\s]+)/gi;
+    const hashtagPattern = /(^|\s)(#[a-zA-Z0-9_]+)/g;
+  
+    const urlMatches = [];
+    const hashtagMatches = [];
+    let match;
+  
+    while ((match = urlPattern.exec(text)) !== null) {
+      urlMatches.push({
+        type: "url",
+        text: match[0],
+        index: match.index,
+        length: match[0].length,
+      });
+    }
+  
+    while ((match = hashtagPattern.exec(text)) !== null) {
+      hashtagMatches.push({
+        type: "hashtag",
+        text: match[2],
+        index: match.index + match[1].length,
+        length: match[2].length,
+      });
+    }
+  
+    const allMatches = [...urlMatches, ...hashtagMatches].sort((a, b) => a.index - b.index);
+  
+    if (allMatches.length === 0) {
+      return <Text style={{ color: "#111827" }}>{text}</Text>;
+    }
+  
+    const components = [];
+    let lastIndex = 0;
+  
+    allMatches.forEach((match, i) => {
+      if (match.index > lastIndex) {
+        components.push(
+          <Text key={`text-${i}`} style={{ color: "#111827" }}>
+            {text.substring(lastIndex, match.index)}
+          </Text>
+        );
+      }
+  
+      if (match.type === "url") {
+        components.push(
+          <Text
+            key={`url-${i}`}
+            style={{ color: "#2563EB", textDecorationLine: "underline", fontWeight: "500" }}
+            onPress={() => {
+              const url = match.text.startsWith("http") ? match.text : `https://${match.text}`;
+              Linking.openURL(url);
+            }}
+          >
+            {match.text}
+          </Text>
+        );
+      } else if (match.type === "hashtag") {
+        components.push(
+          <TouchableOpacity
+            key={`hashtag-${i}`}
+            onPress={() => {
+              alert("Hashtag tapped: " + match.text);
+              // Or custom navigation/filter
+            }}
+          >
+            <Text
+              style={{
+                color: "#E6161A",
+                fontWeight: "bold",
+                backgroundColor: "#FEE2E2",
+                paddingHorizontal: 2,
+                borderRadius: 2,
+              }}
+            >
+              {match.text}
+            </Text>
+          </TouchableOpacity>
+        );
+      }
+      lastIndex = match.index + match.length;
+    });
+  
+    if (lastIndex < text.length) {
+      components.push(
+        <Text key="end" style={{ color: "#111827" }}>
+          {text.substring(lastIndex)}
+        </Text>
+      );
+    }
+  
+    return components;
+  };
+
   useEffect(() => {
     const loadCurrentUser = async () => {
       const id = await AsyncStorage.getItem("userId");
@@ -591,6 +689,7 @@ export default function UserProfileScreen() {
             AuthorImageURL: postData.AuthorImageURL,
             AuthorName: postData.AuthorName,
             AuthorUserID: postData.AuthorUserID || postData.repostedBy || "",
+            AuthorBio: postData.AuthorBio || '',
             ContentDate: postData.ContentDate,
             ContentDesc: postData.ContentDesc,
             ContentURL: postData.ContentURL,
@@ -1194,7 +1293,7 @@ export default function UserProfileScreen() {
           </View>
 
           <View className="px-3 py-3">
-            <Text className="text-gray-800 text-sm leading-5 mb-2">{item.ContentDesc}</Text>
+            <Text className="text-gray-800 text-sm leading-5 mb-2">{renderStyledPostText(item.ContentDesc)}</Text>
 
             {item.ContentURL && (
               <View className="rounded-xl overflow-hidden bg-gray-100 mb-3">
@@ -1319,7 +1418,9 @@ export default function UserProfileScreen() {
   const isOwnProfile = currentUserId === userId;
 
   return (
-    <View className="flex-1 bg-black">
+    <SafeAreaView className="flex-1 bg-gray-50">
+      <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
+      <View className="flex-1 bg-black">
       <View className="h-40 bg-gray-900">
         <Image source={{ uri: dummyHeaderImage }} className="w-full h-full" resizeMode="cover" />
       </View>
@@ -1482,5 +1583,7 @@ export default function UserProfileScreen() {
         commentTemplate={selectedCommentTemplate}
       />
     </View>
+    </SafeAreaView>
+    
   );
 }

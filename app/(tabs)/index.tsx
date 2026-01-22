@@ -999,9 +999,9 @@ export default function SentinelFeed(): React.JSX.Element {
     router.push({
       pathname: "/profile/[userId]",
       params: {
-        userId: authorId,                 // item.AuthorUserID
-        authorName: item.AuthorName,      // from post
-        authorImageUrl: item.AuthorImageURL, // from post
+        userId: authorId || '12345',                 // item.AuthorUserID
+        authorName: item.AuthorName || 'Anonymous',      // from post
+        authorImageUrl: item.AuthorImageURL || '', // from post
         isAnonymous: item.isAnonymous ? 'true' : 'false', // ✅ ADD THIS LINE
         userBio: item.AuthorBio || '',  // ✅ ADD THIS LINE
 
@@ -1027,7 +1027,16 @@ export default function SentinelFeed(): React.JSX.Element {
   ];
 
   const areInteractionsDisabled = useCallback((item: PostItem) => {
-    return !item.isApproved || !item.isNew;
+    if (item.postType.includes('X-Data')) {
+      return false;
+    } else {
+      if (item.isApproved) {
+        return false;
+      } else {
+        return true;
+      }
+    }
+    // return !item.isApproved || !item.isNew;
   }, []);
 
   const fetchUserFollowing = useCallback(async () => {
