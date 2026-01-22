@@ -229,6 +229,12 @@ interface CustomModalProps {
   onClose?: () => void;
   customIcon?: string;
 }
+interface TemplateResponseType
+ {
+  success: boolean;
+  message: string;
+  templateName?: string;
+}
 
 const CustomModal: React.FC<CustomModalProps> = ({
   visible,
@@ -1083,34 +1089,59 @@ const compressAndGetUrl = async (localUri) => {
     const isContentApproved = moderationResult.postStatus === 'approved';
     const isFlagged = moderationResult.flagged;
     
-    // Step 4: Save post to Firestore with moderation results
-    await addDoc(collection(db, 'SentinelPosts'), {
-      AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
-      AuthorName: userName,
-      AuthorNickName: userNickName,
-      AuthorUserID: userId,
-      ContentDate: new Date(),
-      ContentDesc: postText,
-      ContentURL: uploadedUrls.length > 0 ? uploadedUrls[0] : null,
-      ContentURLs: uploadedUrls,
-      ContentLikeCount: 0,
-      ContentRepostCount: 0,
-      CommentTemplate: "Standard Template",
-      isApproved: isContentApproved,
-      isLiked: false,
-      isNew: !isContentApproved, // If approved, not new for admin; if flagged, new for review
-      isAnonymous: isAnonymous,
-      contentType: selectedType,
-      isEducational: isEducationalEnabled,
-      // Add moderation metadata
-      moderationData: {
-        flagged: isFlagged,
-        violations: moderationResult.violations || [],
-        categories: moderationResult.categories || {},
-        checkedAt: new Date(),
-        videoSkipped: uploadedUrls.some(url => getMediaType(url) === 'video') // Track if video was present
+    //CallAPI to Genrate $ option four option for template Genration
+      let generatedTemplateName = "Standard Template";
+      try {
+        const response = await fetch(
+          'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/opinion-generator-ai',
+          {
+            method: 'POST',
+            headers: {  
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              postText,
+              uploadedUrls
+            })
+          }
+        );
+        const templateResponse: TemplateResponseType = await response.json();
+        if (templateResponse?.success) {
+          generatedTemplateName = templateResponse.templateName || null;
+        }
+      } catch (error) {
+        console.error("❌ Error generating comment template:", error);
       }
+      finally {
+        await addDoc(collection(db, 'SentinelPosts'), {
+          AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+          AuthorName: userName,
+          AuthorNickName: userNickName,
+          AuthorUserID: userId,
+          ContentDate: new Date(),
+          ContentDesc: postText,
+          ContentURL: uploadedUrls.length > 0 ? uploadedUrls[0] : null,
+          ContentURLs: uploadedUrls,
+          ContentLikeCount: 0,
+          ContentRepostCount: 0,
+          CommentTemplate:generatedTemplateName ,
+          isApproved: isContentApproved,
+          isLiked: false,
+          isNew: !isContentApproved, // If approved, not new for admin; if flagged, new for review
+          isAnonymous: isAnonymous,
+          contentType: selectedType,
+          isEducational: isEducationalEnabled,
+          // Add moderation metadata
+          moderationData: {
+            flagged: isFlagged,
+            violations: moderationResult.violations || [],
+            categories: moderationResult.categories || {},
+            checkedAt: new Date(),
+            videoSkipped: uploadedUrls.some(url => getMediaType(url) === 'video') // Track if video was present
+        }
     });
+        console.log("📝 Using comment template:", generatedTemplateName);
+      }
 
     setPostText('');
     setSelectedMedia([]);

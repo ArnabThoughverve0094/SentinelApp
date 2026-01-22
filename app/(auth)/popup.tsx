@@ -1,22 +1,10 @@
-import { db } from "@/FirebaseConfig";
-import { NotificationProvider, useNotification } from "@/context/NotificationContext";
-import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { ResponseType, TokenResponse, makeRedirectUri, useAuthRequest } from "expo-auth-session";
-import * as Notifications from "expo-notifications";
-import { Link, router } from "expo-router";
-import * as WebBrowser from 'expo-web-browser';
-import { getApps, initializeApp } from 'firebase/app';
-import { addDoc, collection, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
-import React, { useCallback, useEffect, useState } from "react";
+//app/auth/popup.tsx
+import React from 'react';
 import {
   Image,
-  ImageBackground,
-  SafeAreaView,
-  StatusBar,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 
 const firebaseConfig = {
@@ -318,58 +306,39 @@ export default function Index(): React.JSX.Element {
   }, [expoPushToken]); // Dependency on token ensures listener updates if token changes
 
   return (
-    <NotificationProvider>
-      <SafeAreaView className="flex-1">
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor="transparent"
-        translucent
-      />
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" translucent={false} />
       
-      <ImageBackground
-        source={require("../../assets/images/redbg.png")}
-        className="flex-1"
-        resizeMode="cover"
-      >
-        {/* Header with back button and close icon */}
-        <View className="px-6 pt-10 pb-8 flex-row justify-between items-center">
-          {/* <Link href="/(auth)" asChild>
-            <TouchableOpacity className="w-14 h-14">
-              <Ionicons name="arrow-back" size={25} color="#000000" />
-            </TouchableOpacity>
-          </Link> */}
-          <View className="flex-1" />
-          {/* Close icon on the right */}
-          <TouchableOpacity 
-            className="w-10 h-10 justify-center items-right"
-            onPress={handleClosePress}
-          >
-            <Ionicons name="close" size={30} color="#ffffff" />
-          </TouchableOpacity>
-        </View>
+      {/* Top Pattern Section */}
+      <View style={styles.patternSection}>
+        <Image
+          source={require('../../assets/images/pattern-bg.png')}
+          style={styles.patternImage}
+          resizeMode="cover"
+        />
+        
+        {/* Close Button - Positioned on top of pattern */}
+        <TouchableOpacity 
+          onPress={() => router.back()} 
+          style={styles.closeButton}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="close" size={26} color="#000" />
+        </TouchableOpacity>
+      </View>
 
-        <View className="flex-1 px-6 justify-center pt-56">
-          {/* Logo positioned above welcome text */}
-          <Link href="/" asChild>
-          <TouchableOpacity className="items-start mb-8">
-            <View className="w-14 h-14 rounded-xl bg-transparent justify-center items-center">
-              <Image
-                source={require("../../assets/images/new_logo.png")}
-                className="w-14 h-14"
-                resizeMode="contain"
-              />
-            </View>
-          </TouchableOpacity>
-          </Link>
-
-          {/* Welcome text section */}
-          <View className="mb-10">
-            <Text className="text-3xl font-bold text-black mb-3 leading-tight">
-              Welcome{"\n"}to IronExSafe™
-            </Text>
-            <Text className="text-base text-black/80 leading-6">
-              Connect with your community and stay updated every time,
-              everywhere.
+      {/* Bottom Content Section */}
+      <SafeAreaView style={styles.contentSection} edges={['bottom']}>
+        <View style={styles.contentWrapper}>
+          
+          {/* Title Section */}
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>Structured</Text>
+            <Text style={styles.title}>Antisemitism</Text>
+            <Text style={styles.title}>Reporting</Text>
+            
+            <Text style={styles.subtitle}>
+              Access is limited and moderated.
             </Text>
           </View>
 
@@ -426,43 +395,134 @@ export default function Index(): React.JSX.Element {
               </TouchableOpacity>
             </Link>
 
-            <View className="mb-8">
-              <TouchableOpacity 
-                className="flex-row items-start"
-                onPress={() => {
-                  setAgreeToTerms(!agreeToTerms);
-                }}
+            {/* Sign In Link */}
+            <Link href="/(auth)/email-login" asChild>
+              <TouchableOpacity
+                style={styles.signInButton}
+                activeOpacity={0.7}
               >
-                <View className="flex-1">
-                  <Text className="text-sm text-black/70 leading-5">
-                    By creating an account, you agree to our{' '}
-                    <Text 
-                      className="text-red-700 font-medium underline" 
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        handleTermsPress();
-                      }}
-                    >
-                      Terms & Conditions
-                    </Text>
-                    {' '}and{' '}
-                    <Text 
-                      className="text-red-700 font-medium underline" 
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        handlePrivacyPress();
-                      }}
-                    >
-                      Privacy Policy
-                    </Text>
-                  </Text>
-                </View>
+                <Text style={styles.signInText}>Sign In</Text>
+                <Ionicons 
+                  name="arrow-forward" 
+                  size={18} 
+                  color="#000" 
+                  style={styles.arrow}
+                />
               </TouchableOpacity>
-            </View>
+            </Link>
+
           </View>
+
         </View>
-      </ImageBackground>
-    </SafeAreaView>
-    </NotificationProvider>
+      </SafeAreaView>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  patternSection: {
+    width: width,
+    height: height * 0.5,
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+    position: 'relative', // Added for absolute positioning of close button
+  },
+  patternImage: {
+    width: '100%',
+    height: '100%',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 20, // Adjust for status bar
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+    zIndex: 10,
+  },
+  contentSection: {
+    flex: 1,
+    backgroundColor: '#EFFAAB',
+  },
+  contentWrapper: {
+    flex: 1,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: width * 0.08,
+    paddingTop: height * 0.04,
+    paddingBottom: height * 0.06,
+  },
+  titleContainer: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  title: {
+    fontSize: width * 0.095,
+    fontWeight: '700',
+    color: '#000',
+    textAlign: 'center',
+    lineHeight: width * 0.115,
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: width * 0.037,
+    color: 'rgba(0, 0, 0, 0.6)',
+    textAlign: 'center',
+    marginTop: height * 0.02,
+    fontWeight: '400',
+  },
+  buttonsContainer: {
+    width: '100%',
+    alignItems: 'center',
+    gap: height * 0.025,
+  },
+  createAccountButton: {
+    backgroundColor: '#000',
+    borderRadius: 8,
+    width: width * 0.5,
+    maxWidth: 250,
+    minWidth: 180,
+    height: height * 0.06,
+    maxHeight: 54,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+  createAccountText: {
+    color: '#fff',
+    fontSize: width * 0.042,
+    fontWeight: '600',
+  },
+  signInButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: height * 0.015,
+    paddingHorizontal: width * 0.04,
+  },
+  signInText: {
+    color: '#000',
+    fontSize: width * 0.042,
+    fontWeight: '500',
+  },
+  arrow: {
+    marginLeft: 6,
+  },
+});
