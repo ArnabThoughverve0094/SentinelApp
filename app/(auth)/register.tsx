@@ -615,11 +615,11 @@ const handleCountrySelect = (selectedCountry: string) => {
         backgroundColor="transparent"
         translucent
       />
-      <ImageBackground
+      {/* <ImageBackground
               source={require("../../assets/images/white-bg.png")}
               className="flex-1"
               resizeMode="cover"
-            >
+            /> */}
 
       <KeyboardAvoidingView
         className="flex-1"
@@ -685,7 +685,7 @@ const handleCountrySelect = (selectedCountry: string) => {
                 <Text className="text-black/70">Already have an account? </Text>
                 <Link href="/(auth)/email-login" asChild>
                   <TouchableOpacity>
-                    <Text className="text-red-700 font-medium">Login</Text>
+                    <Text className="text-black font-medium">Login</Text>
                   </TouchableOpacity>
                 </Link>
               </View>
@@ -903,14 +903,14 @@ const handleCountrySelect = (selectedCountry: string) => {
                     <Text className="text-sm text-black/70 leading-5">
                       By creating an account, you agree to our{" "}
                       <Text
-                        className="text-red-700 font-medium underline"
+                        className="text-black font-medium underline"
                         onPress={handleTermsPress}
                       >
                         Terms & Conditions
                       </Text>{" "}
                       and{" "}
                       <Text
-                        className="text-red-700 font-medium underline"
+                        className="text-black font-medium underline"
                         onPress={handlePrivacyPress}
                       >
                         Privacy Policy
@@ -931,7 +931,7 @@ const handleCountrySelect = (selectedCountry: string) => {
               className={`py-4 px-6 rounded-xl items-center shadow-lg mb-6 ${
                 loading ? "opacity-50" : ""
               }`}
-              style={{ backgroundColor: "#E6161A" }}
+              style={{ backgroundColor: "#000000" }}
               disabled={loading}
               onPress={handleSignUp}
             >
@@ -998,7 +998,7 @@ const handleCountrySelect = (selectedCountry: string) => {
           onClose={hideModal}
         />
       </KeyboardAvoidingView>
-      </ImageBackground>
+      {/* </ImageBackground> */}
     </SafeAreaView>
   );
 }
