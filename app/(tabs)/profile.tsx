@@ -1816,6 +1816,35 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
       }
 
       console.log('✅ Access token found');
+      
+      // Step 1: Check profile picture with AI moderation
+      console.log('🤖 Validating profile picture with AI...');
+      const moderationResult = await checkProfilePicture(imageUrl);
+      console.log('🤖 AI Moderation Result:', moderationResult);
+      
+      // Step 2: If image doesn't satisfy parameters, show error and use dummy image
+      if (moderationResult.postStatus !== 'approved' || moderationResult.flagged) {
+        console.warn('⚠️ Profile picture does not meet requirements');
+        
+        showCustomAlert(
+          'error',
+          'Profile Picture Not Acceptable',
+          'The selected image does not meet our community guidelines. Please choose another image that:\n\n• Shows a clear profile picture\n• Contains no offensive content\n• Meets quality standards\n\nPlease select a different image.',
+          [{ text: 'OK', onPress: hideModal }]
+        );
+        
+        // Set dummy/placeholder image
+        const dummyImageUrl = "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg";
+        setProfilePicUrl(dummyImageUrl);
+        await AsyncStorage.setItem('profilePicUrl', dummyImageUrl);
+        
+        return; // Exit without updating to backend
+      }
+      
+      // Step 3: If validation passes, show green checkmark and proceed
+      console.log('✅ Profile picture validation passed!');
+      showToast('Image validation successful! ✓', 'success');
+      
       console.log('🔄 Original image URL:', imageUrl);
       console.log('🔄 Original URL length:', imageUrl.length, 'characters');
       
@@ -1839,6 +1868,7 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
         console.log('🔄 Final length:', profilePath.length, 'characters');
       }
       
+      // Step 4: Update profile on backend
       const response = await fetch(
         'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/update-profile',
         {
@@ -1873,7 +1903,13 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
       setProfilePicUrl(imageUrl);
       await AsyncStorage.setItem('profilePicUrl', imageUrl);
       
-      showToast('Profile picture updated successfully!', 'success');
+      // Show success with green checkmark
+        showCustomAlert(
+        'success',
+        'Profile Picture Updated! ✓',
+        'Your profile picture has been updated successfully and meets all our community guidelines.',
+        [{ text: 'Done', onPress: hideModal }]
+      );
       
     } catch (error) {
       console.error('❌ Error updating profile:', error);
@@ -1889,6 +1925,53 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
       throw error;
     }
   };
+
+// Helper function to check profile picture with AI moderation
+const checkProfilePicture = async (imageUrl: string) => {
+  try {
+    console.log('🔍 Checking profile picture with AI moderation...');
+    console.log('🖼️ Image URL:', imageUrl);
+    
+    const response = await fetch(
+      'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/ai-based-post-analysis',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          postText: null, // Always null for profile pictures
+          imageUrl: imageUrl
+        })
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`API request failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    console.log('✅ Profile picture moderation check complete:', data);
+    
+    return {
+      postStatus: data.postStatus, // "approved" or "inappropriate"
+      flagged: data.flagged,
+      violations: data.violations || [],
+      categories: data.categories || {}
+    };
+  } catch (error) {
+    console.error('❌ Error checking profile picture:', error);
+    // Fallback: if API fails, flag for safety
+    return {
+      postStatus: 'inappropriate',
+      flagged: true,
+      violations: ['api_error'],
+      categories: {}
+    };
+  }
+};
+
 
   // Handle profile picture selection and upload
   const handleProfilePictureUpload = async () => {
