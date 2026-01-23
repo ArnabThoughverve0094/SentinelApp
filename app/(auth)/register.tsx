@@ -401,31 +401,27 @@ export default function Register(): React.JSX.Element {
     }
   };
 
-  const handleSignUp = async () => {
+    const handleSignUp = async () => {
     setLoading(true);
 
-    // Always validate form on submit attempt
     const isValid = await validateForm();
 
     if (!isValid) {
       setLoading(false);
-      // Don't show popup alert, just let the field errors show
       return;
     }
 
     try {
-      // Format data exactly as your API expects
       const registrationData = {
         email: email.trim().toLowerCase(),
         password: password.trim(),
         name: name.trim(),
         nickName: username.trim(),
-        aboveEighteen: aboveEighteen ? "true" : "false", // Default to 18 years ago
+        aboveEighteen: aboveEighteen ? "true" : "false",
         country: country.trim(),
         termsAccepted: "true",
         role: "User",
       };
-
 
       console.log("=== SENDING DATA IN EXACT API FORMAT ===");
       console.log("Registration data:", registrationData);
@@ -460,7 +456,6 @@ export default function Register(): React.JSX.Element {
       if (!response.ok) {
         console.error("API Error:", responseData);
 
-        // Handle specific error messages from API - only set email error, no popup
         if (
           responseData.error === "User already exists" ||
           responseData.message?.includes("already exists")
@@ -478,9 +473,19 @@ export default function Register(): React.JSX.Element {
         );
       }
 
-      // Store email using AsyncStorage
-      await AsyncStorage.setItem("userEmail", email.trim());
-      console.log("Email stored in AsyncStorage:", email.trim());
+      // ✅ FIXED: Store ALL user data including country in AsyncStorage
+      await AsyncStorage.multiSet([
+        ['userEmail', email.trim().toLowerCase()],
+        ['userName', name.trim()],
+        ['userNickName', username.trim()],
+        ['userCountry', country.trim()], // 👈 THIS WAS MISSING
+      ]);
+      
+      console.log('✅ All user data stored in AsyncStorage:');
+      console.log('  - Email:', email.trim());
+      console.log('  - Name:', name.trim());
+      console.log('  - Nickname:', username.trim());
+      console.log('  - Country:', country.trim()); // 👈 NOW STORED
 
       showCustomAlert(
         "success",
@@ -499,7 +504,6 @@ export default function Register(): React.JSX.Element {
     } catch (error: any) {
       console.error("Registration failed:", error);
 
-      // Only show popup for network errors or unexpected errors
       if (
         error.message.includes("Network") ||
         error.message.includes("Invalid response")
@@ -521,13 +525,11 @@ export default function Register(): React.JSX.Element {
         error.message.includes("already exists") ||
         error.message.includes("User already exists")
       ) {
-        // For user exists error, just set the field error without popup
         setErrors((prev) => ({
           ...prev,
           email: "User already exists with this email",
         }));
       } else {
-        // For other API errors, show popup
         showCustomAlert(
           "error",
           "Registration Failed",
@@ -544,6 +546,7 @@ export default function Register(): React.JSX.Element {
       setLoading(false);
     }
   };
+
 
 
   const formatDate = (date: Date): string => {

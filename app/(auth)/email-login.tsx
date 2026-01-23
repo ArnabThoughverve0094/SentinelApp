@@ -37,6 +37,7 @@ type LoginResponse = {
     role: string;
     termsAccepted: string;
     profilePic?: string;
+    bio?: string;
   };
   decodedClaims: any;
 };
@@ -174,87 +175,112 @@ export default function EmailLogin(): React.JSX.Element {
   };
 
   const storeUserData = async (data: LoginResponse) => {
-    const items: [string, string][] = [];
+  const items: [string, string][] = [];
 
-    // Store access token (main token for API calls)
-    if (data.tokens.accessToken) {
-      items.push(['userToken', data.tokens.accessToken]);
-      items.push(['accessToken', data.tokens.accessToken]);
-      console.log('✅ Access token stored:', data.tokens.accessToken.substring(0, 50) + '...');
-    }
+  // Store access token (main token for API calls)
+  if (data.tokens.accessToken) {
+    items.push(['userToken', data.tokens.accessToken]);
+    items.push(['accessToken', data.tokens.accessToken]);
+    console.log('✅ Access token stored:', data.tokens.accessToken.substring(0, 50) + '...');
+  }
 
-    // Store other tokens
-    if (data.tokens.refreshToken) {
-      items.push(['userRefreshToken', data.tokens.refreshToken]);
-      items.push(['refreshToken', data.tokens.refreshToken]);
-    }
-    if (data.tokens.idToken) {
-      items.push(['userIdToken', data.tokens.idToken]);
-      items.push(['idToken', data.tokens.idToken]);
-    }
+  // Store other tokens
+  if (data.tokens.refreshToken) {
+    items.push(['userRefreshToken', data.tokens.refreshToken]);
+    items.push(['refreshToken', data.tokens.refreshToken]);
+  }
+  if (data.tokens.idToken) {
+    items.push(['userIdToken', data.tokens.idToken]);
+    items.push(['idToken', data.tokens.idToken]);
+  }
 
-    // Store user attributes
-    if (data.userAttributes.email) {
-      items.push(['userEmail', data.userAttributes.email]);
-    }
-    if (data.userAttributes.name) {
-      items.push(['userName', data.userAttributes.name]);
-    }
-    if (data.userAttributes.nickname) {
-      items.push(['userNickName', data.userAttributes.nickname]);
-    } else {
-      items.push(['userNickName', ""]);
-    }
-    if (data.userAttributes.sub) {
-      items.push(['userId', data.userAttributes.sub]);
-      fetchUserData(data.userAttributes.sub);
-    }
-    if (data.userAttributes.role) {
-      items.push(['userRole', data.userAttributes.role]);
-    } else {
-      items.push(['userRole', 'User']);
-    }
+  // Store user attributes
+  if (data.userAttributes.email) {
+    items.push(['userEmail', data.userAttributes.email]);
+  }
+  if (data.userAttributes.name) {
+    items.push(['userName', data.userAttributes.name]);
+  }
+  if (data.userAttributes.nickname) {
+    items.push(['userNickName', data.userAttributes.nickname]);
+  } else {
+    items.push(['userNickName', ""]);
+  }
+  if (data.userAttributes.sub) {
+    items.push(['userId', data.userAttributes.sub]);
+    fetchUserData(data.userAttributes.sub);
+  }
+  if (data.userAttributes.role) {
+    items.push(['userRole', data.userAttributes.role]);
+  } else {
+    items.push(['userRole', 'User']);
+  }
 
-    // Store profile picture from login response
-    const profilePicFromResponse = data.userAttributes.profilePic || 
+  // ✅ COUNTRY - Check all possible locations
+  const userCountry = data.userAttributes.country || 
+                      data.decodedClaims?.country ||
+                      data.decodedClaims?.['custom:country'] || 
+                      '';
+  items.push(['userCountry', userCountry]);
+  console.log('✅ Country stored from login:', userCountry || 'Empty');
+
+  // ✅ BIO - Check all possible locations
+  const userBio = data.userAttributes.bio || 
+                  data.decodedClaims?.bio ||
+                  data.decodedClaims?.['custom:bio'] || 
+                  '';
+  items.push(['userBio', userBio]);
+  console.log('✅ Bio stored from login:', userBio || 'Empty');
+
+  // ✅ PROFILE PICTURE - Always store a value (even if empty)
+  const profilePicFromResponse = data.userAttributes.profilePic || 
+                                 data.decodedClaims?.profilePic ||
                                  data.decodedClaims?.['custom:profilePic'] || 
-                                 null;
+                                 '';
+  
+  if (profilePicFromResponse && profilePicFromResponse.trim() !== '') {
+    // Construct full URL if it's just a filename
+    const profilePicUrl = profilePicFromResponse.startsWith('http') 
+      ? profilePicFromResponse 
+      : `https://sentinal-uploads.s3.us-west-2.amazonaws.com/${profilePicFromResponse}`;
     
-    if (profilePicFromResponse) {
-      // Construct full URL if it's just a filename
-      const profilePicUrl = profilePicFromResponse.startsWith('http') 
-        ? profilePicFromResponse 
-        : `https://sentinal-uploads.s3.us-west-2.amazonaws.com/${profilePicFromResponse}`;
-      
-      items.push(['profilePicUrl', profilePicUrl]);
-      console.log('✅ Profile picture stored from login:', profilePicUrl);
-    } else {
-      console.log('ℹ️ No profile picture found in login response');
-    }
+    items.push(['profilePicUrl', profilePicUrl]);
+    console.log('✅ Profile picture stored from login:', profilePicUrl);
+  } else {
+    // ✅ IMPORTANT: Store empty string if no profile picture
+    items.push(['profilePicUrl', '']);
+    console.log('ℹ️ No profile picture - stored empty string');
+  }
 
-    // Store additional data
-    if (data.userAttributes) {
-      items.push(['userData', JSON.stringify(data.userAttributes)]);
-    }
+  // Store additional data
+  if (data.userAttributes) {
+    items.push(['userData', JSON.stringify(data.userAttributes)]);
+  }
 
-    // Calculate token expiry from decoded claims
-    if (data.decodedClaims?.exp) {
-      const expiryTime = data.decodedClaims.exp * 1000;
-      items.push(['tokenExpiry', expiryTime.toString()]);
-      console.log('✅ Token expiry set:', new Date(expiryTime));
-    } else {
-      const expiryTime = Date.now() + (60 * 60 * 1000);
-      items.push(['tokenExpiry', expiryTime.toString()]);
-    }
+  // Calculate token expiry from decoded claims
+  if (data.decodedClaims?.exp) {
+    const expiryTime = data.decodedClaims.exp * 1000;
+    items.push(['tokenExpiry', expiryTime.toString()]);
+    console.log('✅ Token expiry set:', new Date(expiryTime));
+  } else {
+    const expiryTime = Date.now() + (60 * 60 * 1000);
+    items.push(['tokenExpiry', expiryTime.toString()]);
+  }
 
-    try {
-      await AsyncStorage.multiSet(items);
-      console.log('✅ Successfully stored all login data:', items.map(([k]) => k).join(', '));
-    } catch (error) {
-      console.error('❌ Error during multiSet:', error);
-      throw new Error('Failed to save login data');
-    }
-  };
+  try {
+    await AsyncStorage.multiSet(items);
+    console.log('✅ Successfully stored all login data:', items.map(([k]) => k).join(', '));
+    
+    // ✅ DEBUG: Log what was stored for country and bio
+    console.log('🔍 DEBUG - Stored values:');
+    console.log('  Country:', userCountry || '(empty)');
+    console.log('  Bio:', userBio || '(empty)');
+  } catch (error) {
+    console.error('❌ Error during multiSet:', error);
+    throw new Error('Failed to save login data');
+  }
+};
+
 
   const handleLogin = async () => {
     if (!validateForm()) {
