@@ -1310,61 +1310,172 @@ const loadProfileData = async () => {
 
 
 
-const handleSaveEditPost = async () => {
-  if (!editPostData) return;
+  const handleSaveEditPost = async () => {
+    if (!editPostData) return;
 
-  if (editPostContent.trim() === "") {
-    Toast.show({
-      type: 'error',
-      text1: 'Empty Content',
-      text2: 'Post content cannot be empty.',
-      position: 'bottom',
-      visibilityTime: 2000,
-    });
-    return;
-  }
+    if (!editPostContent.trim()) {
+      Toast.show({
+        type: 'error',
+        text1: 'Empty Content',
+        text2: 'Post content cannot be empty.',
+        position: 'bottom',
+        visibilityTime: 2000,
+      });
+      return;
+    }
 
-  try {
-    const postRef = doc(db, editPostData.postType, editPostData.id);
-    
-    await updateDoc(postRef, {
-      ContentDesc: editPostContent.trim(),
-      updatedAt: new Date(),
-    });
+    try {
+      // ✅ STEP 1: Validate post description with AI
+      console.log('🤖 Validating edited post description with AI...');
+      
+      const moderationResult = await checkPostContent(editPostContent.trim(), null);
+      console.log('✅ AI Moderation Result:', moderationResult);
+      
+      // ✅ STEP 2: Check if content is approved
+      if (moderationResult.postStatus !== 'approved' || moderationResult.flagged) {
+        console.warn('❌ Post description does not meet content guidelines');
+        
+        // Build rejection reason message
+        let rejectionReason = 'Your post description does not meet our community guidelines.';
+        
+        if (moderationResult.violations && moderationResult.violations.length > 0) {
+          rejectionReason += `\n\nReasons:\n• ${moderationResult.violations.join('\n• ')}`;
+        }
+        
+        // Show error alert with rejection reason
+        showCustomAlert(
+          'error',
+          'Post Content Not Acceptable',
+          rejectionReason + '\n\nPlease revise your post description and try again.',
+          [
+            {
+              text: 'Edit Again',
+              onPress: () => {
+                hideModal();
+                // Keep edit modal open
+              }
+            },
+            {
+              text: 'Cancel',
+              style: 'cancel',
+              onPress: () => {
+                hideModal();
+                setIsEditModalVisible(false);
+                setEditPostData(null);
+                setEditPostContent('');
+              }
+            }
+          ]
+        );
+        
+        return; // Stop execution if validation fails
+      }
 
-    // Update local state - using userPosts instead of fetchedData
-    setUserPosts(prevData =>
-      prevData.map(item =>
-        item.id === editPostData.id
-          ? { ...item, ContentDesc: editPostContent.trim() }
-          : item
-      )
-    );
+      // ✅ STEP 3: Content approved - proceed with update
+      console.log('✅ Post description validated successfully!');
+      
+      const postRef = doc(db, editPostData.postType, editPostData.id);
+      
+      await updateDoc(postRef, {
+        ContentDesc: editPostContent.trim(),
+        isApproved: true, // ✅ Mark as approved since AI validated it
+        isNew: false,      // ✅ No longer needs admin review
+        updatedAt: new Date(),
+        // Store moderation data for record
+        moderationData: {
+          flagged: false,
+          violations: [],
+          categories: moderationResult.categories || {},
+          checkedAt: new Date(),
+          validatedBy: 'AI'
+        }
+      });
 
-    Toast.show({
-      type: 'success',
-      text1: 'Post Updated',
-      text2: 'Your post has been updated successfully.',
-      position: 'bottom',
-      visibilityTime: 2000,
-    });
+      // Update local state
+      setUserPosts((prevData) =>
+        prevData.map((item) =>
+          item.id === editPostData.id
+            ? {
+                ...item,
+                ContentDesc: editPostContent.trim(),
+                isApproved: true,
+                isNew: false
+              }
+            : item
+        )
+      );
 
-    // Close modal and reset
-    setIsEditModalVisible(false);
-    setEditPostData(null);
-    setEditPostContent("");
+      Toast.show({
+        type: 'success',
+        text1: 'Post Updated & Approved!',
+        text2: 'Your post has been updated and approved by AI.',
+        position: 'bottom',
+        visibilityTime: 3000,
+      });
 
-  } catch (error) {
-    console.error("Error updating post:", error);
-    Toast.show({
-      type: 'error',
-      text1: 'Update Failed',
-      text2: 'Failed to update post. Please try again.',
-      position: 'bottom',
-      visibilityTime: 2000,
-    });
-  }
-};
+      // Close modal and reset
+      setIsEditModalVisible(false);
+      setEditPostData(null);
+      setEditPostContent('');
+      
+    } catch (error) {
+      console.error('❌ Error updating post:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Update Failed',
+        text2: 'Failed to update post. Please try again.',
+        position: 'bottom',
+        visibilityTime: 2000,
+      });
+    }
+  };
+  // Helper function to call the AI moderation API
+  const checkPostContent = async (postText: string, imageUrl: string | null) => {
+    try {
+      console.log('🔍 Checking content with AI moderation...');
+      console.log('📝 Text:', postText ? 'Present' : 'Empty');
+      console.log('🖼️ Image URL:', imageUrl ? 'Present' : 'None');
+      
+      const response = await fetch(
+        'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/ai-based-post-analysis',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            postText: postText,
+            imageUrl: imageUrl // Will be null for edit post (only checking text)
+          })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      console.log('✅ Moderation check complete:', data);
+      
+      return {
+        postStatus: data.postStatus, // "approved" or "inappropriate"
+        flagged: data.flagged,
+        violations: data.violations || [],
+        categories: data.categories || {}
+      };
+    } catch (error) {
+      console.error('❌ Error checking post content:', error);
+      // Fallback: if API fails, flag for manual review for safety
+      return {
+        postStatus: 'inappropriate',
+        flagged: true,
+        violations: ['api_error'],
+        categories: {}
+      };
+    }
+  };
+
 
 
 
