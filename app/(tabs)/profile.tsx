@@ -1697,22 +1697,25 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
         setUserPosts(sortedPosts);
         console.log('OnSnapshot Fetched and Sorted', `Total: ${postsData.length} documents`);
 
+        // ✅ IMPROVED VERSION with error handling
         postsData.forEach(post => {
           onSnapshot(
             collection(doc(db, post.postType, post.id), 'Comments'),
-            commentsSnap => {
-              let totalComments = 0;
-              totalComments = commentsSnap.size;
-
+            (commentsSnap) => {
+              const totalComments = commentsSnap.size;
+              
               setUserPosts(prev =>
                 prev.map(p =>
                   p.id === post.id
-                  ? { ...p, ContentCommentCount: totalComments }
-                  : p
+                    ? { ...p, ContentCommentCount: totalComments }
+                    : p
                 )
               );
+            },
+            (error) => {
+              console.error(`Error listening to comments for post ${post.id}:`, error);
             }
-          )
+          );
         });
       });
 
@@ -2478,80 +2481,104 @@ const checkProfilePicture = async (imageUrl: string) => {
     setFullScreenVideo(null);
   }, []);
 
-  const toggleLike = useCallback(async (postItem: PostItem) => {
-  // Check if post is new (waiting for approval)
-  if (postItem.isNew) {
-    Toast.show({
-      type: 'warning',
-      text1: 'Pending Approval',
-      text2: 'This post is waiting for admin approval. You can perform actions after approval.',
-      position: 'bottom',
-      visibilityTime: 3000,
-    });
-    return;
-  }
-
-  // Check if interactions are disabled for rejected posts
-  if (areInteractionsDisabled(postItem)) {
-    Toast.show({
-      type: 'warning',
-      text1: 'Action Not Available',
-      text2: 'This post has been rejected and interactions are disabled.',
-      position: 'bottom',
-      visibilityTime: 2000,
-    });
-    return;
-  }
-
-  try {
-    let fetchuserID = userId;
-    if(!fetchuserID){
-      fetchuserID = await AsyncStorage.getItem('userId');
-      setUserId(fetchuserID);
+    const toggleLike = useCallback(async (postItem: PostItem) => {
+    // Check if post is pending approval
+    if (postItem.isNew) {
+      Toast.show({
+        type: 'warning',
+        text1: 'Pending Approval',
+        text2: 'This post is waiting for admin approval. You can perform actions after approval.',
+        position: 'bottom',
+        visibilityTime: 3000,
+      });
+      return;
     }
 
-    const postRef = doc(db, postItem.postType, postItem.id);
-    
-    if(postItem.Liked) {
-      console.log('Unliking post', postItem.id);
-      await updateDoc(postRef, {
-        ContentLikeCount: Math.max(0, postItem.ContentLikeCount - 1),
-        LikedBy: arrayRemove(fetchuserID),
+    // Check if interactions are disabled
+    if (areInteractionsDisabled(postItem)) {
+      Toast.show({
+        type: 'warning',
+        text1: 'Action Not Available',
+        text2: 'This post has been rejected and interactions are disabled.',
+        position: 'bottom',
+        visibilityTime: 2000,
       });
-    } else {
-      console.log('Liking post', postItem.id);
-      await updateDoc(postRef, {
-        ContentLikeCount: postItem.ContentLikeCount + 1,
-        LikedBy: arrayUnion(fetchuserID),
-      });
+      return;
     }
 
-    setUserPosts((prevPosts) =>
-      prevPosts.map((post) =>
-        post.uniqueId === postItem.uniqueId
-          ? {
-              ...post,
-              Liked: !post.Liked,
-              ContentLikeCount: post.Liked
-                ? Math.max(0, post.ContentLikeCount - 1)
-                : post.ContentLikeCount + 1,
-            }
-          : post
-      )
-    );
+    try {
+      let fetchuserID = userId;
+      if (!fetchuserID) {
+        fetchuserID = await AsyncStorage.getItem('userId') || '';
+        setUserId(fetchuserID);
+      }
 
-    await new Promise((r) => setTimeout(r, 200));
-  } catch (error) {
-    console.error('Error toggling like:', error);
-    Toast.show({
-      type: 'error',
-      text1: 'Action Failed',
-      text2: 'Failed to update like. Please try again.',
-      position: 'bottom',
-      visibilityTime: 2000,
-    });
-  }
-}, [userId, areInteractionsDisabled]);
+      const postRef = doc(db, postItem.postType, postItem.id);
+
+      if (postItem.Liked) {
+        // ✅ UNLIKE: Update state FIRST
+        setUserPosts(prevPosts =>
+          prevPosts.map(post =>
+            post.uniqueId === postItem.uniqueId
+              ? {
+                  ...post,
+                  Liked: false,
+                  ContentLikeCount: Math.max(0, post.ContentLikeCount - 1)
+                }
+              : post
+          )
+        );
+
+        // Then update Firebase
+        await updateDoc(postRef, {
+          ContentLikeCount: Math.max(0, postItem.ContentLikeCount - 1),
+          LikedBy: arrayRemove(fetchuserID),
+        });
+      } else {
+        // ✅ LIKE: Update state FIRST
+        setUserPosts(prevPosts =>
+          prevPosts.map(post =>
+            post.uniqueId === postItem.uniqueId
+              ? {
+                  ...post,
+                  Liked: true,
+                  ContentLikeCount: post.ContentLikeCount + 1
+                }
+              : post
+          )
+        );
+
+        // Then update Firebase
+        await updateDoc(postRef, {
+          ContentLikeCount: postItem.ContentLikeCount + 1,
+          LikedBy: arrayUnion(fetchuserID),
+        });
+      }
+    } catch (error) {
+      console.error('Error toggling like:', error);
+      
+      // ✅ Revert state on error
+      setUserPosts(prevPosts =>
+        prevPosts.map(post =>
+          post.uniqueId === postItem.uniqueId
+            ? {
+                ...post,
+                Liked: postItem.Liked,
+                ContentLikeCount: postItem.ContentLikeCount
+              }
+            : post
+        )
+      );
+      
+      Toast.show({
+        type: 'error',
+        text1: 'Action Failed',
+        text2: 'Failed to update like. Please try again.',
+        position: 'bottom',
+        visibilityTime: 2000,
+      });
+    }
+  }, [userId, areInteractionsDisabled]);
 
   // SIMPLE REPOST WITH TOAST
   const handleSimpleRepost = useCallback(async () => {
@@ -2559,14 +2586,15 @@ const checkProfilePicture = async (imageUrl: string) => {
 
   try {
     let fetchuserID = userId;
-    if(fetchuserID === ""){
-      fetchuserID = await AsyncStorage.getItem('userId') || "";
+    if (!fetchuserID) {
+      fetchuserID = await AsyncStorage.getItem('userId') || '';
       setUserId(fetchuserID);
     }
 
     const userInfo = await AsyncStorage.getItem('userName') || 'Anonymous';
     const userImage = await AsyncStorage.getItem('profilePicUrl') || dummyAuthorImage;
 
+    // ✅ Early return check
     if (selectedRepostPost.Reposted) {
       Toast.show({
         type: 'success',
@@ -2575,61 +2603,93 @@ const checkProfilePicture = async (imageUrl: string) => {
         position: 'bottom',
         visibilityTime: 2000,
       });
-    } else {
-      const postRef = doc(db, selectedRepostPost.postType, selectedRepostPost.id);
-      await updateDoc(postRef, {
-        ContentRepostCount: selectedRepostPost.ContentRepostCount + 1,
-        RepostedBy: arrayUnion(fetchuserID),
-      });
-
-      await addDoc(collection(db, 'SentinelPosts'), {
-        AuthorImageURL: userImage,
-        AuthorName: userInfo,
-        AuthorUserID: fetchuserID,
-        ContentDate: new Date(),
-        ContentDesc: renderStyledPostText(selectedRepostPost.ContentDesc) || '',
-        ContentURL: selectedRepostPost.ContentURL || '',
-        ContentURLs: selectedRepostPost.ContentURLs || [],
-        ContentLikeCount: 0,
-        ContentRepostCount: 0,
-        ContentCommentCount: 0,
-        isApproved: true,
-        isNew: false,
-        LikedBy: [],
-        RepostedBy: [],
-        BookmarkedBy: [],
-        createdAt: new Date(),
-        CommentTemplate: selectedRepostPost.CommentTemplate || "Standard Template",
-        isRepost: true,
-        originalPost: {
-          id: selectedRepostPost.id || '',
-          AuthorUserID: selectedRepostPost.AuthorUserID || '',
-          AuthorName: selectedRepostPost.AuthorName || 'Anonymous',
-          AuthorImageURL: selectedRepostPost.AuthorImageURL || dummyAuthorImage,
-        ContentDesc: renderStyledPostText(selectedRepostPost.ContentDesc) || '',
-          ContentDate: selectedRepostPost.ContentDate || new Date(),
-          postType: selectedRepostPost.postType || 'Unknown',
-          isAnonymous: selectedRepostPost.isAnonymous || false,
-          contentType: selectedRepostPost.contentType || 'My Thoughts'
-        },
-        repostComment: '',
-        repostedBy: fetchuserID,
-        repostedAt: new Date(),
-        isAnonymous: false,
-        contentType: 'Found Online'
-      });
-
-      Toast.show({
-        type: 'success',
-        text1: 'Reposted Successfully',
-        text2: 'Post has been shared to your followers.',
-        position: 'bottom',
-        visibilityTime: 2000,
-      });
+      return; // ✅ Exit early
     }
+
+    // ✅ Update state FIRST (optimistic update)
+    setUserPosts(prevPosts =>
+      prevPosts.map(post =>
+        post.uniqueId === selectedRepostPost.uniqueId
+          ? {
+              ...post,
+              Reposted: true,
+              ContentRepostCount: post.ContentRepostCount + 1
+            }
+          : post
+      )
+    );
+
+    // Update Firebase
+    const postRef = doc(db, selectedRepostPost.postType, selectedRepostPost.id);
+    await updateDoc(postRef, {
+      ContentRepostCount: selectedRepostPost.ContentRepostCount + 1,
+      RepostedBy: arrayUnion(fetchuserID),
+    });
+
+    // Create repost document
+    await addDoc(collection(db, 'SentinelPosts'), {
+      AuthorImageURL: userImage,
+      AuthorName: userInfo,
+      AuthorUserID: fetchuserID,
+      ContentDate: new Date(),
+      ContentDesc: renderStyledPostText(selectedRepostPost.ContentDesc) || '',
+      ContentURL: selectedRepostPost.ContentURL || '',
+      ContentURLs: selectedRepostPost.ContentURLs || [],
+      ContentLikeCount: 0,
+      ContentRepostCount: 0,
+      ContentCommentCount: 0,
+      isApproved: true,
+      isNew: false,
+      LikedBy: [],
+      RepostedBy: [],
+      BookmarkedBy: [],
+      createdAt: new Date(),
+      CommentTemplate: selectedRepostPost.CommentTemplate || 'Standard Template',
+      isRepost: true,
+      originalPost: {
+        id: selectedRepostPost.id || '',
+        AuthorUserID: selectedRepostPost.AuthorUserID || '',
+        AuthorName: selectedRepostPost.AuthorName || 'Anonymous',
+        AuthorImageURL: selectedRepostPost.AuthorImageURL || dummyAuthorImage,
+        ContentDesc: renderStyledPostText(selectedRepostPost.ContentDesc) || '',
+        ContentDate: selectedRepostPost.ContentDate || new Date(),
+        postType: selectedRepostPost.postType || 'Unknown',
+        isAnonymous: selectedRepostPost.isAnonymous || false,
+        contentType: selectedRepostPost.contentType || 'My Thoughts'
+      },
+      repostComment: '',
+      repostedBy: fetchuserID,
+      repostedAt: new Date(),
+      isAnonymous: false,
+      contentType: 'Found Online'
+    });
+
+    Toast.show({
+      type: 'success',
+      text1: 'Reposted Successfully',
+      text2: 'Post has been shared to your followers.',
+      position: 'bottom',
+      visibilityTime: 2000,
+    });
 
   } catch (error) {
     console.error('Error handling repost:', error);
+    
+    // ✅ Revert state on error
+    if (selectedRepostPost) {
+      setUserPosts(prevPosts =>
+        prevPosts.map(post =>
+          post.uniqueId === selectedRepostPost.uniqueId
+            ? {
+                ...post,
+                Reposted: selectedRepostPost.Reposted,
+                ContentRepostCount: selectedRepostPost.ContentRepostCount
+              }
+            : post
+        )
+      );
+    }
+    
     Toast.show({
       type: 'error',
       text1: 'Repost Failed',
@@ -2638,7 +2698,8 @@ const checkProfilePicture = async (imageUrl: string) => {
       visibilityTime: 3000,
     });
   }
-  }, [selectedRepostPost, userId]);
+}, [selectedRepostPost, userId]);
+
 
   // QUOTE REPOST WITH TOAST
   const handleQuoteRepost = useCallback(async (comment: string) => {
@@ -2646,16 +2707,15 @@ const checkProfilePicture = async (imageUrl: string) => {
 
   try {
     let fetchuserID = userId;
-    if(fetchuserID === ""){
-      fetchuserID = await AsyncStorage.getItem('userId') || "";
+    if (!fetchuserID) {
+      fetchuserID = await AsyncStorage.getItem('userId') || '';
       setUserId(fetchuserID);
     }
 
     const userInfo = await AsyncStorage.getItem('userName') || 'Anonymous';
     const userImage = await AsyncStorage.getItem('profilePicUrl') || dummyAuthorImage;
 
-    
-
+    // ✅ Early return check
     if (selectedRepostPost.Reposted) {
       Toast.show({
         type: 'success',
@@ -2664,50 +2724,66 @@ const checkProfilePicture = async (imageUrl: string) => {
         position: 'bottom',
         visibilityTime: 2000,
       });
-    } else {
-      const postRef = doc(db, selectedRepostPost.postType, selectedRepostPost.id);
-      await updateDoc(postRef, {
-        ContentRepostCount: selectedRepostPost.ContentRepostCount + 1,
-        RepostedBy: arrayUnion(fetchuserID),
-      });
-
-      await addDoc(collection(db, 'SentinelPosts'), {
-        AuthorImageURL: userImage,
-        AuthorName: userInfo,
-        AuthorUserID: fetchuserID,
-        ContentDate: new Date(),
-        ContentDesc: comment || '',
-        ContentURL: selectedRepostPost.ContentURL || '',
-        ContentURLs: selectedRepostPost.ContentURLs || [],
-        ContentLikeCount: 0,
-        ContentRepostCount: 0,
-        ContentCommentCount: 0,
-        isApproved: true,
-        isNew: false,
-        LikedBy: [],
-        RepostedBy: [],
-        BookmarkedBy: [],
-        createdAt: new Date(),
-        CommentTemplate: selectedRepostPost.CommentTemplate || "Standard Template",
-        isRepost: true,
-        originalPost: {
-          id: selectedRepostPost.id || '',
-          AuthorUserID: selectedRepostPost.AuthorUserID || '',
-          AuthorName: selectedRepostPost.AuthorName || 'Anonymous',
-          AuthorImageURL: selectedRepostPost.AuthorImageURL || dummyAuthorImage,
-        ContentDesc: renderStyledPostText(selectedRepostPost.ContentDesc) || '',
-          ContentDate: selectedRepostPost.ContentDate || new Date(),
-          postType: selectedRepostPost.postType || 'Unknown',
-          isAnonymous: selectedRepostPost.isAnonymous || false,
-          contentType: selectedRepostPost.contentType || 'My Thoughts'
-        },
-        repostComment: comment || '',
-        repostedBy: fetchuserID,
-        repostedAt: new Date(),
-        isAnonymous: false,
-        contentType: 'Found Online'
-      });
+      return; // ✅ Exit early
     }
+
+    // ✅ Update state FIRST (optimistic update)
+    setUserPosts(prevPosts =>
+      prevPosts.map(post =>
+        post.uniqueId === selectedRepostPost.uniqueId
+          ? {
+              ...post,
+              Reposted: true,
+              ContentRepostCount: post.ContentRepostCount + 1
+            }
+          : post
+      )
+    );
+
+    // Update Firebase
+    const postRef = doc(db, selectedRepostPost.postType, selectedRepostPost.id);
+    await updateDoc(postRef, {
+      ContentRepostCount: selectedRepostPost.ContentRepostCount + 1,
+      RepostedBy: arrayUnion(fetchuserID),
+    });
+
+    // Create quote repost document
+    await addDoc(collection(db, 'SentinelPosts'), {
+      AuthorImageURL: userImage,
+      AuthorName: userInfo,
+      AuthorUserID: fetchuserID,
+      ContentDate: new Date(),
+      ContentDesc: comment || '',
+      ContentURL: selectedRepostPost.ContentURL || '',
+      ContentURLs: selectedRepostPost.ContentURLs || [],
+      ContentLikeCount: 0,
+      ContentRepostCount: 0,
+      ContentCommentCount: 0,
+      isApproved: true,
+      isNew: false,
+      LikedBy: [],
+      RepostedBy: [],
+      BookmarkedBy: [],
+      createdAt: new Date(),
+      CommentTemplate: selectedRepostPost.CommentTemplate || 'Standard Template',
+      isRepost: true,
+      originalPost: {
+        id: selectedRepostPost.id || '',
+        AuthorUserID: selectedRepostPost.AuthorUserID || '',
+        AuthorName: selectedRepostPost.AuthorName || 'Anonymous',
+        AuthorImageURL: selectedRepostPost.AuthorImageURL || dummyAuthorImage,
+        ContentDesc: renderStyledPostText(selectedRepostPost.ContentDesc) || '',
+        ContentDate: selectedRepostPost.ContentDate || new Date(),
+        postType: selectedRepostPost.postType || 'Unknown',
+        isAnonymous: selectedRepostPost.isAnonymous || false,
+        contentType: selectedRepostPost.contentType || 'My Thoughts'
+      },
+      repostComment: comment || '',
+      repostedBy: fetchuserID,
+      repostedAt: new Date(),
+      isAnonymous: false,
+      contentType: 'Found Online'
+    });
 
     Toast.show({
       type: 'success',
@@ -2719,6 +2795,22 @@ const checkProfilePicture = async (imageUrl: string) => {
 
   } catch (error) {
     console.error('Error creating quote repost:', error);
+    
+    // ✅ Revert state on error
+    if (selectedRepostPost) {
+      setUserPosts(prevPosts =>
+        prevPosts.map(post =>
+          post.uniqueId === selectedRepostPost.uniqueId
+            ? {
+                ...post,
+                Reposted: selectedRepostPost.Reposted,
+                ContentRepostCount: selectedRepostPost.ContentRepostCount
+              }
+            : post
+        )
+      );
+    }
+    
     Toast.show({
       type: 'error',
       text1: 'Quote Repost Failed',
@@ -2727,7 +2819,8 @@ const checkProfilePicture = async (imageUrl: string) => {
       visibilityTime: 3000,
     });
   }
-  }, [selectedRepostPost, userId]);
+}, [selectedRepostPost, userId]);
+
 
 const handleRepost = useCallback(async (postItem: PostItem) => {
   // Check if post is new (waiting for approval)
