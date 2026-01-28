@@ -326,7 +326,7 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({ visible, onClose }) => {
           <InfoSection title="Connect With Us">
             <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 8 }}>
               <TouchableOpacity
-                onPress={() => handleLink('https://twitter.com/yourapp')}
+                onPress={() => handleLink('https://x.com/IronExHQ')}
                 style={{
                   width: 56,
                   height: 56,
@@ -336,11 +336,11 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({ visible, onClose }) => {
                   alignItems: 'center'
                 }}
               >
-                <Ionicons name="logo-twitter" size={28} color="#fff" />
+                <Ionicons name="logo-x" size={28} color="#fff" />
               </TouchableOpacity>
               
               <TouchableOpacity
-                onPress={() => handleLink('https://yourapp.com')}
+                onPress={() => handleLink('https://ironexsafe.com')}
                 style={{
                   width: 56,
                   height: 56,
