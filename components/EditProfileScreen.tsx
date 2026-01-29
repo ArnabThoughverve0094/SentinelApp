@@ -14,6 +14,16 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { db } from '@/FirebaseConfig';
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  updateDoc, 
+  doc, 
+  setDoc 
+} from 'firebase/firestore';
 
 const EDIT_PROFILE_API = 'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/update-profile';
 const UPLOAD_API = 'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/uploadFile';
@@ -403,111 +413,171 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
   };
 
   const handleSaveProfile = async () => {
-    console.log('💾 [EditProfile] Saving profile...');
-    
-    const accessToken = await AsyncStorage.getItem('userToken');
+  console.log('💾 [EditProfile] Saving profile...');
+  
+  const accessToken = await AsyncStorage.getItem('userToken');
 
-    if (!accessToken) {
-      console.error('❌ [EditProfile] No access token found');
-      showCustomAlert('error', 'Not Logged In', 'Please login again.', [{ text: 'OK' }], 'log-in-outline');
-      return;
-    }
+  if (!accessToken) {
+    console.error('❌ [EditProfile] No access token found');
+    showCustomAlert('error', 'Not Logged In', 'Please login again.', [{ text: 'OK' }], 'log-in-outline');
+    return;
+  }
 
-    if (!fields.name.trim() || !fields.nickname.trim() || !fields.country.trim()) {
-      console.error('❌ [EditProfile] Required fields missing');
-      showCustomAlert('error', 'Missing Information', 'Name, nickname, and country are required.', [{ text: 'OK' }], 'alert-circle');
-      return;
-    }
+  if (!fields.name.trim() || !fields.nickname.trim() || !fields.country.trim()) {
+    console.error('❌ [EditProfile] Required fields missing');
+    showCustomAlert('error', 'Missing Information', 'Name, nickname, and country are required.', [{ text: 'OK' }], 'alert-circle');
+    return;
+  }
 
-    // Check if profile picture has been validated (if changed)
-    if (fields.profilePicUrl && fields.profilePicUrl !== DEFAULT_AVATAR && !imageValidated) {
-      showCustomAlert(
-        'warning',
-        'Validation Required',
-        'Please wait for profile picture validation to complete or select a different image.',
-        [{ text: 'OK' }],
-        'warning'
-      );
-      return;
-    }
-
-    // Validate bio if it's not empty and not yet validated
-    if (fields.bio.trim() && !bioValidated) {
-      const bioIsValid = await validateBio();
-      if (!bioIsValid) {
-        return;
-      }
-    }
-
-    setIsLoading(true);
-
-    const payload = {
-      accessToken,
-      name: fields.name,
-      nickName: fields.nickname,
-      country: fields.country,
-      profilePicUrl: fields.profilePicUrl,
-      bio: fields.bio,
-      email: fields.email,
-    };
-
-    console.log(
-      '📡 [EditProfile] Updating profile with payload:',
-      JSON.stringify(payload, null, 2),
+  if (fields.profilePicUrl && fields.profilePicUrl !== DEFAULT_AVATAR && !imageValidated) {
+    showCustomAlert(
+      'warning',
+      'Validation Required',
+      'Please wait for profile picture validation to complete or select a different image.',
+      [{ text: 'OK' }],
+      'warning'
     );
+    return;
+  }
 
-    try {
-      const res = await fetch(EDIT_PROFILE_API, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      console.log('📥 [EditProfile] Update response status:', res.status);
-      const data = await res.json();
-      console.log('📥 [EditProfile] Update response data:', data);
-
-      if (!res.ok) {
-        console.error('❌ [EditProfile] Update failed:', data.message || 'Server error');
-        showCustomAlert('error', 'Update Failed', data.message || 'Server error', [{ text: 'OK' }], 'close-circle');
-        setIsLoading(false);
-        return;
-      }
-
-      console.log('✅ [EditProfile] Profile updated successfully');
-
-      await AsyncStorage.multiSet([
-        ['userName', fields.name],
-        ['userNickName', fields.nickname],
-        ['userCountry', fields.country],
-        ['profilePicUrl', fields.profilePicUrl],
-        ['userBio', fields.bio],
-        ['userEmail', fields.email],
-      ]);
-      
-      setIsLoading(false);
-      
-      showCustomAlert(
-        'success',
-        'Profile Updated Successfully! ✓',
-        'Your profile has been updated with validated content!',
-        [{
-          text: 'Done',
-          onPress: () => {
-            hideCustomAlert();
-            if (onSuccess) onSuccess(data);
-            onClose();
-          }
-        }],
-        'checkmark-circle'
-      );
-      
-    } catch (error) {
-      console.error('❌ [EditProfile] Network error during save:', error);
-      setIsLoading(false);
-      showCustomAlert('error', 'Network Error', 'Server/network error. Please try again.', [{ text: 'OK' }], 'cloud-offline-outline');
+  if (fields.bio.trim() && !bioValidated) {
+    const bioIsValid = await validateBio();
+    if (!bioIsValid) {
+      return;
     }
+  }
+
+  setIsLoading(true);
+
+  const payload = {
+    accessToken,
+    name: fields.name,
+    nickName: fields.nickname,
+    country: fields.country,
+    profilePicUrl: fields.profilePicUrl,
+    bio: fields.bio,
+    email: fields.email,
   };
+
+  console.log('📡 [EditProfile] Updating profile with payload:', JSON.stringify(payload, null, 2));
+
+  try {
+    // STEP 1: Save to Backend API
+    const res = await fetch(EDIT_PROFILE_API, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    console.log('📥 [EditProfile] Update response status:', res.status);
+    const data = await res.json();
+    console.log('📥 [EditProfile] Update response data:', data);
+
+    if (!res.ok) {
+      console.error('❌ [EditProfile] Update failed:', data.message || 'Server error');
+      showCustomAlert('error', 'Update Failed', data.message || 'Server error', [{ text: 'OK' }], 'close-circle');
+      setIsLoading(false);
+      return;
+    }
+
+    console.log('✅ [EditProfile] Profile updated to backend successfully');
+
+    // STEP 2: Sync to Firebase
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      console.log('🔥 [EditProfile] Starting Firebase sync for userId:', userId);
+
+      if (userId) {
+        const usersRef = collection(db, 'SentinelUsers');
+        const q = query(usersRef, where('userID', '==', userId));
+        const snapshot = await getDocs(q);
+
+        if (!snapshot.empty) {
+          // Update existing document
+          const userDocRef = doc(db, 'SentinelUsers', snapshot.docs[0].id);
+          console.log('📝 [EditProfile] Updating existing Firebase document:', snapshot.docs[0].id);
+          
+          await updateDoc(userDocRef, {
+            bio: fields.bio,
+            userBio: fields.bio,
+            name: fields.name,
+            userName: fields.name,
+            nickName: fields.nickname,
+            userNickName: fields.nickname,
+            country: fields.country,
+            profilePicUrl: fields.profilePicUrl,
+            email: fields.email,
+          });
+          
+          console.log('✅ [EditProfile] Firebase document updated successfully');
+        } else {
+          // Create new document
+          console.log('📝 [EditProfile] Creating new Firebase document');
+          
+          const newDocRef = doc(collection(db, 'SentinelUsers'));
+          await setDoc(newDocRef, {
+            userID: userId,
+            bio: fields.bio,
+            userBio: fields.bio,
+            name: fields.name,
+            userName: fields.name,
+            nickName: fields.nickname,
+            userNickName: fields.nickname,
+            country: fields.country,
+            profilePicUrl: fields.profilePicUrl,
+            email: fields.email,
+            Following: [],
+            FollowersCount: 0,
+            PostsCount: 0,
+          });
+          
+          console.log('✅ [EditProfile] New Firebase document created');
+        }
+      } else {
+        console.warn('⚠️ [EditProfile] No userId found for Firebase sync');
+      }
+    } catch (firebaseError) {
+      console.error('❌ [EditProfile] Firebase sync error:', firebaseError);
+      console.error('Firebase error details:', JSON.stringify(firebaseError, null, 2));
+      // Don't fail the whole operation - backend is already updated
+    }
+
+    // STEP 3: Save to AsyncStorage
+    await AsyncStorage.multiSet([
+      ['userName', fields.name],
+      ['userNickName', fields.nickname],
+      ['userCountry', fields.country],
+      ['profilePicUrl', fields.profilePicUrl],
+      ['userBio', fields.bio],
+      ['userEmail', fields.email],
+    ]);
+    
+    console.log('✅ [EditProfile] Saved to AsyncStorage');
+    
+    setIsLoading(false);
+    
+    showCustomAlert(
+      'success',
+      'Profile Updated Successfully! ✓',
+      'Your profile has been updated with validated content!',
+      [{
+        text: 'Done',
+        onPress: () => {
+          hideCustomAlert();
+          if (onSuccess) onSuccess(data);
+          onClose();
+        }
+      }],
+      'checkmark-circle'
+    );
+    
+  } catch (error) {
+    console.error('❌ [EditProfile] Network error during save:', error);
+    setIsLoading(false);
+    showCustomAlert('error', 'Network Error', 'Server/network error. Please try again.', [{ text: 'OK' }], 'cloud-offline-outline');
+  }
+};
+
 
   // Get icon emoji based on icon name
   const getIconEmoji = (iconName) => {
