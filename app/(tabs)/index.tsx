@@ -986,7 +986,7 @@ export default function SentinelFeed(): React.JSX.Element {
   //Lasy loading
   const [lastVisible, setLastVisible] = useState<any>(null); // Use the correct Snapshot type if possible
   const [hasMore, setHasMore] = useState(true); // To check if there are more documents to load
-  const BATCH_SIZE = 10; // Define your lazy load batch size
+  const BATCH_SIZE = 20; // Define your lazy load batch size
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [unsubscribers, setUnsubscribers] = useState<(() => void)[]>([]);
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
@@ -1827,32 +1827,51 @@ export default function SentinelFeed(): React.JSX.Element {
     }
   },[]);
 
-  const fetchPostComments = useCallback(async () => {
-    try {
-      fetchedData.forEach(post => {
-        onSnapshot(
-          collection(doc(db, "SentinelPosts", post.id), 'Comments'),
-          commentsSnap => {
-            let totalComments = 0;
-            totalComments = commentsSnap.size;
-
-            setFetchedData(prev =>
-              prev.map(p =>
-                p.id === post.id
-                ? { ...p, ContentCommentCount: totalComments }
-                : p
-              )
-            );
-          }
-        )
-      });
-
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
+  const cleanupSubscriptions = useCallback(() => {
+  unsubscribers.forEach(unsub => {
+    if (typeof unsub === 'function') {
+      unsub();
     }
-  },[fetchedData]);
+  });
+  setUnsubscribers([]);
+}, [unsubscribers]);
+
+  const fetchPostComments = useCallback(async () => {
+  try {
+    // Cleanup previous listeners
+    cleanupSubscriptions();
+    
+    const newUnsubscribers: (() => void)[] = [];
+    
+    fetchedData.forEach(post => {
+      const unsubscribe = onSnapshot(
+        collection(doc(db, "SentinelPosts", post.id), 'Comments'),
+        (commentsSnap) => {
+          const totalComments = commentsSnap.size;
+          
+          setFetchedData(prev =>
+            prev.map(p =>
+              p.id === post.id
+              ? { ...p, ContentCommentCount: totalComments }
+              : p
+            )
+          );
+        },
+        (error) => {
+          console.error(`Error listening to comments for post ${post.id}:`, error);
+        }
+      );
+      
+      newUnsubscribers.push(unsubscribe);
+    });
+    
+    setUnsubscribers(newUnsubscribers);
+
+  } catch (error) {
+    console.error('Error setting up comment listeners:', error);
+  }
+}, [fetchedData, cleanupSubscriptions]);
+
 
   const fetchUpdate = useCallback(async () => {
     try {
@@ -1906,15 +1925,6 @@ export default function SentinelFeed(): React.JSX.Element {
       setLoading(false);
     }
   },[]);
-
-  const cleanupSubscriptions = useCallback(() => {
-    unsubscribers.forEach(unsubscribe => {
-        if (typeof unsubscribe === 'function') {
-            unsubscribe();
-        }
-    });
-    setUnsubscribers([]);
-}, [unsubscribers]);
 
   useEffect(() => {
     getItem();
@@ -2560,7 +2570,7 @@ export default function SentinelFeed(): React.JSX.Element {
   }, [fullScreenCard]);
 
   const toggleLike = useCallback(async (postItem: PostItem) => {
-    if (areInteractionsDisabled(postItem)) {
+  if (areInteractionsDisabled(postItem)) {
     if (postItem.isNew) {
       Toast.show({
         type: 'warning',
@@ -2581,80 +2591,93 @@ export default function SentinelFeed(): React.JSX.Element {
     return;
   }
 
-    let fetchuserID = userId;
-    if(fetchuserID === ""){
-      fetchuserID = await AsyncStorage.getItem('userId') || "";
-      setUserId(fetchuserID);
-    }
+    console.log("Like pressed:", postItem.id);
+  
+  let fetchuserID = userId;
+  if(fetchuserID === ""){
+    fetchuserID = await AsyncStorage.getItem('userId') || "";
+    setUserId(fetchuserID);
+  }
 
-    const postRef = doc(db, "SentinelPosts", postItem.id);
+  const postRef = doc(db, "SentinelPosts", postItem.id);
+  
+  try {
     if(postItem.Liked) {
-      console.log("itemID: ", postItem.id);
-      console.log("item Liked: ", postItem.Liked);
-
-      // STATE: Manually update for "Unlike" action
+      // UNLIKE: Update state immediately with correct count
       setFetchedData(prevData =>
         prevData.map(item =>
-        item.id === postItem.id
-          ? { 
-              ...item, 
-              Liked: false, 
-              ContentLikeCount: item.ContentLikeCount - 1 
-            }
-          : item
+          item.id === postItem.id
+            ? { 
+                ...item, 
+                Liked: false, 
+                ContentLikeCount: Math.max(0, item.ContentLikeCount - 1) // Prevent negative
+              }
+            : item
         )
       );
 
+      // Then update Firebase
       await updateDoc(postRef, {
-        ContentLikeCount: postItem.ContentLikeCount - 1,
+        ContentLikeCount: Math.max(0, postItem.ContentLikeCount - 1),
         LikedBy: arrayRemove(fetchuserID),
       });
     } else {
-      console.log("itemID: ", postItem.id);
-      console.log("item Liked: ", postItem.Liked);
-
-      // STATE: Manually update for "Unlike" action
+      // LIKE: Update state immediately with correct count
       setFetchedData(prevData =>
         prevData.map(item =>
-        item.id === postItem.id
-          ? { 
-              ...item, 
-              Liked: true, 
-              ContentLikeCount: item.ContentLikeCount + 1 
-            }
-          : item
+          item.id === postItem.id
+            ? { 
+                ...item, 
+                Liked: true, 
+                ContentLikeCount: item.ContentLikeCount + 1 
+              }
+            : item
         )
       );
 
+      // Then update Firebase
       await updateDoc(postRef, {
         ContentLikeCount: postItem.ContentLikeCount + 1,
         LikedBy: arrayUnion(fetchuserID),
       });
     }
 
-    // setFetchedData(prevData => 
-    //   prevData.map(item => 
-    //     item.id === postItem.id 
-    //       ? { ...item, Liked: !item.Liked,
-    //         ContentLikeCount: item.Liked 
-    //           ? item.ContentLikeCount - 1 
-    //           : item.ContentLikeCount + 1 }
-    //       : item
-    //   )
-    // );
-
-    if (fullScreenCard && fullScreenCard.uniqueId === postItem.uniqueId) {
+    // Update fullscreen card if open
+    if (fullScreenCard && fullScreenCard.id === postItem.id) {
       setFullScreenCard((prev: PostItem | null) => prev ? ({
         ...prev,
         Liked: !prev.Liked,
         ContentLikeCount: prev.Liked 
-          ? prev.ContentLikeCount - 1 
+          ? Math.max(0, prev.ContentLikeCount - 1)
           : prev.ContentLikeCount + 1
       }) : null);
     }
 
-    await new Promise(r => setTimeout(r, 200));
-  }, [fullScreenCard, areInteractionsDisabled, userId]);
+  } catch (error) {
+    console.error('Error toggling like:', error);
+    
+    // Revert state on error
+    setFetchedData(prevData =>
+      prevData.map(item =>
+        item.id === postItem.id
+          ? { 
+              ...item, 
+              Liked: postItem.Liked, // Restore original state
+              ContentLikeCount: postItem.ContentLikeCount 
+            }
+          : item
+      )
+    );
+    
+    Toast.show({
+      type: 'error',
+      text1: 'Action Failed',
+      text2: 'Failed to update like. Please try again.',
+      position: 'bottom',
+      visibilityTime: 2000,
+    });
+  }
+}, [fullScreenCard, areInteractionsDisabled, userId]);
 
   const openRepostModal = useCallback((postItem: PostItem) => {
     if (areInteractionsDisabled(postItem)) {
@@ -2701,99 +2724,135 @@ export default function SentinelFeed(): React.JSX.Element {
 
   // SIMPLE REPOST WITH TOAST
   const handleSimpleRepost = useCallback(async () => {
-    if (!selectedRepostPost) return;
+  if (!selectedRepostPost) return;
 
-    try {
-      let fetchuserID = userId;
-      if(fetchuserID === ""){
-        fetchuserID = await AsyncStorage.getItem('userId') || "";
-        setUserId(fetchuserID);
-      }
-
-      const userInfo = await AsyncStorage.getItem('userName') || 'Anonymous';
-      const userImage = await AsyncStorage.getItem('profilePicUrl') || dummyAuthorImage;
-
-      if (selectedRepostPost.Reposted) {
-        Toast.show({
-          type: 'success',
-          text1: 'Already Reposted',
-          text2: 'You have already reposted this Post.',
-          position: 'bottom',
-          visibilityTime: 2000,
-        });
-      } else {
-        const postRef = doc(db, "SentinelPosts", selectedRepostPost.id);
-        await updateDoc(postRef, {
-          ContentRepostCount: selectedRepostPost.ContentRepostCount + 1,
-          RepostedBy: arrayUnion(fetchuserID),
-        });
-
-        await addDoc(collection(db, 'SentinelPosts'), {
-          AuthorImageURL: userImage,
-          AuthorName: userInfo,
-          AuthorUserID: fetchuserID,
-          ContentDate: new Date(),
-          ContentDesc: selectedRepostPost.ContentDesc || '',
-          ContentURL: selectedRepostPost.postType === 'X-Data' ? "" : (selectedRepostPost.ContentURL || ''),
-          ContentURLs: selectedRepostPost.postType === 'X-Data' ? [] : (selectedRepostPost.ContentURLs || []),
-          ContentLikeCount: 0,
-          ContentRepostCount: 0,
-          ContentCommentCount: 0,
-          isApproved: true,
-          isNew: false,
-          LikedBy: [],
-          RepostedBy: [],
-          BookmarkedBy: [],
-          createdAt: new Date(),
-          CommentTemplate: selectedRepostPost.CommentTemplate || "Standard Template",
-          isRepost: true,
-          originalPost: {
-            id: selectedRepostPost.id || '',
-            AuthorUserID: selectedRepostPost.AuthorUserID || '',
-            AuthorName: selectedRepostPost.AuthorName || 'Anonymous',
-            AuthorImageURL: selectedRepostPost.AuthorImageURL || dummyAuthorImage,
-            ContentDesc: selectedRepostPost.ContentDesc || '',
-            ContentDate: selectedRepostPost.ContentDate || new Date(),
-            postType: selectedRepostPost.postType || "SentinelPosts",
-            isAnonymous: selectedRepostPost.isAnonymous || false,
-            contentType: selectedRepostPost.contentType || 'My Thoughts'
-          },
-          repostComment: '',
-          repostedBy: fetchuserID,
-          repostedAt: new Date(),
-          isAnonymous: false,
-          contentType: 'Found Online'
-        });
-
-        Toast.show({
-          type: 'success',
-          text1: 'Reposted Successfully',
-          text2: 'Post has been shared to your followers.',
-          position: 'bottom',
-          visibilityTime: 2000,
-        });
-      }
-
-      if (fullScreenCard && fullScreenCard.uniqueId === selectedRepostPost.uniqueId) {
-        setFullScreenCard((prev: PostItem | null) => prev ? ({
-          ...prev,
-          Reposted: !prev.Reposted,
-          ContentRepostCount: prev.Reposted 
-            ? prev.ContentRepostCount - 1 
-            : prev.ContentRepostCount + 1
-        }) : null);
-      }
-    } catch (error) {
-      console.error('Error handling repost:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Repost Failed',
-        text2: 'Failed to repost. Please try again.',
-        position: 'bottom',
-        visibilityTime: 3000,
-      });
+  try {
+    let fetchuserID = userId;
+    if(fetchuserID === ""){
+      fetchuserID = await AsyncStorage.getItem('userId') || "";
+      setUserId(fetchuserID);
     }
-  }, [selectedRepostPost, userId, fullScreenCard]);
+
+    const userInfo = await AsyncStorage.getItem('userName') || 'Anonymous';
+    const userImage = await AsyncStorage.getItem('profilePicUrl') || dummyAuthorImage;
+
+    // Check if already reposted - EXIT EARLY
+    if (selectedRepostPost.Reposted) {
+      Toast.show({
+        type: 'success',
+        text1: 'Already Reposted',
+        text2: 'You have already reposted this Post.',
+        position: 'bottom',
+        visibilityTime: 2000,
+      });
+      return; // ✅ Exit early - don't do anything else
+    }
+
+    // ✅ Update state FIRST with new count (optimistic update)
+    setFetchedData(prevData =>
+      prevData.map(item =>
+        item.id === selectedRepostPost.id
+          ? { 
+              ...item, 
+              Reposted: true,
+              ContentRepostCount: item.ContentRepostCount + 1
+            }
+          : item
+      )
+    );
+
+    // ✅ Update Firebase - increment repost count
+    const postRef = doc(db, "SentinelPosts", selectedRepostPost.id);
+    await updateDoc(postRef, {
+      ContentRepostCount: selectedRepostPost.ContentRepostCount + 1,
+      RepostedBy: arrayUnion(fetchuserID),
+    });
+
+    // ✅ Create new repost document
+    await addDoc(collection(db, 'SentinelPosts'), {
+      AuthorImageURL: userImage,
+      AuthorName: userInfo,
+      AuthorUserID: fetchuserID,
+      ContentDate: new Date(),
+      ContentDesc: selectedRepostPost.ContentDesc || '',
+      ContentURL: selectedRepostPost.postType === 'X-Data' ? "" : (selectedRepostPost.ContentURL || ''),
+      ContentURLs: selectedRepostPost.postType === 'X-Data' ? [] : (selectedRepostPost.ContentURLs || []),
+      ContentLikeCount: 0,
+      ContentRepostCount: 0,
+      ContentCommentCount: 0,
+      isApproved: true,
+      isNew: false,
+      LikedBy: [],
+      RepostedBy: [],
+      BookmarkedBy: [],
+      createdAt: new Date(),
+      CommentTemplate: selectedRepostPost.CommentTemplate || "Standard Template",
+      isRepost: true,
+      originalPost: {
+        id: selectedRepostPost.id || '',
+        AuthorUserID: selectedRepostPost.AuthorUserID || '',
+        AuthorName: selectedRepostPost.AuthorName || 'Anonymous',
+        AuthorImageURL: selectedRepostPost.AuthorImageURL || dummyAuthorImage,
+        ContentDesc: selectedRepostPost.ContentDesc || '',
+        ContentDate: selectedRepostPost.ContentDate || new Date(),
+        postType: selectedRepostPost.postType || "SentinelPosts",
+        isAnonymous: selectedRepostPost.isAnonymous || false,
+        contentType: selectedRepostPost.contentType || 'My Thoughts'
+      },
+      repostComment: '',
+      repostedBy: fetchuserID,
+      repostedAt: new Date(),
+      isAnonymous: false,
+      contentType: 'Found Online'
+    });
+
+    // ✅ Update fullscreen card if open
+    if (fullScreenCard && fullScreenCard.uniqueId === selectedRepostPost.uniqueId) {
+      setFullScreenCard((prev: PostItem | null) => prev ? ({
+        ...prev,
+        Reposted: true,
+        ContentRepostCount: prev.ContentRepostCount + 1
+      }) : null);
+    }
+
+    // ✅ Show success message
+    Toast.show({
+      type: 'success',
+      text1: 'Reposted Successfully',
+      text2: 'Post has been shared to your followers.',
+      position: 'bottom',
+      visibilityTime: 2000,
+    });
+
+  } catch (error) {
+    console.error('Error handling repost:', error);
+    
+    // ✅ Revert state on error (rollback optimistic update)
+    if (selectedRepostPost) {
+      setFetchedData(prevData =>
+        prevData.map(item =>
+          item.id === selectedRepostPost.id
+            ? { 
+                ...item, 
+                Reposted: selectedRepostPost.Reposted, // Restore original state
+                ContentRepostCount: selectedRepostPost.ContentRepostCount // Restore original count
+              }
+            : item
+        )
+      );
+    }
+    
+    // ✅ Show error message
+    Toast.show({
+      type: 'error',
+      text1: 'Repost Failed',
+      text2: 'Failed to repost. Please try again.',
+      position: 'bottom',
+      visibilityTime: 3000,
+    });
+  }
+}, [selectedRepostPost, userId, fullScreenCard]);
+
 
   // QUOTE REPOST WITH TOAST
   const handleQuoteRepost = useCallback(async (comment: string) => {
@@ -2819,6 +2878,7 @@ export default function SentinelFeed(): React.JSX.Element {
           position: 'bottom',
           visibilityTime: 2000,
         });
+        return;
       } else {
         const postRef = doc(db, "SentinelPosts", selectedRepostPost.id);
         await updateDoc(postRef, {
@@ -3169,71 +3229,77 @@ export default function SentinelFeed(): React.JSX.Element {
     setRefreshing(false);
   }, [handleFetchAllData]);
 
-  const filteredData = useMemo(() => {
-    let baseData = fetchedData.filter(item => {
+    const filteredData = useMemo(() => {
+    // Base data - all approved posts for Users, all posts for Admins
+    let baseData = fetchedData.filter((item) => {
       if (userRole === "User") {
-        return (item.isApproved && !item.isNew) || item.postType.includes('X-Data');
+        return item.isApproved && !item.isNew || item.postType.includes("X-Data");
       }
       return true;
     });
 
-    let educationalData = fetchedData.filter(item => {
+    // Educational data - based on contentType
+    let educationalData = fetchedData.filter((item) => {
       if (userRole === "User") {
-        return (item.isApproved && item.isEducational);
+        // ✅ FIX: Check contentType AND isEducational field
+        return (
+          item.isApproved && 
+          !item.isNew && 
+          (item.contentType === "Educational" || item.isEducational === true)
+        );
       } else {
-        return (item.isEducational);
-      }
-      
-    });
-
-    let publishedData = fetchedData.filter(item => {
-      if (userRole === "User") {
-        return (item.isApproved && !item.isNew && !item.isEducational) || item.postType.includes('X-Data');
-      } else {
-        return !item.isEducational;
+        return item.contentType === "Educational" || item.isEducational === true;
       }
     });
-  
 
-    if (activeTab === 'following') {
-      console.log('🔍 Filtering for following tab');
-      console.log('Following user IDs:', followingUserIds);
-      console.log('Base data count:', baseData.length);
-    
-      // Debug: Log all post author IDs
-      console.log('All posts with authors:', baseData.map(item => ({
-        id: item.id,
-        AuthorUserID: item.AuthorUserID,
-        repostedBy: item.repostedBy,
-        AuthorName: item.AuthorName
-      })));
-    
-      const followingData = baseData.filter(item => {
-        // For regular posts, check AuthorUserID
-        // For reposts, check repostedBy first, then original author
+    // Published Posts - exclude educational content
+    let publishedData = fetchedData.filter((item) => {
+      if (userRole === "User") {
+        return (
+          item.isApproved && 
+          !item.isNew && 
+          item.contentType !== "Educational" && 
+          !item.isEducational &&
+          !item.postType.includes("X-Data")
+        );
+      } else {
+        return item.contentType !== "Educational" && !item.isEducational;
+      }
+    });
+
+    // FOLLOWING TAB
+    if (activeTab === "following") {
+      console.log("🔍 Following Tab Filter");
+      console.log("  Following IDs:", followingUserIds);
+      console.log("  Base data count:", baseData.length);
+
+      const followingData = baseData.filter((item) => {
         const authorId = item.repostedBy || item.AuthorUserID;
         const isFromFollowedUser = authorId && followingUserIds.includes(authorId);
-      
+
         if (isFromFollowedUser) {
-          console.log(`✅ Including post from followed user: ${item.AuthorName} (${authorId})`);
-        } else {
-          console.log(`❌ Excluding post: ${item.AuthorName} (${authorId}) - not in following list`);
+          console.log(`  ✅ Including: ${item.AuthorName} (${authorId})`);
         }
-      
+
         return isFromFollowedUser;
       });
-    
-      console.log('✅ Following filtered data count:', followingData.length);
+
+      console.log("  📊 Following result count:", followingData.length);
+      
       return followingData;
     }
 
-    if (activeTab === 'educational') {
-      // Educational tab - show "Coming Soon" message
-      return educationalData || [];
+    // EDUCATIONAL TAB
+    if (activeTab === "educational") {
+      console.log("📚 Educational Tab Filter");
+      console.log("  Educational posts count:", educationalData.length);
+      
+      return educationalData;
     }
 
-    // 'forYou' tab - show all published posts
-    return publishedData || [];
+    // FOR YOU TAB (default)
+    console.log("📱 For You Tab - showing:", publishedData.length, "posts");
+    return publishedData;
   }, [fetchedData, userRole, activeTab, followingUserIds]);
 
 
@@ -3450,13 +3516,14 @@ export default function SentinelFeed(): React.JSX.Element {
                       <Text className="text-blue-600 text-xs font-semibold">𝕏 POST</Text>
                     </View>
                   )}
-                  {item.postType === 'SentinelPosts' && (
-                    <View className={`px-1.5 py-0.5 rounded-full ${getPostStatus(item).bgColor}`}>
-                      <Text className="text-xs font-semibold" style={{ color: getPostStatus(item).color }}>
-                        {getPostStatus(item).text}
-                      </Text>
-                    </View>
-                  )}
+                  {userRole !== 'User' && item.postType === 'SentinelPosts' && (
+                  <View className={`px-2 py-1 rounded-full ${getPostStatus(item).bgColor}`}>
+                    <Text className="text-xs font-semibold" style={{ color: getPostStatus(item).color }}>
+                      {getPostStatus(item).text}
+                    </Text>
+                  </View>
+                )}
+
                 </View>
               </View>
               
