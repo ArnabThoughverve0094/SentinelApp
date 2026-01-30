@@ -1619,13 +1619,22 @@ export default function UserProfileScreen() {
           )}
 
           {loading ? (
-            <View className="flex-row items-center mt-3">
-              <ActivityIndicator size="small" color="#111827" />
-              <Text className="ml-2 text-sm text-gray-500">Loading profile…</Text>
-            </View>
-          ) : userDoc?.userBio ? (
-            <Text className="mt-3 text-sm text-gray-800">{userDoc.userBio}</Text>
-          ) : null}
+              <View className="flex-row items-center mt-3">
+                <ActivityIndicator size="small" color="#111827" />
+                <Text className="ml-2 text-sm text-gray-500">Loading profile…</Text>
+              </View>
+            ) : (
+              <View className="mt-3">
+                {userDoc?.userBio && userDoc.userBio.trim() !== '' ? (
+                  <Text className="text-sm text-gray-800 leading-5">{userDoc.userBio}</Text>
+                ) : (
+                  <Text className="text-sm text-gray-500 italic">
+                    {isOwnProfile ? 'Tap Edit Profile to add a bio' : 'No bio yet'}
+                  </Text>
+                )}
+              </View>
+            )}
+
 
           {(userDoc?.Website || userDoc?.website) && (
             <TouchableOpacity className="flex-row items-center mt-2" onPress={handleWebsitePress}>

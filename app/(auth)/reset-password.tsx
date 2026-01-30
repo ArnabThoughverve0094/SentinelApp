@@ -1,8 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Link, router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, KeyboardAvoidingView, Modal, Platform, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { 
+  Animated, 
+  KeyboardAvoidingView, 
+  Modal, 
+  Platform, 
+  StatusBar, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  View,
+  ScrollView,
+  Keyboard,
+  TouchableWithoutFeedback
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
 
 // Custom Modal Component
 interface CustomModalProps {
@@ -18,6 +32,7 @@ interface CustomModalProps {
   onClose?: () => void;
 }
 
+
 const CustomModal: React.FC<CustomModalProps> = ({
   visible,
   type,
@@ -27,6 +42,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
   onClose
 }) => {
   const scaleAnim = useRef(new Animated.Value(0)).current;
+
 
   useEffect(() => {
     if (visible) {
@@ -40,6 +56,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
       scaleAnim.setValue(0);
     }
   }, [visible, scaleAnim]);
+
 
   const getModalStyle = () => {
     switch (type) {
@@ -70,9 +87,12 @@ const CustomModal: React.FC<CustomModalProps> = ({
     }
   };
 
+
   const modalStyle = getModalStyle();
 
+
   if (!visible) return null;
+
 
   return (
     <Modal
@@ -91,15 +111,18 @@ const CustomModal: React.FC<CustomModalProps> = ({
             <Ionicons name={modalStyle.iconName} size={48} color={modalStyle.iconColor} />
           </View>
 
+
           {/* Title */}
           <Text className="text-2xl font-bold text-gray-900 text-center mb-3">
             {title}
           </Text>
 
+
           {/* Message */}
           <Text className="text-base text-gray-600 text-center mb-8 leading-6">
             {message}
           </Text>
+
 
           {/* Buttons */}
           <View className="w-full space-y-3">
@@ -132,6 +155,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
   );
 };
 
+
 export default function ResetPassword(): React.JSX.Element {
   const { email } = useLocalSearchParams<{ email: string }>();
   const [code, setCode] = useState<string>('');
@@ -147,6 +171,7 @@ export default function ResetPassword(): React.JSX.Element {
     newPassword: '',
     confirmPassword: ''
   });
+
 
   // Modal states
   const [modalConfig, setModalConfig] = useState<{
@@ -166,6 +191,7 @@ export default function ResetPassword(): React.JSX.Element {
     message: '',
     buttons: []
   });
+
 
   // Custom Alert function
   const showCustomAlert = (
@@ -187,9 +213,11 @@ export default function ResetPassword(): React.JSX.Element {
     });
   };
 
+
   const hideModal = () => {
     setModalConfig(prev => ({ ...prev, visible: false }));
   };
+
 
   // Validation function
   const validateForm = () => {
@@ -199,12 +227,14 @@ export default function ResetPassword(): React.JSX.Element {
       confirmPassword: ''
     };
 
+
     // Verification code validation
     if (!code.trim()) {
       errors.code = 'Verification code is required';
     } else if (!/^\d{6}$/.test(code.trim())) {
       errors.code = 'Verification code must be 6 digits';
     }
+
 
     // New password validation
     if (!newPassword.trim()) {
@@ -213,6 +243,7 @@ export default function ResetPassword(): React.JSX.Element {
       errors.newPassword = 'Password must be at least 6 characters long';
     }
 
+
     // Confirm password validation
     if (!confirmPassword.trim()) {
       errors.confirmPassword = 'Confirm password is required';
@@ -220,9 +251,11 @@ export default function ResetPassword(): React.JSX.Element {
       errors.confirmPassword = 'Passwords do not match';
     }
 
+
     setFieldErrors(errors);
     return !errors.code && !errors.newPassword && !errors.confirmPassword;
   };
+
 
   // Handle input changes
   const handleCodeChange = (value: string) => {
@@ -231,6 +264,7 @@ export default function ResetPassword(): React.JSX.Element {
       setFieldErrors(prev => ({ ...prev, code: '' }));
     }
   };
+
 
   const handleNewPasswordChange = (value: string) => {
     setNewPassword(value);
@@ -242,6 +276,7 @@ export default function ResetPassword(): React.JSX.Element {
     }
   };
 
+
   const handleConfirmPasswordChange = (value: string) => {
     setConfirmPassword(value);
     if (fieldErrors.confirmPassword) {
@@ -249,12 +284,14 @@ export default function ResetPassword(): React.JSX.Element {
     }
   };
 
+
   const onResetPassword = async () => {
     const isValid = validateForm();
     
     if (!isValid) {
       return;
     }
+
 
     if (!email) {
       showCustomAlert(
@@ -270,6 +307,7 @@ export default function ResetPassword(): React.JSX.Element {
       );
       return;
     }
+
 
     setIsLoading(true);
     
@@ -287,7 +325,9 @@ export default function ResetPassword(): React.JSX.Element {
         }),
       });
 
+
       const data = await response.json();
+
 
       if (response.ok) {
         showCustomAlert(
@@ -361,151 +401,170 @@ export default function ResetPassword(): React.JSX.Element {
     }
   };
 
+
   return (
-    <SafeAreaView className="flex-1 bg-[#ECEDEE]">
+    <SafeAreaView className="flex-1 bg-[#ECEDEE]" edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#ECEDEE" />
       
       <KeyboardAvoidingView
         className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
-        {/* Back Button */}
-        <View className="px-6 pt-2 pb-4">
-          <TouchableOpacity 
-            onPress={() => router.back()}
-            className="w-10 h-10 items-center justify-center"
-          >
-            <Ionicons name="arrow-back" size={24} color="#000" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Main Content */}
-        <View className="flex-1 px-6">
-          {/* Title */}
-          <Text className="text-2xl font-bold text-black mb-3">
-            Reset Password
-          </Text>
-          
-          {/* Subtitle */}
-          <Text className="text-sm text-gray-600 mb-10 leading-5">
-            Enter the verification code sent to <Text className="font-semibold">{email}</Text> and create a new password.
-          </Text>
-
-          {/* Verification Code Input */}
-          <View className="mb-6">
-            <Text className="text-xs font-medium text-gray-600 mb-2 uppercase tracking-wider">
-              VERIFICATION CODE
-            </Text>
-            <View className="border-b border-gray-300">
-              <TextInput
-                className="text-base text-black py-3"
-                placeholder="Enter 6-digit code"
-                value={code}
-                onChangeText={handleCodeChange}
-                keyboardType="number-pad"
-                maxLength={6}
-                autoCapitalize="none"
-                autoCorrect={false}
-                placeholderTextColor="#9CA3AF"
-                editable={!isLoading}
-                style={{ fontSize: 16, lineHeight: 20 }}
-              />
-            </View>
-            {fieldErrors.code && (
-              <Text className="text-red-500 text-xs mt-1">{fieldErrors.code}</Text>
-            )}
-          </View>
-
-          {/* New Password Input */}
-          <View className="mb-6">
-            <Text className="text-xs font-medium text-gray-600 mb-2 uppercase tracking-wider">
-              NEW PASSWORD
-            </Text>
-            <View className="border-b border-gray-300 flex-row items-center">
-              <TextInput
-                className="text-base text-black py-3 flex-1"
-                placeholder="Enter new password"
-                value={newPassword}
-                onChangeText={handleNewPasswordChange}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoCorrect={false}
-                placeholderTextColor="#9CA3AF"
-                editable={!isLoading}
-                style={{ fontSize: 16, lineHeight: 20 }}
-              />
-              <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
-                className="ml-2"
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <View className="flex-1">
+            {/* Back Button - Fixed at top */}
+            <View className="px-6 pt-2 pb-4">
+              <TouchableOpacity 
+                onPress={() => router.back()}
+                className="w-10 h-10 items-center justify-center"
               >
-                <Text className="text-xs text-gray-500 uppercase">
-                  {showPassword ? 'HIDE' : 'SHOW'}
-                </Text>
+                <Ionicons name="arrow-back" size={24} color="#000" />
               </TouchableOpacity>
             </View>
-            {fieldErrors.newPassword && (
-              <Text className="text-red-500 text-xs mt-1">{fieldErrors.newPassword}</Text>
-            )}
-          </View>
 
-          {/* Confirm Password Input */}
-          <View className="mb-8">
-            <Text className="text-xs font-medium text-gray-600 mb-2 uppercase tracking-wider">
-              CONFIRM PASSWORD
-            </Text>
-            <View className="border-b border-gray-300 flex-row items-center">
-              <TextInput
-                className="text-base text-black py-3 flex-1"
-                placeholder="Confirm new password"
-                value={confirmPassword}
-                onChangeText={handleConfirmPasswordChange}
-                secureTextEntry={!showConfirmPassword}
-                autoCapitalize="none"
-                autoCorrect={false}
-                placeholderTextColor="#9CA3AF"
-                editable={!isLoading}
-                style={{ fontSize: 16, lineHeight: 20 }}
-              />
+            {/* Scrollable Content */}
+            <ScrollView
+              className="flex-1"
+              contentContainerStyle={{ 
+                flexGrow: 1,
+                paddingHorizontal: 24,
+                paddingBottom: 32
+              }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
+              {/* Title */}
+              <Text className="text-2xl font-bold text-black mb-3">
+                Reset Password
+              </Text>
+              
+              {/* Subtitle */}
+              <Text className="text-sm text-gray-600 mb-8 leading-5">
+                Enter the verification code sent to <Text className="font-semibold">{email}</Text> and create a new password.
+              </Text>
+
+              {/* Verification Code Input */}
+              <View className="mb-5">
+                <Text className="text-xs font-medium text-gray-600 mb-2 uppercase tracking-wider">
+                  VERIFICATION CODE
+                </Text>
+                <View className="border-b border-gray-300">
+                  <TextInput
+                    className="text-base text-black py-3"
+                    placeholder="Enter 6-digit code"
+                    value={code}
+                    onChangeText={handleCodeChange}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    placeholderTextColor="#9CA3AF"
+                    editable={!isLoading}
+                    style={{ fontSize: 16, lineHeight: 20 }}
+                  />
+                </View>
+                {fieldErrors.code && (
+                  <Text className="text-red-500 text-xs mt-1">{fieldErrors.code}</Text>
+                )}
+              </View>
+
+              {/* New Password Input */}
+              <View className="mb-5">
+                <Text className="text-xs font-medium text-gray-600 mb-2 uppercase tracking-wider">
+                  NEW PASSWORD
+                </Text>
+                <View className="border-b border-gray-300 flex-row items-center">
+                  <TextInput
+                    className="text-base text-black py-3 flex-1"
+                    placeholder="Enter new password"
+                    value={newPassword}
+                    onChangeText={handleNewPasswordChange}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    placeholderTextColor="#9CA3AF"
+                    editable={!isLoading}
+                    style={{ fontSize: 16, lineHeight: 20 }}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowPassword(!showPassword)}
+                    className="ml-2"
+                  >
+                    <Text className="text-xs text-gray-500 uppercase">
+                      {showPassword ? 'HIDE' : 'SHOW'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                {fieldErrors.newPassword && (
+                  <Text className="text-red-500 text-xs mt-1">{fieldErrors.newPassword}</Text>
+                )}
+              </View>
+
+              {/* Confirm Password Input */}
+              <View className="mb-6">
+                <Text className="text-xs font-medium text-gray-600 mb-2 uppercase tracking-wider">
+                  CONFIRM PASSWORD
+                </Text>
+                <View className="border-b border-gray-300 flex-row items-center">
+                  <TextInput
+                    className="text-base text-black py-3 flex-1"
+                    placeholder="Confirm new password"
+                    value={confirmPassword}
+                    onChangeText={handleConfirmPasswordChange}
+                    secureTextEntry={!showConfirmPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    placeholderTextColor="#9CA3AF"
+                    editable={!isLoading}
+                    style={{ fontSize: 16, lineHeight: 20 }}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="ml-2"
+                  >
+                    <Text className="text-xs text-gray-500 uppercase">
+                      {showConfirmPassword ? 'HIDE' : 'SHOW'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                {fieldErrors.confirmPassword && (
+                  <Text className="text-red-500 text-xs mt-1">{fieldErrors.confirmPassword}</Text>
+                )}
+              </View>
+              
+              {/* Spacer to push buttons down */}
+              <View className="flex-1 min-h-[20px]" />
+
+              {/* Reset Password Button */}
               <TouchableOpacity
-                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="ml-2"
+                className={`py-4 rounded-xl items-center mb-4 ${
+                  isLoading ? 'bg-gray-300 opacity-50' : 'bg-black'
+                }`}
+                disabled={isLoading}
+                onPress={onResetPassword}
               >
-                <Text className="text-xs text-gray-500 uppercase">
-                  {showConfirmPassword ? 'HIDE' : 'SHOW'}
+                <Text className={`text-base font-semibold ${
+                  isLoading ? 'text-gray-500' : 'text-white'
+                }`}>
+                  {isLoading ? 'Resetting Password...' : 'Reset Password'}
                 </Text>
               </TouchableOpacity>
-            </View>
-            {fieldErrors.confirmPassword && (
-              <Text className="text-red-500 text-xs mt-1">{fieldErrors.confirmPassword}</Text>
-            )}
-          </View>
-          
-          {/* Reset Password Button */}
-          <TouchableOpacity
-            className={`py-4 rounded-xl items-center mb-4 ${
-              isLoading ? 'bg-gray-300 opacity-50' : 'bg-black'
-            }`}
-            disabled={isLoading}
-            onPress={onResetPassword}
-          >
-            <Text className={`text-base font-semibold ${
-              isLoading ? 'text-gray-500' : 'text-white'
-            }`}>
-              {isLoading ? 'Resetting Password...' : 'Reset Password'}
-            </Text>
-          </TouchableOpacity>
 
-          {/* Back to Login Link */}
-          <View className="items-center">
-            <Link href="/(auth)/email-login" asChild>
-              <TouchableOpacity>
-                <Text className="text-black text-base underline">
-                  Back to Login
-                </Text>
-              </TouchableOpacity>
-            </Link>
+              {/* Back to Login Link */}
+              <View className="items-center">
+                <Link href="/(auth)/email-login" asChild>
+                  <TouchableOpacity>
+                    <Text className="text-black text-base underline">
+                      Back to Login
+                    </Text>
+                  </TouchableOpacity>
+                </Link>
+              </View>
+            </ScrollView>
           </View>
-        </View>
+        </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
 
       {/* Custom Modal */}
