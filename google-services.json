@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "822870332363",
+    "project_id": "fanday-6370e",
+    "storage_bucket": "fanday-6370e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:822870332363:android:13a8ba648c6f3838631c4e",
+        "android_client_info": {
+          "package_name": "in.thoughtverve.sentinel"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "822870332363-1jh7u77qko1kfv19inms117sq3gjpojl.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "in.thoughtverve.sentinel",
+            "certificate_hash": "063168ef628fc803626e7a9698b5d42b69282d95"
+          }
+        },
+        {
+          "client_id": "822870332363-08ecg37b4vs9j8gag5eg0t4tmbbq818d.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBqIija1Tc4xntwPLuvEqvci5KEQwYd7Y0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "822870332363-08ecg37b4vs9j8gag5eg0t4tmbbq818d.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "822870332363-3afs8v0b5bl8c1uaasd7eiech2rv2khr.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "13B07F861A680F5B00A75B9A"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
