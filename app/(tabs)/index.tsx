@@ -1624,24 +1624,6 @@ export default function SentinelFeed(): React.JSX.Element {
 
         setFetchedData(prevData => [...prevData, ...postsData]); // Append new data
 
-        // fetchedData.forEach(post => {
-        //   onSnapshot(
-        //     collection(doc(db, post.postType, post.id), 'Comments'),
-        //     commentsSnap => {
-        //       let totalComments = 0;
-        //       totalComments = commentsSnap.size;
-
-        //       setFetchedData(prev =>
-        //         prev.map(p =>
-        //           p.id === post.id
-        //           ? { ...p, ContentCommentCount: totalComments }
-        //           : p
-        //         )
-        //       );
-        //     }
-        //   )
-        // });
-
         fetchPostComments();
 
 
@@ -3192,6 +3174,10 @@ export default function SentinelFeed(): React.JSX.Element {
       });
 
       console.log("  📊 Following result count:", followingData.length);
+
+      if (followingData.length < 5) {
+        handleLoadMore();
+      }
       
       return followingData;
     }
@@ -3200,6 +3186,9 @@ export default function SentinelFeed(): React.JSX.Element {
     if (activeTab === "educational") {
       console.log("📚 Educational Tab Filter");
       console.log("  Educational posts count:", educationalData.length);
+      if (educationalData.length < 5) {
+        handleLoadMore();
+      }
       
       return educationalData;
     }
