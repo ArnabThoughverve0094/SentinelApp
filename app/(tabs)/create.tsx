@@ -1069,28 +1069,53 @@ const compressAndGetUrl = async (localUri) => {
   // **NEW: Separated post creation**
   const createPost = async (uploadedUrls: string[], failedUploads: string[]) => {
   try {
-    // Step 1: Filter out video files for moderation
-    const nonVideoUrl = uploadedUrls.find(url => {
-      const mediaType = getMediaType(url);
-      return mediaType === 'image' || mediaType === 'gif' || mediaType === 'doc';
-    }) || null;
+    // Step 1: Check if post contains any video - if yes, skip AI moderation entirely
+    const hasVideo = uploadedUrls.some(url => getMediaType(url) === 'video');
     
-    console.log("📹 Filtered media for moderation:", nonVideoUrl ? "Using non-video media" : "Only text will be checked");
+    let isContentApproved = false;
+    let isFlagged = false;
+    let moderationResult: any = null;
     
-    // Step 2: Call AI moderation API to check content (without video)
-    const moderationResult = await checkPostContent(
-      postText, 
-      nonVideoUrl
-    );
-    console.log("🤖 AI Moderation Result:", moderationResult);
-    console.log("🚦 Post status:", moderationResult.postStatus);
+    if (hasVideo) {
+      // Video detected - skip AI moderation completely
+      console.log("📹 Video content detected - Skipping AI moderation, flagging for manual admin review");
+      
+      isContentApproved = false;
+      isFlagged = true;
+      moderationResult = {
+        postStatus: 'pending_manual_review',
+        flagged: true,
+        violations: ['video content requires manual review'],
+        categories: { video_content: true },
+        checkedAt: new Date(),
+        videoSkipped: true
+      };
+    } else {
+      // No video - proceed with normal AI moderation flow
+      console.log("✅ No video detected - Proceeding with AI moderation");
+      
+      // Step 2: Filter out video files for moderation
+      const nonVideoUrl = uploadedUrls.find(url => {
+        const mediaType = getMediaType(url);
+        return mediaType === 'image' || mediaType === 'gif' || mediaType === 'doc';
+      }) || null;
+      
+      console.log("📹 Filtered media for moderation:", nonVideoUrl ? "Using non-video media" : "Only text will be checked");
+      
+      // Step 3: Call AI moderation API to check content (without video)
+      moderationResult = await checkPostContent(postText, nonVideoUrl);
+      console.log("🤖 AI Moderation Result:", moderationResult);
+      console.log("🚦 Post status:", moderationResult.postStatus);
+      
+      // Step 4: Determine approval status based on AI analysis
+      isContentApproved = moderationResult.postStatus === 'approved';
+      isFlagged = moderationResult.flagged;
+    }
     
-    // Step 3: Determine approval status based on AI analysis
-    const isContentApproved = moderationResult.postStatus === 'approved';
-    const isFlagged = moderationResult.flagged;
+    // Step 5: Call API to generate comment template (skip for flagged/video posts)
+    let generatedTemplateName = "Standard Template";
     
-    //CallAPI to Genrate $ option four option for template Genration
-      let generatedTemplateName = "Standard Template";
+    if (isContentApproved) {
       try {
         const response = await fetch(
           'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/opinion-generator-ai',
@@ -1107,46 +1132,52 @@ const compressAndGetUrl = async (localUri) => {
         );
         const templateResponse: TemplateResponseType = await response.json();
         if (templateResponse?.success) {
-          generatedTemplateName = templateResponse.templateName || null;
+          generatedTemplateName = templateResponse.templateName || "Standard Template";
         }
       } catch (error) {
         console.error("❌ Error generating comment template:", error);
       }
-      finally {
-        await addDoc(collection(db, 'SentinelPosts'), {
-          AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
-          AuthorName: userName,
-          AuthorNickName: userNickName,
-          AuthorUserID: userId,
-          ContentDate: new Date(),
-          ContentDesc: postText,
-          ContentURL: uploadedUrls.length > 0 ? uploadedUrls[0] : null,
-          ContentURLs: uploadedUrls,
-          ContentLikeCount: 0,
-          ContentRepostCount: 0,
-          CommentTemplate:generatedTemplateName ,
-          isApproved: isContentApproved,
-          isLiked: false,
-          isNew: !isContentApproved, // If approved, not new for admin; if flagged, new for review
-          isAnonymous: isAnonymous,
-          contentType: selectedType,
-          isEducational: isEducationalEnabled,
-          // Add moderation metadata
-          moderationData: {
-            flagged: isFlagged,
-            violations: moderationResult.violations || [],
-            categories: moderationResult.categories || {},
-            checkedAt: new Date(),
-            videoSkipped: uploadedUrls.some(url => getMediaType(url) === 'video') // Track if video was present
-        }
-    });
-        console.log("📝 Using comment template:", generatedTemplateName);
+    } else {
+      console.log("⏭️ Skipping template generation -", hasVideo ? "Video requires manual review" : "Post flagged by AI");
+    }
+    
+    // Step 6: Save post to Firestore
+    await addDoc(collection(db, 'SentinelPosts'), {
+      AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+      AuthorName: userName,
+      AuthorNickName: userNickName,
+      AuthorUserID: userId,
+      ContentDate: new Date(),
+      ContentDesc: postText,
+      ContentURL: uploadedUrls.length > 0 ? uploadedUrls[0] : null,
+      ContentURLs: uploadedUrls,
+      ContentLikeCount: 0,
+      ContentRepostCount: 0,
+      CommentTemplate: generatedTemplateName,
+      isApproved: isContentApproved,
+      isLiked: false,
+      isNew: !isContentApproved, // If approved, not new for admin; if flagged, new for review
+      isAnonymous: isAnonymous,
+      contentType: selectedType,
+      isEducational: isEducationalEnabled,
+      // Add moderation metadata
+      moderationData: {
+        flagged: isFlagged,
+        violations: moderationResult?.violations || [],
+        categories: moderationResult?.categories || {},
+        checkedAt: new Date(),
+        videoSkipped: hasVideo,
+        requiresManualReview: hasVideo || isFlagged // Mark for admin review
       }
+    });
+    
+    console.log("📝 Using comment template:", generatedTemplateName);
+    console.log("📊 Post saved with status:", isContentApproved ? "Approved & Published" : hasVideo ? "Video - Pending Manual Review" : "Flagged - Pending Review");
 
     setPostText('');
     setSelectedMedia([]);
     
-    // Step 5: Show success message based on moderation result
+    // Step 7: Show success message based on moderation result
     let successTitle = '';
     let successMessage = '';
     let notificationDescription = '';
@@ -1157,6 +1188,11 @@ const compressAndGetUrl = async (localUri) => {
       successMessage = `Your post has been published successfully!`;
       notificationDescription = 'Congrats! Your post has been published successfully.';
       notificationStatus = 'approved';
+    } else if (hasVideo) {
+      successTitle = 'Post Submitted!';
+      successMessage = `Your video post has been submitted successfully! Video content requires manual admin review before publishing.`;
+      notificationDescription = 'Your post with video content has been submitted and is awaiting manual admin approval.';
+      notificationStatus = 'video_review_pending';
     } else {
       successTitle = 'Post Submitted!';
       successMessage = `Post submitted successfully! Kindly await admin review.`;
@@ -1187,7 +1223,7 @@ const compressAndGetUrl = async (localUri) => {
       'checkmark-circle'
     );
 
-    // Step 6: Create Notification
+    // Step 8: Create Notification
     if (currentUserDocId) {
       const userRef = doc(db, "SentinelUsers", currentUserDocId);
       await updateDoc(userRef, {
@@ -1197,14 +1233,14 @@ const compressAndGetUrl = async (localUri) => {
           AuthorUserID: await AsyncStorage.getItem('userId'),
           ContentDate: new Date(),
           Description: notificationDescription,
-          NotifyType: 'post_submitted',
+          NotifyType: hasVideo ? 'video_post_submitted' : 'post_submitted',
           ShowButtons: false,
           Status: notificationStatus,
           isRead: false,
           isApproved: isContentApproved,
         }),
       });
-      console.log(`✅ ${isContentApproved ? 'Published' : 'Submitted'} post`);
+      console.log(`✅ ${isContentApproved ? 'Published' : hasVideo ? 'Video submitted for manual review' : 'Submitted for review'} post`);
     } else {
       // Create new document if it doesn't exist
       await addDoc(collection(db, 'SentinelUsers'), {
@@ -1215,7 +1251,7 @@ const compressAndGetUrl = async (localUri) => {
           AuthorUserID: await AsyncStorage.getItem('userId'),
           ContentDate: new Date(),
           Description: notificationDescription,
-          NotifyType: 'post_submitted',
+          NotifyType: hasVideo ? 'video_post_submitted' : 'post_submitted',
           ShowButtons: false,
           Status: notificationStatus,
           isRead: false,
@@ -1236,7 +1272,7 @@ const compressAndGetUrl = async (localUri) => {
   }
 };
 
-// Helper function to call the AI moderation API
+// Helper function remains the same - not called for video posts
 const checkPostContent = async (postText: string, imageUrl: string | null) => {
   try {
     console.log('🔍 Checking content with AI moderation...');
@@ -1252,7 +1288,7 @@ const checkPostContent = async (postText: string, imageUrl: string | null) => {
         },
         body: JSON.stringify({
           postText: postText,
-          imageUrl: imageUrl // Will be null if only video, or the first non-video media
+          imageUrl: imageUrl
         })
       }
     );
