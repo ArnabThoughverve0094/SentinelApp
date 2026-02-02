@@ -3175,7 +3175,7 @@ export default function SentinelFeed(): React.JSX.Element {
 
       console.log("  📊 Following result count:", followingData.length);
 
-      if (followingData.length < 5) {
+      if (followingData.length < 4) {
         handleLoadMore();
       }
       
@@ -3186,7 +3186,7 @@ export default function SentinelFeed(): React.JSX.Element {
     if (activeTab === "educational") {
       console.log("📚 Educational Tab Filter");
       console.log("  Educational posts count:", educationalData.length);
-      if (educationalData.length < 5) {
+      if (educationalData.length < 4) {
         handleLoadMore();
       }
       
