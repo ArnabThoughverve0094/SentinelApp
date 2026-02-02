@@ -649,22 +649,24 @@ export default function BookmarksPage(): React.JSX.Element {
         return `${diffInHours}h ago`;
       } else if (diffInDays < 7) {
         return `${diffInDays}d ago`;
-      } else if (diffInWeeks < 4) {
-        return `${diffInWeeks}w ago`;
-      } else if (diffInMonths < 12) {
-        return `${diffInMonths}mo ago`;
-      } else if (diffInYears >= 1) {
-        return `${diffInYears}y ago`;
       } else {
         // For older posts (beyond normal relative time), show formatted date
         const dateObj = new Date(postDate.getTime());
-        const month = dateObj.toLocaleString('default', { month: 'short' });
-        const day = dateObj.getDate();
-        const year = dateObj.getFullYear();
-        const currentYear = new Date().getFullYear();
-        
-        // If same year, show "Jan 7", otherwise "Jan 7, 2025"
-        return currentYear === year ? `${month} ${day}` : `${month} ${day}, ${year}`;
+
+        // 1. Month names array
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+        // 2. Extract components
+        const month   = monthNames[dateObj.getMonth()];
+        const day     = String(dateObj.getDate()).padStart(2, '0');
+        const year    = dateObj.getFullYear();
+        const hours   = String(dateObj.getHours()).padStart(2, '0');
+        const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+
+        // 3. Format string: "Feb 02, 2026 21:30"
+        const formatted = `${month} ${day}, ${year} ${hours}:${minutes}`;
+
+        return formatted;
       }
     } catch (error) {
       console.error('Error parsing date:', error);

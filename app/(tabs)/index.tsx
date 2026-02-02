@@ -1179,15 +1179,21 @@ export default function SentinelFeed(): React.JSX.Element {
       //   return `${diffInMonths}mo ago`;
       } else {
         const dateObj = new Date(postDate.getTime());
-        const year  = dateObj.getFullYear();
-        const month = String(dateObj.getMonth() + 1).padStart(2, '0'); // months are 0-based
-        const day   = String(dateObj.getDate()).padStart(2, '0');
+
+        // 1. Month names array
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+        // 2. Extract components
+        const month   = monthNames[dateObj.getMonth()];
+        const day     = String(dateObj.getDate()).padStart(2, '0');
+        const year    = dateObj.getFullYear();
         const hours   = String(dateObj.getHours()).padStart(2, '0');
         const minutes = String(dateObj.getMinutes()).padStart(2, '0');
 
-        // Example formatted string: "YYYY-MM-DD HH:mm"
-        const formatted = `${year}-${month}-${day} ${hours}:${minutes}`;
-        return `${formatted}`;
+        // 3. Format string: "Feb 02, 2026 21:30"
+        const formatted = `${month} ${day}, ${year} ${hours}:${minutes}`;
+
+        return formatted;
         // return `${diffInYears}y ago`;
       }
     } catch (error) {
