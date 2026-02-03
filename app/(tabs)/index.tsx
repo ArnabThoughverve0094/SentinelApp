@@ -16,7 +16,8 @@ import {
   Modal,
   Platform,
   RefreshControl,
-  ScrollView, Share, StatusBar, StyleSheet, Text,
+  ScrollView, Share, StatusBar,
+  Text,
   TextInput,
   TouchableOpacity,
   View, useWindowDimensions
@@ -1179,15 +1180,21 @@ export default function SentinelFeed(): React.JSX.Element {
       //   return `${diffInMonths}mo ago`;
       } else {
         const dateObj = new Date(postDate.getTime());
-        const year  = dateObj.getFullYear();
-        const month = String(dateObj.getMonth() + 1).padStart(2, '0'); // months are 0-based
-        const day   = String(dateObj.getDate()).padStart(2, '0');
+
+        // 1. Month names array
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+        // 2. Extract components
+        const month   = monthNames[dateObj.getMonth()];
+        const day     = String(dateObj.getDate()).padStart(2, '0');
+        const year    = dateObj.getFullYear();
         const hours   = String(dateObj.getHours()).padStart(2, '0');
         const minutes = String(dateObj.getMinutes()).padStart(2, '0');
 
-        // Example formatted string: "YYYY-MM-DD HH:mm"
-        const formatted = `${year}-${month}-${day} ${hours}:${minutes}`;
-        return `${formatted}`;
+        // 3. Format string: "Feb 02, 2026 21:30"
+        const formatted = `${month} ${day}, ${year} ${hours}:${minutes}`;
+
+        return formatted;
         // return `${diffInYears}y ago`;
       }
     } catch (error) {
@@ -1624,7 +1631,7 @@ export default function SentinelFeed(): React.JSX.Element {
 
         setFetchedData(prevData => [...prevData, ...postsData]); // Append new data
 
-        fetchPostComments();
+        // fetchPostComments();
 
 
         const newLastDoc = nextSnapshot.docs[nextSnapshot.docs.length - 1];
@@ -1754,7 +1761,7 @@ export default function SentinelFeed(): React.JSX.Element {
   } catch (error) {
     console.error('Error setting up comment listeners:', error);
   }
-}, [fetchedData, cleanupSubscriptions]);
+}, [cleanupSubscriptions]);
 
 
   const fetchUpdate = useCallback(async () => {
@@ -1850,7 +1857,39 @@ export default function SentinelFeed(): React.JSX.Element {
   useEffect(() => {
     fetchPostComments();
 
-  }, [fetchedData.map(p => p.id).join(',')]);
+  // }, [fetchedData.map(p => p.id).join(',')]);
+  }, [fetchedData]);
+
+  // useEffect(() => {
+  //   const unsubscribersMap = new Map();
+  
+  //   // IMPORTANT: Use a local variable to track IDs to prevent 
+  //   // multiple listeners if the effect does re-run
+  //   fetchedData.forEach(post => {
+  //     if (!post.id) return; 
+  
+  //     const unsub = onSnapshot(
+  //       collection(doc(db, "SentinelPosts", post.id), 'Comments'),
+  //       (snap) => {
+  //         setFetchedData(currentData => {
+  //           // Check if the post actually exists in current state before updating
+  //           return currentData.map(p => {
+  //             if (p.id === post.id) {
+  //               // Preserve EVERY property in 'p' (Likes, etc.), ONLY update count
+  //               return { ...p, ContentCommentCount: snap.size };
+  //             }
+  //             return p;
+  //           });
+  //         });
+  //       }
+  //     );
+  //     unsubscribersMap.set(post.id, unsub);
+  //   });
+  
+  //   return () => {
+  //     unsubscribersMap.forEach(unsub => unsub());
+  //   };
+  // }, [fetchedData.map(p => p.id).join(',')]);
 
   useFocusEffect(
     useCallback(() => {
@@ -1873,7 +1912,7 @@ export default function SentinelFeed(): React.JSX.Element {
       
       checkCommentUpdate();
       fetchUpdate();
-      fetchPostComments();
+      // fetchPostComments();
 
     }, [isInitialized, fetchSinglePostComments])
   );
@@ -2509,6 +2548,7 @@ export default function SentinelFeed(): React.JSX.Element {
       await updateDoc(postRef, {
         ContentLikeCount: Math.max(0, postItem.ContentLikeCount - 1),
         LikedBy: arrayRemove(fetchuserID),
+        ContentCommentCount: postItem.ContentCommentCount,
       });
     } else {
       // LIKE: Update state immediately with correct count
@@ -2528,6 +2568,7 @@ export default function SentinelFeed(): React.JSX.Element {
       await updateDoc(postRef, {
         ContentLikeCount: postItem.ContentLikeCount + 1,
         LikedBy: arrayUnion(fetchuserID),
+        ContentCommentCount: postItem.ContentCommentCount,
       });
     }
 
@@ -4536,27 +4577,3 @@ export default function SentinelFeed(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  labelContainer: {
-    marginRight: 8,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    flexWrap: 'wrap', // Allow label to wrap
-  },
-  dropdown: {
-    flex: 1,
-    width: 200,
-    height: 40,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    borderRadius: 4,
-    paddingLeft: 8,
-  },
-});
