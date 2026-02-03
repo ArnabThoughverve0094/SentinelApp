@@ -749,13 +749,14 @@ export default function CommentScreen({
     setLoading(true);
     try {
       const collCommentRefPost = collection(db, "SentinelPosts", item, 'Comments');
+      const postRef = doc(db, "SentinelPosts", item);
       const queryComment = query(
         collCommentRefPost,
         orderBy('CommentDate', 'desc')
       );
       console.log("Comment OnSnapshot");
       
-      const unsubscribeComment = onSnapshot(queryComment, commentSnapshot => {
+      const unsubscribeComment = onSnapshot(queryComment, async commentSnapshot => {
         const commentdataArr = commentSnapshot.docs.map(doc => ({
           id: doc.id,
           data: doc.data(),
@@ -781,6 +782,11 @@ export default function CommentScreen({
         }
 
         setComments(commentData);
+
+        await updateDoc(postRef, {
+          ContentCommentCount: commentData.length,
+        });
+
       })
 
       return () => {

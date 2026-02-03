@@ -1631,7 +1631,7 @@ export default function SentinelFeed(): React.JSX.Element {
 
         setFetchedData(prevData => [...prevData, ...postsData]); // Append new data
 
-        // fetchPostComments();
+        fetchPostComments();
 
 
         const newLastDoc = nextSnapshot.docs[nextSnapshot.docs.length - 1];
@@ -1857,8 +1857,8 @@ export default function SentinelFeed(): React.JSX.Element {
   useEffect(() => {
     fetchPostComments();
 
-  // }, [fetchedData.map(p => p.id).join(',')]);
-  }, [fetchedData]);
+  }, [fetchedData.map(p => p.id).join(',')]);
+  // }, [fetchedData]);
 
   // useEffect(() => {
   //   const unsubscribersMap = new Map();
