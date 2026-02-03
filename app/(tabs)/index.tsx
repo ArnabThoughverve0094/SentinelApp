@@ -16,7 +16,8 @@ import {
   Modal,
   Platform,
   RefreshControl,
-  ScrollView, Share, StatusBar, StyleSheet, Text,
+  ScrollView, Share, StatusBar,
+  Text,
   TextInput,
   TouchableOpacity,
   View, useWindowDimensions
@@ -1760,7 +1761,7 @@ export default function SentinelFeed(): React.JSX.Element {
   } catch (error) {
     console.error('Error setting up comment listeners:', error);
   }
-}, [fetchedData, cleanupSubscriptions]);
+}, [cleanupSubscriptions]);
 
 
   const fetchUpdate = useCallback(async () => {
@@ -1858,6 +1859,37 @@ export default function SentinelFeed(): React.JSX.Element {
 
   // }, [fetchedData.map(p => p.id).join(',')]);
   }, [fetchedData]);
+
+  // useEffect(() => {
+  //   const unsubscribersMap = new Map();
+  
+  //   // IMPORTANT: Use a local variable to track IDs to prevent 
+  //   // multiple listeners if the effect does re-run
+  //   fetchedData.forEach(post => {
+  //     if (!post.id) return; 
+  
+  //     const unsub = onSnapshot(
+  //       collection(doc(db, "SentinelPosts", post.id), 'Comments'),
+  //       (snap) => {
+  //         setFetchedData(currentData => {
+  //           // Check if the post actually exists in current state before updating
+  //           return currentData.map(p => {
+  //             if (p.id === post.id) {
+  //               // Preserve EVERY property in 'p' (Likes, etc.), ONLY update count
+  //               return { ...p, ContentCommentCount: snap.size };
+  //             }
+  //             return p;
+  //           });
+  //         });
+  //       }
+  //     );
+  //     unsubscribersMap.set(post.id, unsub);
+  //   });
+  
+  //   return () => {
+  //     unsubscribersMap.forEach(unsub => unsub());
+  //   };
+  // }, [fetchedData.map(p => p.id).join(',')]);
 
   useFocusEffect(
     useCallback(() => {
@@ -2516,6 +2548,7 @@ export default function SentinelFeed(): React.JSX.Element {
       await updateDoc(postRef, {
         ContentLikeCount: Math.max(0, postItem.ContentLikeCount - 1),
         LikedBy: arrayRemove(fetchuserID),
+        ContentCommentCount: postItem.ContentCommentCount,
       });
     } else {
       // LIKE: Update state immediately with correct count
@@ -2535,6 +2568,7 @@ export default function SentinelFeed(): React.JSX.Element {
       await updateDoc(postRef, {
         ContentLikeCount: postItem.ContentLikeCount + 1,
         LikedBy: arrayUnion(fetchuserID),
+        ContentCommentCount: postItem.ContentCommentCount,
       });
     }
 
@@ -4543,27 +4577,3 @@ export default function SentinelFeed(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  labelContainer: {
-    marginRight: 8,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    flexWrap: 'wrap', // Allow label to wrap
-  },
-  dropdown: {
-    flex: 1,
-    width: 200,
-    height: 40,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    borderRadius: 4,
-    paddingLeft: 8,
-  },
-});
