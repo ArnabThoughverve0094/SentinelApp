@@ -1856,7 +1856,8 @@ export default function SentinelFeed(): React.JSX.Element {
   useEffect(() => {
     fetchPostComments();
 
-  }, [fetchedData.map(p => p.id).join(',')]);
+  // }, [fetchedData.map(p => p.id).join(',')]);
+  }, [fetchedData]);
 
   useFocusEffect(
     useCallback(() => {
