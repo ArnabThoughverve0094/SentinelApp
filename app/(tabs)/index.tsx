@@ -1630,7 +1630,7 @@ export default function SentinelFeed(): React.JSX.Element {
 
         setFetchedData(prevData => [...prevData, ...postsData]); // Append new data
 
-        fetchPostComments();
+        // fetchPostComments();
 
 
         const newLastDoc = nextSnapshot.docs[nextSnapshot.docs.length - 1];
@@ -1880,7 +1880,7 @@ export default function SentinelFeed(): React.JSX.Element {
       
       checkCommentUpdate();
       fetchUpdate();
-      fetchPostComments();
+      // fetchPostComments();
 
     }, [isInitialized, fetchSinglePostComments])
   );
