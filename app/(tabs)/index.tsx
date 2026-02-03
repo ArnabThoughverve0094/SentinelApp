@@ -2995,7 +2995,7 @@ export default function SentinelFeed(): React.JSX.Element {
     }
 
     try {
-      const postUrl = `https://main.d29wx1onz1k3b1.amplifyapp.com/post/${postItem?.id}`;
+      const postUrl = `https://ironex.app/post/${postItem?.id}`;
       
       // const shareMessage = postItem.isAnonymous
       //   ? `✨ SENTINEL POST ✨
