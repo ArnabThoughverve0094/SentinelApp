@@ -810,7 +810,7 @@ export default function BookmarksPage(): React.JSX.Element {
       //   });
       // }
       
-      const postUrl = `https://main.d29wx1onz1k3b1.amplifyapp.com/post/${postItem?.id}`;
+      const postUrl = `https://ironex.app/post/${postItem?.id}`;
 
       const shareMessage = `🔗 Tap to view on ironex:
         ${postUrl}`;

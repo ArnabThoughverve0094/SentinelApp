@@ -1,5 +1,6 @@
 // app/profile/[userId].tsx
 import { db } from "@/FirebaseConfig";
+import * as Sharing from "expo-sharing";
 import CommentsModal from "@/components/CommentsModal";
 import TotalSentiment from "@/components/TotalSentiment";
 import Feather from "@expo/vector-icons/Feather";
@@ -1301,29 +1302,72 @@ export default function UserProfileScreen() {
   }, [currentUserId]);
 
   const handleShare = useCallback(async (postItem: PostItem) => {
-    try {
-      if (postItem.isAnonymous) {
-        await Share.share({
-          message: `SENTINEL POST by Anonymous\n\n${postItem.ContentDesc}\n\n${postItem.ContentURL}\n\ntake a look.`,
+      console.log("Share pressed:", postItem?.id);
+      
+      const available = await Sharing.isAvailableAsync();
+      if (!available) {
+        Toast.show({
+          type: 'error',
+          text1: 'Sharing Not Available',
+          text2: 'Sharing is not available on this device',
+          position: 'bottom',
+          visibilityTime: 2000,
         });
-      } else {
+        return;
+      }
+  
+      try {
+        const postUrl = `https://ironex.app/post/${postItem?.id}`;
+        
+        // const shareMessage = postItem.isAnonymous
+        //   ? `✨ SENTINEL POST ✨
+  
+        // 👤 Shared by Anonymous
+  
+        // 💭 ${postItem.ContentDesc}
+  
+        // 🔗 Tap to view this amazing post:
+        // ${postUrl}
+  
+        // ━━━━━━━━━━━━━━━
+        // 📱 Join the conversation on Sentinel and discover more!`
+        //   : `✨ SENTINEL POST ✨
+  
+        // 🌟 Shared by ${postItem.AuthorName}
+  
+        // 💭 ${postItem.ContentDesc}
+  
+        // 🔗 Tap to view this amazing post:
+        // ${postUrl}
+  
+        // ━━━━━━━━━━━━━━━
+        // 📱 Join the conversation on Sentinel and discover more!`;
+  
+        const shareMessage = `🔗 Tap to view on IronExSafe™:
+        ${postUrl}`;
+  
         await Share.share({
-          message: `SENTINEL POST by ${postItem.AuthorName}\n\n${postItem.ContentDesc}\n\n${postItem.ContentURL}\n\ntake a look.`,
+          message: `${shareMessage}\n${postUrl}`,
+          url: postUrl,
+          title: '✨ Check out this IronExSafe™ post',
+        });
+  
+  
+  
+        
+      } catch (error) {
+        console.log("Error sharing ", error);
+        Toast.show({
+          type: 'error',
+          text1: 'Share Failed',
+          text2: 'Failed to share post',
+          position: 'bottom',
+          visibilityTime: 2000,
         });
       }
-    } catch (error) {
-      console.log("Error sharing:", error);
-      Toast.show({
-        type: "error",
-        text1: "Share Failed",
-        text2: "Failed to share post",
-        position: "bottom",
-        visibilityTime: 2000,
-      });
-    }
-
-    await new Promise((r) => setTimeout(r, 200));
-  }, []);
+  
+      await new Promise(r => setTimeout(r, 200));
+    }, []);
 
   const avatar = React.useMemo(() => {
     if (isAnonymous === 'true') {
