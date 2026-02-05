@@ -291,6 +291,40 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
       return '';
     }
   }
+      // Function to update all user posts with new profile picture
+    const updateAllUserPosts = async (newProfilePicUrl: string) => {
+      try {
+        console.log('🔄 [EditProfile] Updating all posts with new profile picture...');
+        
+        const userId = await AsyncStorage.getItem('userId');
+        if (!userId) {
+          console.warn('⚠️ [EditProfile] No userId found, skipping post updates');
+          return;
+        }
+
+        // Query all posts by this user
+        const postsRef = collection(db, 'SentinelPosts');
+        const q = query(postsRef, where('AuthorUserID', '==', userId));
+        const snapshot = await getDocs(q);
+
+        console.log(`📝 [EditProfile] Found ${snapshot.size} posts to update`);
+
+        // Update each post with new profile picture
+        const updatePromises = snapshot.docs.map(async (postDoc) => {
+          const postRef = doc(db, 'SentinelPosts', postDoc.id);
+          await updateDoc(postRef, {
+            AuthorImageURL: newProfilePicUrl,
+          });
+        });
+
+        await Promise.all(updatePromises);
+        console.log(`✅ [EditProfile] Successfully updated ${snapshot.size} posts`);
+      } catch (error) {
+        console.error('❌ [EditProfile] Error updating posts:', error);
+        // Don't throw error - profile update should still succeed
+      }
+    };
+
 
   const handlePickImage = async () => {
     console.log('🖼️ [EditProfile] Opening image picker...');
@@ -553,6 +587,11 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
     ]);
     
     console.log('✅ [EditProfile] Saved to AsyncStorage');
+        // STEP 4: Update all existing posts with new profile picture
+    if (fields.profilePicUrl && fields.profilePicUrl !== DEFAULT_AVATAR) {
+      console.log('🔄 [EditProfile] Updating all posts with new profile picture...');
+      await updateAllUserPosts(fields.profilePicUrl);
+    }
     
     setIsLoading(false);
     
@@ -792,7 +831,7 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
                     onPress={validateBio}
                     disabled={isLoading || !fields.bio.trim() || bioValidated}
                     style={{
-                      backgroundColor: bioValidated ? '#4CAF50' : '#007AFF',
+                      backgroundColor: bioValidated ? '#4CAF50' : '#000000',
                       paddingHorizontal: 12,
                       paddingVertical: 6,
                       borderRadius: 6,
@@ -926,7 +965,7 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
                   key={index}
                   style={{
                     flex: alertConfig.buttons.length > 1 ? 1 : undefined,
-                    backgroundColor: index === 0 && alertConfig.buttons.length > 1 ? '#f0f0f0' : '#007AFF',
+                    backgroundColor: index === 0 && alertConfig.buttons.length > 1 ? '#f0f0f0' : '#000000',
                     padding: 12,
                     borderRadius: 8,
                     alignItems: 'center',
