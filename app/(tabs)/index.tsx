@@ -3159,7 +3159,7 @@ export default function SentinelFeed(): React.JSX.Element {
     setRefreshing(false);
   }, [handleFetchAllData]);
 
-    const filteredData = useMemo(() => {
+  const filteredData = useMemo(() => {
     // Base data - all approved posts for Users, all posts for Admins
     let baseData = fetchedData.filter((item) => {
       if (userRole === "User") {
@@ -3189,8 +3189,7 @@ export default function SentinelFeed(): React.JSX.Element {
           item.isApproved && 
           !item.isNew && 
           item.contentType !== "Educational" && 
-          !item.isEducational &&
-          !item.postType.includes("X-Data")
+          !item.isEducational
         );
       } else {
         return item.contentType !== "Educational" && !item.isEducational;

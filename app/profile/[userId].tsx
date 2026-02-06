@@ -1,6 +1,5 @@
 // app/profile/[userId].tsx
 import { db } from "@/FirebaseConfig";
-import * as Sharing from "expo-sharing";
 import CommentsModal from "@/components/CommentsModal";
 import TotalSentiment from "@/components/TotalSentiment";
 import Feather from "@expo/vector-icons/Feather";
@@ -8,6 +7,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import * as Sharing from "expo-sharing";
 import {
   DocumentData,
   QuerySnapshot,
@@ -1705,7 +1705,7 @@ export default function UserProfileScreen() {
           <View className="px-4 mb-3">
             <Text className="text-lg font-bold text-gray-900">Posts</Text>
             <Text className="text-gray-500 text-sm mt-1">
-              {userPosts.length} approved {userPosts.length === 1 ? "post" : "posts"}
+              {userPosts?.length || 0} approved {(userPosts?.length === 1 ? "post" : "posts")}
             </Text>
           </View>
 
