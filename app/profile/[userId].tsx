@@ -1705,7 +1705,7 @@ export default function UserProfileScreen() {
           <View className="px-4 mb-3">
             <Text className="text-lg font-bold text-gray-900">Posts</Text>
             <Text className="text-gray-500 text-sm mt-1">
-              {userPosts?.length || 0} approved {(userPosts?.length === 1 ? "post" : "posts")}
+              {userPosts.length} approved {userPosts.length === 1 ? "post" : "posts"}
             </Text>
           </View>
 
