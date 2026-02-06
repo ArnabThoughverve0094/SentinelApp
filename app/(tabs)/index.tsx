@@ -3159,7 +3159,7 @@ export default function SentinelFeed(): React.JSX.Element {
     setRefreshing(false);
   }, [handleFetchAllData]);
 
-  const filteredData = useMemo(() => {
+    const filteredData = useMemo(() => {
     // Base data - all approved posts for Users, all posts for Admins
     let baseData = fetchedData.filter((item) => {
       if (userRole === "User") {
