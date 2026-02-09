@@ -661,7 +661,7 @@ export default function CommentScreen({
       contentType: passedPostData.contentType || 'My Thoughts'
 
     });
-    if (commentTemplate == 'Standard Template') {
+    if (commentTemplate == 'Standard Template' || commentTemplate == 'Sentinel Default Template') {
       createTemplate([], passedPostData.ContentDesc);
     } else {
       fetchCommentTemplate(commentTemplate || 'Standard Template');
