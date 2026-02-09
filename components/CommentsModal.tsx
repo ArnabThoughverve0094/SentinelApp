@@ -593,6 +593,7 @@ export default function CommentScreen({
       const postDoc = await getDoc(doc(db, "SentinelPosts", itemId));
       if (postDoc.exists()) {
         const data = postDoc.data();
+        templateName = data.CommentTemplate || 'Standard Template';
         setPostDataState({
           id: itemId,
           AuthorImageURL: data.AuthorImageURL || '',
@@ -610,15 +611,15 @@ export default function CommentScreen({
           postType: itemType,
           Liked: false,
           Reposted: false,
-          CommentTemplate: data.CommentTemplate || 'Standard Template',
+          CommentTemplate: templateName,
           isAnonymous: data.isAnonymous || false,
           contentType: data.contentType || 'My Thoughts'
         });
         
-        if (data.CommentTemplate == 'Standard Template') {
+        if (templateName == 'Standard Template') {
           createTemplate([], data.ContentDesc);
         } else {
-          fetchCommentTemplate(data.CommentTemplate || 'Standard Template');
+          fetchCommentTemplate(templateName || 'Standard Template');
         }
 
         if (data.isAnonymous || false) {
