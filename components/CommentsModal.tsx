@@ -95,6 +95,13 @@ interface CommentScreenProps {
   commentTemplate: string | null;
 }
 
+interface TemplateResponseType
+ {
+  success: boolean;
+  message: string;
+  templateName?: string;
+}
+
 let RESPONSE_OPTIONS: any[] = [];
 
 const renderStyledPostText = (text) => {
@@ -349,6 +356,7 @@ export default function CommentScreen({
   const [postDataState, setPostDataState] = useState<PostData | null>(null);
   const [loading, setLoading] = useState(false);
   const [postLoading, setPostLoading] = useState(false);
+  const [addRespLoading, setaddRespLoading] = useState(false);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -373,6 +381,7 @@ export default function CommentScreen({
   const [isDeleteCommentModalVisible, setIsDeleteCommentModalVisible] = useState(false);
   const [commentToDelete, setCommentToDelete] = useState<string | null>(null);
   const [isDeletingComment, setIsDeletingComment] = useState(false);
+  let templateName = '';
 
   
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
@@ -605,7 +614,12 @@ export default function CommentScreen({
           isAnonymous: data.isAnonymous || false,
           contentType: data.contentType || 'My Thoughts'
         });
-        fetchCommentTemplate(data.CommentTemplate || 'Standard Template');
+        
+        if (data.CommentTemplate == 'Standard Template') {
+          createTemplate([], data.ContentDesc);
+        } else {
+          fetchCommentTemplate(data.CommentTemplate || 'Standard Template');
+        }
 
         if (data.isAnonymous || false) {
           setChangedAuthorImage(dummyAuthorImage);
@@ -623,6 +637,7 @@ export default function CommentScreen({
   };
 
   const convertPostData = (passedPostData: PostData) => {
+    templateName = passedPostData.CommentTemplate || 'Standard Template';
     setPostDataState({
       id: passedPostData.id,
       AuthorImageURL: passedPostData.AuthorImageURL || '',
@@ -640,12 +655,16 @@ export default function CommentScreen({
       postType: postType || '',
       Liked: passedPostData.Liked || false,
       Reposted: passedPostData.Reposted || false,
-      CommentTemplate: passedPostData.CommentTemplate || 'Standard Template',
+      CommentTemplate: templateName,
       isAnonymous: passedPostData.isAnonymous || false,
       contentType: passedPostData.contentType || 'My Thoughts'
 
     });
-    fetchCommentTemplate(passedPostData.CommentTemplate || 'Standard Template');
+    if (templateName == 'Standard Template') {
+      createTemplate([], passedPostData.ContentDesc);
+    } else {
+      fetchCommentTemplate(templateName || 'Standard Template');
+    }
 
     if (passedPostData.isAnonymous || false) {
       setChangedAuthorImage(dummyAuthorImage);
@@ -693,6 +712,51 @@ export default function CommentScreen({
       }
     } catch (error) {
       console.log("Error retrieving item", error);
+    }
+  };
+
+  // **NEW: Separated post creation**
+  const createTemplate = async (uploadedUrls: string[], postText: string) => {
+    setaddRespLoading(true);
+    try {
+      // Call API to generate comment template (skip for flagged/video posts)
+      try {
+        const response = await fetch(
+          'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/opinion-generator-ai',
+          {
+            method: 'POST',
+            headers: {  
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              postText,
+              uploadedUrls
+            })
+          }
+        );
+        const templateResponse: TemplateResponseType = await response.json();
+        if (templateResponse?.success) {
+          templateName = templateResponse.templateName || "Standard Template";
+        }
+
+        // Save post to Firestore
+        const commentRef = doc(db, "SentinelPosts", postId);
+        await updateDoc(commentRef, {
+          CommentTemplate: templateName,
+        });
+    
+        console.log("📝 Using comment template:", templateName);
+
+        fetchCommentTemplate(templateName || 'Standard Template');
+
+      } catch (error) {
+        console.error("❌ Error generating comment template:", error);
+      }
+      
+    } catch (e) {
+      console.error("❌ Error creating comment template:", e);
+    } finally {
+      setaddRespLoading(false);
     }
   };
 
@@ -1363,6 +1427,11 @@ const confirmDeleteComment = async () => {
               paddingVertical: 12,
               paddingBottom: insets.bottom + 12
             }}>
+              {addRespLoading ? (
+                <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 40 }}>
+                  <ActivityIndicator size="small" color="#0ea5e9" />
+                </View>
+              ) : (
               <TouchableOpacity
                 onPress={() => setShowResponseModal(true)}
                 style={{
@@ -1388,6 +1457,8 @@ const confirmDeleteComment = async () => {
                   Add Response
                 </Text>
               </TouchableOpacity>
+            )}
+            
             </View>
           )}
 
