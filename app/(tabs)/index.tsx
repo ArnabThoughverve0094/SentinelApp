@@ -5,7 +5,7 @@ import * as Application from 'expo-application';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from "expo-sharing";
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDocs, limit, onSnapshot, orderBy, query, startAfter, updateDoc, where } from 'firebase/firestore';
+import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, startAfter, updateDoc, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
@@ -71,26 +71,28 @@ interface PostItem {
   isAnonymous: boolean;
   contentType: string;
   isEducational: boolean;
-  moderationData?: {
-    categories?: {
-      harassment?: boolean;
-      'harassment/threatening'?: boolean;
-      hate?: boolean;
-      'hate/threatening'?: boolean;
-      illicit?: boolean;
-      'illicit/violent'?: boolean;
-      'self-harm'?: boolean;
-      'self-harm/instructions'?: boolean;
-      'self-harm/intent'?: boolean;
-      sexual?: boolean;
-      'sexual/minors'?: boolean;
-      violence?: boolean;
-      'violence/graphic'?: boolean;
-    };
-    checkedAt?: any;
-    flagged?: boolean;
-    violations?: string[];
+moderationData?: {
+  categories?: {
+    harassment?: boolean;
+    'harassment/threatening'?: boolean;
+    hate?: boolean;
+    'hate/threatening'?: boolean;
+    illicit?: boolean;
+    'illicit/violent'?: boolean;
+    'self-harm'?: boolean;
+    'self-harm/instructions'?: boolean;
+    'self-harm/intent'?: boolean;
+    sexual?: boolean;
+    'sexual/minors'?: boolean;
+    violence?: boolean;
+    'violence/graphic'?: boolean;
   };
+  checkedAt?: any;
+  flagged?: boolean;
+  violations?: string[];
+};
+ContentViewCount?: number;
+ViewedBy?: string[];
 isReported?: boolean;
   reportedAt?: any;
   reportReasons?: string[];
@@ -1002,6 +1004,51 @@ export default function SentinelFeed(): React.JSX.Element {
   const [reportPostId, setReportPostId] = useState<string | null>(null);
   const [selectedReportReasons, setSelectedReportReasons] = useState<string[]>([]);
 
+  const [viewedPosts, setViewedPosts] = useState<Set<string>>(new Set());
+
+      const trackPostView = useCallback(async (postId: string, postType: string) => {
+    try {
+      if (!userId) return;
+
+      // ✅ Determine correct collection based on postType
+      const collection = postType === 'X-Data' ? 'X-Data' : 'SentinelPosts';
+      const postRef = doc(db, collection, postId);
+      
+      const postDoc = await getDoc(postRef);
+      
+      if (postDoc.exists()) {
+        const currentViewedBy = postDoc.data().ViewedBy || [];
+        
+        // Only increment if user hasn't viewed before (unique views)
+        if (!currentViewedBy.includes(userId)) {
+          await updateDoc(postRef, {
+            ContentViewCount: increment(1),
+            ViewedBy: arrayUnion(userId)
+          });
+          
+          // ✅ Update local state correctly
+          setFetchedData(prev =>
+            prev.map(p =>
+              p.id === postId
+                ? { 
+                    ...p, 
+                    ContentViewCount: (p.ContentViewCount || 0) + 1,
+                    ViewedBy: [...(p.ViewedBy || []), userId]
+                  }
+                : p
+            )
+          );
+          
+          console.log(`✅ View tracked for ${collection} post: ${postId}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error tracking view:', error);
+    }
+  }, [userId]);
+
+
+
     const reportReasons = [
     'Spam or misleading content',
     'Harassment or bullying',
@@ -1649,6 +1696,8 @@ export default function SentinelFeed(): React.JSX.Element {
             reportReasons: postData.reportReasons || [],
             reportedBy: postData.reportedBy || [],
             moderationStatus: postData.moderationStatus || "",
+            ContentViewCount: postData.ContentViewCount || 0,
+            ViewedBy: postData.ViewedBy || [],
 
           });
         }
@@ -1760,6 +1809,8 @@ export default function SentinelFeed(): React.JSX.Element {
             reportReasons: postData.reportReasons || [],
             reportedBy: postData.reportedBy || [],
             moderationStatus: postData.moderationStatus || "",
+            ContentViewCount: postData.ContentViewCount || 0, // ✅ ADD THIS
+            ViewedBy: postData.ViewedBy || [],                // ✅ ADD THIS
 
           });
         }
@@ -3449,36 +3500,52 @@ export default function SentinelFeed(): React.JSX.Element {
   }, [fetchedData, userRole, activeTab, followingUserIds]);
 
 
-  const handleScroll = useCallback((event: any) => {
-    const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
-    const currentScrollY = contentOffset.y;
-    const viewHeight = layoutMeasurement.height;
-    const viewCenter = currentScrollY + viewHeight / 2;
+    const handleScroll = useCallback((event: any) => {
+  const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+  const currentScrollY = contentOffset.y;
+  const viewHeight = layoutMeasurement.height;
+  const viewCenter = currentScrollY + viewHeight / 2; // ✅ ADD THIS LINE
+  
+  // Check if close to bottom for lazy loading
+  const isCloseToBottom = 
+    contentOffset.y + layoutMeasurement.height >= contentSize.height * 0.9;
 
-    // Check if the user is 90% of the way down the content
-    const isCloseToBottom = 
-      contentOffset.y + layoutMeasurement.height >= contentSize.height * 0.9; 
+  if (isCloseToBottom && hasMore && !loading) {
+    handleLoadMore();
+  }
 
-    if (isCloseToBottom && hasMore && !loading) {
-      handleLoadMore(); // Call the lazy loading function
+  // ✅ Track post views with debouncing
+  filteredData.forEach((item, index) => {
+    const itemY = index * 400; // Adjust based on your card height
+    const itemBottom = itemY + 400;
+    const isVisible = itemY < (currentScrollY + viewHeight) && itemBottom > currentScrollY;
+    
+    // ✅ Only track if visible AND not already viewed
+    if (isVisible && !viewedPosts.has(item.id)) {
+      setViewedPosts(prev => new Set(prev).add(item.id));
+      
+      // ✅ Add delay to prevent multiple rapid calls
+      setTimeout(() => {
+        trackPostView(item.id, item.postType);
+      }, 500);
     }
 
-    filteredData.forEach((item, index) => {
-      const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
-                       (item.ContentURL ? [item.ContentURL] : []);
+    // Existing video logic...
+    const mediaUrls = item.ContentURLs?.length > 0 ? item.ContentURLs : 
+                     (item.ContentURL ? [item.ContentURL] : []);
+    
+    if (mediaUrls.length > 0 && getMediaType(mediaUrls[0]) === 'video') {
+      const itemCenter = itemY + 150;
       
-      if (mediaUrls.length > 0 && getMediaType(mediaUrls[0]) === 'video') {
-        const itemY = index * 340;
-        const itemCenter = itemY + 150;
-        
-        if (Math.abs(viewCenter - itemCenter) < 100) {
-          if (currentVideoIndex !== index) {
-            setCurrentVideoIndex(index);
-          }
+      if (Math.abs(viewCenter - itemCenter) < 100) { // ✅ Now viewCenter is defined
+        if (currentVideoIndex !== index) {
+          setCurrentVideoIndex(index);
         }
       }
-    });
-  }, [filteredData, getMediaType, currentVideoIndex, hasMore, loading, handleLoadMore]);
+    }
+  });
+}, [filteredData, getMediaType, currentVideoIndex, hasMore, loading, handleLoadMore, viewedPosts, trackPostView]);
+
 
   const ApprovalToggle = useCallback(({ isApproved, isNew, onToggle, postId, postItem, isFullScreen = false }: { 
     isApproved: boolean; 
@@ -3792,17 +3859,22 @@ export default function SentinelFeed(): React.JSX.Element {
                     </Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity 
-                    className={`mr-2 p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      openGraphModal(item);
-                    }}
-                    activeOpacity={0.7}
-                    disabled={areInteractionsDisabled(item)}
-                  >
-                    <Feather name="bar-chart-2" size={20} color="#64748b" />
-                  </TouchableOpacity>
+                  {/* Graph/Sentiment Icon with View Count */}
+                <TouchableOpacity
+                  className="flex-row items-center mr-5 px-1.5 py-1"
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    openGraphModal(item);
+                  }}
+                  activeOpacity={0.7}
+                  disabled={areInteractionsDisabled(item)}
+                >
+                  <Feather name="bar-chart-2" size={20} color="#64748b" />
+                  <Text className="text-gray-600 ml-1 text-xs font-medium">
+                    {item.ContentViewCount || 0}
+                  </Text>
+                </TouchableOpacity>
+
 
                 </View>
           
@@ -4208,17 +4280,22 @@ export default function SentinelFeed(): React.JSX.Element {
                     </Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity 
-                    className={`mr-2 p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      openGraphModal(item);
-                    }}
-                    activeOpacity={0.7}
-                    disabled={areInteractionsDisabled(item)}
-                  >
-                    <Feather name="bar-chart-2" size={20} color="#64748b" />
-                  </TouchableOpacity>
+                  {/* Graph/Sentiment Icon with View Count */}
+              <TouchableOpacity
+                className="flex-row items-center mr-5 px-1.5 py-1"
+                onPress={(e) => {
+                  e.stopPropagation();
+                  openGraphModal(item);
+                }}
+                activeOpacity={0.7}
+                disabled={areInteractionsDisabled(item)}
+              >
+                <Feather name="bar-chart-2" size={20} color="#64748b" />
+                <Text className="text-gray-600 ml-1 text-xs font-medium">
+                  {item.ContentViewCount || 0}
+                </Text>
+              </TouchableOpacity>
+
 
                 </View>
           
