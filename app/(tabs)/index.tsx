@@ -3840,7 +3840,7 @@ export default function SentinelFeed(): React.JSX.Element {
 
             </View>
 
-            {userRole !== "User" && item.postType === "SentinelPosts" && (
+            {userRole !== "User" && (
               <TouchableOpacity
                 onPress={(e) => e.stopPropagation()}
                 activeOpacity={1}
