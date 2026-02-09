@@ -381,7 +381,7 @@ export default function CommentScreen({
   const [isDeleteCommentModalVisible, setIsDeleteCommentModalVisible] = useState(false);
   const [commentToDelete, setCommentToDelete] = useState<string | null>(null);
   const [isDeletingComment, setIsDeletingComment] = useState(false);
-  let templateName = '';
+  // let templateName = '';
 
   
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
@@ -593,7 +593,7 @@ export default function CommentScreen({
       const postDoc = await getDoc(doc(db, "SentinelPosts", itemId));
       if (postDoc.exists()) {
         const data = postDoc.data();
-        templateName = data.CommentTemplate || 'Standard Template';
+        commentTemplate = data.CommentTemplate || 'Standard Template';
         setPostDataState({
           id: itemId,
           AuthorImageURL: data.AuthorImageURL || '',
@@ -611,15 +611,15 @@ export default function CommentScreen({
           postType: itemType,
           Liked: false,
           Reposted: false,
-          CommentTemplate: templateName,
+          CommentTemplate: commentTemplate,
           isAnonymous: data.isAnonymous || false,
           contentType: data.contentType || 'My Thoughts'
         });
         
-        if (templateName == 'Standard Template') {
+        if (commentTemplate == 'Standard Template') {
           createTemplate([], data.ContentDesc);
         } else {
-          fetchCommentTemplate(templateName || 'Standard Template');
+          fetchCommentTemplate(commentTemplate || 'Standard Template');
         }
 
         if (data.isAnonymous || false) {
@@ -638,7 +638,7 @@ export default function CommentScreen({
   };
 
   const convertPostData = (passedPostData: PostData) => {
-    templateName = passedPostData.CommentTemplate || 'Standard Template';
+    commentTemplate = passedPostData.CommentTemplate || 'Standard Template';
     setPostDataState({
       id: passedPostData.id,
       AuthorImageURL: passedPostData.AuthorImageURL || '',
@@ -656,15 +656,15 @@ export default function CommentScreen({
       postType: postType || '',
       Liked: passedPostData.Liked || false,
       Reposted: passedPostData.Reposted || false,
-      CommentTemplate: templateName,
+      CommentTemplate: commentTemplate,
       isAnonymous: passedPostData.isAnonymous || false,
       contentType: passedPostData.contentType || 'My Thoughts'
 
     });
-    if (templateName == 'Standard Template') {
+    if (commentTemplate == 'Standard Template') {
       createTemplate([], passedPostData.ContentDesc);
     } else {
-      fetchCommentTemplate(templateName || 'Standard Template');
+      fetchCommentTemplate(commentTemplate || 'Standard Template');
     }
 
     if (passedPostData.isAnonymous || false) {
@@ -716,7 +716,7 @@ export default function CommentScreen({
     }
   };
 
-  // **NEW: Separated post creation**
+  // **NEW: Template creation**
   const createTemplate = async (uploadedUrls: string[], postText: string) => {
     setaddRespLoading(true);
     try {
@@ -737,18 +737,18 @@ export default function CommentScreen({
         );
         const templateResponse: TemplateResponseType = await response.json();
         if (templateResponse?.success) {
-          templateName = templateResponse.templateName || "Standard Template";
+          commentTemplate = templateResponse.templateName || "Standard Template";
         }
 
         // Save post to Firestore
         const commentRef = doc(db, "SentinelPosts", postId);
         await updateDoc(commentRef, {
-          CommentTemplate: templateName,
+          CommentTemplate: commentTemplate,
         });
     
-        console.log("📝 Using comment template:", templateName);
+        console.log("📝 Using comment template:", commentTemplate);
 
-        fetchCommentTemplate(templateName || 'Standard Template');
+        fetchCommentTemplate(commentTemplate || 'Standard Template');
 
       } catch (error) {
         console.error("❌ Error generating comment template:", error);
@@ -1183,7 +1183,7 @@ const confirmDeleteComment = async () => {
       closeFullScreenImage();
       closeFullScreenVideo();
     }
-  }, [visible, postId, postType, postData]);
+  }, [visible, postId, postType, postData, commentTemplate]);
 
   return (
     <>
