@@ -91,6 +91,11 @@ interface PostItem {
     flagged?: boolean;
     violations?: string[];
   };
+isReported?: boolean;
+  reportedAt?: any;
+  reportReasons?: string[];
+  reportedBy?: string[];
+  moderationStatus?: string;
 }
 
 interface MediaCarouselProps {
@@ -992,29 +997,149 @@ export default function SentinelFeed(): React.JSX.Element {
   const [unsubscribers, setUnsubscribers] = useState<(() => void)[]>([]);
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [postToDelete, setPostToDelete] = useState<string | null>(null);
+  
+  const [isReportModalVisible, setIsReportModalVisible] = useState(false);
+  const [reportPostId, setReportPostId] = useState<string | null>(null);
+  const [selectedReportReasons, setSelectedReportReasons] = useState<string[]>([]);
 
-  const openUserProfile = (item: PostItem) => {
-    const authorId = item.AuthorUserID || item.repostedBy; // choose what you consider profile id
-    if (!authorId) return;
+    const reportReasons = [
+    'Spam or misleading content',
+    'Harassment or bullying',
+    'Hate speech or discrimination',
+    'Violence or dangerous content',
+    'False information',
+    'Inappropriate content',
+    'Copyright violation',
+    'Other'
+    ];
+    const closeReportModal = useCallback(() => {
+      setIsReportModalVisible(false);
+      setReportPostId(null);
+      setSelectedReportReasons([]);
+    }, []);
 
-    router.push({
-      pathname: "/profile/[userId]",
-      params: {
-        userId: authorId || '12345',                 // item.AuthorUserID
-        authorName: item.AuthorName || 'Anonymous',      // from post
-        authorImageUrl: item.AuthorImageURL || '', // from post
-        isAnonymous: item.isAnonymous ? 'true' : 'false', // ✅ ADD THIS LINE
-        userBio: item.AuthorBio || '',  // ✅ ADD THIS LINE
+    const toggleReportReason = useCallback((reason: string) => {
+      setSelectedReportReasons(prev => {
+        if (prev.includes(reason)) {
+          return prev.filter(r => r !== reason);
+        } else {
+          return [...prev, reason];
+        }
+      });
+    }, []);
 
-      },
+      const handleReportSubmit = useCallback(async () => {
+  if (selectedReportReasons.length === 0 || !reportPostId) {
+    Toast.show({
+      type: "error",
+      text1: "Selection Required",
+      text2: "Please select at least one reason for reporting.",
+      position: "bottom",
+      visibilityTime: 3000,
     });
-  }; 
+    return;
+  }
 
-  // UPDATED: Create video player for fullscreen modal
-  const fullScreenVideoPlayer = useVideoPlayer(fullScreenVideo || '', (player) => {
-    player.loop = false;
-    player.play();
-  });
+  try {
+    const postRef = doc(db, "SentinelPosts", reportPostId);
+    
+    // ✅ CHECK IF USER ALREADY REPORTED THIS POST
+    const currentPost = fetchedData.find((item) => item.id === reportPostId);
+    if (currentPost?.reportedBy?.includes(userId)) {
+      Toast.show({
+        type: "info",
+        text1: "Already Reported",
+        text2: "You have already reported this post.",
+        position: "bottom",
+        visibilityTime: 3000,
+      });
+      closeReportModal();
+      return;
+    }
+
+    // Update the post with report flag and details
+    await updateDoc(postRef, {
+      isReported: true,
+      reportedAt: new Date(),
+      reportReasons: arrayUnion(...selectedReportReasons),
+      reportedBy: arrayUnion(userId),
+      isNew: true,
+      isApproved: false,
+      moderationStatus: "pending-review",
+    });
+
+    // Update local state...
+    setFetchedData((prevData) =>
+      prevData.map((item) =>
+        item.id === reportPostId
+          ? {
+              ...item,
+              isReported: true,
+              reportedAt: new Date(),
+              reportReasons: [
+                ...(item.reportReasons || []),
+                ...selectedReportReasons,
+              ],
+              reportedBy: [...(item.reportedBy || []), userId],
+              isNew: true,
+              isApproved: false,
+              moderationStatus: "pending-review",
+            }
+          : item
+      )
+    );
+
+    closeReportModal();
+
+    Toast.show({
+      type: "success",
+      text1: "Report Submitted",
+      text2: "Thank you for helping keep our community safe.",
+      position: "bottom",
+      visibilityTime: 3000,
+    });
+
+    console.log("Post reported successfully:", reportPostId);
+    console.log("Report reasons:", selectedReportReasons);
+    console.log("Reported by:", userId);
+  } catch (error) {
+    console.error("Error reporting post:", error);
+    Toast.show({
+      type: "error",
+      text1: "Report Failed",
+      text2: "Failed to submit report. Please try again.",
+      position: "bottom",
+      visibilityTime: 3000,
+    });
+  }
+      }, [selectedReportReasons, reportPostId, userId, closeReportModal, fetchedData]);
+
+
+
+
+
+      const openUserProfile = (item: PostItem) => {
+        const authorId = item.AuthorUserID || item.repostedBy; // choose what you consider profile id
+        if (!authorId) return;
+
+        router.push({
+          pathname: "/profile/[userId]",
+          params: {
+            userId: authorId || '12345',                 // item.AuthorUserID
+            authorName: item.AuthorName || 'Anonymous',      // from post
+            authorImageUrl: item.AuthorImageURL || '', // from post
+            isAnonymous: item.isAnonymous ? 'true' : 'false', // ✅ ADD THIS LINE
+            userBio: item.AuthorBio || '',  // ✅ ADD THIS LINE
+
+          },
+        });
+      }; 
+
+      // UPDATED: Create video player for fullscreen modal
+      const fullScreenVideoPlayer = useVideoPlayer(fullScreenVideo || '', (player) => {
+        player.loop = false;
+        player.play();
+      });
 
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
 
@@ -1519,6 +1644,11 @@ export default function SentinelFeed(): React.JSX.Element {
             contentType: postData.contentType || 'My Thoughts',
             isEducational: postData.isEducational || false,
             moderationData: postData.moderationData || null,
+            isReported: postData.isReported || false,
+            reportedAt: postData.reportedAt || null,
+            reportReasons: postData.reportReasons || [],
+            reportedBy: postData.reportedBy || [],
+            moderationStatus: postData.moderationStatus || "",
 
           });
         }
@@ -1625,6 +1755,11 @@ export default function SentinelFeed(): React.JSX.Element {
             contentType: postData.contentType || 'My Thoughts',
             isEducational: postData.isEducational || false,
             moderationData: postData.moderationData || null,
+            isReported: postData.isReported || false,
+            reportedAt: postData.reportedAt || null,
+            reportReasons: postData.reportReasons || [],
+            reportedBy: postData.reportedBy || [],
+            moderationStatus: postData.moderationStatus || "",
 
           });
         }
@@ -2329,7 +2464,7 @@ export default function SentinelFeed(): React.JSX.Element {
   }, [isFlipped, isFlipping]);
 
   //Post options
-  const handleThreeDotsPress = (item: PostItem, event: any) => {
+    const handleThreeDotsPress = (item: PostItem, event: any) => {
     const { pageX, pageY } = event.nativeEvent;
     setSelectedPostId(item.id);
     setMenuPosition({ x: pageX - 120, y: pageY + 10 });
@@ -2376,39 +2511,96 @@ export default function SentinelFeed(): React.JSX.Element {
     };
 
   // APPROVAL TOGGLE WITH TOAST
-  const handleApprovalToggle = useCallback(async (postId: string, newApprovedStatus: boolean, newIsNew: boolean = false, postUserID: string) => {
-    console.log("Toggling post:", postId, "to approved:", newApprovedStatus, "isNew:", newIsNew);
+  const handleApprovalToggle = useCallback(
+  async (
+    postId: string,
+    newApprovedStatus: boolean,
+    newIsNew: boolean = false,
+    postUserID: string
+  ) => {
+    console.log("Toggling post", postId, "to approved:", newApprovedStatus, "isNew:", newIsNew);
 
-    setFetchedData(prevData => 
-      prevData.map(item => 
-        item.id === postId 
-          ? { ...item, isApproved: newApprovedStatus, isNew: newIsNew }
+    // Update local state immediately
+    setFetchedData((prevData) =>
+      prevData.map((item) =>
+        item.id === postId
+          ? {
+              ...item,
+              isApproved: newApprovedStatus,
+              isNew: newIsNew,
+              // ✅ CLEAR REPORT DATA WHEN APPROVED
+              ...(newApprovedStatus && !newIsNew
+                ? {
+                    isReported: false,
+                    reportedAt: null,
+                    reportReasons: [],
+                    reportedBy: [],
+                    moderationStatus: "approved",
+                  }
+                : {}),
+            }
           : item
       )
     );
 
     if (fullScreenCard && fullScreenCard.id === postId) {
-      setFullScreenCard((prev: PostItem | null) => 
-        prev ? { ...prev, isApproved: newApprovedStatus, isNew: newIsNew } : null
+      setFullScreenCard((prev: PostItem | null) =>
+        prev
+          ? {
+              ...prev,
+              isApproved: newApprovedStatus,
+              isNew: newIsNew,
+              // ✅ CLEAR REPORT DATA WHEN APPROVED
+              ...(newApprovedStatus && !newIsNew
+                ? {
+                    isReported: false,
+                    reportedAt: null,
+                    reportReasons: [],
+                    reportedBy: [],
+                    moderationStatus: "approved",
+                  }
+                : {}),
+            }
+          : null
       );
     }
 
     try {
-      await updateDoc(doc(db, 'SentinelPosts', postId), {
-        isApproved: newApprovedStatus,
-        isNew: newIsNew,
-      });
+      // ✅ UPDATE FIREBASE - CLEAR REPORT DATA WHEN APPROVED
+      if (newApprovedStatus && !newIsNew) {
+        // Post is being APPROVED - clear all report data
+        await updateDoc(doc(db, "SentinelPosts", postId), {
+          isApproved: newApprovedStatus,
+          isNew: newIsNew,
+          // ✅ Clear report fields
+          isReported: false,
+          reportedAt: null,
+          reportReasons: [],
+          reportedBy: [],
+          moderationStatus: "approved",
+        });
+
+        console.log("✅ Post approved and report data cleared");
+      } else {
+        // Post is being REJECTED or set to pending - keep report data
+        await updateDoc(doc(db, "SentinelPosts", postId), {
+          isApproved: newApprovedStatus,
+          isNew: newIsNew,
+        });
+      }
+
       console.log("Post status updated successfully");
-      
-      let postDocID = '';
-      for (const docUserID of notificationDetails){
-        console.log('PostAuthorUserID: ', postUserID);
-        console.log('doc PostAuthorUserID: ', docUserID.userID);
-        if (docUserID.userID == postUserID) {
+
+      // Find user doc for notifications
+      let postDocID = "";
+      for (const docUserID of notificationDetails) {
+        console.log("PostAuthorUserID ", postUserID);
+        console.log("doc PostAuthorUserID ", docUserID.userID);
+        if (docUserID.userID === postUserID) {
           postDocID = docUserID.docID;
           setPostUserDocId(docUserID.docID);
           setPostUserIdNotify(postUserID);
-          // setPostUserDeviceToken(doc.docDeviceToken);
+          setPostUserDeviceToken(docUserID.docDeviceToken || "");
           break;
         }
       }
@@ -2416,86 +2608,104 @@ export default function SentinelFeed(): React.JSX.Element {
       // Show toast for approval
       if (newApprovedStatus && !newIsNew) {
         Toast.show({
-          type: 'success',
-          text1: 'Post Approved',
-          text2: 'Post has been approved and is now visible to users!',
-          position: 'bottom',
+          type: "success",
+          text1: "Post Approved",
+          text2: "Post has been approved and report cleared!",
+          position: "bottom",
           visibilityTime: 3000,
         });
 
-        let tempFound=false;
-        // for (const docNoti of notificationDetails){
-          // if (docNoti.userID == postUserID) {
-          if (postDocID != '') {
-            tempFound = true;
-            setPostUserDocId(postDocID);
-            setPostUserIdNotify(postUserID);
+        // Send notification to post author
+        let tempFound = false;
+        for (const docNoti of notificationDetails) {
+          if (docNoti.userID === postUserID) {
+            if (postDocID !== "") {
+              tempFound = true;
+              setPostUserDocId(postDocID);
+              setPostUserIdNotify(postUserID);
 
-            //Create Notification
-            const userRef = doc(db, "SentinelUsers", postDocID);
-            await updateDoc(userRef, {
-            Notification: arrayUnion({
-              AuthorImageURL: "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
-              AuthorName: 'Admin',
-              AuthorUserID: await AsyncStorage.getItem('userId'),
-              ContentDate: new Date(),
-              Description: 'Great news! Your recent post has been approved and is now live.',
-              NotifyType: 'post_approved',
-              ShowButtons: false,
-              Status: 'approved',
-              isRead: false,
-            }),
-          });
-          console.log(`✅ Approved post`);
+              // Create Notification
+              const userRef = doc(db, "SentinelUsers", postDocID);
+              await updateDoc(userRef, {
+                Notification: arrayUnion({
+                  AuthorImageURL:
+                    "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+                  AuthorName: "Admin",
+                  AuthorUserID: await AsyncStorage.getItem("userId"),
+                  ContentDate: new Date(),
+                  Description: "Great news! Your recent post has been approved and is now live.",
+                  NotifyType: "postapproved",
+                  ShowButtons: false,
+                  Status: "approved",
+                  isRead: false,
+                }),
+              });
+              console.log("Approved post notification sent");
+            }
           }
-        // }
-  
-        // Create Notification
-        if (!tempFound) {
-          // Create new document if it doesn't exist
-          await addDoc(collection(db, 'SentinelUsers'), {
-            userID: postUserID,
-            Notification: [{
-              AuthorImageURL: "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
-              AuthorName: 'Admin',
-              AuthorUserID: await AsyncStorage.getItem('userId'),
-              ContentDate: new Date(),
-              Description: 'Great news! Your recent post has been approved and is now live.',
-              NotifyType: 'post_approved',
-              ShowButtons: false,
-              Status: 'approved',
-              isRead: false,
-            }],
-          });
-          console.log(`✅ Created new user document and notification`);
         }
 
+        if (!tempFound) {
+          // Create new document if it doesn't exist
+          await addDoc(collection(db, "SentinelUsers"), {
+            userID: postUserID,
+            Notification: [
+              {
+                AuthorImageURL:
+                  "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+                AuthorName: "Admin",
+                AuthorUserID: await AsyncStorage.getItem("userId"),
+                ContentDate: new Date(),
+                Description: "Great news! Your recent post has been approved and is now live.",
+                NotifyType: "postapproved",
+                ShowButtons: false,
+                Status: "approved",
+                isRead: false,
+              },
+            ],
+          });
+          console.log("Created new user document and notification");
+        }
       }
-      
     } catch (error) {
       console.error("Error updating post status:", error);
       Toast.show({
-        type: 'error',
-        text1: 'Update Failed',
-        text2: 'Failed to update post status. Please try again.',
-        position: 'bottom',
+        type: "error",
+        text1: "Update Failed",
+        text2: "Failed to update post status. Please try again.",
+        position: "bottom",
         visibilityTime: 3000,
       });
-      
-      setFetchedData(prevData => 
-        prevData.map(item => 
-          item.id === postId 
-            ? { ...item, isApproved: !newApprovedStatus, isNew: !newIsNew }
+
+      // Revert state on error
+      setFetchedData((prevData) =>
+        prevData.map((item) =>
+          item.id === postId
+            ? {
+                ...item,
+                isApproved: !newApprovedStatus,
+                isNew: !newIsNew,
+              }
             : item
         )
       );
+
       if (fullScreenCard && fullScreenCard.id === postId) {
-        setFullScreenCard((prev: PostItem | null) => 
-          prev ? { ...prev, isApproved: !newApprovedStatus, isNew: !newIsNew } : null
+        setFullScreenCard((prev: PostItem | null) =>
+          prev
+            ? {
+                ...prev,
+                isApproved: !newApprovedStatus,
+                isNew: !newIsNew,
+              }
+            : null
         );
       }
     }
-  }, [fullScreenCard]);
+  },
+  [fullScreenCard, notificationDetails]
+);
+
 
   const toggleLike = useCallback(async (postItem: PostItem) => {
   if (areInteractionsDisabled(postItem)) {
@@ -3419,6 +3629,42 @@ export default function SentinelFeed(): React.JSX.Element {
         activeOpacity={0.95}
         onPress={() => openCommentsModal(item)}
       >
+        {/* ✅ REPORTED POST BADGE - VISIBLE TO ADMINS */}
+       {/* ✅ REPORTED POST BADGE - TOP RIGHT */}
+        {userRole !== "User" &&
+        item.isReported === true &&
+      item.reportedBy &&
+      item.reportedBy.length > 0 &&
+      !(item.isApproved === true && item.isNew === false) && (
+        <View
+          style={{
+            position: "absolute",
+            top: 8,
+            right: 8,
+            zIndex: 10,
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: "#EF4444",
+            paddingHorizontal: 10,
+            paddingVertical: 6,
+            borderRadius: 20,
+          }}
+        >
+          <Ionicons name="flag" size={14} color="white" />
+          <Text
+            style={{
+              color: "white",
+              fontSize: 12,
+              fontWeight: "bold",
+              marginLeft: 4,
+            }}
+          >
+            Reported
+          </Text>
+        </View>
+      )}
+
+
         <EnhancedCard postId={item.uniqueId}>
           <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
             <View className="flex-row items-center">
@@ -3464,12 +3710,15 @@ export default function SentinelFeed(): React.JSX.Element {
               </View>
               
               <Text className="text-gray-500 text-xs mr-5">{getTimeAgo(item.ContentDate)}</Text>
-              {item.AuthorUserID === userId && (
+              {/* {item.AuthorUserID === userId && ( */}
                 <TouchableOpacity className="p-1.5 rounded-full bg-gray-100"
-                onPress={(event) => handleThreeDotsPress(item, event)}>
+                onPress={(event) => handleThreeDotsPress(item, event)}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
                 <Ionicons name="ellipsis-horizontal" size={12} color="#64748b" />
               </TouchableOpacity>
-              )}
+              {/* )} */}
             </View>
           </View>
   
@@ -3591,7 +3840,7 @@ export default function SentinelFeed(): React.JSX.Element {
 
             </View>
 
-            {userRole !== "User" && item.postType === "SentinelPosts" && (
+            {userRole !== "User" && (
               <TouchableOpacity
                 onPress={(e) => e.stopPropagation()}
                 activeOpacity={1}
@@ -3682,6 +3931,56 @@ export default function SentinelFeed(): React.JSX.Element {
 
               </TouchableOpacity>
             )}
+            {/* ✅ REPORTED POST BADGE (Show for Admins only) */}
+           {/* ✅ REPORT DETAILS SECTION */}
+          {userRole !== "User" &&
+          item.isReported === true &&
+          item.reportedBy &&
+          item.reportedBy.length > 0 &&
+          !(item.isApproved === true && item.isNew === false) && (
+            <View className="mx-3 mb-3 mt-3 px-3 py-3 bg-red-50 border border-red-200 rounded-lg">
+              <View className="flex-row items-center justify-between mb-2">
+                <View className="flex-row items-center">
+                  <Ionicons name="flag" size={16} color="#EF4444" />
+                  <Text className="text-red-600 text-sm font-bold ml-2">
+                    Reported by {item.reportedBy.length} user(s)
+                  </Text>
+                </View>
+
+                {item.reportReasons && item.reportReasons.length > 0 && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      const reasonsList = item.reportReasons
+                        ?.map((reason: string, idx: number) => `${idx + 1}. ${reason}`)
+                        .join("\n");
+                      Toast.show({
+                        type: "info",
+                        text1: "Report Reasons",
+                        text2: reasonsList,
+                        position: "bottom",
+                        visibilityTime: 5000,
+                      });
+                    }}
+                    className="px-3 py-1.5 bg-red-100 rounded-md"
+                  >
+                    <Text className="text-red-600 text-xs font-semibold">
+                      View Reasons ({item.reportReasons.length})
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {item.reportedAt && (
+                <Text className="text-red-500 text-xs">
+                  Reported {getTimeAgo(item.reportedAt)}
+                </Text>
+              )}
+            </View>
+          )}
+
+            
+
+
             {userRole !== "User" && (
               <TouchableOpacity
                 onPress={(e) => e.stopPropagation()}
@@ -4285,6 +4584,102 @@ export default function SentinelFeed(): React.JSX.Element {
           </View>
         </View>
       </Modal>
+      
+      
+        {/* Report Modal */}
+        {isReportModalVisible && (
+          <Modal
+            visible={isReportModalVisible}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={closeReportModal}
+          >
+            <View className="flex-1 bg-black/50 justify-end">
+              <KeyboardAvoidingView 
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                className="bg-white rounded-t-3xl max-h-[80%]"
+              >
+                {/* Header */}
+                <View className="px-6 pt-6 pb-4 border-b border-gray-200">
+                  <View className="flex-row items-center justify-between">
+                    <Text className="text-2xl font-bold text-gray-900">Report Post</Text>
+                    <TouchableOpacity
+                      onPress={closeReportModal}
+                      className="p-2 rounded-full bg-gray-100"
+                    >
+                      <Ionicons name="close" size={22} color="#64748b" />
+                    </TouchableOpacity>
+                  </View>
+                  <Text className="text-gray-600 text-sm mt-2">
+                    Help us understand the problem with this post
+                  </Text>
+                </View>
+
+                {/* Reasons List */}
+                <ScrollView className="px-6 py-4" showsVerticalScrollIndicator={false}>
+                  {reportReasons.map((reason, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      onPress={() => toggleReportReason(reason)}
+                      className={`flex-row items-center p-4 mb-3 rounded-xl border-2 ${
+                        selectedReportReasons.includes(reason)
+                          ? 'border-orange-500 bg-orange-50'
+                          : 'border-gray-200 bg-white'
+                      }`}
+                      activeOpacity={0.7}
+                    >
+                      <View
+                        className={`w-6 h-6 rounded-full border-2 items-center justify-center mr-3 ${
+                          selectedReportReasons.includes(reason)
+                            ? 'border-orange-500 bg-orange-500'
+                            : 'border-gray-300 bg-white'
+                        }`}
+                      >
+                        {selectedReportReasons.includes(reason) && (
+                          <Ionicons name="checkmark" size={16} color="white" />
+                        )}
+                      </View>
+                      <Text
+                        className={`flex-1 text-sm ${
+                          selectedReportReasons.includes(reason)
+                            ? 'text-orange-600 font-semibold'
+                            : 'text-gray-700 font-medium'
+                        }`}
+                      >
+                        {reason}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+
+                {/* Submit Button */}
+                <View className="px-6 py-4 border-t border-gray-200">
+                  <TouchableOpacity
+                    onPress={handleReportSubmit}
+                    className={`py-4 rounded-xl items-center ${
+                      selectedReportReasons.length > 0
+                        ? 'bg-orange-500'
+                        : 'bg-gray-300'
+                    }`}
+                    disabled={selectedReportReasons.length === 0}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      className={`text-base font-semibold ${
+                        selectedReportReasons.length > 0
+                          ? 'text-white'
+                          : 'text-gray-500'
+                      }`}
+                    >
+                      Submit Report
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </KeyboardAvoidingView>
+            </View>
+          </Modal>
+        )}
+
 
       {/* REJECTION MODAL */}
       <Modal
@@ -4501,59 +4896,80 @@ export default function SentinelFeed(): React.JSX.Element {
       />
 
       {/* Three Dots Menu Modal */}
-      {showMenuModal && (
-            <Modal
-              visible={showMenuModal}
-              transparent={true}
-              animationType="fade"
-              onRequestClose={() => setShowMenuModal(false)}
+        {showMenuModal && (
+          <Modal
+            visible={showMenuModal}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={() => setShowMenuModal(false)}
+          >
+            <TouchableOpacity 
+              style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+              activeOpacity={1}
+              onPress={() => setShowMenuModal(false)}
             >
-              <TouchableOpacity 
-                style={{ 
-                  flex: 1, 
-                  backgroundColor: 'rgba(0, 0, 0, 0.3)'
-                }}
-                activeOpacity={1}
-                onPress={() => setShowMenuModal(false)}
-              >
-                <View style={{
-                  position: 'absolute',
-                  top: menuPosition.y,
-                  left: menuPosition.x,
-                  backgroundColor: '#fff',
-                  borderRadius: 8,
-                  paddingVertical: 4,
-                  minWidth: 140,
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 8,
-                  elevation: 8,
-                }}>
-                  {/* <TouchableOpacity
-                    onPress={() => {
-                      // const comment = comments.find(c => c.id === selectedCommentId);
-                      // if (comment) handleEditComment(comment);
-                      if(userExistingComment) handleEditComment(userExistingComment);
-                    }}
-                    style={{
-                      paddingHorizontal: 16,
-                      paddingVertical: 12,
-                      flexDirection: 'row',
-                      alignItems: 'center'
-                    }}
-                  >
-                    <Ionicons name="pencil" size={16} color="#007AFF" />
-                    <Text style={{ marginLeft: 10, fontSize: 14, color: '#007AFF' }}>
-                      Edit
-                    </Text>
-                  </TouchableOpacity> */}
-                  
-                  <View style={{ height: 0.5, backgroundColor: '#e5e5e5', marginHorizontal: 8 }} />
-                  
+              <View style={{
+                position: 'absolute',
+                top: menuPosition.y,
+                right: 16, // ✅ Fixed to right edge
+                backgroundColor: '#fff',
+                borderRadius: 12,
+                paddingVertical: 8,
+                minWidth: 180,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 12,
+                elevation: 10,
+              }}>
+                {/* Report Option - FOR ALL USERS */}
+                {fetchedData.find((post) => post.id === selectedPostId)?.AuthorUserID !==
+                userId && (
+                <TouchableOpacity
+                  onPress={() => {
+                    if (selectedPostId) {
+                      setReportPostId(selectedPostId);
+                      setShowMenuModal(false);
+                      setIsReportModalVisible(true);
+                    }
+                  }}
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    flexDirection: 'row',
+                    alignItems: 'center'
+                  }}
+                >
+                  <Ionicons name="flag" size={18} color="#FF9500" />
+                  <Text style={{ 
+                    marginLeft: 12, 
+                    fontSize: 15, 
+                    color: '#FF9500', 
+                    fontWeight: '600' 
+                  }}>
+                    Report
+                  </Text>
+                </TouchableOpacity>
+                )}
+                
+                {/* Divider - Only if user owns post */}
+                {fetchedData.find(post => post.id === selectedPostId)?.AuthorUserID === userId && (
+                  <View style={{ 
+                    height: 1, 
+                    backgroundColor: '#e5e5e5', 
+                    marginHorizontal: 12,
+                    marginVertical: 4 
+                  }} />
+                )}
+                
+                {/* Delete Option - ONLY FOR POST OWNER */}
+                {fetchedData.find(post => post.id === selectedPostId)?.AuthorUserID === userId && (
                   <TouchableOpacity
                     onPress={() => {
-                      if (selectedPostId) handleDeletePost(selectedPostId);
+                      if (selectedPostId) {
+                        setShowMenuModal(false);
+                        handleDeletePost(selectedPostId);
+                      }
                     }}
                     style={{
                       paddingHorizontal: 16,
@@ -4562,15 +4978,23 @@ export default function SentinelFeed(): React.JSX.Element {
                       alignItems: 'center'
                     }}
                   >
-                    <Ionicons name="trash" size={16} color="#FF3B30" />
-                    <Text style={{ marginLeft: 10, fontSize: 14, color: '#FF3B30' }}>
+                    <Ionicons name="trash" size={18} color="#FF3B30" />
+                    <Text style={{ 
+                      marginLeft: 12, 
+                      fontSize: 15, 
+                      color: '#FF3B30', 
+                      fontWeight: '600' 
+                    }}>
                       Delete
                     </Text>
                   </TouchableOpacity>
-                </View>
-              </TouchableOpacity>
-            </Modal>
-          )}
+                )}
+              </View>
+            </TouchableOpacity>
+          </Modal>
+        )}
+
+
      
     </SafeAreaView>
   );

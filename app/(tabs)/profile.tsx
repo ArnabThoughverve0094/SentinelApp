@@ -1475,6 +1475,58 @@ const loadProfileData = async () => {
       };
     }
   };
+      const handleDeleteAccount = async () => {
+      setShowAccountModal(false);
+      
+      showCustomAlert(
+        'warning',
+        'Delete Account',
+        'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed.',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+            onPress: () => {
+              hideModal();
+            }
+          },
+          {
+            text: 'Continue',
+            style: 'destructive',
+            onPress: async () => {
+              hideModal();
+              try {
+                // Open the delete data URL
+                const url = 'https://ironex.app/delete-your-data';
+                const supported = await Linking.canOpenURL(url);
+                
+                if (supported) {
+                  await Linking.openURL(url);
+                } else {
+                  Toast.show({
+                    type: 'error',
+                    text1: 'Error',
+                    text2: 'Unable to open the URL',
+                    position: 'bottom',
+                    visibilityTime: 2000,
+                  });
+                }
+              } catch (error) {
+                console.error('Error opening delete account URL:', error);
+                Toast.show({
+                  type: 'error',
+                  text1: 'Error',
+                  text2: 'Failed to open delete account page',
+                  position: 'bottom',
+                  visibilityTime: 2000,
+                });
+              }
+            }
+          }
+        ]
+      );
+    };
+
 
 
 
@@ -3846,6 +3898,18 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
                   <Text className="flex-1 text-gray-900 font-medium">F A Q</Text>
                   <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
                 </TouchableOpacity>
+                {/* Delete/Deactivate Account Option */}
+                <TouchableOpacity 
+                  onPress={handleDeleteAccount}
+                  className="flex-row items-center p-4 rounded-xl active:bg-gray-50"
+                >
+                  <View className="w-10 h-10 bg-red-100 rounded-full items-center justify-center mr-4">
+                    <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                  </View>
+                  <Text className="flex-1 text-gray-900 font-medium">Delete Account</Text>
+                  <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+                </TouchableOpacity>
+
                 {/* Divider */}
                 <View className="h-px bg-gray-200 my-2" />
                 {/* Logout Button */}
