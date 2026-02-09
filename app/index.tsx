@@ -1,20 +1,19 @@
 //app/index.tsx
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
-import { useEffect, useState, useRef } from 'react';
-import { 
-  ActivityIndicator, 
-  Text, 
-  View, 
-  Image, 
-  TouchableOpacity,
-  StatusBar,
-  Dimensions,
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRouter } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+import {
   Animated,
+  Dimensions,
+  Image,
+  StatusBar,
   StyleSheet,
-} from 'react-native';
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
-const { width, height } = Dimensions.get('window');
+const { width, height } = Dimensions.get("window");
 
 export default function Index() {
   const router = useRouter();
@@ -56,23 +55,23 @@ export default function Index() {
   const checkAuthStatus = async () => {
     try {
       const [userToken, tokenExpiry] = await AsyncStorage.multiGet([
-        'userToken',
-        'tokenExpiry',
+        "userToken",
+        "tokenExpiry",
       ]);
 
       const token = userToken[1];
       const expiry = tokenExpiry[1];
 
       if (token) {
-        console.log('Valid session found, redirecting to tabs');
-        router.replace('/(tabs)');
+        console.log("Valid session found, redirecting to tabs");
+        router.replace("/(tabs)");
       } else {
-        console.log('No valid session, redirecting to auth');
-        router.replace('/(auth)');
+        console.log("No valid session, redirecting to auth");
+        router.replace("/(auth)");
       }
     } catch (error) {
-      console.error('Error checking auth status:', error);
-      router.replace('/(auth)');
+      console.error("Error checking auth status:", error);
+      router.replace("/(auth)");
     } finally {
       setIsLoading(false);
     }
@@ -83,7 +82,7 @@ export default function Index() {
     return (
       <View style={styles.splashContainer}>
         <StatusBar barStyle="dark-content" backgroundColor="#F5F5F5" />
-        
+
         <View style={styles.splashContent}>
           {/* Logo Section - Centered */}
           <Animated.View
@@ -96,7 +95,7 @@ export default function Index() {
             ]}
           >
             <Image
-              source={require('../assets/images/ironex-logo.png')}
+              source={require("../assets/images/ironex-logo.png")}
               style={styles.logo}
               resizeMode="contain"
             />
@@ -104,10 +103,7 @@ export default function Index() {
 
           {/* Begin Button - Bottom */}
           <Animated.View
-            style={[
-              styles.buttonContainer,
-              { opacity: fadeAnim },
-            ]}
+            style={[styles.buttonContainer, { opacity: fadeAnim }]}
           >
             <TouchableOpacity
               onPress={handleBegin}
@@ -123,62 +119,62 @@ export default function Index() {
   }
 
   // Show Loading Screen while checking auth
-  if (isLoading) {
-    return (
-      <View className="flex-1 bg-violet-500 items-center justify-center">
-        <ActivityIndicator size="large" color="white" />
-        <Text className="text-white text-lg mt-4 font-semibold">IronEx</Text>
-        <Text className="text-white text-sm mt-2">Loading your experience...</Text>
-      </View>
-    );
-  }
+  // if (isLoading) {
+  // return (
+  // <View className="flex-1 bg-violet-500 items-center justify-center">
+  //   <ActivityIndicator size="large" color="white" />
+  //   <Text className="text-white text-lg mt-4 font-semibold">IronEx</Text>
+  //   <Text className="text-white text-sm mt-2">Loading your experience...</Text>
+  // </View>
+  // );
+  // }
 
   // This will never show because of router.replace() calls above
-  return null;
+  // return null;
 }
 
 const styles = StyleSheet.create({
   splashContainer: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: "#F5F5F5",
   },
   splashContent: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 24,
   },
   logoContainer: {
-    position: 'absolute',
+    position: "absolute",
     top: height * 0.42,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   logo: {
     width: 186,
     height: 31.5,
   },
   buttonContainer: {
-    position: 'absolute',
+    position: "absolute",
     bottom: height * 0.18,
-    alignItems: 'center',
+    alignItems: "center",
   },
   beginButton: {
-    backgroundColor: '#000',
+    backgroundColor: "#000",
     borderRadius: 8,
     width: 150,
     height: 47,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
     elevation: 4,
   },
   beginButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });

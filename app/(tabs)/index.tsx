@@ -3189,8 +3189,7 @@ export default function SentinelFeed(): React.JSX.Element {
           item.isApproved && 
           !item.isNew && 
           item.contentType !== "Educational" && 
-          !item.isEducational &&
-          !item.postType.includes("X-Data")
+          !item.isEducational
         );
       } else {
         return item.contentType !== "Educational" && !item.isEducational;

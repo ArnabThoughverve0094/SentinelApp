@@ -1,6 +1,5 @@
 // app/profile/[userId].tsx
 import { db } from "@/FirebaseConfig";
-import * as Sharing from "expo-sharing";
 import CommentsModal from "@/components/CommentsModal";
 import TotalSentiment from "@/components/TotalSentiment";
 import Feather from "@expo/vector-icons/Feather";
@@ -8,6 +7,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import * as Sharing from "expo-sharing";
 import {
   DocumentData,
   QuerySnapshot,
@@ -42,8 +42,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from "react-native-toast-message";
 
 const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
-const dummyHeaderImage =
-  "https://images.pexels.com/photos/674010/pexels-photo-674010.jpeg";
+const dummyHeaderImage = require('../../assets/images/user-background.png');
 
 interface UserDoc {
   userID?: string;
@@ -1454,9 +1453,9 @@ export default function UserProfileScreen() {
                 <Text className="text-gray-500 text-xs">{getTimeAgo(item.ContentDate)}</Text>
               </View>
 
-              <View className="px-2 py-1 rounded-full bg-green-100">
+              {/* <View className="px-2 py-1 rounded-full bg-green-100">
                 <Text className="text-xs font-semibold text-green-600">APPROVED</Text>
-              </View>
+              </View> */}
             </View>
           </View>
 
@@ -1590,7 +1589,7 @@ export default function UserProfileScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
       <View className="flex-1 bg-black">
       <View className="h-40 bg-gray-900">
-        <Image source={{ uri: dummyHeaderImage }} className="w-full h-full" resizeMode="cover" />
+        <Image source={dummyHeaderImage} className="w-full h-full" resizeMode="cover" />
       </View>
 
       <View className="absolute top-10 left-3 z-50">
