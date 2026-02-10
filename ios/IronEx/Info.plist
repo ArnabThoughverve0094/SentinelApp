@@ -91,5 +91,9 @@
     <string>Automatic</string>
     <key>UIViewControllerBasedStatusBarAppearance</key>
     <false/>
+    <key>Privacy - Camera Usage Description</key>
+    <string>Capture photos of receipts to automatically extract expense data and attach them to your monthly reports.</string>
+    <key>Privacy - Photo Library Usage Description</key>
+    <string>Select existing photos of your property to include in your maintenance requests and share them with your landlord.</string>
   </dict>
 </plist>
