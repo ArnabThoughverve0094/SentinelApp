@@ -765,8 +765,9 @@ export default function CommentScreen({
     try {
       const collCommentTempPost = collection(db, 'templates');
       console.log("Comment Template Called");
+      const querycollCommentTempPost = query(collCommentTempPost, where("name", "==", passedCommentTemplate));
 
-      const unsubscribeCommentTemp = onSnapshot(collCommentTempPost, commentTempSnapshot => {
+      const unsubscribeCommentTemp = onSnapshot(querycollCommentTempPost, commentTempSnapshot => {
         const commentTempdataArr = commentTempSnapshot.docs.map(doc => ({
           id: doc.id,
           data: doc.data(),
