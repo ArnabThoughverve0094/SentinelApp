@@ -1005,47 +1005,62 @@ export default function SentinelFeed(): React.JSX.Element {
   const [selectedReportReasons, setSelectedReportReasons] = useState<string[]>([]);
 
   const [viewedPosts, setViewedPosts] = useState<Set<string>>(new Set());
+  const viewTrackingTimeout = useRef<NodeJS.Timeout | number | null>(null);
+  const lastTrackedPost = useRef<string | null>(null);
 
-      const trackPostView = useCallback(async (postId: string, postType: string) => {
-    try {
-      if (!userId) return;
-
-      // ✅ Determine correct collection based on postType
-      const collection = postType === 'X-Data' ? 'X-Data' : 'SentinelPosts';
-      const postRef = doc(db, collection, postId);
-      
-      const postDoc = await getDoc(postRef);
-      
-      if (postDoc.exists()) {
-        const currentViewedBy = postDoc.data().ViewedBy || [];
-        
-        // Only increment if user hasn't viewed before (unique views)
-        if (!currentViewedBy.includes(userId)) {
-          await updateDoc(postRef, {
-            ContentViewCount: increment(1),
-            ViewedBy: arrayUnion(userId)
-          });
-          
-          // ✅ Update local state correctly
-          setFetchedData(prev =>
-            prev.map(p =>
-              p.id === postId
-                ? { 
-                    ...p, 
-                    ContentViewCount: (p.ContentViewCount || 0) + 1,
-                    ViewedBy: [...(p.ViewedBy || []), userId]
-                  }
-                : p
-            )
-          );
-          
-          console.log(`✅ View tracked for ${collection} post: ${postId}`);
-        }
-      }
-    } catch (error) {
-      console.error('Error tracking view:', error);
+  const trackPostView = useCallback(async (postId: string, postType: string) => {
+  try {
+    if (!userId || !postId) {
+      console.log("⚠️ Missing userId or postId for view tracking");
+      return;
     }
-  }, [userId]);
+
+    // Determine correct collection
+    const collectionName = postType === "X-Data" ? "X-Data" : "SentinelPosts";
+    const postRef = doc(db, collectionName, postId);
+
+    // Get current post data
+    const postDoc = await getDoc(postRef);
+    
+    if (!postDoc.exists()) {
+      console.warn(`⚠️ Post ${postId} not found in ${collectionName}`);
+      return;
+    }
+
+    const currentViewedBy = postDoc.data().ViewedBy || [];
+    const currentViewCount = postDoc.data().ContentViewCount || 0;
+
+    // Only increment if user hasn't viewed before (unique views)
+    if (!currentViewedBy.includes(userId)) {
+      await updateDoc(postRef, {
+        ContentViewCount: currentViewCount + 1,
+        ViewedBy: arrayUnion(userId),
+      });
+
+      console.log(`✅ View tracked for ${collectionName} post ${postId}. New count: ${currentViewCount + 1}`);
+
+      // Update local state immediately for UI responsiveness
+      setFetchedData((prev) =>
+        prev.map((p) =>
+          p.id === postId
+            ? {
+                ...p,
+                ContentViewCount: currentViewCount + 1,
+                ViewedBy: [...(p.ViewedBy || []), userId],
+              }
+            : p
+        )
+      );
+
+      // Mark as viewed in local Set
+      setViewedPosts((prev) => new Set(prev).add(postId));
+    } else {
+      console.log(`ℹ️ User already viewed post ${postId}`);
+    }
+  } catch (error) {
+    console.error("❌ Error tracking view:", error);
+  }
+}, [userId]);
 
 
 
@@ -3500,51 +3515,97 @@ export default function SentinelFeed(): React.JSX.Element {
   }, [fetchedData, userRole, activeTab, followingUserIds]);
 
 
-    const handleScroll = useCallback((event: any) => {
-  const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
-  const currentScrollY = contentOffset.y;
-  const viewHeight = layoutMeasurement.height;
-  const viewCenter = currentScrollY + viewHeight / 2; // ✅ ADD THIS LINE
-  
-  // Check if close to bottom for lazy loading
-  const isCloseToBottom = 
-    contentOffset.y + layoutMeasurement.height >= contentSize.height * 0.9;
+    const handleScroll = useCallback(
+      (event: any) => {
+        const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+        const currentScrollY = contentOffset.y;
+        const viewHeight = layoutMeasurement.height;
+        const viewCenter = currentScrollY + viewHeight / 2;
 
-  if (isCloseToBottom && hasMore && !loading) {
-    handleLoadMore();
-  }
+        // Check if close to bottom for lazy loading
+        const isCloseToBottom =
+          contentOffset.y + layoutMeasurement.height >= contentSize.height * 0.9;
 
-  // ✅ Track post views with debouncing
-  filteredData.forEach((item, index) => {
-    const itemY = index * 400; // Adjust based on your card height
-    const itemBottom = itemY + 400;
-    const isVisible = itemY < (currentScrollY + viewHeight) && itemBottom > currentScrollY;
-    
-    // ✅ Only track if visible AND not already viewed
-    if (isVisible && !viewedPosts.has(item.id)) {
-      setViewedPosts(prev => new Set(prev).add(item.id));
-      
-      // ✅ Add delay to prevent multiple rapid calls
-      setTimeout(() => {
-        trackPostView(item.id, item.postType);
-      }, 500);
-    }
-
-    // Existing video logic...
-    const mediaUrls = item.ContentURLs?.length > 0 ? item.ContentURLs : 
-                     (item.ContentURL ? [item.ContentURL] : []);
-    
-    if (mediaUrls.length > 0 && getMediaType(mediaUrls[0]) === 'video') {
-      const itemCenter = itemY + 150;
-      
-      if (Math.abs(viewCenter - itemCenter) < 100) { // ✅ Now viewCenter is defined
-        if (currentVideoIndex !== index) {
-          setCurrentVideoIndex(index);
+        if (isCloseToBottom && hasMore && !loading && !isFetchingMore) {
+          handleLoadMore();
         }
-      }
-    }
-  });
-}, [filteredData, getMediaType, currentVideoIndex, hasMore, loading, handleLoadMore, viewedPosts, trackPostView]);
+
+        // Clear previous timeout
+        if (viewTrackingTimeout.current) {
+          clearTimeout(viewTrackingTimeout.current);
+        }
+
+        // Debounce view tracking
+        viewTrackingTimeout.current = setTimeout(() => {
+          // Find the most centered visible post
+          let closestPost: { item: PostItem; distance: number } | null = null;
+
+          filteredData.forEach((item, index) => {
+            const itemY = index * 400; // Adjust based on your card height
+            const itemCenter = itemY + 200; // Half of card height
+            const distance = Math.abs(viewCenter - itemCenter);
+
+            // Only consider posts within viewport
+            if (distance < viewHeight / 2) {
+              if (!closestPost || distance < closestPost.distance) {
+                closestPost = { item, distance };
+              }
+            }
+          });
+
+          // Track view for the most centered post
+          if (closestPost && !viewedPosts.has(closestPost.item.id)) {
+            // Prevent tracking the same post multiple times rapidly
+            if (lastTrackedPost.current !== closestPost.item.id) {
+              lastTrackedPost.current = closestPost.item.id;
+              trackPostView(closestPost.item.id, closestPost.item.postType);
+            }
+          }
+
+          // Video handling for centered post
+          filteredData.forEach((item, index) => {
+            const itemY = index * 400;
+            const itemCenter = itemY + 200;
+            const distance = Math.abs(viewCenter - itemCenter);
+
+            const mediaUrls =
+              item.ContentURLs?.length > 0
+                ? item.ContentURLs
+                : item.ContentURL
+                ? [item.ContentURL]
+                : [];
+
+            if (mediaUrls.length > 0 && getMediaType(mediaUrls[0]) === "video") {
+              if (distance < 100) {
+                if (currentVideoIndex !== index) {
+                  setCurrentVideoIndex(index);
+                }
+              }
+            }
+          });
+        }, 1000); // Increased debounce to 1 second for more stable tracking
+      },
+      [
+        filteredData,
+        getMediaType,
+        currentVideoIndex,
+        hasMore,
+        loading,
+        isFetchingMore,
+        handleLoadMore,
+        viewedPosts,
+        trackPostView,
+      ]
+    );
+
+    // Cleanup timeout on unmount
+    useEffect(() => {
+      return () => {
+        if (viewTrackingTimeout.current) {
+          clearTimeout(viewTrackingTimeout.current);
+        }
+      };
+    }, []);
 
 
   const ApprovalToggle = useCallback(({ isApproved, isNew, onToggle, postId, postItem, isFullScreen = false }: { 
