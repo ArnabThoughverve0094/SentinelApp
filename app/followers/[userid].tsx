@@ -1,11 +1,10 @@
-// app/followers/[userId].tsx
+// app/followers/[userid].tsx
 import { db } from "@/FirebaseConfig";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   collection,
   getDocs,
-  onSnapshot,
   query,
   where,
 } from "firebase/firestore";
@@ -33,8 +32,8 @@ interface UserItem {
 }
 
 export default function FollowersFollowingScreen() {
-  const { userId, type } = useLocalSearchParams<{
-    userId: string;
+  const { userid, type } = useLocalSearchParams<{
+    userid: string;
     type: "followers" | "following";
   }>();
   const router = useRouter();
@@ -45,143 +44,209 @@ export default function FollowersFollowingScreen() {
     (type as "followers" | "following") || "followers"
   );
 
+  // Fetch user details from posts
+  const fetchUserDetailsFromPosts = async (userIds: string[]): Promise<Map<string, UserItem>> => {
+    const uniqueUsers = new Map<string, UserItem>();
+
+    if (userIds.length === 0) {
+      return uniqueUsers;
+    }
+
+    try {
+      console.log(`🔍 Fetching details for ${userIds.length} unique user IDs...`);
+
+      // Fetch from SentinelPosts
+      const sentinelSnapshot = await getDocs(collection(db, "SentinelPosts"));
+      sentinelSnapshot.docs.forEach((doc) => {
+        const data = doc.data();
+        const authorId = data.AuthorUserID;
+
+        if (authorId && userIds.includes(authorId) && !uniqueUsers.has(authorId)) {
+          uniqueUsers.set(authorId, {
+            userId: authorId,
+            userName: data.AuthorName || "Unknown User",
+            userNickName: data.AuthorNickName || data.AuthorName,
+            profilePicUrl: data.AuthorImageURL || "",
+            userBio: data.AuthorBio || "",
+            followersCount: 0,
+          });
+        }
+      });
+
+      // Fetch from X-Data for remaining users
+      const xDataSnapshot = await getDocs(collection(db, "X-Data"));
+      xDataSnapshot.docs.forEach((doc) => {
+        const data = doc.data();
+        const authorId = data.AuthorUserID;
+
+        if (authorId && userIds.includes(authorId) && !uniqueUsers.has(authorId)) {
+          uniqueUsers.set(authorId, {
+            userId: authorId,
+            userName: data.AuthorName || "Unknown User",
+            userNickName: data.AuthorNickName || data.AuthorName,
+            profilePicUrl: data.AuthorImageURL || "",
+            userBio: data.AuthorBio || "",
+            followersCount: 0,
+          });
+        }
+      });
+
+      console.log(`✅ Found details for ${uniqueUsers.size} users`);
+    } catch (error) {
+      console.error("❌ Error fetching user details:", error);
+    }
+
+    return uniqueUsers;
+  };
+
   const fetchFollowers = useCallback(async () => {
-    if (!userId) return;
+    if (!userid) {
+      console.log("❌ No userid provided");
+      setLoading(false);
+      return;
+    }
+
+    console.log("🔍 Fetching followers for userid:", userid);
     setLoading(true);
 
     try {
-      // Query for users who have this userId in their Following array
       const usersRef = collection(db, "SentinelUsers");
-      const q = query(usersRef, where("Following", "array-contains", userId));
+      const q = query(usersRef, where("Following", "array-contains", userid));
+      
+      const snapshot = await getDocs(q);
+      console.log(`📊 Query returned ${snapshot.size} documents`);
 
-      const unsubscribe = onSnapshot(
-        q,
-        (snapshot) => {
-          const followersList: UserItem[] = [];
-
-          snapshot.docs.forEach((doc) => {
-            const data = doc.data();
-            
-            // ✅ Only include users with valid data
-            if (data.userID && data.userName) {
-              followersList.push({
-                userId: data.userID,
-                userName: data.userName,
-                userNickName: data.userNickName,
-                profilePicUrl: data.profilePicUrl,
-                userBio: data.userBio,
-                followersCount: data.FollowersCount || 0,
-              });
-            }
-          });
-
-          console.log(`✅ Followers: Found ${followersList.length} users`);
-          setUsers(followersList);
-          setLoading(false);
-        },
-        (error) => {
-          console.error("❌ Error fetching followers:", error);
-          setLoading(false);
+      // CRITICAL: Use Set to deduplicate by userID
+      const uniqueFollowerIds = new Set<string>();
+      
+      snapshot.docs.forEach((doc) => {
+        const data = doc.data();
+        const followerId = data.userID;
+        
+        if (followerId) {
+          uniqueFollowerIds.add(followerId);
+          console.log(`📍 Found follower: ${followerId} (${data.userName || 'Unknown'})`);
+        } else {
+          console.warn(`⚠️ Document ${doc.id} has no userID field`);
         }
-      );
+      });
 
-      return unsubscribe;
+      const followerIdsArray = Array.from(uniqueFollowerIds);
+      console.log(`✅ Total UNIQUE followers: ${followerIdsArray.length}`);
+      console.log(`📋 Unique follower IDs:`, followerIdsArray);
+
+      if (followerIdsArray.length === 0) {
+        setUsers([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch details from posts
+      const userDetailsMap = await fetchUserDetailsFromPosts(followerIdsArray);
+      
+      // Convert to array
+      const followersList: UserItem[] = [];
+      followerIdsArray.forEach((followerId) => {
+        const userDetails = userDetailsMap.get(followerId);
+        if (userDetails) {
+          followersList.push(userDetails);
+        } else {
+          console.warn(`⚠️ No post data found for follower: ${followerId}`);
+        }
+      });
+
+      console.log(`✅ Displaying ${followersList.length} followers`);
+      setUsers(followersList);
+      setLoading(false);
     } catch (error) {
-      console.error("❌ Error setting up followers listener:", error);
+      console.error("❌ Error fetching followers:", error);
+      setUsers([]);
       setLoading(false);
     }
-  }, [userId]);
+  }, [userid]);
 
   const fetchFollowing = useCallback(async () => {
-    if (!userId) return;
+    if (!userid) {
+      console.log("❌ No userid provided");
+      setLoading(false);
+      return;
+    }
+
+    console.log("🔍 Fetching following for userid:", userid);
     setLoading(true);
 
     try {
       const usersRef = collection(db, "SentinelUsers");
-      const userQuery = query(usersRef, where("userID", "==", userId));
+      const userQuery = query(usersRef, where("userID", "==", userid));
       
-      const unsubscribe = onSnapshot(
-        userQuery,
-        async (snapshot) => {
-          if (snapshot.empty) {
-            console.log(`⚠️ No user found with ID: ${userId}`);
-            setUsers([]);
-            setLoading(false);
-            return;
-          }
+      const snapshot = await getDocs(userQuery);
+      console.log(`📊 User query returned ${snapshot.size} documents`);
 
-          const userDoc = snapshot.docs[0];
-          const followingIds = userDoc.data().Following || [];
+      if (snapshot.empty) {
+        console.log("⚠️ User not found");
+        setUsers([]);
+        setLoading(false);
+        return;
+      }
 
-          console.log(`📋 Following Array has ${followingIds.length} IDs:`, followingIds);
+      // CRITICAL: If multiple docs with same userID exist, use the first one
+      const userData = snapshot.docs[0].data();
+      const followingIds = userData.Following || [];
 
-          if (followingIds.length === 0) {
-            setUsers([]);
-            setLoading(false);
-            return;
-          }
+      console.log(`📋 Following array has ${followingIds.length} total IDs:`, followingIds);
 
-          const followingList: UserItem[] = [];
-
-          // Fetch user details for each ID in the Following array
-          for (let i = 0; i < followingIds.length; i += 10) {
-            const batch = followingIds.slice(i, i + 10);
-            const batchQuery = query(usersRef, where("userID", "in", batch));
-            const batchSnapshot = await getDocs(batchQuery);
-
-            batchSnapshot.docs.forEach((doc) => {
-              const data = doc.data();
-              
-              // ✅ Only include users with valid data
-              if (data.userID && data.userName) {
-                followingList.push({
-                  userId: data.userID,
-                  userName: data.userName,
-                  userNickName: data.userNickName,
-                  profilePicUrl: data.profilePicUrl,
-                  userBio: data.userBio,
-                  followersCount: data.FollowersCount || 0,
-                });
-              }
-            });
-          }
-
-          console.log(`✅ Following: Found ${followingList.length} valid users`);
-          setUsers(followingList);
-          setLoading(false);
-        },
-        (error) => {
-          console.error("❌ Error fetching following:", error);
-          setLoading(false);
+      // Filter out Twitter IDs (only keep UUID format)
+      const validUUIDs = followingIds.filter((id: string) => {
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+        if (!isUUID) {
+          console.log(`⚠️ Filtering out Twitter ID: ${id}`);
         }
-      );
+        return isUUID;
+      });
 
-      return unsubscribe;
+      console.log(`✅ Filtered to ${validUUIDs.length} valid app user IDs`);
+
+      if (validUUIDs.length === 0) {
+        setUsers([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch details from posts
+      const userDetailsMap = await fetchUserDetailsFromPosts(validUUIDs);
+      
+      // Convert to array in order
+      const followingList: UserItem[] = [];
+      validUUIDs.forEach((followingId: string) => {
+        const userDetails = userDetailsMap.get(followingId);
+        if (userDetails) {
+          followingList.push(userDetails);
+        } else {
+          console.warn(`⚠️ No post data found for following user: ${followingId}`);
+        }
+      });
+
+      console.log(`✅ Displaying ${followingList.length} following`);
+      setUsers(followingList);
+      setLoading(false);
     } catch (error) {
-      console.error("❌ Error setting up following listener:", error);
+      console.error("❌ Error fetching following:", error);
+      setUsers([]);
       setLoading(false);
     }
-  }, [userId]);
+  }, [userid]);
 
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
+    console.log(`\n🔄 Active tab: ${activeTab}\n`);
 
-    const setupListener = async () => {
-      if (activeTab === "followers") {
-        unsubscribe = await fetchFollowers();
-      } else {
-        unsubscribe = await fetchFollowing();
-      }
-    };
+    if (activeTab === "followers") {
+      fetchFollowers();
+    } else {
+      fetchFollowing();
+    }
 
-    setupListener();
-
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
-  }, [activeTab, fetchFollowers, fetchFollowing]);
+    // No cleanup needed for getDocs (not a listener)
+  }, [activeTab, userid]);
 
   const getFullImageUrl = (profilePath?: string): string => {
     if (!profilePath) return dummyAuthorImage;
@@ -284,6 +349,7 @@ export default function FollowersFollowingScreen() {
       {loading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#111827" />
+          <Text className="text-gray-500 mt-4">Loading {activeTab}...</Text>
         </View>
       ) : users.length === 0 ? (
         <View className="flex-1 items-center justify-center px-6">
@@ -301,7 +367,7 @@ export default function FollowersFollowingScreen() {
         <FlatList
           data={users}
           renderItem={renderUserItem}
-          keyExtractor={(item, index) => `${item.userId}-${index}`}
+          keyExtractor={(item) => item.userId}
           className="flex-1"
           initialNumToRender={15}
           maxToRenderPerBatch={10}
@@ -311,4 +377,3 @@ export default function FollowersFollowingScreen() {
     </SafeAreaView>
   );
 }
-
