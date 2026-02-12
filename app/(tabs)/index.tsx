@@ -1491,164 +1491,6 @@ export default function SentinelFeed(): React.JSX.Element {
     }
   }, []);
 
-  // const handleFetchAllData = useCallback(async (forceRefresh: boolean = false) => {
-  //   const currentTime = Date.now();
-    
-  //   let fetchuserID = userId;
-  //   if(fetchuserID === ""){
-  //     fetchuserID = await AsyncStorage.getItem('userId') || "";
-  //     setUserId(fetchuserID);
-  //   }
-
-  //   if (!forceRefresh && isInitialized && (currentTime - lastFetchTime < 30000)) {
-  //     return;
-  //   }
-
-  //   setLoading(true);
-  //   try {
-  //     const postsXData: any = [];
-      
-  //     const collXDataRefPost = collection(db, 'X-Data');
-  //     const queryXData = query(
-  //       collXDataRefPost,
-  //       orderBy('ContentDate', 'desc')
-  //     );
-  //     const unsubscribeXData = onSnapshot(queryXData, async xDataSnapshot => {
-  //       const xdataDataArr = xDataSnapshot.docs.map(doc => ({
-  //         id: doc.id,
-  //         data: doc.data(),
-  //       }))
-
-  //       for (const doc of xdataDataArr) {
-  //         const postData = doc.data;
-  //         const postId = doc.id;
-
-  //         postsXData.push({
-  //           uniqueId: `xdata-${postId}`,
-  //           id: postId,
-  //           AuthorImageURL: postData.AuthorImageURL,
-  //           AuthorName: postData.AuthorName,
-  //           AuthorUserID: postData.AuthorUserID || '',
-  //           ContentDate: postData.ContentDate,
-  //           ContentDesc: postData.ContentDesc,
-  //           ContentURL: postData.ContentURL,
-  //           ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
-  //           ContentLikeCount: postData.ContentLikeCount || 0,
-  //           ContentRepostCount: postData.ContentRepostCount || 0,
-  //           ContentCommentCount: postData.ContentCommentCount || 0,
-  //           isApproved: true,
-  //           isNew: false,
-  //           postType: "X-Data",
-  //           Liked: (postData.LikedBy?.includes(fetchuserID) || false),
-  //           Reposted: (postData.RepostedBy?.includes(fetchuserID) || false),
-  //           Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
-  //           createdAt: postData.createdAt || postData.ContentDate,
-  //           CommentTemplate: postData.CommentTemplate || "Sentinel Default Template",
-  //           isRepost: postData.isRepost || false,
-  //           originalPost: postData.originalPost || null,
-  //           repostComment: postData.repostComment || '',
-  //           repostedBy: postData.repostedBy || '',
-  //           repostedAt: postData.repostedAt || null,
-  //           isAnonymous: false,
-  //           contentType: postData.contentType || 'My Thoughts',
-  //           isEducational: postData.isEducational || false,
-  //         });
-  //       }
-
-  //       setFetchedXData(postsXData);
-  //     });
-
-  //     const collSentinelRefPost = collection(db, 'SentinelPosts');
-  //     const querySentinel = query(
-  //       collSentinelRefPost,
-  //       orderBy('ContentDate', 'desc')
-  //     );
-
-  //     console.log("Sentinel OnSnapshot");
-  //     const unsubscribeSentinel = onSnapshot(querySentinel, async sentinelSnapshot => {
-  //       const sentineldataArr = sentinelSnapshot.docs.map(doc => ({
-  //         id: doc.id,
-  //         data: doc.data(),
-  //       }))
-
-  //       const postsData = [];
-  //       for (const doc of sentineldataArr) {
-  //         const postData = doc.data;
-  //         const postId = doc.id;
-
-  //         postsData.push({
-  //           uniqueId: `sentinel-${postId}`,
-  //           id: postId,
-  //           AuthorImageURL: postData.AuthorImageURL,
-  //           AuthorName: postData.AuthorName,
-  //           AuthorUserID: postData.AuthorUserID || postData.repostedBy || '',
-  //           ContentDate: postData.ContentDate,
-  //           ContentDesc: postData.ContentDesc,
-  //           ContentURL: postData.ContentURL,
-  //           ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
-  //           ContentLikeCount: postData.ContentLikeCount || 0,
-  //           ContentRepostCount: postData.ContentRepostCount || 0,
-  //           ContentCommentCount: postData.ContentCommentCount || 0,
-  //           isApproved: postData.isApproved || false,
-  //           isNew: postData.isNew !== undefined ? postData.isNew : true,
-  //           postType: "SentinelPosts",
-  //           Liked: (postData.LikedBy?.includes(fetchuserID) || false),
-  //           Reposted: (postData.RepostedBy?.includes(fetchuserID) || false),
-  //           Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
-  //           createdAt: postData.createdAt || postData.ContentDate,
-  //           CommentTemplate: postData.CommentTemplate || "Sentinel Default Template",
-  //           isRepost: postData.isRepost || false,
-  //           originalPost: postData.originalPost || null,
-  //           repostComment: postData.repostComment || '',
-  //           repostedBy: postData.repostedBy || '',
-  //           repostedAt: postData.repostedAt || null,
-  //           isAnonymous: postData.isAnonymous || false,
-  //           contentType: postData.contentType || 'My Thoughts',
-  //           isEducational: postData.isEducational || false,
-  //         });
-  //       }
-
-  //       setSentinelData(postsData);
-  //       // const allData = postsData.concat(postsXData);
-  //       // setFetchedData(allData);
-  //       // console.log('OnSnapshot Fetched and Sorted', `Total: ${allData.length} documents`);
-
-  //       // allData.forEach(post => {
-  //       //   onSnapshot(
-  //       //     collection(doc(db, post.postType, post.id), 'Comments'),
-  //       //     commentsSnap => {
-  //       //       let totalComments = 0;
-  //       //       totalComments = commentsSnap.size;
-
-  //       //       setFetchedData(prev =>
-  //       //         prev.map(p =>
-  //       //           p.id === post.id
-  //       //           ? { ...p, ContentCommentCount: totalComments }
-  //       //           : p
-  //       //         )
-  //       //       );
-  //       //     }
-  //       //   )
-  //       // });
-  //     });
-      
-  //     setLastFetchTime(currentTime);
-  //     console.log('All Data Fetched and Sorted', `Total: ${fetchedData.length} documents`);
-      
-  //     setIsInitialized(true);
-
-  //     return () => {
-  //       unsubscribeSentinel();
-  //       unsubscribeXData();
-  //     };
-      
-  //   } catch (error) {
-  //     console.error('Error fetching data:', error);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // }, [isInitialized, fetchedData.length, lastFetchTime, userId]);
-
   const handleFetchAllData = useCallback(async (forceRefresh: boolean = false) => {
     const currentTime = Date.now();
     
@@ -2026,40 +1868,45 @@ export default function SentinelFeed(): React.JSX.Element {
     }
   },[]);
 
+  const fetchDeletedUser = useCallback(async () => {
+    try {
+      const collSentinelDeletedUsers = collection(db, 'DeletedUsers');
+      console.log("Sentinel DeletedUsers Called");
+
+      const unsubscribeSentinelUpdate = onSnapshot(collSentinelDeletedUsers, updateSnapshot => {
+        const updateDataArr = updateSnapshot.docs.map(doc => ({
+          id: doc.id,
+          data: doc.data(),
+        }));
+
+        for (const doc of updateDataArr) {
+          const deletedData = doc.data;
+          
+          if (userId === deletedData.DeletedUserId) {
+            confirmAccDeletedLogout();
+          }
+
+        }
+
+      })
+
+      return () => {
+        unsubscribeSentinelUpdate();
+      };
+
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  },[]);
+
   useEffect(() => {
     getItem();
     fetchUserFollowing();
     fetchAllUsersForNotifications();
     handleFetchAllData();
     fetchCommentTemplate();
-    
-    // const combinedData = [...sentinelData, ...fetchedXData];
-    // setFetchedData(combinedData);
-
-    // //Cleanup existing listeners before starting new ones
-    // commentUnsubscribesRef.current.forEach(unsubscribe => unsubscribe());
-    // commentUnsubscribesRef.current = []; // Clear the ref array
-    // combinedData.forEach(post => {
-    //   const unsubscribeComments = onSnapshot(
-    //       collection(doc(db, post.postType, post.id), 'Comments'),
-    //       commentsSnap => {
-    //           setFetchedData(prev =>
-    //               prev.map(p =>
-    //                   p.id === post.id
-    //                       ? { ...p, ContentCommentCount: commentsSnap.size }
-    //                       : p
-    //               )
-    //           );
-    //       }
-    //   );
-    //   // Store the new unsubscribe function
-    //   commentUnsubscribesRef.current.push(unsubscribeComments);
-    // });
-
-    // return () => {
-    //   console.log('Cleaning up all comment listeners.');
-    //   commentUnsubscribesRef.current.forEach(unsubscribe => unsubscribe());
-    // };
 
   }, []);
 
@@ -2067,38 +1914,7 @@ export default function SentinelFeed(): React.JSX.Element {
     fetchPostComments();
 
   }, [fetchedData.map(p => p.id).join(',')]);
-  // }, [fetchedData]);
-
-  // useEffect(() => {
-  //   const unsubscribersMap = new Map();
   
-  //   // IMPORTANT: Use a local variable to track IDs to prevent 
-  //   // multiple listeners if the effect does re-run
-  //   fetchedData.forEach(post => {
-  //     if (!post.id) return; 
-  
-  //     const unsub = onSnapshot(
-  //       collection(doc(db, "SentinelPosts", post.id), 'Comments'),
-  //       (snap) => {
-  //         setFetchedData(currentData => {
-  //           // Check if the post actually exists in current state before updating
-  //           return currentData.map(p => {
-  //             if (p.id === post.id) {
-  //               // Preserve EVERY property in 'p' (Likes, etc.), ONLY update count
-  //               return { ...p, ContentCommentCount: snap.size };
-  //             }
-  //             return p;
-  //           });
-  //         });
-  //       }
-  //     );
-  //     unsubscribersMap.set(post.id, unsub);
-  //   });
-  
-  //   return () => {
-  //     unsubscribersMap.forEach(unsub => unsub());
-  //   };
-  // }, [fetchedData.map(p => p.id).join(',')]);
 
   useFocusEffect(
     useCallback(() => {
@@ -2121,6 +1937,7 @@ export default function SentinelFeed(): React.JSX.Element {
       
       checkCommentUpdate();
       fetchUpdate();
+      fetchDeletedUser();
       // fetchPostComments();
 
     }, [isInitialized, fetchSinglePostComments])
@@ -2197,6 +2014,24 @@ export default function SentinelFeed(): React.JSX.Element {
       'warning',
       'Critical Update Required',
       "A critical update is now available. To apply essential security and feature improvements, your current session must end. Please tap logout and then log back in immediately to continue using the app.",
+      [
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            hideModal();
+            handleLogout();
+          }
+        }
+      ]
+    );
+  };
+
+  const confirmAccDeletedLogout = () => {
+    showCustomAlert(
+      'warning',
+      'Account Deactivated',
+      "Your account has been closed by an administrator. If you believe this is a mistake, please contact our support team.",
       [
         {
           text: 'Logout',
@@ -2637,7 +2472,7 @@ export default function SentinelFeed(): React.JSX.Element {
           });
         } else {
           await addDoc(collection(db, 'DeletedUsers'), {
-            DeletedUserID: selectedPostUserId,
+            DeletedUserId: selectedPostUserId,
             DeletedOn: new Date(),
             DeletedById: userId,
             DeletedBy: userName
