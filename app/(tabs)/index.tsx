@@ -5,7 +5,7 @@ import * as Application from 'expo-application';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from "expo-sharing";
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDocs, limit, onSnapshot, orderBy, query, startAfter, updateDoc, where } from 'firebase/firestore';
+import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, startAfter, updateDoc, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
@@ -71,26 +71,28 @@ interface PostItem {
   isAnonymous: boolean;
   contentType: string;
   isEducational: boolean;
-  moderationData?: {
-    categories?: {
-      harassment?: boolean;
-      'harassment/threatening'?: boolean;
-      hate?: boolean;
-      'hate/threatening'?: boolean;
-      illicit?: boolean;
-      'illicit/violent'?: boolean;
-      'self-harm'?: boolean;
-      'self-harm/instructions'?: boolean;
-      'self-harm/intent'?: boolean;
-      sexual?: boolean;
-      'sexual/minors'?: boolean;
-      violence?: boolean;
-      'violence/graphic'?: boolean;
-    };
-    checkedAt?: any;
-    flagged?: boolean;
-    violations?: string[];
+moderationData?: {
+  categories?: {
+    harassment?: boolean;
+    'harassment/threatening'?: boolean;
+    hate?: boolean;
+    'hate/threatening'?: boolean;
+    illicit?: boolean;
+    'illicit/violent'?: boolean;
+    'self-harm'?: boolean;
+    'self-harm/instructions'?: boolean;
+    'self-harm/intent'?: boolean;
+    sexual?: boolean;
+    'sexual/minors'?: boolean;
+    violence?: boolean;
+    'violence/graphic'?: boolean;
   };
+  checkedAt?: any;
+  flagged?: boolean;
+  violations?: string[];
+};
+ContentViewCount?: number;
+ViewedBy?: string[];
 isReported?: boolean;
   reportedAt?: any;
   reportReasons?: string[];
@@ -1002,6 +1004,66 @@ export default function SentinelFeed(): React.JSX.Element {
   const [reportPostId, setReportPostId] = useState<string | null>(null);
   const [selectedReportReasons, setSelectedReportReasons] = useState<string[]>([]);
 
+  const [viewedPosts, setViewedPosts] = useState<Set<string>>(new Set());
+  const viewTrackingTimeout = useRef<NodeJS.Timeout | number | null>(null);
+  const lastTrackedPost = useRef<string | null>(null);
+
+  const trackPostView = useCallback(async (postId: string, postType: string) => {
+  try {
+    if (!userId || !postId) {
+      console.log("⚠️ Missing userId or postId for view tracking");
+      return;
+    }
+
+    // Determine correct collection
+    const collectionName = postType === "X-Data" ? "X-Data" : "SentinelPosts";
+    const postRef = doc(db, collectionName, postId);
+
+    // Get current post data
+    const postDoc = await getDoc(postRef);
+    
+    if (!postDoc.exists()) {
+      console.warn(`⚠️ Post ${postId} not found in ${collectionName}`);
+      return;
+    }
+
+    const currentViewedBy = postDoc.data().ViewedBy || [];
+    const currentViewCount = postDoc.data().ContentViewCount || 0;
+
+    // Only increment if user hasn't viewed before (unique views)
+    if (!currentViewedBy.includes(userId)) {
+      await updateDoc(postRef, {
+        ContentViewCount: currentViewCount + 1,
+        ViewedBy: arrayUnion(userId),
+      });
+
+      console.log(`✅ View tracked for ${collectionName} post ${postId}. New count: ${currentViewCount + 1}`);
+
+      // Update local state immediately for UI responsiveness
+      setFetchedData((prev) =>
+        prev.map((p) =>
+          p.id === postId
+            ? {
+                ...p,
+                ContentViewCount: currentViewCount + 1,
+                ViewedBy: [...(p.ViewedBy || []), userId],
+              }
+            : p
+        )
+      );
+
+      // Mark as viewed in local Set
+      setViewedPosts((prev) => new Set(prev).add(postId));
+    } else {
+      console.log(`ℹ️ User already viewed post ${postId}`);
+    }
+  } catch (error) {
+    console.error("❌ Error tracking view:", error);
+  }
+}, [userId]);
+
+
+
     const reportReasons = [
     'Spam or misleading content',
     'Harassment or bullying',
@@ -1649,6 +1711,8 @@ export default function SentinelFeed(): React.JSX.Element {
             reportReasons: postData.reportReasons || [],
             reportedBy: postData.reportedBy || [],
             moderationStatus: postData.moderationStatus || "",
+            ContentViewCount: postData.ContentViewCount || 0,
+            ViewedBy: postData.ViewedBy || [],
 
           });
         }
@@ -1760,6 +1824,8 @@ export default function SentinelFeed(): React.JSX.Element {
             reportReasons: postData.reportReasons || [],
             reportedBy: postData.reportedBy || [],
             moderationStatus: postData.moderationStatus || "",
+            ContentViewCount: postData.ContentViewCount || 0, // ✅ ADD THIS
+            ViewedBy: postData.ViewedBy || [],                // ✅ ADD THIS
 
           });
         }
@@ -3449,36 +3515,98 @@ export default function SentinelFeed(): React.JSX.Element {
   }, [fetchedData, userRole, activeTab, followingUserIds]);
 
 
-  const handleScroll = useCallback((event: any) => {
-    const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
-    const currentScrollY = contentOffset.y;
-    const viewHeight = layoutMeasurement.height;
-    const viewCenter = currentScrollY + viewHeight / 2;
+    const handleScroll = useCallback(
+      (event: any) => {
+        const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+        const currentScrollY = contentOffset.y;
+        const viewHeight = layoutMeasurement.height;
+        const viewCenter = currentScrollY + viewHeight / 2;
 
-    // Check if the user is 90% of the way down the content
-    const isCloseToBottom = 
-      contentOffset.y + layoutMeasurement.height >= contentSize.height * 0.9; 
+        // Check if close to bottom for lazy loading
+        const isCloseToBottom =
+          contentOffset.y + layoutMeasurement.height >= contentSize.height * 0.9;
 
-    if (isCloseToBottom && hasMore && !loading) {
-      handleLoadMore(); // Call the lazy loading function
-    }
-
-    filteredData.forEach((item, index) => {
-      const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
-                       (item.ContentURL ? [item.ContentURL] : []);
-      
-      if (mediaUrls.length > 0 && getMediaType(mediaUrls[0]) === 'video') {
-        const itemY = index * 340;
-        const itemCenter = itemY + 150;
-        
-        if (Math.abs(viewCenter - itemCenter) < 100) {
-          if (currentVideoIndex !== index) {
-            setCurrentVideoIndex(index);
-          }
+        if (isCloseToBottom && hasMore && !loading && !isFetchingMore) {
+          handleLoadMore();
         }
-      }
-    });
-  }, [filteredData, getMediaType, currentVideoIndex, hasMore, loading, handleLoadMore]);
+
+        // Clear previous timeout
+        if (viewTrackingTimeout.current) {
+          clearTimeout(viewTrackingTimeout.current);
+        }
+
+        // Debounce view tracking
+        viewTrackingTimeout.current = setTimeout(() => {
+          // Find the most centered visible post
+          let closestPost: { item: PostItem; distance: number } | null = null;
+
+          filteredData.forEach((item, index) => {
+            const itemY = index * 400; // Adjust based on your card height
+            const itemCenter = itemY + 200; // Half of card height
+            const distance = Math.abs(viewCenter - itemCenter);
+
+            // Only consider posts within viewport
+            if (distance < viewHeight / 2) {
+              if (!closestPost || distance < closestPost.distance) {
+                closestPost = { item, distance };
+              }
+            }
+          });
+
+          // Track view for the most centered post
+          if (closestPost && !viewedPosts.has(closestPost.item.id)) {
+            // Prevent tracking the same post multiple times rapidly
+            if (lastTrackedPost.current !== closestPost.item.id) {
+              lastTrackedPost.current = closestPost.item.id;
+              trackPostView(closestPost.item.id, closestPost.item.postType);
+            }
+          }
+
+          // Video handling for centered post
+          filteredData.forEach((item, index) => {
+            const itemY = index * 400;
+            const itemCenter = itemY + 200;
+            const distance = Math.abs(viewCenter - itemCenter);
+
+            const mediaUrls =
+              item.ContentURLs?.length > 0
+                ? item.ContentURLs
+                : item.ContentURL
+                ? [item.ContentURL]
+                : [];
+
+            if (mediaUrls.length > 0 && getMediaType(mediaUrls[0]) === "video") {
+              if (distance < 100) {
+                if (currentVideoIndex !== index) {
+                  setCurrentVideoIndex(index);
+                }
+              }
+            }
+          });
+        }, 1000); // Increased debounce to 1 second for more stable tracking
+      },
+      [
+        filteredData,
+        getMediaType,
+        currentVideoIndex,
+        hasMore,
+        loading,
+        isFetchingMore,
+        handleLoadMore,
+        viewedPosts,
+        trackPostView,
+      ]
+    );
+
+    // Cleanup timeout on unmount
+    useEffect(() => {
+      return () => {
+        if (viewTrackingTimeout.current) {
+          clearTimeout(viewTrackingTimeout.current);
+        }
+      };
+    }, []);
+
 
   const ApprovalToggle = useCallback(({ isApproved, isNew, onToggle, postId, postItem, isFullScreen = false }: { 
     isApproved: boolean; 
@@ -3792,17 +3920,22 @@ export default function SentinelFeed(): React.JSX.Element {
                     </Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity 
-                    className={`mr-2 p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      openGraphModal(item);
-                    }}
-                    activeOpacity={0.7}
-                    disabled={areInteractionsDisabled(item)}
-                  >
-                    <Feather name="bar-chart-2" size={20} color="#64748b" />
-                  </TouchableOpacity>
+                  {/* Graph/Sentiment Icon with View Count */}
+                <TouchableOpacity
+                  className="flex-row items-center mr-5 px-1.5 py-1"
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    openGraphModal(item);
+                  }}
+                  activeOpacity={0.7}
+                  disabled={areInteractionsDisabled(item)}
+                >
+                  <Feather name="bar-chart-2" size={20} color="#64748b" />
+                  <Text className="text-gray-600 ml-1 text-xs font-medium">
+                    {item.ContentViewCount || 0}
+                  </Text>
+                </TouchableOpacity>
+
 
                 </View>
           
@@ -4208,17 +4341,22 @@ export default function SentinelFeed(): React.JSX.Element {
                     </Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity 
-                    className={`mr-2 p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      openGraphModal(item);
-                    }}
-                    activeOpacity={0.7}
-                    disabled={areInteractionsDisabled(item)}
-                  >
-                    <Feather name="bar-chart-2" size={20} color="#64748b" />
-                  </TouchableOpacity>
+                  {/* Graph/Sentiment Icon with View Count */}
+              <TouchableOpacity
+                className="flex-row items-center mr-5 px-1.5 py-1"
+                onPress={(e) => {
+                  e.stopPropagation();
+                  openGraphModal(item);
+                }}
+                activeOpacity={0.7}
+                disabled={areInteractionsDisabled(item)}
+              >
+                <Feather name="bar-chart-2" size={20} color="#64748b" />
+                <Text className="text-gray-600 ml-1 text-xs font-medium">
+                  {item.ContentViewCount || 0}
+                </Text>
+              </TouchableOpacity>
+
 
                 </View>
           
