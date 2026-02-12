@@ -16,6 +16,7 @@ import {
   arrayUnion,
   collection,
   doc,
+  getDocs,
   increment,
   onSnapshot,
   query,
@@ -289,6 +290,71 @@ export default function UserProfileScreen() {
   const [isRepostModalVisible, setIsRepostModalVisible] = useState(false);
   const [selectedRepostPost, setSelectedRepostPost] = useState<PostItem | null>(null);
   const [isImageModalVisible, setIsImageModalVisible] = useState(false);
+
+  const [realFollowersCount, setRealFollowersCount] = useState<number>(0);
+  const [realFollowingCount, setRealFollowingCount] = useState<number>(0);
+    useEffect(() => {
+    if (!userId) return;
+
+    const fetchRealCounts = async () => {
+      try {
+        const usersRef = collection(db, "SentinelUsers");
+        
+        // Get real followers count (users who have this userId in their Following array)
+        const followersQuery = query(usersRef, where("Following", "array-contains", userId));
+        const followersUnsubscribe = onSnapshot(followersQuery, (snapshot) => {
+          // Filter out users without proper data
+          const validFollowers = snapshot.docs.filter(doc => {
+            const data = doc.data();
+            return data.userID && data.userName;
+          });
+          setRealFollowersCount(validFollowers.length);
+          console.log(`📊 Real Followers Count: ${validFollowers.length}`);
+        });
+
+        // Get real following count (valid users in this user's Following array)
+        const userQuery = query(usersRef, where("userID", "==", userId));
+        const followingUnsubscribe = onSnapshot(userQuery, async (snapshot) => {
+          if (!snapshot.empty) {
+            const followingIds = snapshot.docs[0].data().Following || [];
+            
+            if (followingIds.length === 0) {
+              setRealFollowingCount(0);
+              return;
+            }
+
+            // Check how many of these IDs actually exist as valid users
+            let validCount = 0;
+            for (let i = 0; i < followingIds.length; i += 10) {
+              const batch = followingIds.slice(i, i + 10);
+              const batchQuery = query(usersRef, where("userID", "in", batch));
+              const batchSnapshot = await getDocs(batchQuery);
+              
+              // Count only valid users
+              validCount += batchSnapshot.docs.filter(doc => {
+                const data = doc.data();
+                return data.userID && data.userName;
+              }).length;
+            }
+            
+            setRealFollowingCount(validCount);
+            console.log(`📊 Real Following Count: ${validCount} (out of ${followingIds.length} IDs)`);
+          } else {
+            setRealFollowingCount(0);
+          }
+        });
+
+        return () => {
+          followersUnsubscribe();
+          followingUnsubscribe();
+        };
+      } catch (error) {
+        console.error("Error fetching real counts:", error);
+      }
+    };
+
+    fetchRealCounts();
+  }, [userId]);
 
   const ImageFullScreenModal = () => (
     <Modal
@@ -1688,16 +1754,37 @@ export default function UserProfileScreen() {
             </TouchableOpacity>
           )}
 
-          {isAnonymous !== 'true' && (
-            <View className="flex-row mt-3 mb-3">
+          {isAnonymous !== "true" && (
+          <View className="flex-row mt-3 mb-3">
+            <TouchableOpacity
+              onPress={() =>
+                router.push({
+                  pathname: "/followers/[userid]",
+                  params: { userid: userId, type: "following" },
+                })
+              }
+              activeOpacity={0.7}
+            >
               <Text className="mr-4 text-sm text-gray-900">
-                <Text className="font-semibold">{userDoc?.Following?.length ?? 0}</Text> Following
+                <Text className="font-semibold">{realFollowingCount}</Text> Following
               </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() =>
+                router.push({
+                  pathname: "/followers/[userid]",
+                  params: { userid: userId, type: "followers" },
+                })
+              }
+              activeOpacity={0.7}
+            >
               <Text className="text-sm text-gray-900">
-                <Text className="font-semibold">{userDoc?.FollowersCount ?? 0}</Text> Followers
+                <Text className="font-semibold">{realFollowersCount}</Text> Followers
               </Text>
-            </View>
-          )}
+            </TouchableOpacity>
+          </View>
+        )}
         </View>
 
         <View className="border-t border-gray-200 mt-2 pt-4">
