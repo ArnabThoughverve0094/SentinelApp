@@ -1417,25 +1417,29 @@ const checkPostContent = async (postText: string, imageUrl: string | null) => {
                 />
                 <View style={{ flex: 1 }}>
                   <View style={{
-                    minHeight: 50,
-                    maxHeight: 180,
+                    // minHeight: 50,
+                    // maxHeight: 280,
                     backgroundColor: "#fff",
                     borderRadius: 18,
                     borderWidth: 1,
                     borderColor: "#E5E7EB",
                     marginBottom: 2,
-                    justifyContent: "flex-start",
+                    // justifyContent: "flex-start",
+                    // overflow: 'hidden'
                   }}>
                     <TextInput
                       multiline
-                      maxLength={MAX_CHARACTERS}
+                      scrollEnabled={true}
+                      // maxLength={MAX_CHARACTERS}
                       value={postText}
                       onChangeText={setPostText}
                       onContentSizeChange={(e) => {
-                        setInputHeight(Math.min(180, Math.max(50, e.nativeEvent.contentSize.height)));
+                        // setInputHeight(Math.min(280, Math.max(50, e.nativmeEvent.contentSize.height)));
+                        setInputHeight(e.nativeEvent.contentSize.height);
                       }}
                       style={{
-                        height: inputHeight,
+                        // height: inputHeight,
+                        // height: Math.max(50, inputHeight),
                         minHeight: 60,
                         maxHeight: 180,
                         fontSize: 16,
@@ -1446,7 +1450,7 @@ const checkPostContent = async (postText: string, imageUrl: string | null) => {
                         borderRadius: 18,
                         textAlignVertical: "top",
                         textAlign: "left",
-                        lineHeight: 26,
+                        // lineHeight: 26,
                       }}
                       placeholder="Type your message here..."
                       placeholderTextColor="#B7BAC3"
@@ -1462,15 +1466,8 @@ const checkPostContent = async (postText: string, imageUrl: string | null) => {
                   </Text>
                 </View>
               </View>
-            </ScrollView>
 
-          <ScrollView
-            style={{ flex: 1 }}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-
-            {/* Upload Progress Indicator - Add this in your render method */}
+              {/* Upload Progress Indicator - Add this in your render method */}
               {loading && selectedMedia.length > 0 && (
                 <View style={{
                   position: 'absolute',
@@ -1609,7 +1606,10 @@ const checkPostContent = async (postText: string, imageUrl: string | null) => {
                 </View>
               </View>
             )}
-          </ScrollView>
+            
+            </ScrollView>
+
+          
 
           {/* Bottom toolbar */}
           <View style={{ backgroundColor: "white", borderTopWidth: 1, borderColor: "#eee" }}>
