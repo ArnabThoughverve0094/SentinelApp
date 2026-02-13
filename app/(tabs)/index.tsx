@@ -1907,6 +1907,7 @@ export default function SentinelFeed(): React.JSX.Element {
     fetchAllUsersForNotifications();
     handleFetchAllData();
     fetchCommentTemplate();
+    fetchDeletedUser();
 
   }, []);
 
@@ -1937,7 +1938,6 @@ export default function SentinelFeed(): React.JSX.Element {
       
       checkCommentUpdate();
       fetchUpdate();
-      fetchDeletedUser();
       // fetchPostComments();
 
     }, [isInitialized, fetchSinglePostComments])
