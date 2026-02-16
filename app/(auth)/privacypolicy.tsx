@@ -46,20 +46,20 @@ export default function PrivacyPolicy(): React.JSX.Element {
                   Privacy Policy
                 </Text>
                 <Text className="text-sm text-gray-600">
-                  Last Updated: February 12, 2026
+                  Last Updated: February 14, 2026
                 </Text>
               </View>
             </View>
             <Text className="text-base text-gray-700 leading-6 mb-3">
-              By creating an account, installing, accessing, or using IronEx, you agree to this entire document.
+              This Privacy Policy explains how IronEx collects, uses, and protects information.
             </Text>
             <View className="bg-white rounded-lg p-4">
               <Text className="text-sm text-gray-900 font-medium mb-1">
-                "IronEx," "we," "us," and "our" refer to:
+                IronEx is operated by:
               </Text>
               <Text className="text-sm text-gray-700">Token Land, LLC</Text>
               <Text className="text-sm text-gray-700">7300 Biscayne Blvd, Suite 200</Text>
-              <Text className="text-sm text-gray-700">Miami, FL 33138, USA</Text>
+              <Text className="text-sm text-gray-700">Miami, FL 33138</Text>
               <Text 
                 className="text-sm text-blue-600 underline mt-1"
                 onPress={() => Linking.openURL('mailto:ironexsafe@gmail.com')}
@@ -84,51 +84,42 @@ export default function PrivacyPolicy(): React.JSX.Element {
               <View className="space-y-4 ml-11">
                 <View>
                   <Text className="text-base font-medium text-gray-900 mb-2">1.1 Information You Provide</Text>
-                  <Text className="text-base text-gray-700 leading-6 mb-2">
-                    We may collect:
-                  </Text>
                   <View className="space-y-1 mb-2">
-                    <Text className="text-base text-gray-700 leading-6">• Account information (email, password)</Text>
+                    <Text className="text-base text-gray-700 leading-6">• Email address</Text>
+                    <Text className="text-base text-gray-700 leading-6">• Account credentials</Text>
                     <Text className="text-base text-gray-700 leading-6">• Sentiment selections</Text>
-                    <Text className="text-base text-gray-700 leading-6">• Reports and flags</Text>
-                    <Text className="text-base text-gray-700 leading-6">• Communications with support</Text>
-                    <Text className="text-base text-gray-700 leading-6">• Optional profile information</Text>
+                    <Text className="text-base text-gray-700 leading-6">• Flags and reports</Text>
+                    <Text className="text-base text-gray-700 leading-6">• Support communications</Text>
                   </View>
                   <Text className="text-base text-gray-700 leading-6">
-                    IronEx does not require real names beyond credentials.
+                    We do not require real names.
                   </Text>
                 </View>
 
                 <View>
                   <Text className="text-base font-medium text-gray-900 mb-2">1.2 Automatically Collected Information</Text>
-                  <Text className="text-base text-gray-700 leading-6 mb-2">
-                    We may collect:
-                  </Text>
                   <View className="space-y-1 mb-2">
-                    <Text className="text-base text-gray-700 leading-6">• Device information</Text>
                     <Text className="text-base text-gray-700 leading-6">• IP address</Text>
+                    <Text className="text-base text-gray-700 leading-6">• Device information</Text>
                     <Text className="text-base text-gray-700 leading-6">• Log data</Text>
                     <Text className="text-base text-gray-700 leading-6">• Browser type</Text>
                     <Text className="text-base text-gray-700 leading-6">• Cookies</Text>
                     <Text className="text-base text-gray-700 leading-6">• Approximate location (IP-derived only)</Text>
                   </View>
                   <Text className="text-base text-gray-700 leading-6">
-                    We do not collect precise geolocation data.
+                    We do not collect precise geolocation.
                   </Text>
                 </View>
 
                 <View>
                   <Text className="text-base font-medium text-gray-900 mb-2">1.3 Third-Party Sources</Text>
-                  <Text className="text-base text-gray-700 leading-6 mb-2">
-                    We may receive limited information from:
-                  </Text>
                   <View className="space-y-1 mb-2">
                     <Text className="text-base text-gray-700 leading-6">• Authentication providers</Text>
-                    <Text className="text-base text-gray-700 leading-6">• Analytics services</Text>
-                    <Text className="text-base text-gray-700 leading-6">• Infrastructure and security providers</Text>
+                    <Text className="text-base text-gray-700 leading-6">• Analytics providers</Text>
+                    <Text className="text-base text-gray-700 leading-6">• Infrastructure services</Text>
                   </View>
                   <Text className="text-base text-gray-700 leading-6">
-                    We do not purchase third-party data for advertising.
+                    We do not purchase advertising data.
                   </Text>
                 </View>
               </View>
@@ -146,19 +137,18 @@ export default function PrivacyPolicy(): React.JSX.Element {
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6 mb-2">
-                  We use data to:
+                  To:
                 </Text>
                 <View className="space-y-2 mb-3">
                   <Text className="text-base text-gray-700 leading-6">• Operate the Service</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Enable engagement tools</Text>
                   <Text className="text-base text-gray-700 leading-6">• Enforce Terms</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Detect and remove objectionable content</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Improve platform functionality</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Ensure security</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Moderate content</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Improve functionality</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Ensure safety</Text>
                   <Text className="text-base text-gray-700 leading-6">• Comply with law</Text>
                 </View>
                 <Text className="text-base font-medium text-gray-900">
-                  IronEx does not use personal data for targeted advertising.
+                  No targeted advertising.
                 </Text>
               </View>
             </View>
@@ -175,43 +165,44 @@ export default function PrivacyPolicy(): React.JSX.Element {
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6 mb-2">
-                  IronEx uses AI-assisted systems for:
+                  Used for:
                 </Text>
                 <View className="space-y-2 mb-3">
                   <Text className="text-base text-gray-700 leading-6">• Safety screening</Text>
                   <Text className="text-base text-gray-700 leading-6">• Risk classification</Text>
                   <Text className="text-base text-gray-700 leading-6">• Sentiment aggregation</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Platform optimization</Text>
                 </View>
                 <Text className="text-base text-gray-700 leading-6 mb-2">
-                  AI outputs assist but do not replace human review.
+                  AI assists but does not replace human review.
                 </Text>
                 <Text className="text-base font-medium text-gray-900">
-                  IronEx does not sell personal data for AI training.
+                  We do not sell data for AI training.
                 </Text>
               </View>
             </View>
 
-            {/* SECTION 4: Sharing of Information */}
+            {/* SECTION 4: Sharing */}
             <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
               <View className="flex-row items-center mb-4">
                 <View className="w-8 h-8 bg-orange-100 rounded-lg items-center justify-center mr-3">
                   <Text className="text-orange-600 font-bold text-sm">4</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  Sharing of Information
+                  Sharing
                 </Text>
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6 mb-2">
-                  We may share data:
+                  We may share with:
                 </Text>
                 <View className="space-y-2 mb-3">
-                  <Text className="text-base text-gray-700 leading-6">• With trusted service providers</Text>
-                  <Text className="text-base text-gray-700 leading-6">• With legal authorities if required</Text>
-                  <Text className="text-base text-gray-700 leading-6">• With successors in a merger</Text>
-                  <Text className="text-base text-gray-700 leading-6">• In anonymized or aggregated form</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Service providers</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Legal authorities</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Successors in merger</Text>
                 </View>
+                <Text className="text-base text-gray-700 leading-6 mb-2">
+                  We may share anonymized data.
+                </Text>
                 <Text className="text-base font-medium text-gray-900">
                   We do not sell personal data.
                 </Text>
@@ -230,18 +221,13 @@ export default function PrivacyPolicy(): React.JSX.Element {
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6 mb-2">
-                  Categories include:
+                  Strictly necessary, analytics, and functionality cookies.
                 </Text>
-                <View className="space-y-2 mb-3">
-                  <Text className="text-base text-gray-700 leading-6">• Strictly Necessary</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Analytics</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Functionality</Text>
-                </View>
                 <Text className="text-base text-gray-700 leading-6 mb-2">
-                  EEA/UK users receive consent controls.
+                  EEA/UK consent required for non-essential cookies.
                 </Text>
                 <Text className="text-base text-gray-700 leading-6">
-                  We honor CPRA-compliant Global Privacy Control signals.
+                  We honor Global Privacy Control signals.
                 </Text>
               </View>
             </View>
@@ -258,19 +244,18 @@ export default function PrivacyPolicy(): React.JSX.Element {
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6 mb-2">
-                  We retain data as necessary to:
+                  We retain data as necessary for:
                 </Text>
                 <View className="space-y-2 mb-3">
-                  <Text className="text-base text-gray-700 leading-6">• Provide the Service</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Enforce Terms</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Resolve disputes</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Comply with legal obligations</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Service operation</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Legal compliance</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Dispute resolution</Text>
                 </View>
                 <Text className="text-base font-medium text-gray-900 mb-2">
                   Upon account deletion:
                 </Text>
                 <Text className="text-base text-gray-700 leading-6">
-                  Identifiable profile data will be deleted or anonymized. However, IronEx may retain archived copies of content, logs, moderation records, audit records, and security-related information for legal compliance, fraud prevention, dispute resolution, and safety enforcement purposes.
+                  Identifiable profile data is deleted or anonymized. Archived logs, moderation records, and compliance data may be retained as permitted by law.
                 </Text>
               </View>
             </View>
@@ -287,7 +272,7 @@ export default function PrivacyPolicy(): React.JSX.Element {
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6">
-                  IronEx is not intended for users under 18. We do not knowingly collect data from minors.
+                  Not intended for users under 18.
                 </Text>
               </View>
             </View>
@@ -304,10 +289,10 @@ export default function PrivacyPolicy(): React.JSX.Element {
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6 mb-2">
-                  Data may be processed in the United States.
+                  Data processed in the United States.
                 </Text>
                 <Text className="text-base text-gray-700 leading-6">
-                  Transfers rely on Standard Contractual Clauses where required.
+                  Standard Contractual Clauses used where required.
                 </Text>
               </View>
             </View>
@@ -324,7 +309,7 @@ export default function PrivacyPolicy(): React.JSX.Element {
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6 mb-2">
-                  Depending on jurisdiction, users may request:
+                  Users may request:
                 </Text>
                 <View className="space-y-2 mb-3">
                   <Text className="text-base text-gray-700 leading-6">• Access</Text>
@@ -334,7 +319,7 @@ export default function PrivacyPolicy(): React.JSX.Element {
                   <Text className="text-base text-gray-700 leading-6">• Portability</Text>
                 </View>
                 <Text className="text-base text-gray-700 leading-6 mb-1">
-                  Requests:
+                  Contact:
                 </Text>
                 <Text 
                   className="text-base text-blue-600 underline"
@@ -357,15 +342,8 @@ export default function PrivacyPolicy(): React.JSX.Element {
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6 mb-2">
-                  California residents may request:
+                  Right to know, delete, correct, opt out (no sale), and non-discrimination.
                 </Text>
-                <View className="space-y-2">
-                  <Text className="text-base text-gray-700 leading-6">• Access</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Deletion</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Correction</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Opt-out (we do not sell data)</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Non-discrimination</Text>
-                </View>
               </View>
             </View>
 
@@ -381,16 +359,16 @@ export default function PrivacyPolicy(): React.JSX.Element {
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6 mb-2">
-                  Legal bases include:
+                  Legal bases:
                 </Text>
                 <View className="space-y-2 mb-3">
                   <Text className="text-base text-gray-700 leading-6">• Consent</Text>
                   <Text className="text-base text-gray-700 leading-6">• Contract</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Legitimate interest (platform safety)</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Legitimate interest</Text>
                   <Text className="text-base text-gray-700 leading-6">• Legal obligation</Text>
                 </View>
                 <Text className="text-base text-gray-700 leading-6">
-                  IronEx does not engage in automated decision-making producing legal effects.
+                  No automated decision-making with legal effect.
                 </Text>
               </View>
             </View>
@@ -407,7 +385,7 @@ export default function PrivacyPolicy(): React.JSX.Element {
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6">
-                  We may update this document from time to time. Continued use constitutes acceptance.
+                  Continued use constitutes acceptance of updates.
                 </Text>
               </View>
             </View>
@@ -426,7 +404,7 @@ export default function PrivacyPolicy(): React.JSX.Element {
                 <View className="bg-gray-50 rounded-lg p-4">
                   <Text className="text-base text-gray-700 mb-2">Token Land, LLC</Text>
                   <Text className="text-base text-gray-700 mb-2">7300 Biscayne Blvd, Suite 200</Text>
-                  <Text className="text-base text-gray-700 mb-3">Miami, FL 33138, USA</Text>
+                  <Text className="text-base text-gray-700 mb-3">Miami, FL 33138</Text>
                   <Text 
                     className="text-base text-blue-600 underline"
                     onPress={() => Linking.openURL('mailto:ironexsafe@gmail.com')}
@@ -458,7 +436,7 @@ export default function PrivacyPolicy(): React.JSX.Element {
                 </Text>
               </View>
               <Text className="text-base text-purple-700 leading-6">
-                IronEx uses AI-assisted systems for safety screening and content moderation. AI outputs assist but do not replace human review. We do not sell data for AI training.
+                IronEx uses AI-assisted systems for safety screening and content moderation. AI assists but does not replace human review. We do not sell data for AI training.
               </Text>
             </View>
 
