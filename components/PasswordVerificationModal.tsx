@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ResponseType, makeRedirectUri, useAuthRequest } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
+import { Link } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -316,6 +317,17 @@ export default function PasswordVerificationModal({
               </TouchableOpacity>
             </View>
 
+            {/* Forgot Password Link */}
+            <View style={styles.forgotPasswordContainer}>
+              <Link href="/(auth)/forgot-password" asChild>
+                <TouchableOpacity disabled={isVerifying}>
+                  <Text style={styles.forgotPasswordText}>
+                    Forgot password?
+                  </Text>
+                </TouchableOpacity>
+              </Link>
+            </View>
+
             <View style={styles.buttonContainer}>
               <TouchableOpacity
                 style={styles.cancelButton}
@@ -338,11 +350,19 @@ export default function PasswordVerificationModal({
               </TouchableOpacity>
             </View>
 
+            {/* Divider */}
+            <View style={styles.dividerContainer}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>Or</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
             {/* Social login buttons */}
             <View className="gap-3 mb-6">
               {/* Continue with Google */}
               <TouchableOpacity 
-                className={`flex-row items-center justify-center bg-white/95 py-4 px-6 mt-2 rounded-xl border border-white/10 shadow-lg ${isVerifying ? 'opacity-50' : ''}`}
+                className={`flex-row items-center justify-center bg-white/95 py-4 px-6 rounded-xl border border-gray-200 shadow-sm ${isVerifying ? 'opacity-50' : ''}`}
+                disabled={isVerifying}
                 onPress={() => {
                   promptAsync();
                 }}>
@@ -358,28 +378,17 @@ export default function PasswordVerificationModal({
                 </Text>
               </TouchableOpacity>
 
-              {/* Cognito Sign out */}  
-               {/* <TouchableOpacity className="flex-row items-center justify-center bg-white/95 py-4 px-6 rounded-xl border border-white/30 shadow-lg"
-                onPress={() => {
-                  signOut();
-                }}>
-                <Image
-                  source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}
-                  className="w-5 h-5 mr-2"
-                  resizeMode="contain"
-                />
-                <Ionicons name="logo-apple" size={20} color="#000" />
-                <Text className="text-base text-gray-700 font-medium ml-3">Social Sign out</Text>
-              </TouchableOpacity> */}
-
               {/* Continue with Apple */}
               <TouchableOpacity 
-                className={`flex-row items-center justify-center bg-white/95 py-4 px-6 mb-2 rounded-xl border border-white/10 shadow-lg ${isVerifying ? 'opacity-50' : ''}`}
+                className={`flex-row items-center justify-center bg-white/95 py-4 px-6 rounded-xl border border-gray-200 shadow-sm ${isVerifying ? 'opacity-50' : ''}`}
+                disabled={isVerifying}
                 onPress={() => {
                   promptAsync();
                 }}>
                 <Ionicons name="logo-apple" size={20} color="#000" />
-                <Text className="text-base text-gray-700 font-medium ml-3">Continue with Apple</Text>
+                <Text className="text-base text-gray-700 font-medium ml-3">
+                  {isVerifying ? 'Logging in...' : 'Continue with Apple'}
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -432,7 +441,7 @@ const styles = {
   } as TextStyle,
   inputWrapper: {
     position: 'relative',
-    marginBottom: 20,
+    marginBottom: 12,
   } as ViewStyle,
   input: {
     backgroundColor: '#f4f4f4',
@@ -448,9 +457,19 @@ const styles = {
     top: 12,
     padding: 4,
   } as ViewStyle,
+  forgotPasswordContainer: {
+    alignItems: 'flex-end',
+    marginBottom: 20,
+  } as ViewStyle,
+  forgotPasswordText: {
+    color: '#333',
+    fontSize: 14,
+    textDecorationLine: 'underline',
+  } as TextStyle,
   buttonContainer: {
     flexDirection: 'row',
     gap: 10,
+    marginBottom: 20,
   } as ViewStyle,
   cancelButton: {
     flex: 1,
@@ -475,5 +494,20 @@ const styles = {
     color: '#fff',
     fontWeight: '600',
     fontSize: 16,
+  } as TextStyle,
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  } as ViewStyle,
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E7EB',
+  } as ViewStyle,
+  dividerText: {
+    paddingHorizontal: 16,
+    color: '#6B7280',
+    fontSize: 14,
   } as TextStyle,
 };
