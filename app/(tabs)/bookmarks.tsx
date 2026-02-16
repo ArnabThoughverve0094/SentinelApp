@@ -59,6 +59,8 @@ interface PostItem {
   repostedAt?: any;
   isAnonymous: boolean;
   contentType: string;
+  ContentViewCount?: number;
+  ViewedBy?: string[];
 }
 
 // Repost Modal Component
@@ -880,7 +882,9 @@ export default function BookmarksPage(): React.JSX.Element {
               createdAt: postData.createdAt || postData.ContentDate,
               CommentTemplate: postData.CommentTemplate || "Standard Template",
               isAnonymous: postData.isAnonymous || false,
-              contentType: postData.contentType || 'My Thoughts'
+              contentType: postData.contentType || 'My Thoughts',
+              ContentViewCount: postData.ContentViewCount || 0,
+              ViewedBy: postData.ViewedBy || [],
             });
           }
         }
@@ -944,6 +948,8 @@ export default function BookmarksPage(): React.JSX.Element {
               isAnonymous: postData.isAnonymous || false,
               contentType: postData.contentType || 'My Thoughts',
               isEducational: postData.isEducational || false,
+              ContentViewCount: postData.ContentViewCount || 0,
+              ViewedBy: postData.ViewedBy || [],
             });
           }
 
@@ -1691,16 +1697,19 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
                     </Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity 
-                    className={`mr-2 p-1.5`}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      openGraphModal(item);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Feather name="bar-chart-2" size={20} color="#64748b" />
-                  </TouchableOpacity>
+                  <TouchableOpacity
+                  className="flex-row items-center mr-5 px-1.5 py-1"
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    openGraphModal(item);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Feather name="bar-chart-2" size={20} color="#64748b" />
+                  <Text className="text-gray-600 ml-1 text-xs font-medium">
+                    {item.ContentViewCount || 0}
+                  </Text>
+                </TouchableOpacity>
 
                 </View>
           
