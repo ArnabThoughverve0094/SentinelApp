@@ -46,12 +46,12 @@ export default function TermsOfUse(): React.JSX.Element {
                   Terms of Use / EULA
                 </Text>
                 <Text className="text-sm text-gray-600">
-                  Last Updated: February 12, 2026
+                  Last Updated: February 14, 2026
                 </Text>
               </View>
             </View>
             <Text className="text-base text-gray-700 leading-6 mb-3">
-              By creating an account, installing, accessing, or using IronEx, you agree to this entire document.
+              These Terms of Use / End User License Agreement ("Terms") govern your access to and use of the IronEx mobile application, website, and related services (collectively, the "Service"). By creating an account, installing, accessing, or using IronEx, you agree to be bound by these Terms. If you do not agree, do not use the Service.
             </Text>
             <View className="bg-white rounded-lg p-4">
               <Text className="text-sm text-gray-900 font-medium mb-1">
@@ -145,16 +145,16 @@ export default function TermsOfUse(): React.JSX.Element {
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6 mb-3">
-                  Certain features require account registration.
+                  Certain features require registration.
                 </Text>
                 <Text className="text-base text-gray-700 leading-6 mb-2">
                   You agree to:
                 </Text>
                 <View className="space-y-2 mb-3">
-                  <Text className="text-base text-gray-700 leading-6">• Provide accurate and complete information</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Maintain confidentiality of login credentials</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Notify us immediately of unauthorized access</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Accept responsibility for all activity under your account</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Provide accurate information</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Maintain confidentiality of credentials</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Notify us of unauthorized access</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Accept responsibility for account activity</Text>
                 </View>
                 <Text className="text-base text-gray-700 leading-6">
                   We may suspend or terminate accounts that violate these Terms.
@@ -173,21 +173,18 @@ export default function TermsOfUse(): React.JSX.Element {
                 </Text>
               </View>
               <View className="ml-11">
-                <Text className="text-base text-gray-700 leading-6 mb-3">
-                  IronEx maintains a zero-tolerance policy for objectionable content and abusive conduct.
-                </Text>
                 <Text className="text-base text-gray-700 leading-6 mb-2">
                   Prohibited content includes:
                 </Text>
                 <View className="space-y-2 mb-3">
-                  <Text className="text-base text-gray-700 leading-6">• Harassment, threats, intimidation</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Harassment or threats</Text>
                   <Text className="text-base text-gray-700 leading-6">• Hate speech</Text>
                   <Text className="text-base text-gray-700 leading-6">• Incitement to violence</Text>
                   <Text className="text-base text-gray-700 leading-6">• Targeting individuals or protected groups</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Attempts to manipulate moderation systems</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Manipulation of moderation systems</Text>
                 </View>
                 <Text className="text-base font-medium text-red-600 leading-6">
-                  Violations may result in removal, suspension, or permanent termination without notice.
+                  Violations may result in removal or termination without notice.
                 </Text>
               </View>
             </View>
@@ -199,27 +196,18 @@ export default function TermsOfUse(): React.JSX.Element {
                   <Text className="text-purple-600 font-bold text-sm">5</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  Content Moderation and Enforcement
+                  Moderation and Enforcement
                 </Text>
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6 mb-3">
-                  IronEx uses automated systems and human review to detect and remove objectionable content.
+                  IronEx uses automated systems and human review.
                 </Text>
                 <Text className="text-base text-gray-700 leading-6 mb-2">
-                  Moderation measures include:
-                </Text>
-                <View className="space-y-2 mb-3">
-                  <Text className="text-base text-gray-700 leading-6">• Automated risk classification</Text>
-                  <Text className="text-base text-gray-700 leading-6">• User reporting ("flagging")</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Human review</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Account-level enforcement</Text>
-                </View>
-                <Text className="text-base text-gray-700 leading-6 mb-2">
-                  IronEx reviews reported content within 24 hours.
+                  We review flagged content within 24 hours.
                 </Text>
                 <Text className="text-base text-gray-700 leading-6">
-                  IronEx does not undertake a duty to monitor all user content and does not guarantee removal of all objectionable material. Moderation decisions are made in IronEx's sole discretion.
+                  IronEx does not undertake a duty to monitor all content and does not guarantee removal of all objectionable material. Moderation decisions are made in our sole discretion.
                 </Text>
               </View>
             </View>
@@ -231,19 +219,12 @@ export default function TermsOfUse(): React.JSX.Element {
                   <Text className="text-indigo-600 font-bold text-sm">6</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  User Reporting and Blocking
+                  Reporting and Blocking
                 </Text>
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6 mb-2">
-                  Users may:
-                </Text>
-                <View className="space-y-2 mb-3">
-                  <Text className="text-base text-gray-700 leading-6">• Flag content for moderation review</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Block other users</Text>
-                </View>
-                <Text className="text-base text-gray-700 leading-6">
-                  Blocking removes the blocked user's content from the reporting user's feed and prevents further interaction.
+                  Users may flag content and block other users. Blocking prevents further interaction.
                 </Text>
               </View>
             </View>
@@ -260,18 +241,15 @@ export default function TermsOfUse(): React.JSX.Element {
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6 mb-2">
-                  You agree not to:
+                  You may not:
                 </Text>
-                <View className="space-y-2 mb-3">
+                <View className="space-y-2">
                   <Text className="text-base text-gray-700 leading-6">• Use the Service unlawfully</Text>
                   <Text className="text-base text-gray-700 leading-6">• Post defamatory or infringing content</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Use bots or scraping tools</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Use scraping tools</Text>
                   <Text className="text-base text-gray-700 leading-6">• Reverse engineer the Service</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Circumvent moderation mechanisms</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Circumvent moderation systems</Text>
                 </View>
-                <Text className="text-base text-gray-700 leading-6">
-                  Violations may result in suspension or termination.
-                </Text>
               </View>
             </View>
 
@@ -286,11 +264,8 @@ export default function TermsOfUse(): React.JSX.Element {
                 </Text>
               </View>
               <View className="ml-11">
-                <Text className="text-base text-gray-700 leading-6 mb-2">
-                  All platform materials are owned by or licensed to Token Land, LLC.
-                </Text>
                 <Text className="text-base text-gray-700 leading-6">
-                  You may use IronEx content solely for personal, non-commercial purposes.
+                  All platform materials are owned by or licensed to Token Land, LLC.
                 </Text>
               </View>
             </View>
@@ -302,50 +277,84 @@ export default function TermsOfUse(): React.JSX.Element {
                   <Text className="text-cyan-600 font-bold text-sm">9</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  User-Generated Content; Section 230 Protection
+                  User-Generated Content; Section 230; DMCA; Legal Requests
                 </Text>
               </View>
               <View className="ml-11">
+                <Text className="text-base font-semibold text-gray-800 leading-6 mb-2">
+                  9.1 User Responsibility
+                </Text>
                 <Text className="text-base text-gray-700 leading-6 mb-3">
+                  Users are solely responsible for User Content. You represent that your content complies with law, does not infringe rights, and is not defamatory. IronEx does not guarantee accuracy or legality of user submissions.
+                </Text>
+                
+                <Text className="text-base font-semibold text-gray-800 leading-6 mb-2">
+                  9.2 Section 230 Protection
+                </Text>
+                <Text className="text-base text-gray-700 leading-6 mb-2">
                   IronEx is an "interactive computer service" under 47 U.S.C. § 230.
                 </Text>
                 <Text className="text-base text-gray-700 leading-6 mb-2">
-                  You acknowledge:
+                  IronEx:
                 </Text>
                 <View className="space-y-2 mb-3">
-                  <Text className="text-base text-gray-700 leading-6">• IronEx does not create user-generated content</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Users are solely responsible for submitted content</Text>
-                  <Text className="text-base text-gray-700 leading-6">• IronEx is not the publisher or speaker of user-generated content</Text>
-                  <Text className="text-base text-gray-700 leading-6">• IronEx does not endorse user content</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Does not create User Content</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Is not the publisher or speaker of User Content</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Does not endorse User Content</Text>
                 </View>
-                <Text className="text-base text-gray-700 leading-6">
-                  To the fullest extent permitted by law, IronEx shall not be liable for user-generated content, including claims of defamation, harassment, or unlawful speech.
+                <Text className="text-base text-gray-700 leading-6 mb-3">
+                  IronEx shall not be liable for User Content, including defamation or unlawful speech claims.
+                </Text>
+                
+                <Text className="text-base font-semibold text-gray-800 leading-6 mb-2">
+                  9.3 License
+                </Text>
+                <Text className="text-base text-gray-700 leading-6 mb-3">
+                  You grant IronEx a worldwide, royalty-free license to use and process User Content, including anonymized use.
+                </Text>
+                
+                <Text className="text-base font-semibold text-gray-800 leading-6 mb-2">
+                  9.4 DMCA Safe Harbor
+                </Text>
+                <Text className="text-base text-gray-700 leading-6 mb-2">
+                  DMCA Agent:
+                </Text>
+                <Text className="text-base text-gray-700 leading-6">Token Land, LLC</Text>
+                <Text className="text-base text-gray-700 leading-6">7300 Biscayne Blvd, Suite 200</Text>
+                <Text className="text-base text-gray-700 leading-6 mb-2">Miami, FL 33138</Text>
+                <Text 
+                  className="text-base text-blue-600 underline leading-6 mb-3"
+                  onPress={() => Linking.openURL('mailto:ironexsafe@gmail.com')}
+                >
+                  ironexsafe@gmail.com
+                </Text>
+                <Text className="text-base text-gray-700 leading-6 mb-3">
+                  Valid notices must include required statutory elements. IronEx may remove infringing content and terminate repeat infringers. Counter-notices require signature, statement under penalty of perjury, and Florida jurisdiction consent.
+                </Text>
+                
+                <Text className="text-base font-semibold text-gray-800 leading-6 mb-2">
+                  9.5 Legal Requests; Subpoena Compliance
+                </Text>
+                <Text className="text-base text-gray-700 leading-6 mb-2">
+                  IronEx may disclose information in response to:
+                </Text>
+                <View className="space-y-2 mb-3">
+                  <Text className="text-base text-gray-700 leading-6">• Subpoenas</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Court orders</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Warrants</Text>
+                  <Text className="text-base text-gray-700 leading-6">• Government demands</Text>
+                </View>
+                <Text className="text-base text-gray-700 leading-6 mb-2">
+                  We may notify users where permitted. We may preserve records in response to litigation holds. We may disclose information to prevent imminent harm. IronEx is not obligated to challenge legal process. We may seek reimbursement of compliance costs where permitted.
                 </Text>
               </View>
             </View>
 
-            {/* Section 10: User Submissions License */}
-            <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-              <View className="flex-row items-center mb-4">
-                <View className="w-8 h-8 bg-amber-100 rounded-lg items-center justify-center mr-3">
-                  <Text className="text-amber-600 font-bold text-sm">10</Text>
-                </View>
-                <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  User Submissions License
-                </Text>
-              </View>
-              <View className="ml-11">
-                <Text className="text-base text-gray-700 leading-6">
-                  By submitting content (including sentiment selections), you grant IronEx a worldwide, royalty-free, sublicensable license to use, store, process, analyze, and display such content, including in anonymized or aggregated form.
-                </Text>
-              </View>
-            </View>
-
-            {/* Section 11: Third-Party Services */}
+            {/* Section 10: Third-Party Services */}
             <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
               <View className="flex-row items-center mb-4">
                 <View className="w-8 h-8 bg-lime-100 rounded-lg items-center justify-center mr-3">
-                  <Text className="text-lime-600 font-bold text-sm">11</Text>
+                  <Text className="text-lime-600 font-bold text-sm">10</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
                   Third-Party Services
@@ -353,59 +362,50 @@ export default function TermsOfUse(): React.JSX.Element {
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6">
-                  IronEx may link to third-party services. We are not responsible for their content or privacy practices.
+                  We are not responsible for third-party services.
                 </Text>
               </View>
             </View>
 
-            {/* Section 12: No Professional Advice */}
+            {/* Section 11: No Professional Advice */}
             <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
               <View className="flex-row items-center mb-4">
                 <View className="w-8 h-8 bg-emerald-100 rounded-lg items-center justify-center mr-3">
-                  <Text className="text-emerald-600 font-bold text-sm">12</Text>
+                  <Text className="text-emerald-600 font-bold text-sm">11</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  No Professional Advice; No Reliance
+                  No Professional Advice
                 </Text>
               </View>
               <View className="ml-11">
-                <Text className="text-base text-gray-700 leading-6 mb-2">
-                  Content provided through IronEx is for informational and educational purposes only.
-                </Text>
-                <Text className="text-base text-gray-700 leading-6 mb-2">
-                  IronEx does not provide legal, medical, political, or professional advice.
-                </Text>
                 <Text className="text-base text-gray-700 leading-6">
-                  You acknowledge that reliance on any content is at your own risk.
+                  Content is informational only. No reliance.
                 </Text>
               </View>
             </View>
 
-            {/* Section 13: Disclaimer of Warranties */}
+            {/* Section 12: Disclaimer of Warranties */}
             <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
               <View className="flex-row items-center mb-4">
                 <View className="w-8 h-8 bg-violet-100 rounded-lg items-center justify-center mr-3">
-                  <Text className="text-violet-600 font-bold text-sm">13</Text>
+                  <Text className="text-violet-600 font-bold text-sm">12</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
                   Disclaimer of Warranties
                 </Text>
               </View>
               <View className="ml-11">
-                <Text className="text-base text-gray-700 leading-6 mb-2">
-                  The Service is provided "AS IS" and "AS AVAILABLE."
-                </Text>
                 <Text className="text-base text-gray-700 leading-6">
-                  We disclaim all warranties including accuracy, availability, security, and fitness for a particular purpose.
+                  Provided "AS IS."
                 </Text>
               </View>
             </View>
 
-            {/* Section 14: Assumption of Risk */}
+            {/* Section 13: Assumption of Risk */}
             <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
               <View className="flex-row items-center mb-4">
                 <View className="w-8 h-8 bg-rose-100 rounded-lg items-center justify-center mr-3">
-                  <Text className="text-rose-600 font-bold text-sm">14</Text>
+                  <Text className="text-rose-600 font-bold text-sm">13</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
                   Assumption of Risk
@@ -413,136 +413,96 @@ export default function TermsOfUse(): React.JSX.Element {
               </View>
               <View className="ml-11">
                 <Text className="text-base text-gray-700 leading-6">
-                  You acknowledge that the Service may contain controversial or sensitive subject matter and agree to use the Service at your own discretion and risk.
+                  You use the Service at your own risk.
                 </Text>
               </View>
             </View>
 
-            {/* Section 15: Limitation of Liability */}
+            {/* Section 14: Limitation of Liability */}
             <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
               <View className="flex-row items-center mb-4">
                 <View className="w-8 h-8 bg-sky-100 rounded-lg items-center justify-center mr-3">
-                  <Text className="text-sky-600 font-bold text-sm">15</Text>
+                  <Text className="text-sky-600 font-bold text-sm">14</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
                   Limitation of Liability
                 </Text>
               </View>
               <View className="ml-11">
-                <Text className="text-base text-gray-700 leading-6 mb-2">
-                  To the fullest extent permitted by law, Token Land, LLC shall not be liable for indirect, incidental, consequential, special, or punitive damages.
+                <Text className="text-base text-gray-700 leading-6">
+                  Liability capped at greater of $100 or amounts paid in prior 12 months.
                 </Text>
-                <Text className="text-base text-gray-700 leading-6 mb-1">
-                  Maximum liability shall not exceed the greater of:
-                </Text>
-                <View className="space-y-2">
-                  <Text className="text-base text-gray-700 leading-6">• $100 USD, or</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Amounts paid by you in the prior 12 months</Text>
-                </View>
               </View>
             </View>
 
-            {/* Section 16: Indemnification */}
+            {/* Section 15: Indemnification */}
             <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
               <View className="flex-row items-center mb-4">
                 <View className="w-8 h-8 bg-fuchsia-100 rounded-lg items-center justify-center mr-3">
-                  <Text className="text-fuchsia-600 font-bold text-sm">16</Text>
+                  <Text className="text-fuchsia-600 font-bold text-sm">15</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
                   Indemnification
                 </Text>
               </View>
               <View className="ml-11">
-                <Text className="text-base text-gray-700 leading-6 mb-2">
-                  You agree to defend, indemnify, and hold harmless Token Land, LLC and its officers, directors, managers, employees, contractors, affiliates, successors, and assigns from any claims, damages, losses, costs, or expenses (including reasonable attorneys' fees) arising from:
-                </Text>
-                <View className="space-y-2 mb-3">
-                  <Text className="text-base text-gray-700 leading-6">• Your user-generated content</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Violation of these Terms</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Violation of law</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Infringement of third-party rights</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Disputes between you and other users</Text>
-                </View>
                 <Text className="text-base text-gray-700 leading-6">
-                  IronEx reserves the right to assume exclusive defense of any matter subject to indemnification.
+                  You agree to indemnify Token Land, LLC from claims arising from your content or violations.
                 </Text>
               </View>
             </View>
 
-            {/* Section 17: Binding Arbitration */}
+            {/* Section 16: Arbitration */}
             <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
               <View className="flex-row items-center mb-4">
                 <View className="w-8 h-8 bg-yellow-100 rounded-lg items-center justify-center mr-3">
-                  <Text className="text-yellow-600 font-bold text-sm">17</Text>
+                  <Text className="text-yellow-600 font-bold text-sm">16</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
-                  Binding Arbitration; Class Action Waiver
+                  Arbitration; Class Action Waiver
                 </Text>
               </View>
               <View className="ml-11">
-                <Text className="text-base text-gray-700 leading-6 mb-3">
-                  All disputes shall be resolved exclusively through binding arbitration administered by the American Arbitration Association.
-                </Text>
                 <Text className="text-base text-gray-700 leading-6 mb-2">
-                  Arbitration shall take place in Miami-Dade County, Florida.
+                  Binding arbitration in Miami-Dade County, Florida.
                 </Text>
-                <Text className="text-base text-gray-700 leading-6 mb-2">
-                  You agree:
-                </Text>
-                <View className="space-y-2 mb-3">
-                  <Text className="text-base text-gray-700 leading-6">• Disputes are resolved on an individual basis only</Text>
-                  <Text className="text-base text-gray-700 leading-6">• No class actions</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Waiver of jury trial</Text>
-                </View>
                 <Text className="text-base text-gray-700 leading-6">
-                  IronEx may seek injunctive relief in court for misuse or intellectual property violations.
+                  No class actions. Jury trial waived.
                 </Text>
               </View>
             </View>
 
-            {/* Section 18: Governing Law */}
+            {/* Section 17: Governing Law */}
             <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
               <View className="flex-row items-center mb-4">
                 <View className="w-8 h-8 bg-red-100 rounded-lg items-center justify-center mr-3">
-                  <Text className="text-red-600 font-bold text-sm">18</Text>
+                  <Text className="text-red-600 font-bold text-sm">17</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
                   Governing Law
                 </Text>
               </View>
               <View className="ml-11">
-                <Text className="text-base text-gray-700 leading-6 mb-2">
-                  These Terms are governed by the laws of the State of Florida.
-                </Text>
                 <Text className="text-base text-gray-700 leading-6">
-                  Venue shall lie in Miami-Dade County, Florida, where legally permissible.
+                  Florida law governs.
                 </Text>
               </View>
             </View>
 
-            {/* Section 19: Survival */}
+            {/* Section 18: Survival */}
             <View className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
               <View className="flex-row items-center mb-4">
                 <View className="w-8 h-8 bg-green-100 rounded-lg items-center justify-center mr-3">
-                  <Text className="text-green-600 font-bold text-sm">19</Text>
+                  <Text className="text-green-600 font-bold text-sm">18</Text>
                 </View>
                 <Text className="text-lg font-semibold text-gray-900 flex-1">
                   Survival
                 </Text>
               </View>
               <View className="ml-11">
-                <Text className="text-base text-gray-700 leading-6 mb-2">
-                  The following provisions survive termination:
+                <Text className="text-base text-gray-700 leading-6">
+                  Key provisions survive termination.
                 </Text>
-                <View className="space-y-2">
-                  <Text className="text-base text-gray-700 leading-6">• Intellectual Property</Text>
-                  <Text className="text-base text-gray-700 leading-6">• User-Generated Content</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Disclaimers</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Limitation of Liability</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Indemnification</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Arbitration</Text>
-                  <Text className="text-base text-gray-700 leading-6">• Governing Law</Text>
-                </View>
               </View>
             </View>
 
@@ -555,7 +515,7 @@ export default function TermsOfUse(): React.JSX.Element {
                 </Text>
               </View>
               <Text className="text-base text-red-700 leading-6">
-                IronEx maintains a strict zero-tolerance policy for objectionable content, harassment, hate speech, and abusive behavior. Violations may result in immediate account termination.
+                IronEx maintains a strict zero-tolerance policy for objectionable content, harassment, hate speech, and abusive behavior. Violations may result in immediate account termination without notice.
               </Text>
             </View>
 
@@ -563,11 +523,11 @@ export default function TermsOfUse(): React.JSX.Element {
               <View className="flex-row items-center mb-3">
                 <Ionicons name="information-circle" size={20} color="#2563EB" />
                 <Text className="text-lg font-semibold text-blue-800 ml-2">
-                  Important Notice
+                  Section 230 Protection
                 </Text>
               </View>
               <Text className="text-base text-blue-700 leading-6">
-                By using IronEx, you acknowledge that you have read, understood, and agree to be bound by these Terms of Use / End User License Agreement.
+                IronEx operates as an interactive computer service under 47 U.S.C. § 230. Users are solely responsible for their content. IronEx does not create, endorse, or act as publisher of user-generated content.
               </Text>
             </View>
 
@@ -575,11 +535,11 @@ export default function TermsOfUse(): React.JSX.Element {
               <View className="flex-row items-center mb-3">
                 <Ionicons name="warning" size={20} color="#D97706" />
                 <Text className="text-lg font-semibold text-amber-800 ml-2">
-                  Section 230 Protection
+                  Legal Compliance
                 </Text>
               </View>
               <Text className="text-base text-amber-700 leading-6">
-                IronEx operates as an interactive computer service under federal law. Users are solely responsible for their content. IronEx does not endorse user-generated content.
+                IronEx may disclose user information in response to valid legal process including subpoenas, court orders, and government demands. We may preserve records and comply with litigation holds.
               </Text>
             </View>
 
