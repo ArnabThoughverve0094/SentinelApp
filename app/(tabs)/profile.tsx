@@ -12,7 +12,7 @@ import { makeRedirectUri } from 'expo-auth-session';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
+import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -72,6 +72,8 @@ interface PostItem {
   repostedAt?: any;
   isAnonymous: boolean;
   contentType: string;
+  ContentViewCount?: number;
+  ViewedBy?: string[];
 }
 
 interface MediaCarouselProps {
@@ -1211,6 +1213,63 @@ export default function ProfilePage(): React.JSX.Element {
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [postToDelete, setPostToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [viewedPosts, setViewedPosts] = useState<Set<string>>(new Set());
+    const viewTrackingTimeout = useRef<NodeJS.Timeout | number | null>(null);
+    const lastTrackedPost = useRef<string | null>(null);
+    
+      const trackPostView = useCallback(async (postId: string, postType: string) => {
+      try {
+        if (!userId || !postId) {
+          console.log("⚠️ Missing userId or postId for view tracking");
+          return;
+        }
+    
+        // Determine correct collection
+        const collectionName = postType === "X-Data" ? "X-Data" : "SentinelPosts";
+        const postRef = doc(db, collectionName, postId);
+    
+        // Get current post data
+        const postDoc = await getDoc(postRef);
+        
+        if (!postDoc.exists()) {
+          console.warn(`⚠️ Post ${postId} not found in ${collectionName}`);
+          return;
+        }
+    
+        const currentViewedBy = postDoc.data().ViewedBy || [];
+        const currentViewCount = postDoc.data().ContentViewCount || 0;
+    
+        // Only increment if user hasn't viewed before (unique views)
+        if (!currentViewedBy.includes(userId)) {
+          await updateDoc(postRef, {
+            ContentViewCount: currentViewCount + 1,
+            ViewedBy: arrayUnion(userId),
+          });
+    
+          console.log(`✅ View tracked for ${collectionName} post ${postId}. New count: ${currentViewCount + 1}`);
+    
+          // Update local state immediately for UI responsiveness
+          // setFetchedData((prev) =>
+          //   prev.map((p) =>
+          //     p.id === postId
+          //       ? {
+          //           ...p,
+          //           ContentViewCount: currentViewCount + 1,
+          //           ViewedBy: [...(p.ViewedBy || []), userId],
+          //         }
+          //       : p
+          //   )
+          // );
+    
+          // Mark as viewed in local Set
+          setViewedPosts((prev) => new Set(prev).add(postId));
+        } else {
+          console.log(`ℹ️ User already viewed post ${postId}`);
+        }
+      } catch (error) {
+        console.error("❌ Error tracking view:", error);
+      }
+    }, [userId]);
 
 
   // Add this function in your ProfilePage component
@@ -1822,7 +1881,9 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
             repostedBy: postData.repostedBy || '',
             repostedAt: postData.repostedAt || null,
             isAnonymous: postData.isAnonymous || false,
-            contentType: postData.contentType || 'My Thoughts'
+            contentType: postData.contentType || 'My Thoughts',
+            ContentViewCount: postData.ContentViewCount || 0,
+            ViewedBy: postData.ViewedBy || [],
           });
         }
 
@@ -3397,7 +3458,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
                   </TouchableOpacity>
 
                   <TouchableOpacity 
-                    className={`mr-2 p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                    className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
                     onPress={(e) => {
                       e.stopPropagation();
                       openGraphModal(item);
@@ -3406,6 +3467,9 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
                     disabled={areInteractionsDisabled(item)}
                   >
                     <Feather name="bar-chart-2" size={20} color="#64748b" />
+                    <Text className="text-gray-600 ml-1 text-xs font-medium">
+                      {item.ContentViewCount || 0}
+                    </Text>
                   </TouchableOpacity>
 
                 </View>

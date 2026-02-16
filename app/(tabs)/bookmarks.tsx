@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import * as Sharing from "expo-sharing";
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { addDoc, arrayRemove, arrayUnion, collection, doc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
+import { addDoc, arrayRemove, arrayUnion, collection, doc, getDoc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
@@ -591,6 +591,64 @@ export default function BookmarksPage(): React.JSX.Element {
   //Repost modal
   const [isRepostModalVisible, setIsRepostModalVisible] = useState(false);
   const [selectedRepostPost, setSelectedRepostPost] = useState<PostItem | null>(null);
+  const [viewedPosts, setViewedPosts] = useState<Set<string>>(new Set());
+  const viewTrackingTimeout = useRef<NodeJS.Timeout | number | null>(null);
+  const lastTrackedPost = useRef<string | null>(null);
+  
+    const trackPostView = useCallback(async (postId: string, postType: string) => {
+    try {
+      if (!userId || !postId) {
+        console.log("⚠️ Missing userId or postId for view tracking");
+        return;
+      }
+  
+      // Determine correct collection
+      const collectionName = postType === "X-Data" ? "X-Data" : "SentinelPosts";
+      const postRef = doc(db, collectionName, postId);
+  
+      // Get current post data
+      const postDoc = await getDoc(postRef);
+      
+      if (!postDoc.exists()) {
+        console.warn(`⚠️ Post ${postId} not found in ${collectionName}`);
+        return;
+      }
+  
+      const currentViewedBy = postDoc.data().ViewedBy || [];
+      const currentViewCount = postDoc.data().ContentViewCount || 0;
+  
+      // Only increment if user hasn't viewed before (unique views)
+      if (!currentViewedBy.includes(userId)) {
+        await updateDoc(postRef, {
+          ContentViewCount: currentViewCount + 1,
+          ViewedBy: arrayUnion(userId),
+        });
+  
+        console.log(`✅ View tracked for ${collectionName} post ${postId}. New count: ${currentViewCount + 1}`);
+  
+        // Update local state immediately for UI responsiveness
+        // setFetchedData((prev) =>
+        //   prev.map((p) =>
+        //     p.id === postId
+        //       ? {
+        //           ...p,
+        //           ContentViewCount: currentViewCount + 1,
+        //           ViewedBy: [...(p.ViewedBy || []), userId],
+        //         }
+        //       : p
+        //   )
+        // );
+  
+        // Mark as viewed in local Set
+        setViewedPosts((prev) => new Set(prev).add(postId));
+      } else {
+        console.log(`ℹ️ User already viewed post ${postId}`);
+      }
+    } catch (error) {
+      console.error("❌ Error tracking view:", error);
+    }
+  }, [userId]);
+  
 
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
   
