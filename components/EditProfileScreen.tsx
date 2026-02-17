@@ -3,7 +3,6 @@ import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -24,11 +23,13 @@ import {
   doc, 
   setDoc 
 } from 'firebase/firestore';
+import { CountryPicker } from 'react-native-country-codes-picker';
+import { Ionicons } from '@expo/vector-icons';
 
 const EDIT_PROFILE_API = 'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/update-profile';
 const UPLOAD_API = 'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/uploadFile';
 const AI_MODERATION_API = 'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/ai-based-post-analysis';
-const GET_PROFILE_API = 'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/get-profile'; // Add your GET profile API
+const GET_PROFILE_API = 'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/get-profile';
 const DEFAULT_AVATAR = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
 
 export default function EditProfileScreen({ visible, onClose, onSuccess }) {
@@ -43,6 +44,7 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
   const [isLoading, setIsLoading] = useState(false);
   const [imageValidated, setImageValidated] = useState(false);
   const [bioValidated, setBioValidated] = useState(false);
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   
   // Custom Alert State
   const [customAlertVisible, setCustomAlertVisible] = useState(false);
@@ -55,162 +57,150 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
   });
 
   useEffect(() => {
-  async function loadProfileFromStorage() {
-    console.log('🔍 [EditProfile] Loading profile from AsyncStorage...');
+    async function loadProfileFromStorage() {
+      console.log('🔍 [EditProfile] Loading profile from AsyncStorage...');
 
-    if (visible) {
-      setIsLoading(true);
-      try {
-        // First, try to load from AsyncStorage
-        const [name, nickname, email, country, bio, profilePicUrl] =
-          await AsyncStorage.multiGet([
-            'userName',
-            'userNickName',
-            'userEmail',
-            'userCountry',
-            'userBio',
-            'profilePicUrl',
-          ]);
+      if (visible) {
+        setIsLoading(true);
+        try {
+          const [name, nickname, email, country, bio, profilePicUrl] =
+            await AsyncStorage.multiGet([
+              'userName',
+              'userNickName',
+              'userEmail',
+              'userCountry',
+              'userBio',
+              'profilePicUrl',
+            ]);
 
-        console.log('✅ [EditProfile] Profile loaded from storage');
-        console.log('🔍 [EditProfile] Raw AsyncStorage values:');
-        console.log('  Country key:', country);
-        console.log('  Country value:', country[1]);
-        console.log('  Bio value:', bio[1]);
+          console.log('✅ [EditProfile] Profile loaded from storage');
+          console.log('🔍 [EditProfile] Raw AsyncStorage values:');
+          console.log('  Country key:', country);
+          console.log('  Country value:', country[1]);
+          console.log('  Bio value:', bio[1]);
 
-        // If country is missing from AsyncStorage, try to fetch from API
-        if (!country[1] || country[1] === '' || country[1] === 'null') {
-          console.log('⚠️ [EditProfile] Country not found in storage, fetching from API...');
-          await fetchProfileFromAPI();
-        } else {
-          // Set fields from AsyncStorage
-          setFields({
-            name: name[1] || '',
-            nickname: nickname[1] || '',
-            email: email[1] || '',
-            country: country[1] || '',
-            bio: bio[1] || '',
-            profilePicUrl: profilePicUrl[1] || '',
-          });
+          if (!country[1] || country[1] === '' || country[1] === 'null') {
+            console.log('⚠️ [EditProfile] Country not found in storage, fetching from API...');
+            await fetchProfileFromAPI();
+          } else {
+            setFields({
+              name: name[1] || '',
+              nickname: nickname[1] || '',
+              email: email[1] || '',
+              country: country[1] || '',
+              bio: bio[1] || '',
+              profilePicUrl: profilePicUrl[1] || '',
+            });
 
-          console.log('✅ [EditProfile] Fields set:', {
-            country: country[1] || '(empty)',
-            bio: bio[1] || '(empty)',
-          });
+            console.log('✅ [EditProfile] Fields set:', {
+              country: country[1] || '(empty)',
+              bio: bio[1] || '(empty)',
+            });
 
-          // Mark existing data as validated (since it was already approved)
-          if (profilePicUrl[1]) setImageValidated(true);
-          if (bio[1]) setBioValidated(true);
+            if (profilePicUrl[1]) setImageValidated(true);
+            if (bio[1]) setBioValidated(true);
+          }
+
+          console.log('✅ [EditProfile] Fields updated successfully');
+        } catch (error) {
+          console.error('❌ [EditProfile] Error loading from storage:', error);
+          showCustomAlert('error', 'Error', 'Could not load profile data', [{ text: 'OK' }], 'alert-circle');
         }
-
-        console.log('✅ [EditProfile] Fields updated successfully');
-      } catch (error) {
-        console.error('❌ [EditProfile] Error loading from storage:', error);
-        showCustomAlert('error', 'Error', 'Could not load profile data', [{ text: 'OK' }], 'alert-circle');
+        setIsLoading(false);
       }
-      setIsLoading(false);
     }
-  }
-  if (visible) {
-    loadProfileFromStorage();
-  }
-}, [visible]);
+    if (visible) {
+      loadProfileFromStorage();
+    }
+  }, [visible]);
 
-
-  // Fetch profile from API if data is missing from AsyncStorage
   const fetchProfileFromAPI = async () => {
-  try {
-    const accessToken = await AsyncStorage.getItem('userToken');
-    
-    if (!accessToken) {
-      console.error('❌ [EditProfile] No access token for API fetch');
-      return;
-    }
+    try {
+      const accessToken = await AsyncStorage.getItem('userToken');
+      
+      if (!accessToken) {
+        console.error('❌ [EditProfile] No access token for API fetch');
+        return;
+      }
 
-    console.log('📡 [EditProfile] Fetching profile from API...');
-    
-    const response = await fetch(GET_PROFILE_API, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        accessToken: accessToken,
-      }),
-    });
+      console.log('📡 [EditProfile] Fetching profile from API...');
+      
+      const response = await fetch(GET_PROFILE_API, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          accessToken: accessToken,
+        }),
+      });
 
-    if (!response.ok) {
-      throw new Error(`API request failed with status ${response.status}`);
-    }
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
 
-    const data = await response.json();
-    console.log('✅ [EditProfile] Profile fetched from API:', data);
+      const data = await response.json();
+      console.log('✅ [EditProfile] Profile fetched from API:', data);
 
-    // ✅ ENHANCED: Check multiple possible field names from API
-    const profileData = {
-      name: data.name || data.userName || data.userAttributes?.name || '',
-      nickname: data.nickname || data.nickName || data.userAttributes?.nickname || '',
-      email: data.email || data.userAttributes?.email || '',
-      country: data.country || data.userAttributes?.country || '', // ✅ Check multiple locations
-      bio: data.bio || data.userAttributes?.bio || '',
-      profilePicUrl: data.profilePicUrl || data.profilePic || data.userAttributes?.profilePic || '',
-    };
+      const profileData = {
+        name: data.name || data.userName || data.userAttributes?.name || '',
+        nickname: data.nickname || data.nickName || data.userAttributes?.nickname || '',
+        email: data.email || data.userAttributes?.email || '',
+        country: data.country || data.userAttributes?.country || '',
+        bio: data.bio || data.userAttributes?.bio || '',
+        profilePicUrl: data.profilePicUrl || data.profilePic || data.userAttributes?.profilePic || '',
+      };
 
-    console.log('🔍 [EditProfile] Parsed profile data:');
-    console.log('  Country:', profileData.country || '(empty)');
-    console.log('  Bio:', profileData.bio || '(empty)');
+      console.log('🔍 [EditProfile] Parsed profile data:');
+      console.log('  Country:', profileData.country || '(empty)');
+      console.log('  Bio:', profileData.bio || '(empty)');
 
-    setFields(profileData);
+      setFields(profileData);
 
-    // Save to AsyncStorage for future use
-    await AsyncStorage.multiSet([
-      ['userName', profileData.name],
-      ['userNickName', profileData.nickname],
-      ['userEmail', profileData.email],
-      ['userCountry', profileData.country], // ✅ Save country
-      ['userBio', profileData.bio],
-      ['profilePicUrl', profileData.profilePicUrl],
-    ]);
-
-    console.log('✅ [EditProfile] Profile data saved to AsyncStorage');
-
-    // Mark existing data as validated
-    if (profileData.profilePicUrl) setImageValidated(true);
-    if (profileData.bio) setBioValidated(true);
-
-  } catch (error) {
-    console.error('❌ [EditProfile] Error fetching profile from API:', error);
-    
-    // If API fails, still load whatever we have from AsyncStorage
-    const [name, nickname, email, country, bio, profilePicUrl] =
-      await AsyncStorage.multiGet([
-        'userName',
-        'userNickName',
-        'userEmail',
-        'userCountry', // ✅ Include country in fallback
-        'userBio',
-        'profilePicUrl',
+      await AsyncStorage.multiSet([
+        ['userName', profileData.name],
+        ['userNickName', profileData.nickname],
+        ['userEmail', profileData.email],
+        ['userCountry', profileData.country],
+        ['userBio', profileData.bio],
+        ['profilePicUrl', profileData.profilePicUrl],
       ]);
 
-    setFields({
-      name: name[1] || '',
-      nickname: nickname[1] || '',
-      email: email[1] || '',
-      country: country[1] || '', // ✅ Use country from AsyncStorage
-      bio: bio[1] || '',
-      profilePicUrl: profilePicUrl[1] || '',
-    });
+      console.log('✅ [EditProfile] Profile data saved to AsyncStorage');
 
-    console.log('🔍 [EditProfile] Loaded from AsyncStorage fallback:');
-    console.log('  Country:', country[1] || '(empty)');
+      if (profileData.profilePicUrl) setImageValidated(true);
+      if (profileData.bio) setBioValidated(true);
 
-    if (profilePicUrl[1]) setImageValidated(true);
-    if (bio[1]) setBioValidated(true);
-  }
-};
+    } catch (error) {
+      console.error('❌ [EditProfile] Error fetching profile from API:', error);
+      
+      const [name, nickname, email, country, bio, profilePicUrl] =
+        await AsyncStorage.multiGet([
+          'userName',
+          'userNickName',
+          'userEmail',
+          'userCountry',
+          'userBio',
+          'profilePicUrl',
+        ]);
 
+      setFields({
+        name: name[1] || '',
+        nickname: nickname[1] || '',
+        email: email[1] || '',
+        country: country[1] || '',
+        bio: bio[1] || '',
+        profilePicUrl: profilePicUrl[1] || '',
+      });
 
-  // Custom Alert Function (similar to your profile page)
+      console.log('🔍 [EditProfile] Loaded from AsyncStorage fallback:');
+      console.log('  Country:', country[1] || '(empty)');
+
+      if (profilePicUrl[1]) setImageValidated(true);
+      if (bio[1]) setBioValidated(true);
+    }
+  };
+
   const showCustomAlert = (type, title, message, buttons = [], icon = 'information-circle') => {
     setAlertConfig({
       type,
@@ -226,7 +216,6 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
     setCustomAlertVisible(false);
   };
 
-  // Helper function to validate content with AI
   const validateContent = async (imageUrl: string | null, bioText: string | null) => {
     try {
       console.log('🤖 [EditProfile] Validating content with AI...');
@@ -259,7 +248,6 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
       };
     } catch (error) {
       console.error('❌ [EditProfile] Error checking content:', error);
-      // Fallback: flag for safety if API fails
       return {
         postStatus: 'inappropriate',
         flagged: true,
@@ -291,40 +279,36 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
       return '';
     }
   }
-      // Function to update all user posts with new profile picture
-    const updateAllUserPosts = async (newProfilePicUrl: string) => {
-      try {
-        console.log('🔄 [EditProfile] Updating all posts with new profile picture...');
-        
-        const userId = await AsyncStorage.getItem('userId');
-        if (!userId) {
-          console.warn('⚠️ [EditProfile] No userId found, skipping post updates');
-          return;
-        }
 
-        // Query all posts by this user
-        const postsRef = collection(db, 'SentinelPosts');
-        const q = query(postsRef, where('AuthorUserID', '==', userId));
-        const snapshot = await getDocs(q);
-
-        console.log(`📝 [EditProfile] Found ${snapshot.size} posts to update`);
-
-        // Update each post with new profile picture
-        const updatePromises = snapshot.docs.map(async (postDoc) => {
-          const postRef = doc(db, 'SentinelPosts', postDoc.id);
-          await updateDoc(postRef, {
-            AuthorImageURL: newProfilePicUrl,
-          });
-        });
-
-        await Promise.all(updatePromises);
-        console.log(`✅ [EditProfile] Successfully updated ${snapshot.size} posts`);
-      } catch (error) {
-        console.error('❌ [EditProfile] Error updating posts:', error);
-        // Don't throw error - profile update should still succeed
+  const updateAllUserPosts = async (newProfilePicUrl: string) => {
+    try {
+      console.log('🔄 [EditProfile] Updating all posts with new profile picture...');
+      
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) {
+        console.warn('⚠️ [EditProfile] No userId found, skipping post updates');
+        return;
       }
-    };
 
+      const postsRef = collection(db, 'SentinelPosts');
+      const q = query(postsRef, where('AuthorUserID', '==', userId));
+      const snapshot = await getDocs(q);
+
+      console.log(`📝 [EditProfile] Found ${snapshot.size} posts to update`);
+
+      const updatePromises = snapshot.docs.map(async (postDoc) => {
+        const postRef = doc(db, 'SentinelPosts', postDoc.id);
+        await updateDoc(postRef, {
+          AuthorImageURL: newProfilePicUrl,
+        });
+      });
+
+      await Promise.all(updatePromises);
+      console.log(`✅ [EditProfile] Successfully updated ${snapshot.size} posts`);
+    } catch (error) {
+      console.error('❌ [EditProfile] Error updating posts:', error);
+    }
+  };
 
   const handlePickImage = async () => {
     console.log('🖼️ [EditProfile] Opening image picker...');
@@ -345,7 +329,6 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
       if (uploadPath) {
         console.log('✅ [EditProfile] Image uploaded, validating with AI...');
         
-        // Validate the uploaded image with AI
         const validationResult = await validateContent(uploadPath, null);
         
         if (validationResult.postStatus !== 'approved' || validationResult.flagged) {
@@ -370,13 +353,11 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
             'close-circle'
           );
           
-          // Set to default avatar (dummy image)
           setFields(f => ({ ...f, profilePicUrl: DEFAULT_AVATAR }));
           setImageValidated(false);
           return;
         }
         
-        // Image passed validation
         console.log('✅ [EditProfile] Profile picture validated successfully!');
         setFields(f => ({ ...f, profilePicUrl: uploadPath }));
         setImageValidated(true);
@@ -400,7 +381,6 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
 
   const handleBioChange = (text: string) => {
     setFields(f => ({ ...f, bio: text }));
-    // Reset bio validation when user changes bio
     if (text !== fields.bio) {
       setBioValidated(false);
     }
@@ -446,179 +426,176 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
     return true;
   };
 
-  const handleSaveProfile = async () => {
-  console.log('💾 [EditProfile] Saving profile...');
-  
-  const accessToken = await AsyncStorage.getItem('userToken');
-
-  if (!accessToken) {
-    console.error('❌ [EditProfile] No access token found');
-    showCustomAlert('error', 'Not Logged In', 'Please login again.', [{ text: 'OK' }], 'log-in-outline');
-    return;
-  }
-
-  if (!fields.name.trim() || !fields.nickname.trim() || !fields.country.trim()) {
-    console.error('❌ [EditProfile] Required fields missing');
-    showCustomAlert('error', 'Missing Information', 'Name, nickname, and country are required.', [{ text: 'OK' }], 'alert-circle');
-    return;
-  }
-
-  if (fields.profilePicUrl && fields.profilePicUrl !== DEFAULT_AVATAR && !imageValidated) {
-    showCustomAlert(
-      'warning',
-      'Validation Required',
-      'Please wait for profile picture validation to complete or select a different image.',
-      [{ text: 'OK' }],
-      'warning'
-    );
-    return;
-  }
-
-  if (fields.bio.trim() && !bioValidated) {
-    const bioIsValid = await validateBio();
-    if (!bioIsValid) {
-      return;
-    }
-  }
-
-  setIsLoading(true);
-
-  const payload = {
-    accessToken,
-    name: fields.name,
-    nickName: fields.nickname,
-    country: fields.country,
-    profilePicUrl: fields.profilePicUrl,
-    bio: fields.bio,
-    email: fields.email,
+  const handleCountrySelect = (item) => {
+    setFields(f => ({ ...f, country: item.name.en }));
+    setShowCountryDropdown(false);
   };
 
-  console.log('📡 [EditProfile] Updating profile with payload:', JSON.stringify(payload, null, 2));
+  const handleSaveProfile = async () => {
+    console.log('💾 [EditProfile] Saving profile...');
+    
+    const accessToken = await AsyncStorage.getItem('userToken');
 
-  try {
-    // STEP 1: Save to Backend API
-    const res = await fetch(EDIT_PROFILE_API, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    console.log('📥 [EditProfile] Update response status:', res.status);
-    const data = await res.json();
-    console.log('📥 [EditProfile] Update response data:', data);
-
-    if (!res.ok) {
-      console.error('❌ [EditProfile] Update failed:', data.message || 'Server error');
-      showCustomAlert('error', 'Update Failed', data.message || 'Server error', [{ text: 'OK' }], 'close-circle');
-      setIsLoading(false);
+    if (!accessToken) {
+      console.error('❌ [EditProfile] No access token found');
+      showCustomAlert('error', 'Not Logged In', 'Please login again.', [{ text: 'OK' }], 'log-in-outline');
       return;
     }
 
-    console.log('✅ [EditProfile] Profile updated to backend successfully');
+    if (!fields.name.trim() || !fields.nickname.trim() || !fields.country.trim()) {
+      console.error('❌ [EditProfile] Required fields missing');
+      showCustomAlert('error', 'Missing Information', 'Name, nickname, and country are required.', [{ text: 'OK' }], 'alert-circle');
+      return;
+    }
 
-    // STEP 2: Sync to Firebase
-    try {
-      const userId = await AsyncStorage.getItem('userId');
-      console.log('🔥 [EditProfile] Starting Firebase sync for userId:', userId);
+    if (fields.profilePicUrl && fields.profilePicUrl !== DEFAULT_AVATAR && !imageValidated) {
+      showCustomAlert(
+        'warning',
+        'Validation Required',
+        'Please wait for profile picture validation to complete or select a different image.',
+        [{ text: 'OK' }],
+        'warning'
+      );
+      return;
+    }
 
-      if (userId) {
-        const usersRef = collection(db, 'SentinelUsers');
-        const q = query(usersRef, where('userID', '==', userId));
-        const snapshot = await getDocs(q);
-
-        if (!snapshot.empty) {
-          // Update existing document
-          const userDocRef = doc(db, 'SentinelUsers', snapshot.docs[0].id);
-          console.log('📝 [EditProfile] Updating existing Firebase document:', snapshot.docs[0].id);
-          
-          await updateDoc(userDocRef, {
-            bio: fields.bio,
-            userBio: fields.bio,
-            name: fields.name,
-            userName: fields.name,
-            nickName: fields.nickname,
-            userNickName: fields.nickname,
-            country: fields.country,
-            profilePicUrl: fields.profilePicUrl,
-            email: fields.email,
-          });
-          
-          console.log('✅ [EditProfile] Firebase document updated successfully');
-        } else {
-          // Create new document
-          console.log('📝 [EditProfile] Creating new Firebase document');
-          
-          const newDocRef = doc(collection(db, 'SentinelUsers'));
-          await setDoc(newDocRef, {
-            userID: userId,
-            bio: fields.bio,
-            userBio: fields.bio,
-            name: fields.name,
-            userName: fields.name,
-            nickName: fields.nickname,
-            userNickName: fields.nickname,
-            country: fields.country,
-            profilePicUrl: fields.profilePicUrl,
-            email: fields.email,
-            Following: [],
-            FollowersCount: 0,
-            PostsCount: 0,
-          });
-          
-          console.log('✅ [EditProfile] New Firebase document created');
-        }
-      } else {
-        console.warn('⚠️ [EditProfile] No userId found for Firebase sync');
+    if (fields.bio.trim() && !bioValidated) {
+      const bioIsValid = await validateBio();
+      if (!bioIsValid) {
+        return;
       }
-    } catch (firebaseError) {
-      console.error('❌ [EditProfile] Firebase sync error:', firebaseError);
-      console.error('Firebase error details:', JSON.stringify(firebaseError, null, 2));
-      // Don't fail the whole operation - backend is already updated
     }
 
-    // STEP 3: Save to AsyncStorage
-    await AsyncStorage.multiSet([
-      ['userName', fields.name],
-      ['userNickName', fields.nickname],
-      ['userCountry', fields.country],
-      ['profilePicUrl', fields.profilePicUrl],
-      ['userBio', fields.bio],
-      ['userEmail', fields.email],
-    ]);
-    
-    console.log('✅ [EditProfile] Saved to AsyncStorage');
-        // STEP 4: Update all existing posts with new profile picture
-    if (fields.profilePicUrl && fields.profilePicUrl !== DEFAULT_AVATAR) {
-      console.log('🔄 [EditProfile] Updating all posts with new profile picture...');
-      await updateAllUserPosts(fields.profilePicUrl);
-    }
-    
-    setIsLoading(false);
-    
-    showCustomAlert(
-      'success',
-      'Profile Updated Successfully! ✓',
-      'Your profile has been updated with validated content!',
-      [{
-        text: 'Done',
-        onPress: () => {
-          hideCustomAlert();
-          if (onSuccess) onSuccess(data);
-          onClose();
+    setIsLoading(true);
+
+    const payload = {
+      accessToken,
+      name: fields.name,
+      nickName: fields.nickname,
+      country: fields.country,
+      profilePicUrl: fields.profilePicUrl,
+      bio: fields.bio,
+      email: fields.email,
+    };
+
+    console.log('📡 [EditProfile] Updating profile with payload:', JSON.stringify(payload, null, 2));
+
+    try {
+      const res = await fetch(EDIT_PROFILE_API, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      console.log('📥 [EditProfile] Update response status:', res.status);
+      const data = await res.json();
+      console.log('📥 [EditProfile] Update response data:', data);
+
+      if (!res.ok) {
+        console.error('❌ [EditProfile] Update failed:', data.message || 'Server error');
+        showCustomAlert('error', 'Update Failed', data.message || 'Server error', [{ text: 'OK' }], 'close-circle');
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('✅ [EditProfile] Profile updated to backend successfully');
+
+      try {
+        const userId = await AsyncStorage.getItem('userId');
+        console.log('🔥 [EditProfile] Starting Firebase sync for userId:', userId);
+
+        if (userId) {
+          const usersRef = collection(db, 'SentinelUsers');
+          const q = query(usersRef, where('userID', '==', userId));
+          const snapshot = await getDocs(q);
+
+          if (!snapshot.empty) {
+            const userDocRef = doc(db, 'SentinelUsers', snapshot.docs[0].id);
+            console.log('📝 [EditProfile] Updating existing Firebase document:', snapshot.docs[0].id);
+            
+            await updateDoc(userDocRef, {
+              bio: fields.bio,
+              userBio: fields.bio,
+              name: fields.name,
+              userName: fields.name,
+              nickName: fields.nickname,
+              userNickName: fields.nickname,
+              country: fields.country,
+              profilePicUrl: fields.profilePicUrl,
+              email: fields.email,
+            });
+            
+            console.log('✅ [EditProfile] Firebase document updated successfully');
+          } else {
+            console.log('📝 [EditProfile] Creating new Firebase document');
+            
+            const newDocRef = doc(collection(db, 'SentinelUsers'));
+            await setDoc(newDocRef, {
+              userID: userId,
+              bio: fields.bio,
+              userBio: fields.bio,
+              name: fields.name,
+              userName: fields.name,
+              nickName: fields.nickname,
+              userNickName: fields.nickname,
+              country: fields.country,
+              profilePicUrl: fields.profilePicUrl,
+              email: fields.email,
+              Following: [],
+              FollowersCount: 0,
+              PostsCount: 0,
+            });
+            
+            console.log('✅ [EditProfile] New Firebase document created');
+          }
+        } else {
+          console.warn('⚠️ [EditProfile] No userId found for Firebase sync');
         }
-      }],
-      'checkmark-circle'
-    );
-    
-  } catch (error) {
-    console.error('❌ [EditProfile] Network error during save:', error);
-    setIsLoading(false);
-    showCustomAlert('error', 'Network Error', 'Server/network error. Please try again.', [{ text: 'OK' }], 'cloud-offline-outline');
-  }
-};
+      } catch (firebaseError) {
+        console.error('❌ [EditProfile] Firebase sync error:', firebaseError);
+        console.error('Firebase error details:', JSON.stringify(firebaseError, null, 2));
+      }
 
+      await AsyncStorage.multiSet([
+        ['userName', fields.name],
+        ['userNickName', fields.nickname],
+        ['userCountry', fields.country],
+        ['profilePicUrl', fields.profilePicUrl],
+        ['userBio', fields.bio],
+        ['userEmail', fields.email],
+      ]);
+      
+      console.log('✅ [EditProfile] Saved to AsyncStorage');
 
-  // Get icon emoji based on icon name
+      if (fields.profilePicUrl && fields.profilePicUrl !== DEFAULT_AVATAR) {
+        console.log('🔄 [EditProfile] Updating all posts with new profile picture...');
+        await updateAllUserPosts(fields.profilePicUrl);
+      }
+      
+      setIsLoading(false);
+      
+      showCustomAlert(
+        'success',
+        'Profile Updated Successfully! ✓',
+        'Your profile has been updated with validated content!',
+        [{
+          text: 'Done',
+          onPress: () => {
+            hideCustomAlert();
+            if (onSuccess) onSuccess(data);
+            onClose();
+          }
+        }],
+        'checkmark-circle'
+      );
+      
+    } catch (error) {
+      console.error('❌ [EditProfile] Network error during save:', error);
+      setIsLoading(false);
+      showCustomAlert('error', 'Network Error', 'Server/network error. Please try again.', [{ text: 'OK' }], 'cloud-offline-outline');
+    }
+  };
+
   const getIconEmoji = (iconName) => {
     const iconMap = {
       'checkmark-circle': '✅',
@@ -687,7 +664,6 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
                       backgroundColor: '#eee',
                     }}
                   />
-                  {/* Green checkmark indicator for validated image */}
                   {imageValidated && (
                     <View
                       style={{
@@ -789,18 +765,24 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
                 <Text>
                   Country <Text style={{ color: 'red' }}>*</Text>
                 </Text>
-                <TextInput
+                <TouchableOpacity
                   style={{
                     backgroundColor: '#f4f4f4',
                     borderRadius: 8,
                     padding: 12,
                     marginTop: 4,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
                   }}
-                  placeholder="Enter your country"
-                  value={fields.country}
-                  onChangeText={t => setFields(f => ({ ...f, country: t }))}
-                  editable={!isLoading}
-                />
+                  onPress={() => setShowCountryDropdown(true)}
+                  disabled={isLoading}
+                >
+                  <Text style={{ color: fields.country ? '#000' : '#999', flex: 1 }}>
+                    {fields.country || 'Select your country'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color="#9CA3AF" />
+                </TouchableOpacity>
               </View>
 
               <View style={{ marginBottom: 11 }}>
@@ -909,7 +891,48 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Custom Alert Modal */}
+      <CountryPicker
+        show={showCountryDropdown}
+        pickerButtonOnPress={handleCountrySelect}
+        onBackdropPress={() => setShowCountryDropdown(false)}
+        style={{
+          modal: {
+            height: 500,
+            backgroundColor: 'white',
+          },
+          textInput: {
+            height: 50,
+            borderRadius: 12,
+            paddingHorizontal: 16,
+            fontSize: 16,
+            backgroundColor: '#F3F4F6',
+            borderWidth: 1,
+            borderColor: '#E5E7EB',
+            marginHorizontal: 16,
+            marginBottom: 16,
+          },
+          countryButtonStyles: {
+            height: 60,
+            paddingHorizontal: 16,
+            borderBottomWidth: 1,
+            borderBottomColor: '#F3F4F6',
+          },
+          dialCode: {
+            display: 'none',
+          },
+          countryName: {
+            fontSize: 16,
+            color: '#1F2937',
+          },
+          flag: {
+            fontSize: 24,
+            marginRight: 12,
+          },
+        }}
+        searchMessage="Search for your country..."
+        lang="en"
+      />
+
       <Modal
         visible={customAlertVisible}
         transparent

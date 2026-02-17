@@ -6,12 +6,13 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 import AppInfoModal from '@/components/AppInfoModal'; // Add this line
 import EditProfileScreen from '@/components/EditProfileScreen';
 import HelpScreen from '@/components/HelpScreen';
+import LoadingDeleteOverlay from '@/components/LoadingDeleteOverlaym';
 import PasswordVerificationModal from '@/components/PasswordVerificationModal';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
+import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -71,6 +72,8 @@ interface PostItem {
   repostedAt?: any;
   isAnonymous: boolean;
   contentType: string;
+  ContentViewCount?: number;
+  ViewedBy?: string[];
 }
 
 interface MediaCarouselProps {
@@ -83,6 +86,7 @@ interface MediaCarouselProps {
   VideoPlayer: any;
   index?: number;
 }
+
 const renderStyledPostText = (text) => {
   if (!text) return null;
 
@@ -1208,8 +1212,64 @@ export default function ProfilePage(): React.JSX.Element {
   const [showHelpScreen, setShowHelpScreen] = useState(false);
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [postToDelete, setPostToDelete] = useState<string | null>(null);
-
-
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [viewedPosts, setViewedPosts] = useState<Set<string>>(new Set());
+    const viewTrackingTimeout = useRef<NodeJS.Timeout | number | null>(null);
+    const lastTrackedPost = useRef<string | null>(null);
+    
+      const trackPostView = useCallback(async (postId: string, postType: string) => {
+      try {
+        if (!userId || !postId) {
+          console.log("⚠️ Missing userId or postId for view tracking");
+          return;
+        }
+    
+        // Determine correct collection
+        const collectionName = postType === "X-Data" ? "X-Data" : "SentinelPosts";
+        const postRef = doc(db, collectionName, postId);
+    
+        // Get current post data
+        const postDoc = await getDoc(postRef);
+        
+        if (!postDoc.exists()) {
+          console.warn(`⚠️ Post ${postId} not found in ${collectionName}`);
+          return;
+        }
+    
+        const currentViewedBy = postDoc.data().ViewedBy || [];
+        const currentViewCount = postDoc.data().ContentViewCount || 0;
+    
+        // Only increment if user hasn't viewed before (unique views)
+        if (!currentViewedBy.includes(userId)) {
+          await updateDoc(postRef, {
+            ContentViewCount: currentViewCount + 1,
+            ViewedBy: arrayUnion(userId),
+          });
+    
+          console.log(`✅ View tracked for ${collectionName} post ${postId}. New count: ${currentViewCount + 1}`);
+    
+          // Update local state immediately for UI responsiveness
+          // setFetchedData((prev) =>
+          //   prev.map((p) =>
+          //     p.id === postId
+          //       ? {
+          //           ...p,
+          //           ContentViewCount: currentViewCount + 1,
+          //           ViewedBy: [...(p.ViewedBy || []), userId],
+          //         }
+          //       : p
+          //   )
+          // );
+    
+          // Mark as viewed in local Set
+          setViewedPosts((prev) => new Set(prev).add(postId));
+        } else {
+          console.log(`ℹ️ User already viewed post ${postId}`);
+        }
+      } catch (error) {
+        console.error("❌ Error tracking view:", error);
+      }
+    }, [userId]);
 
 
   // Add this function in your ProfilePage component
@@ -1475,10 +1535,10 @@ const loadProfileData = async () => {
       };
     }
   };
-      const handleDeleteAccount = async () => {
+    const handleDeleteAccount = async () => {
       setShowAccountModal(false);
       
-      showCustomAlert(
+      showCustomAlertLoad(
         'warning',
         'Delete Account',
         'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed.',
@@ -1493,42 +1553,126 @@ const loadProfileData = async () => {
           {
             text: 'Continue',
             style: 'destructive',
+            // Pass the loading state if your showCustomAlert supports it
+            isLoading: false, 
             onPress: async () => {
-              hideModal();
+              setIsDeleting(true); // Start loading
               try {
-                // Open the delete data URL
-                const url = 'https://ironex.app/delete-your-data';
-                const supported = await Linking.canOpenURL(url);
-                
-                if (supported) {
-                  await Linking.openURL(url);
-                } else {
-                  Toast.show({
-                    type: 'error',
-                    text1: 'Error',
-                    text2: 'Unable to open the URL',
-                    position: 'bottom',
-                    visibilityTime: 2000,
-                  });
-                }
+                console.log('✅ userId:', userId);
+                await callDeleteAccount(); // Ensure this is awaited
+                hideModal();
               } catch (error) {
-                console.error('Error opening delete account URL:', error);
-                Toast.show({
-                  type: 'error',
-                  text1: 'Error',
-                  text2: 'Failed to open delete account page',
-                  position: 'bottom',
-                  visibilityTime: 2000,
-                });
+                console.error('Error:', error);
               }
+        
             }
           }
         ]
       );
     };
 
+    const callDeleteAccount = async () => {
+      try {
+        console.log('Call Delete Account...');
+        
+        const response = await fetch(
+          'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/delete-self-data',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              "userName" : userId
+            })
+          }
+        );
+    
+        if (!response.ok) {
+          setIsDeleting(false);
+          hideModal();
+          showCustomAlert(
+            'error',
+            'Account Deleted Failed',
+            'Failed to delete account. Please try again.',
+            [
+              {
+                text: 'OK',
+                onPress: hideModal
+              }
+            ]
+          );
+        } else {
+          setIsDeleting(false);
+          hideModal();
+          handleDeleteLogout();
+        }
+    
+        const data = await response.json();
+        
+        console.log('✅ Delete Account Complete:', data);
+        
+      } catch (error) {
+        console.error('❌ Error Delete Account:', error);
+      } finally {
+        setIsDeleting(false); // Stop loading
+      }
+    };
 
-
+    const handleDeleteLogout = async () => {
+      try {
+        console.log('🔄 Logging out user...');
+        
+        await AsyncStorage.multiRemove([
+          'userToken',
+          'accessToken',
+          'userRefreshToken', 
+          'refreshToken',
+          'userIdToken',
+          'idToken',
+          'userEmail',
+          'userName',
+          'userNickName',
+          'userId',
+          'userRole',
+          'tokenExpiry',
+          'userData',
+          'profilePicUrl',
+        ]);
+        console.log('✅ User data cleared');
+        setShowAccountModal(false);
+        // socialSignOut();
+        
+        showCustomAlert(
+          'success',
+          'Account Deleted Successfully',
+          'Your account has been deleted successfully.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                hideModal();
+                router.replace('/(auth)');
+              }
+            }
+          ]
+        );
+        
+      } catch (error) {
+        console.error('❌ Error during Account Deleted:', error);
+        showCustomAlert(
+          'error',
+          'Account Deleted Failed',
+          'Failed to delete account. Please try again.',
+          [
+            {
+              text: 'OK',
+              onPress: hideModal
+            }
+          ]
+        );
+      }
+    };
 
 
 
@@ -1737,7 +1881,9 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
             repostedBy: postData.repostedBy || '',
             repostedAt: postData.repostedAt || null,
             isAnonymous: postData.isAnonymous || false,
-            contentType: postData.contentType || 'My Thoughts'
+            contentType: postData.contentType || 'My Thoughts',
+            ContentViewCount: postData.ContentViewCount || 0,
+            ViewedBy: postData.ViewedBy || [],
           });
         }
 
@@ -1828,6 +1974,27 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
       text: string;
       onPress: () => void;
       style?: 'default' | 'cancel' | 'destructive';
+    }>
+  ) => {
+    setModalConfig({
+      visible: true,
+      type,
+      title,
+      message,
+      buttons
+    });
+  };
+
+  // Custom Alert function
+  const showCustomAlertLoad = (
+    type: 'success' | 'error' | 'info' | 'warning',
+    title: string,
+    message: string,
+    buttons: Array<{
+      text: string;
+      onPress: () => void;
+      style?: 'default' | 'cancel' | 'destructive';
+      isLoading?: boolean; // Add this
     }>
   ) => {
     setModalConfig({
@@ -3291,7 +3458,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
                   </TouchableOpacity>
 
                   <TouchableOpacity 
-                    className={`mr-2 p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                    className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
                     onPress={(e) => {
                       e.stopPropagation();
                       openGraphModal(item);
@@ -3300,6 +3467,9 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
                     disabled={areInteractionsDisabled(item)}
                   >
                     <Feather name="bar-chart-2" size={20} color="#64748b" />
+                    <Text className="text-gray-600 ml-1 text-xs font-medium">
+                      {item.ContentViewCount || 0}
+                    </Text>
                   </TouchableOpacity>
 
                 </View>
@@ -3606,105 +3776,103 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
         }}
         scrollEventThrottle={400}
       >
-        {/* Profile Section - NEW HORIZONTAL LAYOUT */}
-        <View className="bg-white mx-4 mt-4 rounded-2xl shadow-sm border border-gray-100">
-          <View className="px-6 py-8">
-            {/* Profile Header - Horizontal Layout with Image on Left */}
-            <View className="flex-row items-center mb-6">
-              {/* Profile Picture - Left Side */}
-              <TouchableOpacity
-                onPress={handleProfilePictureUpload}
-                disabled={isUploading}
-                className="relative mr-4"
-              >
-                <View className="w-20 h-20 rounded-full overflow-hidden bg-black items-center justify-center shadow-lg">
-                  {profilePicUrl ? (
-                    <Image 
-                      source={{ uri: getFullImageUrl(profilePicUrl) }}
-                      className="w-full h-full"
-                      style={{ resizeMode: 'cover' }}
-                      resizeMethod="resize"
-                    />
-                  ) : (
-                    <Ionicons name="person" size={32} color="white" />
-                  )}
-                  
-                  {/* Loading overlay */}
-                  {isUploading && (
-                    <View className="absolute inset-0 bg-black/50 items-center justify-center">
-                      <ActivityIndicator size="small" color="white" />
-                    </View>
-                  )}
-                </View>
-                
-                {/* Edit icon - smaller for horizontal layout */}
-                <View className="absolute -bottom-1 -right-1 w-7 h-7 bg-black rounded-full items-center justify-center border-2 border-white shadow-md">
-                  {isUploading ? (
-                    <ActivityIndicator size={14} color="white" />
-                  ) : (
-                    <Ionicons name="pencil" size={14} color="white" />
-                  )}
-                </View>
-              </TouchableOpacity>
-
-              {/* Name and Username - Next to Image */}
-              <View className="flex-1 mr-2">
-                <Text className="text-xl font-bold text-gray-900 mb-1">
-                {userName || userNickName || 'User'}
-                </Text>
-                <Text className="text-gray-500 text-base">
-                  @{userNickName || userName || 'username'}
-                </Text>
-              </View>
-
-              {/* Action Buttons */}
-              <View className="flex-row space-x-2">
-                <View className="flex-row space-x-2">
-                  <View>
-                    <TouchableOpacity 
-                      className="flex-1 bg-gray-900 py-2 px-3 rounded-xl"
-                      onPress={handleEditProfile}  // ✅ Correct - Opens password modal first
-                    >
-                      <Text className="text-white font-semibold text-center text-base">
-                        Edit Profile
-                      </Text>
-                    </TouchableOpacity>
-
-                    {/* Password Verification Modal */}
-                    <PasswordVerificationModal
-                      visible={showPasswordVerify}
-                      onClose={() => setShowPasswordVerify(false)}
-                      onSuccess={handlePasswordVerified}
-                    />
-
-                    {/* Edit Profile Screen - Opens after password verification */}
-                    {userData && (
-                      <EditProfileScreen
-                        visible={editVisible}
-                        onClose={() => setEditVisible(false)}
-                        onSuccess={(data) => {
-                          console.log('Profile updated, refreshing display...');
-                          loadProfileData();
-                          Toast.show({
-                            type: 'success',
-                            text1: 'Profile Updated',
-                            text2: 'Your profile has been updated successfully.',
-                            position: 'bottom',
-                            visibilityTime: 2000,
-                          });
-                        }}
-                      />
-                    )}
-                  </View>
-                  {/* <TouchableOpacity 
-                    className="flex-1 border-2 border-gray-200 py-4 px-6 rounded-xl bg-white"
-                    onPress={handleShareProfile}
+        <View style={{ flex: 1 }}>
+        {/* Your normal screen content */}
+          <View>
+            {/* Profile Section - NEW HORIZONTAL LAYOUT */}
+            <View className="bg-white mx-4 mt-4 rounded-2xl shadow-sm border border-gray-100">
+              <View className="px-6 py-8">
+              {/* Profile Header - Horizontal Layout with Image on Left */}
+                <View className="flex-row items-center mb-6">
+                {/* Profile Picture - Left Side */}
+                  <TouchableOpacity
+                    onPress={handleProfilePictureUpload}
+                    disabled={isUploading}
+                    className="relative mr-4"
                   >
-                    <Text className="text-gray-900 font-semibold text-center text-base">Share Profile</Text>
-                  </TouchableOpacity> */}
+                    <View className="w-20 h-20 rounded-full overflow-hidden bg-black items-center justify-center shadow-lg">
+                      {profilePicUrl ? (
+                        <Image 
+                          source={{ uri: getFullImageUrl(profilePicUrl) }}
+                          className="w-full h-full"
+                          style={{ resizeMode: 'cover' }}
+                          resizeMethod="resize"
+                        />
+                      ) : (
+                        <Ionicons name="person" size={32} color="white" />
+                      )}
+                  
+                      {/* Loading overlay */}
+                      {isUploading && (
+                        <View className="absolute inset-0 bg-black/50 items-center justify-center">
+                          <ActivityIndicator size="small" color="white" />
+                        </View>
+                      )}
+                    </View>
+                
+                    {/* Edit icon - smaller for horizontal layout */}
+                    <View className="absolute -bottom-1 -right-1 w-7 h-7 bg-black rounded-full items-center justify-center border-2 border-white shadow-md">
+                      {isUploading ? (
+                        <ActivityIndicator size={14} color="white" />
+                      ) : (
+                        <Ionicons name="pencil" size={14} color="white" />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Name and Username - Next to Image */}
+                  <View className="flex-1 mr-2">
+                    <Text className="text-xl font-bold text-gray-900 mb-1">
+                      {userName || userNickName || 'User'}
+                    </Text>
+                    <Text className="text-gray-500 text-base">
+                      @{userNickName || userName || 'username'}
+                    </Text>
+                  </View>
+
+                  {/* Action Buttons */}
+                  <View className="flex-row space-x-2">
+                    <View className="flex-row space-x-2">
+                      <View>
+                        <TouchableOpacity 
+                          className="flex-1 bg-gray-900 py-2 px-3 rounded-xl"
+                          onPress={handleEditProfile}  // ✅ Correct - Opens password modal first
+                        >
+                          <Text className="text-white font-semibold text-center text-base">
+                            Edit Profile
+                          </Text>
+                        </TouchableOpacity>
+
+                        {/* Password Verification Modal */}
+                        <PasswordVerificationModal
+                          visible={showPasswordVerify}
+                          onClose={() => setShowPasswordVerify(false)}
+                          onSuccess={handlePasswordVerified}
+                        />
+
+                        {/* Edit Profile Screen - Opens after password verification */}
+                        {userData && (
+                          <EditProfileScreen
+                            visible={editVisible}
+                            onClose={() => setEditVisible(false)}
+                            onSuccess={(data) => {
+                              console.log('Profile updated, refreshing display...');
+                              loadProfileData();
+                              Toast.show({
+                                type: 'success',
+                                text1: 'Profile Updated',
+                                text2: 'Your profile has been updated successfully.',
+                                position: 'bottom',
+                                visibilityTime: 2000,
+                              });
+                            }}
+                          />
+                        )}
+                      </View>
+                      
+                    </View>
+                  </View>
                 </View>
-              </View>
-            </View>
 
             {/* Stats Section - Below Profile Header */}
             {/* <View className="flex-row justify-around py-4 border-t border-b border-gray-100 mb-6">
@@ -3771,6 +3939,10 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
 
         {/* Bottom spacing */}
         <View style={{ height: 80 }} />
+          </View>
+        <LoadingDeleteOverlay visible={isDeleting} message="Deleting Account..." />
+        </View>
+        
       </ScrollView>
 
       <RepostModal

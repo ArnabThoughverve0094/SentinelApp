@@ -5,7 +5,7 @@ import * as Application from 'expo-application';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from "expo-sharing";
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDocs, limit, onSnapshot, orderBy, query, startAfter, updateDoc, where } from 'firebase/firestore';
+import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, startAfter, updateDoc, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
@@ -71,26 +71,28 @@ interface PostItem {
   isAnonymous: boolean;
   contentType: string;
   isEducational: boolean;
-  moderationData?: {
-    categories?: {
-      harassment?: boolean;
-      'harassment/threatening'?: boolean;
-      hate?: boolean;
-      'hate/threatening'?: boolean;
-      illicit?: boolean;
-      'illicit/violent'?: boolean;
-      'self-harm'?: boolean;
-      'self-harm/instructions'?: boolean;
-      'self-harm/intent'?: boolean;
-      sexual?: boolean;
-      'sexual/minors'?: boolean;
-      violence?: boolean;
-      'violence/graphic'?: boolean;
-    };
-    checkedAt?: any;
-    flagged?: boolean;
-    violations?: string[];
+moderationData?: {
+  categories?: {
+    harassment?: boolean;
+    'harassment/threatening'?: boolean;
+    hate?: boolean;
+    'hate/threatening'?: boolean;
+    illicit?: boolean;
+    'illicit/violent'?: boolean;
+    'self-harm'?: boolean;
+    'self-harm/instructions'?: boolean;
+    'self-harm/intent'?: boolean;
+    sexual?: boolean;
+    'sexual/minors'?: boolean;
+    violence?: boolean;
+    'violence/graphic'?: boolean;
   };
+  checkedAt?: any;
+  flagged?: boolean;
+  violations?: string[];
+};
+ContentViewCount?: number;
+ViewedBy?: string[];
 isReported?: boolean;
   reportedAt?: any;
   reportReasons?: string[];
@@ -936,6 +938,7 @@ export default function SentinelFeed(): React.JSX.Element {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [userId, setUserId] = useState("");
+  const [userName, setUserName] = useState("");
   const [userRole, setUserRole] = useState("User");
   const [fetchedData, setFetchedData] = useState<PostItem[]>([]);
   const [sentinelData, setSentinelData] = useState<PostItem[]>([]);
@@ -973,6 +976,7 @@ export default function SentinelFeed(): React.JSX.Element {
   const [selectedPostType, setSelectedPostType] = useState<string | null>(null);
   const [selectedCommentTemplate, setSelectedCommentTemplate] = useState<string | null>(null);
   const [fetchedCommentTemplate, setFetchedCommentTemplate] = useState<Template[]>([]);
+  const [selectedPostUserId, setSelectedPostUserId] = useState<string | null>(null);
 
   const [isGraphModalVisible, setIsGraphModalVisible] = useState(false);
   const [selectedGraphPostId, setSelectedGraphPostId] = useState<string | null>(null);
@@ -997,10 +1001,72 @@ export default function SentinelFeed(): React.JSX.Element {
   const [unsubscribers, setUnsubscribers] = useState<(() => void)[]>([]);
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [postToDelete, setPostToDelete] = useState<string | null>(null);
+  const [isDeleteUserModalVisible, setIsDeleteUserModalVisible] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<string | null>(null);
   
   const [isReportModalVisible, setIsReportModalVisible] = useState(false);
   const [reportPostId, setReportPostId] = useState<string | null>(null);
   const [selectedReportReasons, setSelectedReportReasons] = useState<string[]>([]);
+
+  const [viewedPosts, setViewedPosts] = useState<Set<string>>(new Set());
+  const viewTrackingTimeout = useRef<NodeJS.Timeout | number | null>(null);
+  const lastTrackedPost = useRef<string | null>(null);
+
+  const trackPostView = useCallback(async (postId: string, postType: string) => {
+  try {
+    if (!userId || !postId) {
+      console.log("⚠️ Missing userId or postId for view tracking");
+      return;
+    }
+
+    // Determine correct collection
+    const collectionName = postType === "X-Data" ? "X-Data" : "SentinelPosts";
+    const postRef = doc(db, collectionName, postId);
+
+    // Get current post data
+    const postDoc = await getDoc(postRef);
+    
+    if (!postDoc.exists()) {
+      console.warn(`⚠️ Post ${postId} not found in ${collectionName}`);
+      return;
+    }
+
+    const currentViewedBy = postDoc.data().ViewedBy || [];
+    const currentViewCount = postDoc.data().ContentViewCount || 0;
+
+    // Only increment if user hasn't viewed before (unique views)
+    if (!currentViewedBy.includes(userId)) {
+      await updateDoc(postRef, {
+        ContentViewCount: currentViewCount + 1,
+        ViewedBy: arrayUnion(userId),
+      });
+
+      console.log(`✅ View tracked for ${collectionName} post ${postId}. New count: ${currentViewCount + 1}`);
+
+      // Update local state immediately for UI responsiveness
+      setFetchedData((prev) =>
+        prev.map((p) =>
+          p.id === postId
+            ? {
+                ...p,
+                ContentViewCount: currentViewCount + 1,
+                ViewedBy: [...(p.ViewedBy || []), userId],
+              }
+            : p
+        )
+      );
+
+      // Mark as viewed in local Set
+      setViewedPosts((prev) => new Set(prev).add(postId));
+    } else {
+      console.log(`ℹ️ User already viewed post ${postId}`);
+    }
+  } catch (error) {
+    console.error("❌ Error tracking view:", error);
+  }
+}, [userId]);
+
+
 
     const reportReasons = [
     'Spam or misleading content',
@@ -1382,11 +1448,15 @@ export default function SentinelFeed(): React.JSX.Element {
     try {
       const fetchuserID = await AsyncStorage.getItem('userId');
       const fetchuserRole = await AsyncStorage.getItem('userRole');
+      const fetchuserName = await AsyncStorage.getItem('userName');
       if(fetchuserID !== null) {
         setUserId(fetchuserID);
       }
       if(fetchuserRole !== null) {
         setUserRole(fetchuserRole);
+      }
+      if(fetchuserName !== null) {
+        setUserName(fetchuserName);
       }
     } catch (error) {
       console.log("Error retrieving userId", error);
@@ -1420,164 +1490,6 @@ export default function SentinelFeed(): React.JSX.Element {
       return 0;
     }
   }, []);
-
-  // const handleFetchAllData = useCallback(async (forceRefresh: boolean = false) => {
-  //   const currentTime = Date.now();
-    
-  //   let fetchuserID = userId;
-  //   if(fetchuserID === ""){
-  //     fetchuserID = await AsyncStorage.getItem('userId') || "";
-  //     setUserId(fetchuserID);
-  //   }
-
-  //   if (!forceRefresh && isInitialized && (currentTime - lastFetchTime < 30000)) {
-  //     return;
-  //   }
-
-  //   setLoading(true);
-  //   try {
-  //     const postsXData: any = [];
-      
-  //     const collXDataRefPost = collection(db, 'X-Data');
-  //     const queryXData = query(
-  //       collXDataRefPost,
-  //       orderBy('ContentDate', 'desc')
-  //     );
-  //     const unsubscribeXData = onSnapshot(queryXData, async xDataSnapshot => {
-  //       const xdataDataArr = xDataSnapshot.docs.map(doc => ({
-  //         id: doc.id,
-  //         data: doc.data(),
-  //       }))
-
-  //       for (const doc of xdataDataArr) {
-  //         const postData = doc.data;
-  //         const postId = doc.id;
-
-  //         postsXData.push({
-  //           uniqueId: `xdata-${postId}`,
-  //           id: postId,
-  //           AuthorImageURL: postData.AuthorImageURL,
-  //           AuthorName: postData.AuthorName,
-  //           AuthorUserID: postData.AuthorUserID || '',
-  //           ContentDate: postData.ContentDate,
-  //           ContentDesc: postData.ContentDesc,
-  //           ContentURL: postData.ContentURL,
-  //           ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
-  //           ContentLikeCount: postData.ContentLikeCount || 0,
-  //           ContentRepostCount: postData.ContentRepostCount || 0,
-  //           ContentCommentCount: postData.ContentCommentCount || 0,
-  //           isApproved: true,
-  //           isNew: false,
-  //           postType: "X-Data",
-  //           Liked: (postData.LikedBy?.includes(fetchuserID) || false),
-  //           Reposted: (postData.RepostedBy?.includes(fetchuserID) || false),
-  //           Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
-  //           createdAt: postData.createdAt || postData.ContentDate,
-  //           CommentTemplate: postData.CommentTemplate || "Sentinel Default Template",
-  //           isRepost: postData.isRepost || false,
-  //           originalPost: postData.originalPost || null,
-  //           repostComment: postData.repostComment || '',
-  //           repostedBy: postData.repostedBy || '',
-  //           repostedAt: postData.repostedAt || null,
-  //           isAnonymous: false,
-  //           contentType: postData.contentType || 'My Thoughts',
-  //           isEducational: postData.isEducational || false,
-  //         });
-  //       }
-
-  //       setFetchedXData(postsXData);
-  //     });
-
-  //     const collSentinelRefPost = collection(db, 'SentinelPosts');
-  //     const querySentinel = query(
-  //       collSentinelRefPost,
-  //       orderBy('ContentDate', 'desc')
-  //     );
-
-  //     console.log("Sentinel OnSnapshot");
-  //     const unsubscribeSentinel = onSnapshot(querySentinel, async sentinelSnapshot => {
-  //       const sentineldataArr = sentinelSnapshot.docs.map(doc => ({
-  //         id: doc.id,
-  //         data: doc.data(),
-  //       }))
-
-  //       const postsData = [];
-  //       for (const doc of sentineldataArr) {
-  //         const postData = doc.data;
-  //         const postId = doc.id;
-
-  //         postsData.push({
-  //           uniqueId: `sentinel-${postId}`,
-  //           id: postId,
-  //           AuthorImageURL: postData.AuthorImageURL,
-  //           AuthorName: postData.AuthorName,
-  //           AuthorUserID: postData.AuthorUserID || postData.repostedBy || '',
-  //           ContentDate: postData.ContentDate,
-  //           ContentDesc: postData.ContentDesc,
-  //           ContentURL: postData.ContentURL,
-  //           ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
-  //           ContentLikeCount: postData.ContentLikeCount || 0,
-  //           ContentRepostCount: postData.ContentRepostCount || 0,
-  //           ContentCommentCount: postData.ContentCommentCount || 0,
-  //           isApproved: postData.isApproved || false,
-  //           isNew: postData.isNew !== undefined ? postData.isNew : true,
-  //           postType: "SentinelPosts",
-  //           Liked: (postData.LikedBy?.includes(fetchuserID) || false),
-  //           Reposted: (postData.RepostedBy?.includes(fetchuserID) || false),
-  //           Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
-  //           createdAt: postData.createdAt || postData.ContentDate,
-  //           CommentTemplate: postData.CommentTemplate || "Sentinel Default Template",
-  //           isRepost: postData.isRepost || false,
-  //           originalPost: postData.originalPost || null,
-  //           repostComment: postData.repostComment || '',
-  //           repostedBy: postData.repostedBy || '',
-  //           repostedAt: postData.repostedAt || null,
-  //           isAnonymous: postData.isAnonymous || false,
-  //           contentType: postData.contentType || 'My Thoughts',
-  //           isEducational: postData.isEducational || false,
-  //         });
-  //       }
-
-  //       setSentinelData(postsData);
-  //       // const allData = postsData.concat(postsXData);
-  //       // setFetchedData(allData);
-  //       // console.log('OnSnapshot Fetched and Sorted', `Total: ${allData.length} documents`);
-
-  //       // allData.forEach(post => {
-  //       //   onSnapshot(
-  //       //     collection(doc(db, post.postType, post.id), 'Comments'),
-  //       //     commentsSnap => {
-  //       //       let totalComments = 0;
-  //       //       totalComments = commentsSnap.size;
-
-  //       //       setFetchedData(prev =>
-  //       //         prev.map(p =>
-  //       //           p.id === post.id
-  //       //           ? { ...p, ContentCommentCount: totalComments }
-  //       //           : p
-  //       //         )
-  //       //       );
-  //       //     }
-  //       //   )
-  //       // });
-  //     });
-      
-  //     setLastFetchTime(currentTime);
-  //     console.log('All Data Fetched and Sorted', `Total: ${fetchedData.length} documents`);
-      
-  //     setIsInitialized(true);
-
-  //     return () => {
-  //       unsubscribeSentinel();
-  //       unsubscribeXData();
-  //     };
-      
-  //   } catch (error) {
-  //     console.error('Error fetching data:', error);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // }, [isInitialized, fetchedData.length, lastFetchTime, userId]);
 
   const handleFetchAllData = useCallback(async (forceRefresh: boolean = false) => {
     const currentTime = Date.now();
@@ -1649,6 +1561,8 @@ export default function SentinelFeed(): React.JSX.Element {
             reportReasons: postData.reportReasons || [],
             reportedBy: postData.reportedBy || [],
             moderationStatus: postData.moderationStatus || "",
+            ContentViewCount: postData.ContentViewCount || 0,
+            ViewedBy: postData.ViewedBy || [],
 
           });
         }
@@ -1760,6 +1674,8 @@ export default function SentinelFeed(): React.JSX.Element {
             reportReasons: postData.reportReasons || [],
             reportedBy: postData.reportedBy || [],
             moderationStatus: postData.moderationStatus || "",
+            ContentViewCount: postData.ContentViewCount || 0, // ✅ ADD THIS
+            ViewedBy: postData.ViewedBy || [],                // ✅ ADD THIS
 
           });
         }
@@ -1952,40 +1868,46 @@ export default function SentinelFeed(): React.JSX.Element {
     }
   },[]);
 
+  const fetchDeletedUser = useCallback(async () => {
+    try {
+      const collSentinelDeletedUsers = collection(db, 'DeletedUsers');
+      console.log("Sentinel DeletedUsers Called");
+
+      const unsubscribeSentinelUpdate = onSnapshot(collSentinelDeletedUsers, updateSnapshot => {
+        const updateDataArr = updateSnapshot.docs.map(doc => ({
+          id: doc.id,
+          data: doc.data(),
+        }));
+
+        for (const doc of updateDataArr) {
+          const deletedData = doc.data;
+          
+          if (userId === deletedData.DeletedUserId) {
+            confirmAccDeletedLogout();
+          }
+
+        }
+
+      })
+
+      return () => {
+        unsubscribeSentinelUpdate();
+      };
+
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  },[]);
+
   useEffect(() => {
     getItem();
     fetchUserFollowing();
     fetchAllUsersForNotifications();
     handleFetchAllData();
     fetchCommentTemplate();
-    
-    // const combinedData = [...sentinelData, ...fetchedXData];
-    // setFetchedData(combinedData);
-
-    // //Cleanup existing listeners before starting new ones
-    // commentUnsubscribesRef.current.forEach(unsubscribe => unsubscribe());
-    // commentUnsubscribesRef.current = []; // Clear the ref array
-    // combinedData.forEach(post => {
-    //   const unsubscribeComments = onSnapshot(
-    //       collection(doc(db, post.postType, post.id), 'Comments'),
-    //       commentsSnap => {
-    //           setFetchedData(prev =>
-    //               prev.map(p =>
-    //                   p.id === post.id
-    //                       ? { ...p, ContentCommentCount: commentsSnap.size }
-    //                       : p
-    //               )
-    //           );
-    //       }
-    //   );
-    //   // Store the new unsubscribe function
-    //   commentUnsubscribesRef.current.push(unsubscribeComments);
-    // });
-
-    // return () => {
-    //   console.log('Cleaning up all comment listeners.');
-    //   commentUnsubscribesRef.current.forEach(unsubscribe => unsubscribe());
-    // };
+    fetchDeletedUser();
 
   }, []);
 
@@ -1993,38 +1915,7 @@ export default function SentinelFeed(): React.JSX.Element {
     fetchPostComments();
 
   }, [fetchedData.map(p => p.id).join(',')]);
-  // }, [fetchedData]);
-
-  // useEffect(() => {
-  //   const unsubscribersMap = new Map();
   
-  //   // IMPORTANT: Use a local variable to track IDs to prevent 
-  //   // multiple listeners if the effect does re-run
-  //   fetchedData.forEach(post => {
-  //     if (!post.id) return; 
-  
-  //     const unsub = onSnapshot(
-  //       collection(doc(db, "SentinelPosts", post.id), 'Comments'),
-  //       (snap) => {
-  //         setFetchedData(currentData => {
-  //           // Check if the post actually exists in current state before updating
-  //           return currentData.map(p => {
-  //             if (p.id === post.id) {
-  //               // Preserve EVERY property in 'p' (Likes, etc.), ONLY update count
-  //               return { ...p, ContentCommentCount: snap.size };
-  //             }
-  //             return p;
-  //           });
-  //         });
-  //       }
-  //     );
-  //     unsubscribersMap.set(post.id, unsub);
-  //   });
-  
-  //   return () => {
-  //     unsubscribersMap.forEach(unsub => unsub());
-  //   };
-  // }, [fetchedData.map(p => p.id).join(',')]);
 
   useFocusEffect(
     useCallback(() => {
@@ -2123,6 +2014,24 @@ export default function SentinelFeed(): React.JSX.Element {
       'warning',
       'Critical Update Required',
       "A critical update is now available. To apply essential security and feature improvements, your current session must end. Please tap logout and then log back in immediately to continue using the app.",
+      [
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            hideModal();
+            handleLogout();
+          }
+        }
+      ]
+    );
+  };
+
+  const confirmAccDeletedLogout = () => {
+    showCustomAlert(
+      'warning',
+      'Account Deactivated',
+      "Your account has been closed by an administrator. If you believe this is a mistake, please contact our support team.",
       [
         {
           text: 'Logout',
@@ -2467,6 +2376,7 @@ export default function SentinelFeed(): React.JSX.Element {
     const handleThreeDotsPress = (item: PostItem, event: any) => {
     const { pageX, pageY } = event.nativeEvent;
     setSelectedPostId(item.id);
+    setSelectedPostUserId(item.AuthorUserID);
     setMenuPosition({ x: pageX - 120, y: pageY + 10 });
     setShowMenuModal(true);
   };
@@ -2474,6 +2384,11 @@ export default function SentinelFeed(): React.JSX.Element {
     const handleDeletePost = async (postId: string) => {
       setPostToDelete(postId);
       setIsDeleteModalVisible(true);
+    };
+
+    const handleDeleteUser = async (postUserId: string) => {
+      setUserToDelete(postUserId);
+      setIsDeleteUserModalVisible(true);
     };
 
     const confirmDeletePost = async () => {
@@ -2507,6 +2422,91 @@ export default function SentinelFeed(): React.JSX.Element {
         
         // Show error with CustomModal
         setIsDeleteModalVisible(true);
+      }
+    };
+
+    const confirmDeleteUser = async () => {
+      if (!userToDelete) return;
+      
+      try {
+
+        callDeleteAccount();
+       
+      } catch (error) {
+        console.error('Error deleting user:', error);
+        setIsDeleteUserModalVisible(false);
+        setShowMenuModal(false);
+        setSelectedPostUserId(null);
+        setUserToDelete(null);
+        
+        // Show error with CustomModal
+        setIsDeleteUserModalVisible(true);
+      }
+    };
+
+    const callDeleteAccount = async () => {
+      try {
+        console.log('Call Delete Account...');
+        
+        const response = await fetch(
+          'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/delete-self-data',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              "userName" : selectedPostUserId
+            })
+          }
+        );
+    
+        if (!response.ok) {
+          // Optional: Show success message
+          Toast.show({
+            type: 'error',
+            text1: 'Failed',
+            text2: 'User deletion failed',
+            position: 'bottom',
+            visibilityTime: 3000,
+          });
+        } else {
+          await addDoc(collection(db, 'DeletedUsers'), {
+            DeletedUserId: selectedPostUserId,
+            DeletedOn: new Date(),
+            DeletedById: userId,
+            DeletedBy: userName
+          });
+          
+          // Optional: Show success message
+          Toast.show({
+            type: 'success',
+            text1: 'Success',
+            text2: 'User deleted successfully',
+            position: 'bottom',
+            visibilityTime: 3000,
+          });
+        }
+
+        setIsDeleteUserModalVisible(false);
+        setShowMenuModal(false);
+        setSelectedPostUserId(null);
+        setUserToDelete(null);
+    
+        const data = await response.json();
+        
+        console.log('✅ Delete Account Complete:', data);
+        
+      } catch (error) {
+        console.error('❌ Error Delete Account:', error);
+
+        setIsDeleteUserModalVisible(false);
+        setShowMenuModal(false);
+        setSelectedPostUserId(null);
+        setUserToDelete(null);
+
+      } finally {
+        // setIsDeleting(false); // Stop loading
       }
     };
 
@@ -3449,36 +3449,98 @@ export default function SentinelFeed(): React.JSX.Element {
   }, [fetchedData, userRole, activeTab, followingUserIds]);
 
 
-  const handleScroll = useCallback((event: any) => {
-    const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
-    const currentScrollY = contentOffset.y;
-    const viewHeight = layoutMeasurement.height;
-    const viewCenter = currentScrollY + viewHeight / 2;
+    const handleScroll = useCallback(
+      (event: any) => {
+        const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+        const currentScrollY = contentOffset.y;
+        const viewHeight = layoutMeasurement.height;
+        const viewCenter = currentScrollY + viewHeight / 2;
 
-    // Check if the user is 90% of the way down the content
-    const isCloseToBottom = 
-      contentOffset.y + layoutMeasurement.height >= contentSize.height * 0.9; 
+        // Check if close to bottom for lazy loading
+        const isCloseToBottom =
+          contentOffset.y + layoutMeasurement.height >= contentSize.height * 0.9;
 
-    if (isCloseToBottom && hasMore && !loading) {
-      handleLoadMore(); // Call the lazy loading function
-    }
-
-    filteredData.forEach((item, index) => {
-      const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
-                       (item.ContentURL ? [item.ContentURL] : []);
-      
-      if (mediaUrls.length > 0 && getMediaType(mediaUrls[0]) === 'video') {
-        const itemY = index * 340;
-        const itemCenter = itemY + 150;
-        
-        if (Math.abs(viewCenter - itemCenter) < 100) {
-          if (currentVideoIndex !== index) {
-            setCurrentVideoIndex(index);
-          }
+        if (isCloseToBottom && hasMore && !loading && !isFetchingMore) {
+          handleLoadMore();
         }
-      }
-    });
-  }, [filteredData, getMediaType, currentVideoIndex, hasMore, loading, handleLoadMore]);
+
+        // Clear previous timeout
+        if (viewTrackingTimeout.current) {
+          clearTimeout(viewTrackingTimeout.current);
+        }
+
+        // Debounce view tracking
+        viewTrackingTimeout.current = setTimeout(() => {
+          // Find the most centered visible post
+          let closestPost: { item: PostItem; distance: number } | null = null;
+
+          filteredData.forEach((item, index) => {
+            const itemY = index * 400; // Adjust based on your card height
+            const itemCenter = itemY + 200; // Half of card height
+            const distance = Math.abs(viewCenter - itemCenter);
+
+            // Only consider posts within viewport
+            if (distance < viewHeight / 2) {
+              if (!closestPost || distance < closestPost.distance) {
+                closestPost = { item, distance };
+              }
+            }
+          });
+
+          // Track view for the most centered post
+          if (closestPost && !viewedPosts.has(closestPost.item.id)) {
+            // Prevent tracking the same post multiple times rapidly
+            if (lastTrackedPost.current !== closestPost.item.id) {
+              lastTrackedPost.current = closestPost.item.id;
+              trackPostView(closestPost.item.id, closestPost.item.postType);
+            }
+          }
+
+          // Video handling for centered post
+          filteredData.forEach((item, index) => {
+            const itemY = index * 400;
+            const itemCenter = itemY + 200;
+            const distance = Math.abs(viewCenter - itemCenter);
+
+            const mediaUrls =
+              item.ContentURLs?.length > 0
+                ? item.ContentURLs
+                : item.ContentURL
+                ? [item.ContentURL]
+                : [];
+
+            if (mediaUrls.length > 0 && getMediaType(mediaUrls[0]) === "video") {
+              if (distance < 100) {
+                if (currentVideoIndex !== index) {
+                  setCurrentVideoIndex(index);
+                }
+              }
+            }
+          });
+        }, 1000); // Increased debounce to 1 second for more stable tracking
+      },
+      [
+        filteredData,
+        getMediaType,
+        currentVideoIndex,
+        hasMore,
+        loading,
+        isFetchingMore,
+        handleLoadMore,
+        viewedPosts,
+        trackPostView,
+      ]
+    );
+
+    // Cleanup timeout on unmount
+    useEffect(() => {
+      return () => {
+        if (viewTrackingTimeout.current) {
+          clearTimeout(viewTrackingTimeout.current);
+        }
+      };
+    }, []);
+
 
   const ApprovalToggle = useCallback(({ isApproved, isNew, onToggle, postId, postItem, isFullScreen = false }: { 
     isApproved: boolean; 
@@ -3792,17 +3854,22 @@ export default function SentinelFeed(): React.JSX.Element {
                     </Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity 
-                    className={`mr-2 p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      openGraphModal(item);
-                    }}
-                    activeOpacity={0.7}
-                    disabled={areInteractionsDisabled(item)}
-                  >
-                    <Feather name="bar-chart-2" size={20} color="#64748b" />
-                  </TouchableOpacity>
+                  {/* Graph/Sentiment Icon with View Count */}
+                <TouchableOpacity
+                  className="flex-row items-center mr-5 px-1.5 py-1"
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    openGraphModal(item);
+                  }}
+                  activeOpacity={0.7}
+                  disabled={areInteractionsDisabled(item)}
+                >
+                  <Feather name="bar-chart-2" size={20} color="#64748b" />
+                  <Text className="text-gray-600 ml-1 text-xs font-medium">
+                    {item.ContentViewCount || 0}
+                  </Text>
+                </TouchableOpacity>
+
 
                 </View>
           
@@ -4072,194 +4139,199 @@ export default function SentinelFeed(): React.JSX.Element {
     )
   }, [openCommentsModal, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, ApprovalToggle, handleApprovalToggle, dummyAuthorImage, userRole, getPostStatus, areInteractionsDisabled, openGraphModal, renderRepostContent]);
 
-  const renderPostUserContent = useCallback((item: PostItem, index: number) => {
-    let AuthorName = "";
-    let AuthorImage = "";
-    if (item.isAnonymous) {
-      AuthorName = "Anonymous";
-      AuthorImage = dummyAuthorImage;
-    } else {
-      AuthorName = item.AuthorName;
-      AuthorImage = item.AuthorImageURL;
-    }
+  // const renderPostUserContent = useCallback((item: PostItem, index: number) => {
+  //   let AuthorName = "";
+  //   let AuthorImage = "";
+  //   if (item.isAnonymous) {
+  //     AuthorName = "Anonymous";
+  //     AuthorImage = dummyAuthorImage;
+  //   } else {
+  //     AuthorName = item.AuthorName;
+  //     AuthorImage = item.AuthorImageURL;
+  //   }
 
-    return (
-      <TouchableOpacity 
-        activeOpacity={0.95}
-        onPress={() => openCommentsModal(item)}
-      >
-        <EnhancedCard postId={item.uniqueId}>
-          <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
-            <View className="flex-row items-center">
-                <View className="relative">
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={() =>
-                      openFullScreenImage(item?.AuthorImageURL || dummyAuthorImage)
-                    }
-                  >
-                    <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
-                      <Image
-                        source={{ uri: AuthorImage || dummyAuthorImage }}
-                        className="w-full h-full"
-                        resizeMode="cover"
-                        resizeMethod="resize"
-                      />
-                    </View>
-                  </TouchableOpacity>
-                </View>
+  //   return (
+  //     <TouchableOpacity 
+  //       activeOpacity={0.95}
+  //       onPress={() => openCommentsModal(item)}
+  //     >
+  //       <EnhancedCard postId={item.uniqueId}>
+  //         <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
+  //           <View className="flex-row items-center">
+  //               <View className="relative">
+  //                 <TouchableOpacity
+  //                   activeOpacity={0.8}
+  //                   onPress={() =>
+  //                     openFullScreenImage(item?.AuthorImageURL || dummyAuthorImage)
+  //                   }
+  //                 >
+  //                   <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
+  //                     <Image
+  //                       source={{ uri: AuthorImage || dummyAuthorImage }}
+  //                       className="w-full h-full"
+  //                       resizeMode="cover"
+  //                       resizeMethod="resize"
+  //                     />
+  //                   </View>
+  //                 </TouchableOpacity>
+  //               </View>
 
-              <View className="flex-1">
-              <Text className="font-bold text-gray-900 text-sm">{AuthorName}</Text>
-                <View className="flex-row items-center mt-0.5">
-                  <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
-                  {item.postType === 'X-Data' && (
-                    <View className="bg-blue-100 px-1.5 py-0.5 rounded-full">
-                      <Text className="text-blue-600 text-xs font-medium">𝕏 POST</Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-              {item.AuthorUserID === userId && (
-                <TouchableOpacity className="p-1.5 rounded-full bg-gray-100"
-                onPress={(event) => handleThreeDotsPress(item, event)}>
-                <Ionicons name="ellipsis-horizontal" size={12} color="#64748b" />
-              </TouchableOpacity>
-              )}
-            </View>
-          </View>
+  //             <View className="flex-1">
+  //             <Text className="font-bold text-gray-900 text-sm">{AuthorName}</Text>
+  //               <View className="flex-row items-center mt-0.5">
+  //                 <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
+  //                 {item.postType === 'X-Data' && (
+  //                   <View className="bg-blue-100 px-1.5 py-0.5 rounded-full">
+  //                     <Text className="text-blue-600 text-xs font-medium">𝕏 POST</Text>
+  //                   </View>
+  //                 )}
+  //               </View>
+  //             </View>
+  //             {item.AuthorUserID === userId && (
+  //               <TouchableOpacity className="p-1.5 rounded-full bg-gray-100"
+  //               onPress={(event) => handleThreeDotsPress(item, event)}>
+  //               <Ionicons name="ellipsis-horizontal" size={12} color="#64748b" />
+  //             </TouchableOpacity>
+  //             )}
+  //           </View>
+  //         </View>
   
-          <View className="px-3 py-2.5">
-            {item.isRepost && (
-              <View className="flex-row items-center mb-2 pb-2 border-b border-gray-100">
-                <Ionicons name="repeat" size={14} color="#64748b" />
-                <Text className="ml-1 text-gray-600 text-xs">
-                  {item.repostComment ? 'Quote repost' : 'Reposted'}
-                </Text>
-              </View>
-            )}
+  //         <View className="px-3 py-2.5">
+  //           {item.isRepost && (
+  //             <View className="flex-row items-center mb-2 pb-2 border-b border-gray-100">
+  //               <Ionicons name="repeat" size={14} color="#64748b" />
+  //               <Text className="ml-1 text-gray-600 text-xs">
+  //                 {item.repostComment ? 'Quote repost' : 'Reposted'}
+  //               </Text>
+  //             </View>
+  //           )}
   
-            <Text className="text-gray-800 text-sm leading-5 mb-2"
-              numberOfLines={3}>
-              {renderStyledPostText(item.ContentDesc)}
-              </Text>
+  //           <Text className="text-gray-800 text-sm leading-5 mb-2"
+  //             numberOfLines={3}>
+  //             {renderStyledPostText(item.ContentDesc)}
+  //             </Text>
   
-            {renderRepostContent(item)}
+  //           {renderRepostContent(item)}
   
-            {/* {(!item.isRepost || item.repostComment) && renderMediaContent(item, index)} */}
-            {renderMediaContent(item, index)}
+  //           {/* {(!item.isRepost || item.repostComment) && renderMediaContent(item, index)} */}
+  //           {renderMediaContent(item, index)}
   
-            <View className="flex-row items-center">
-              <View className="flex-1"> 
-                <View className="flex-row items-center mt-1.5">
+  //           <View className="flex-row items-center">
+  //             <View className="flex-1"> 
+  //               <View className="flex-row items-center mt-1.5">
 
-                  <TouchableOpacity
-                    className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      toggleLike(item);
-                    }}
-                    activeOpacity={0.7}
-                    disabled={areInteractionsDisabled(item)}
-                  >
-                    <Ionicons
-                      name={item.Liked ? "heart" : "heart-outline"}
-                      size={20}
-                      color={item.Liked ? "#ef4444" : "#64748b"}
-                    />
-                    <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
-                      {item.ContentLikeCount}
-                    </Text>
-                  </TouchableOpacity>
+  //                 <TouchableOpacity
+  //                   className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+  //                   onPress={(e) => {
+  //                     e.stopPropagation();
+  //                     toggleLike(item);
+  //                   }}
+  //                   activeOpacity={0.7}
+  //                   disabled={areInteractionsDisabled(item)}
+  //                 >
+  //                   <Ionicons
+  //                     name={item.Liked ? "heart" : "heart-outline"}
+  //                     size={20}
+  //                     color={item.Liked ? "#ef4444" : "#64748b"}
+  //                   />
+  //                   <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
+  //                     {item.ContentLikeCount}
+  //                   </Text>
+  //                 </TouchableOpacity>
 
-                  <TouchableOpacity
-                    className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      openCommentsModal(item);
-                    }}
-                    activeOpacity={0.7}
-                    disabled={areInteractionsDisabled(item)}
-                  >
-                    <MaterialCommunityIcons
-                      name="thumbs-up-down"
-                      size={20}
-                      color="#000000"
-                    />
-                    <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
-                  </TouchableOpacity>
+  //                 <TouchableOpacity
+  //                   className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+  //                   onPress={(e) => {
+  //                     e.stopPropagation();
+  //                     openCommentsModal(item);
+  //                   }}
+  //                   activeOpacity={0.7}
+  //                   disabled={areInteractionsDisabled(item)}
+  //                 >
+  //                   <MaterialCommunityIcons
+  //                     name="thumbs-up-down"
+  //                     size={20}
+  //                     color="#000000"
+  //                   />
+  //                   <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
+  //                 </TouchableOpacity>
   
-                  <TouchableOpacity
-                    className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      handleRepost(item);
-                    }}
-                    activeOpacity={0.7}
-                    disabled={areInteractionsDisabled(item)}
-                  >
-                    <Ionicons 
-                      name="repeat-outline" 
-                      size={20} 
-                      color={item.Reposted ? "#0ea5e9" : "#64748b"} 
-                    />
-                    <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
-                      {item.ContentRepostCount}
-                    </Text>
-                  </TouchableOpacity>
+  //                 <TouchableOpacity
+  //                   className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+  //                   onPress={(e) => {
+  //                     e.stopPropagation();
+  //                     handleRepost(item);
+  //                   }}
+  //                   activeOpacity={0.7}
+  //                   disabled={areInteractionsDisabled(item)}
+  //                 >
+  //                   <Ionicons 
+  //                     name="repeat-outline" 
+  //                     size={20} 
+  //                     color={item.Reposted ? "#0ea5e9" : "#64748b"} 
+  //                   />
+  //                   <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
+  //                     {item.ContentRepostCount}
+  //                   </Text>
+  //                 </TouchableOpacity>
 
-                  <TouchableOpacity 
-                    className={`mr-2 p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      openGraphModal(item);
-                    }}
-                    activeOpacity={0.7}
-                    disabled={areInteractionsDisabled(item)}
-                  >
-                    <Feather name="bar-chart-2" size={20} color="#64748b" />
-                  </TouchableOpacity>
+  //                 {/* Graph/Sentiment Icon with View Count */}
+  //             <TouchableOpacity
+  //               className="flex-row items-center mr-5 px-1.5 py-1"
+  //               onPress={(e) => {
+  //                 e.stopPropagation();
+  //                 openGraphModal(item);
+  //               }}
+  //               activeOpacity={0.7}
+  //               disabled={areInteractionsDisabled(item)}
+  //             >
+  //               <Feather name="bar-chart-2" size={20} color="#64748b" />
+  //               <Text className="text-gray-600 ml-1 text-xs font-medium">
+  //                 {item.ContentViewCount || 0}
+  //               </Text>
+  //             </TouchableOpacity>
 
-                </View>
+
+  //               </View>
           
-              </View>
+  //             </View>
 
-              <View className="flex-row items-center mt-1.5">
-                <TouchableOpacity
-                  className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    handleBookmark(item);
-                  }}
-                  activeOpacity={0.7}
-                  disabled={areInteractionsDisabled(item)}
-                >
-                  <Ionicons 
-                    name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
-                    size={20} 
-                    color={item.Bookmarked ? "#000000" : "#64748b"} 
-                  />
-                </TouchableOpacity>
+  //             <View className="flex-row items-center mt-1.5">
+  //               <TouchableOpacity
+  //                 className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+  //                 onPress={(e) => {
+  //                   e.stopPropagation();
+  //                   handleBookmark(item);
+  //                 }}
+  //                 activeOpacity={0.7}
+  //                 disabled={areInteractionsDisabled(item)}
+  //               >
+  //                 <Ionicons 
+  //                   name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
+  //                   size={20} 
+  //                   color={item.Bookmarked ? "#000000" : "#64748b"} 
+  //                 />
+  //               </TouchableOpacity>
   
-                <TouchableOpacity 
-                  className={`mr-2 p-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    handleShare(item);
-                  }}
-                  activeOpacity={0.7}
-                  disabled={areInteractionsDisabled(item)}
-                >
-                  <Feather name="share-2" size={20} color="#64748b" />
-                </TouchableOpacity>
-                </View>
+  //               <TouchableOpacity 
+  //                 className={`mr-2 p-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+  //                 onPress={(e) => {
+  //                   e.stopPropagation();
+  //                   handleShare(item);
+  //                 }}
+  //                 activeOpacity={0.7}
+  //                 disabled={areInteractionsDisabled(item)}
+  //               >
+  //                 <Feather name="share-2" size={20} color="#64748b" />
+  //               </TouchableOpacity>
+  //               </View>
 
-            </View>
-          </View>
-        </EnhancedCard>
-      </TouchableOpacity>
-    )
-  }, [openCommentsModal, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, dummyAuthorImage, areInteractionsDisabled, openGraphModal, renderRepostContent]);
+  //           </View>
+  //         </View>
+  //       </EnhancedCard>
+  //     </TouchableOpacity>
+  //   )
+  // }, [openCommentsModal, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, dummyAuthorImage, areInteractionsDisabled, openGraphModal, renderRepostContent]);
 
   const listItems = useMemo(() => {
     console.log(`🔄 Rendering ${filteredData.length} items for ${activeTab} tab`);
@@ -4854,6 +4926,35 @@ export default function SentinelFeed(): React.JSX.Element {
           }}
         />
 
+        {/* DELETE USER MODAL */}
+        <CustomModal
+          visible={isDeleteUserModalVisible}
+          type="warning"
+          title="Delete User"
+          message="Are you sure you want to delete this user? This action cannot be undone."
+          buttons={[
+            {
+              text: "Cancel",
+              style: "cancel",
+              onPress: () => {
+                setIsDeleteUserModalVisible(false);
+                setUserToDelete(null);
+                setShowMenuModal(false); 
+              }
+            },
+            {
+              text: "Delete",
+              style: "destructive",
+              onPress: confirmDeleteUser
+            }
+          ]}
+          onClose={() => {
+            setIsDeleteUserModalVisible(false);
+            setUserToDelete(null);
+            setShowMenuModal(false);
+          }}
+        />
+
 
       <RepostModal
         visible={isRepostModalVisible}
@@ -4988,6 +5089,32 @@ export default function SentinelFeed(): React.JSX.Element {
                       Delete
                     </Text>
                   </TouchableOpacity>
+                )}
+                {userRole != 'User' && (
+                  <TouchableOpacity
+                    onPress={() => {
+                    if (selectedPostUserId) {
+                      setShowMenuModal(false);
+                      handleDeleteUser(selectedPostUserId);
+                    }
+                  }}
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    flexDirection: 'row',
+                    alignItems: 'center'
+                  }}
+                >
+                  <Ionicons name="trash" size={18} color="#FF3B30" />
+                  <Text style={{ 
+                    marginLeft: 12, 
+                    fontSize: 15, 
+                    color: '#FF3B30', 
+                    fontWeight: '600' 
+                  }}>
+                    Delete User
+                  </Text>
+                </TouchableOpacity>
                 )}
               </View>
             </TouchableOpacity>

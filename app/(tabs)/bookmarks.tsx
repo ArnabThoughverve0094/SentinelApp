@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import * as Sharing from "expo-sharing";
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { addDoc, arrayRemove, arrayUnion, collection, doc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
+import { addDoc, arrayRemove, arrayUnion, collection, doc, getDoc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
@@ -59,6 +59,8 @@ interface PostItem {
   repostedAt?: any;
   isAnonymous: boolean;
   contentType: string;
+  ContentViewCount?: number;
+  ViewedBy?: string[];
 }
 
 // Repost Modal Component
@@ -589,6 +591,64 @@ export default function BookmarksPage(): React.JSX.Element {
   //Repost modal
   const [isRepostModalVisible, setIsRepostModalVisible] = useState(false);
   const [selectedRepostPost, setSelectedRepostPost] = useState<PostItem | null>(null);
+  const [viewedPosts, setViewedPosts] = useState<Set<string>>(new Set());
+  const viewTrackingTimeout = useRef<NodeJS.Timeout | number | null>(null);
+  const lastTrackedPost = useRef<string | null>(null);
+  
+    const trackPostView = useCallback(async (postId: string, postType: string) => {
+    try {
+      if (!userId || !postId) {
+        console.log("⚠️ Missing userId or postId for view tracking");
+        return;
+      }
+  
+      // Determine correct collection
+      const collectionName = postType === "X-Data" ? "X-Data" : "SentinelPosts";
+      const postRef = doc(db, collectionName, postId);
+  
+      // Get current post data
+      const postDoc = await getDoc(postRef);
+      
+      if (!postDoc.exists()) {
+        console.warn(`⚠️ Post ${postId} not found in ${collectionName}`);
+        return;
+      }
+  
+      const currentViewedBy = postDoc.data().ViewedBy || [];
+      const currentViewCount = postDoc.data().ContentViewCount || 0;
+  
+      // Only increment if user hasn't viewed before (unique views)
+      if (!currentViewedBy.includes(userId)) {
+        await updateDoc(postRef, {
+          ContentViewCount: currentViewCount + 1,
+          ViewedBy: arrayUnion(userId),
+        });
+  
+        console.log(`✅ View tracked for ${collectionName} post ${postId}. New count: ${currentViewCount + 1}`);
+  
+        // Update local state immediately for UI responsiveness
+        // setFetchedData((prev) =>
+        //   prev.map((p) =>
+        //     p.id === postId
+        //       ? {
+        //           ...p,
+        //           ContentViewCount: currentViewCount + 1,
+        //           ViewedBy: [...(p.ViewedBy || []), userId],
+        //         }
+        //       : p
+        //   )
+        // );
+  
+        // Mark as viewed in local Set
+        setViewedPosts((prev) => new Set(prev).add(postId));
+      } else {
+        console.log(`ℹ️ User already viewed post ${postId}`);
+      }
+    } catch (error) {
+      console.error("❌ Error tracking view:", error);
+    }
+  }, [userId]);
+  
 
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
   
@@ -880,7 +940,9 @@ export default function BookmarksPage(): React.JSX.Element {
               createdAt: postData.createdAt || postData.ContentDate,
               CommentTemplate: postData.CommentTemplate || "Standard Template",
               isAnonymous: postData.isAnonymous || false,
-              contentType: postData.contentType || 'My Thoughts'
+              contentType: postData.contentType || 'My Thoughts',
+              ContentViewCount: postData.ContentViewCount || 0,
+              ViewedBy: postData.ViewedBy || [],
             });
           }
         }
@@ -944,6 +1006,8 @@ export default function BookmarksPage(): React.JSX.Element {
               isAnonymous: postData.isAnonymous || false,
               contentType: postData.contentType || 'My Thoughts',
               isEducational: postData.isEducational || false,
+              ContentViewCount: postData.ContentViewCount || 0,
+              ViewedBy: postData.ViewedBy || [],
             });
           }
 
@@ -1691,16 +1755,19 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
                     </Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity 
-                    className={`mr-2 p-1.5`}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      openGraphModal(item);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Feather name="bar-chart-2" size={20} color="#64748b" />
-                  </TouchableOpacity>
+                  <TouchableOpacity
+                  className="flex-row items-center mr-5 px-1.5 py-1"
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    openGraphModal(item);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Feather name="bar-chart-2" size={20} color="#64748b" />
+                  <Text className="text-gray-600 ml-1 text-xs font-medium">
+                    {item.ContentViewCount || 0}
+                  </Text>
+                </TouchableOpacity>
 
                 </View>
           
