@@ -31,6 +31,13 @@ interface UserItem {
   followersCount?: number;
 }
 
+// ✅ Move this function to the top level, outside the component
+const getFullImageUrl = (profilePath?: string): string => {
+  if (!profilePath) return dummyAuthorImage;
+  if (profilePath.startsWith("http")) return profilePath;
+  return `https://sentinal-uploads.s3.us-west-2.amazonaws.com${profilePath}`;
+};
+
 export default function FollowersFollowingScreen() {
   const { userid, type } = useLocalSearchParams<{
     userid: string;
@@ -44,8 +51,8 @@ export default function FollowersFollowingScreen() {
     (type as "followers" | "following") || "followers"
   );
 
-  // Fetch user details from posts
-  const fetchUserDetailsFromPosts = async (userIds: string[]): Promise<Map<string, UserItem>> => {
+  // ✅ Fetch user details from SentinelUsers collection (primary source)
+  const fetchUserDetailsFromSentinelUsers = async (userIds: string[]): Promise<Map<string, UserItem>> => {
     const uniqueUsers = new Map<string, UserItem>();
 
     if (userIds.length === 0) {
@@ -53,45 +60,60 @@ export default function FollowersFollowingScreen() {
     }
 
     try {
-      console.log(`🔍 Fetching details for ${userIds.length} unique user IDs...`);
+      console.log(`🔍 Fetching details from SentinelUsers for ${userIds.length} user IDs...`);
 
-      // Fetch from SentinelPosts
-      const sentinelSnapshot = await getDocs(collection(db, "SentinelPosts"));
-      sentinelSnapshot.docs.forEach((doc) => {
-        const data = doc.data();
-        const authorId = data.AuthorUserID;
+      const usersRef = collection(db, "SentinelUsers");
+      
+      // Firebase 'in' query supports max 10 items, so batch the requests
+      for (let i = 0; i < userIds.length; i += 10) {
+        const batch = userIds.slice(i, i + 10);
+        const q = query(usersRef, where("userID", "in", batch));
+        const snapshot = await getDocs(q);
+        
+        snapshot.docs.forEach((doc) => {
+          const data = doc.data();
+          const userId = data.userID;
+          
+          if (userId && !uniqueUsers.has(userId)) {
+            uniqueUsers.set(userId, {
+              userId: userId,
+              userName: data.userName || data.name || "Unknown User",
+              userNickName: data.userNickName || data.nickName || data.userName || data.name,
+              profilePicUrl: data.profilePicUrl || "",
+              userBio: data.userBio || data.bio || "",
+              followersCount: data.FollowersCount || 0,
+            });
+          }
+        });
+      }
 
-        if (authorId && userIds.includes(authorId) && !uniqueUsers.has(authorId)) {
-          uniqueUsers.set(authorId, {
-            userId: authorId,
-            userName: data.AuthorName || "Unknown User",
-            userNickName: data.AuthorNickName || data.AuthorName,
-            profilePicUrl: data.AuthorImageURL || "",
-            userBio: data.AuthorBio || "",
-            followersCount: 0,
-          });
-        }
-      });
+      console.log(`✅ Found ${uniqueUsers.size} users from SentinelUsers`);
 
-      // Fetch from X-Data for remaining users
-      const xDataSnapshot = await getDocs(collection(db, "X-Data"));
-      xDataSnapshot.docs.forEach((doc) => {
-        const data = doc.data();
-        const authorId = data.AuthorUserID;
+      // If some users still missing, try fetching from posts as fallback
+      const missingUserIds = userIds.filter(id => !uniqueUsers.has(id));
+      if (missingUserIds.length > 0) {
+        console.log(`🔍 Fetching ${missingUserIds.length} missing users from posts...`);
+        
+        const sentinelSnapshot = await getDocs(collection(db, "SentinelPosts"));
+        sentinelSnapshot.docs.forEach((doc) => {
+          const data = doc.data();
+          const authorId = data.AuthorUserID;
 
-        if (authorId && userIds.includes(authorId) && !uniqueUsers.has(authorId)) {
-          uniqueUsers.set(authorId, {
-            userId: authorId,
-            userName: data.AuthorName || "Unknown User",
-            userNickName: data.AuthorNickName || data.AuthorName,
-            profilePicUrl: data.AuthorImageURL || "",
-            userBio: data.AuthorBio || "",
-            followersCount: 0,
-          });
-        }
-      });
+          if (authorId && missingUserIds.includes(authorId) && !uniqueUsers.has(authorId)) {
+            uniqueUsers.set(authorId, {
+              userId: authorId,
+              userName: data.AuthorName || "Unknown User",
+              userNickName: data.AuthorNickName || data.AuthorName,
+              profilePicUrl: data.AuthorImageURL || "",
+              userBio: data.AuthorBio || "",
+              followersCount: 0,
+            });
+          }
+        });
 
-      console.log(`✅ Found details for ${uniqueUsers.size} users`);
+        console.log(`✅ Total users found: ${uniqueUsers.size}`);
+      }
+
     } catch (error) {
       console.error("❌ Error fetching user details:", error);
     }
@@ -116,24 +138,29 @@ export default function FollowersFollowingScreen() {
       const snapshot = await getDocs(q);
       console.log(`📊 Query returned ${snapshot.size} documents`);
 
-      // CRITICAL: Use Set to deduplicate by userID
-      const uniqueFollowerIds = new Set<string>();
+      const uniqueFollowerMap = new Map<string, any>();
       
       snapshot.docs.forEach((doc) => {
         const data = doc.data();
         const followerId = data.userID;
         
         if (followerId) {
-          uniqueFollowerIds.add(followerId);
-          console.log(`📍 Found follower: ${followerId} (${data.userName || 'Unknown'})`);
+          if (!uniqueFollowerMap.has(followerId)) {
+            uniqueFollowerMap.set(followerId, {
+              docId: doc.id,
+              data: data
+            });
+            console.log(`📍 Found unique follower: ${followerId} (${data.userName || 'Unknown'})`);
+          } else {
+            console.log(`⚠️ Skipping duplicate follower document for: ${followerId}`);
+          }
         } else {
           console.warn(`⚠️ Document ${doc.id} has no userID field`);
         }
       });
 
-      const followerIdsArray = Array.from(uniqueFollowerIds);
+      const followerIdsArray = Array.from(uniqueFollowerMap.keys());
       console.log(`✅ Total UNIQUE followers: ${followerIdsArray.length}`);
-      console.log(`📋 Unique follower IDs:`, followerIdsArray);
 
       if (followerIdsArray.length === 0) {
         setUsers([]);
@@ -141,17 +168,15 @@ export default function FollowersFollowingScreen() {
         return;
       }
 
-      // Fetch details from posts
-      const userDetailsMap = await fetchUserDetailsFromPosts(followerIdsArray);
+      const userDetailsMap = await fetchUserDetailsFromSentinelUsers(followerIdsArray);
       
-      // Convert to array
       const followersList: UserItem[] = [];
       followerIdsArray.forEach((followerId) => {
         const userDetails = userDetailsMap.get(followerId);
         if (userDetails) {
           followersList.push(userDetails);
         } else {
-          console.warn(`⚠️ No post data found for follower: ${followerId}`);
+          console.warn(`⚠️ No user data found for follower: ${followerId}`);
         }
       });
 
@@ -189,17 +214,20 @@ export default function FollowersFollowingScreen() {
         return;
       }
 
-      // CRITICAL: If multiple docs with same userID exist, use the first one
-      const userData = snapshot.docs[0].data();
-      const followingIds = userData.Following || [];
+      const allFollowingIds = new Set<string>();
+      
+      snapshot.docs.forEach((doc) => {
+        const followingArray = doc.data().Following || [];
+        followingArray.forEach((id: string) => allFollowingIds.add(id));
+      });
 
-      console.log(`📋 Following array has ${followingIds.length} total IDs:`, followingIds);
+      const mergedFollowingIds = Array.from(allFollowingIds);
+      console.log(`📋 Merged Following from ${snapshot.size} documents: ${mergedFollowingIds.length} total IDs`);
 
-      // Filter out Twitter IDs (only keep UUID format)
-      const validUUIDs = followingIds.filter((id: string) => {
+      const validUUIDs = mergedFollowingIds.filter((id: string) => {
         const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
         if (!isUUID) {
-          console.log(`⚠️ Filtering out Twitter ID: ${id}`);
+          console.log(`⚠️ Filtering out non-UUID ID: ${id}`);
         }
         return isUUID;
       });
@@ -212,17 +240,15 @@ export default function FollowersFollowingScreen() {
         return;
       }
 
-      // Fetch details from posts
-      const userDetailsMap = await fetchUserDetailsFromPosts(validUUIDs);
+      const userDetailsMap = await fetchUserDetailsFromSentinelUsers(validUUIDs);
       
-      // Convert to array in order
       const followingList: UserItem[] = [];
       validUUIDs.forEach((followingId: string) => {
         const userDetails = userDetailsMap.get(followingId);
         if (userDetails) {
           followingList.push(userDetails);
         } else {
-          console.warn(`⚠️ No post data found for following user: ${followingId}`);
+          console.warn(`⚠️ No user data found for following user: ${followingId}`);
         }
       });
 
@@ -244,15 +270,7 @@ export default function FollowersFollowingScreen() {
     } else {
       fetchFollowing();
     }
-
-    // No cleanup needed for getDocs (not a listener)
-  }, [activeTab, userid]);
-
-  const getFullImageUrl = (profilePath?: string): string => {
-    if (!profilePath) return dummyAuthorImage;
-    if (profilePath.startsWith("http")) return profilePath;
-    return `https://sentinal-uploads.s3.us-west-2.amazonaws.com${profilePath}`;
-  };
+  }, [activeTab, userid, fetchFollowers, fetchFollowing]);
 
   const handleUserPress = useCallback(
     (user: UserItem) => {

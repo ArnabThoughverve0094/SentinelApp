@@ -87,6 +87,8 @@ interface PostItem {
   repostedAt?: any;
   isAnonymous: boolean;
   contentType: string;
+  ContentViewCount?: number;
+  ViewedBy?: string[];
 }
 
 interface RepostModalProps {
@@ -96,6 +98,13 @@ interface RepostModalProps {
   onSimpleRepost: () => void;
   onQuoteRepost: (comment: string) => void;
 }
+const getFullImageUrl = (profilePath?: string): string => {
+  const dummy = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
+  
+  if (!profilePath) return dummy;
+  if (profilePath.startsWith("http")) return profilePath;
+  return `https://sentinal-uploads.s3.us-west-2.amazonaws.com${profilePath}`;
+};
 
 const RepostModal: React.FC<RepostModalProps> = ({
   visible,
@@ -248,13 +257,7 @@ const RepostModal: React.FC<RepostModalProps> = ({
   );
 };
 
-const getFullImageUrl = (profilePath?: string): string => {
-  const dummy = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
-  
-  if (!profilePath) return dummy;
-  if (profilePath.startsWith("http")) return profilePath;
-  return `https://sentinal-uploads.s3.us-west-2.amazonaws.com${profilePath}`;
-};
+
 
 export default function UserProfileScreen() {
   const { userId, authorName, authorImageUrl, isAnonymous, userBio } = useLocalSearchParams<{
@@ -264,8 +267,17 @@ export default function UserProfileScreen() {
     isAnonymous?: string;
     userBio?: string;
   }>();
-
   const router = useRouter();
+
+  // ✅ ADD THIS SAFETY CHECK
+  if (!userId) {
+    return (
+      <SafeAreaView className="flex-1 bg-white items-center justify-center">
+        <ActivityIndicator size="large" color="#111827" />
+        <Text className="text-gray-500 mt-4">Loading profile...</Text>
+      </SafeAreaView>
+    );
+  }
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -293,68 +305,72 @@ export default function UserProfileScreen() {
 
   const [realFollowersCount, setRealFollowersCount] = useState<number>(0);
   const [realFollowingCount, setRealFollowingCount] = useState<number>(0);
-    useEffect(() => {
-    if (!userId) return;
+    
 
-    const fetchRealCounts = async () => {
-      try {
-        const usersRef = collection(db, "SentinelUsers");
+    // Replace your existing realFollowersCount/realFollowingCount useEffect with this:
+
+  useEffect(() => {
+  if (!userId) return;
+
+  const fetchRealCounts = async () => {
+    try {
+      const usersRef = collection(db, "SentinelUsers");
+      
+      // Get real followers count (users who have this userId in their Following array)
+      const followersQuery = query(usersRef, where("Following", "array-contains", userId));
+      const followersUnsubscribe = onSnapshot(followersQuery, (snapshot) => {
+        // Use Set to deduplicate by userID
+        const uniqueFollowerIds = new Set<string>();
         
-        // Get real followers count (users who have this userId in their Following array)
-        const followersQuery = query(usersRef, where("Following", "array-contains", userId));
-        const followersUnsubscribe = onSnapshot(followersQuery, (snapshot) => {
-          // Filter out users without proper data
-          const validFollowers = snapshot.docs.filter(doc => {
-            const data = doc.data();
-            return data.userID && data.userName;
-          });
-          setRealFollowersCount(validFollowers.length);
-          console.log(`📊 Real Followers Count: ${validFollowers.length}`);
-        });
-
-        // Get real following count (valid users in this user's Following array)
-        const userQuery = query(usersRef, where("userID", "==", userId));
-        const followingUnsubscribe = onSnapshot(userQuery, async (snapshot) => {
-          if (!snapshot.empty) {
-            const followingIds = snapshot.docs[0].data().Following || [];
-            
-            if (followingIds.length === 0) {
-              setRealFollowingCount(0);
-              return;
-            }
-
-            // Check how many of these IDs actually exist as valid users
-            let validCount = 0;
-            for (let i = 0; i < followingIds.length; i += 10) {
-              const batch = followingIds.slice(i, i + 10);
-              const batchQuery = query(usersRef, where("userID", "in", batch));
-              const batchSnapshot = await getDocs(batchQuery);
-              
-              // Count only valid users
-              validCount += batchSnapshot.docs.filter(doc => {
-                const data = doc.data();
-                return data.userID && data.userName;
-              }).length;
-            }
-            
-            setRealFollowingCount(validCount);
-            console.log(`📊 Real Following Count: ${validCount} (out of ${followingIds.length} IDs)`);
-          } else {
-            setRealFollowingCount(0);
+        snapshot.docs.forEach(doc => {
+          const data = doc.data();
+          const followerId = data.userID;
+          
+          // Only count valid app users with proper UUID format
+          if (followerId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(followerId)) {
+            uniqueFollowerIds.add(followerId);
           }
         });
+        
+        const realCount = uniqueFollowerIds.size;
+        setRealFollowersCount(realCount);
+        console.log(`📊 Real Unique Followers Count: ${realCount}`);
+      });
 
-        return () => {
-          followersUnsubscribe();
-          followingUnsubscribe();
-        };
-      } catch (error) {
-        console.error("Error fetching real counts:", error);
-      }
-    };
+      // Get real following count (valid app user IDs in this user's Following array)
+      const userQuery = query(usersRef, where("userID", "==", userId));
+      const followingUnsubscribe = onSnapshot(userQuery, (snapshot) => {
+        if (!snapshot.empty) {
+          const followingIds = snapshot.docs[0].data().Following || [];
+          
+          // Filter to only valid UUIDs (exclude Twitter IDs)
+          const validUUIDs = followingIds.filter((id: string) => {
+            return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+          });
+          
+          // Use Set to remove duplicates
+          const uniqueFollowingIds = new Set(validUUIDs);
+          const realCount = uniqueFollowingIds.size;
+          
+          setRealFollowingCount(realCount);
+          console.log(`📊 Real Unique Following Count: ${realCount} (filtered from ${followingIds.length} total IDs)`);
+        } else {
+          setRealFollowingCount(0);
+        }
+      });
 
-    fetchRealCounts();
-  }, [userId]);
+      return () => {
+        followersUnsubscribe();
+        followingUnsubscribe();
+      };
+    } catch (error) {
+      console.error("Error fetching real counts:", error);
+    }
+  };
+
+  fetchRealCounts();
+}, [userId]);
+
 
   const ImageFullScreenModal = () => (
     <Modal
@@ -779,6 +795,8 @@ export default function UserProfileScreen() {
             repostedAt: postData.repostedAt || null,
             isAnonymous: postData.isAnonymous || false,
             contentType: postData.contentType || "My Thoughts",
+            ContentViewCount: postData.ContentViewCount || 0,
+            ViewedBy: postData.ViewedBy || [],
           });
         }
 
@@ -1600,7 +1618,7 @@ export default function UserProfileScreen() {
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    className="mr-2 p-1.5"
+                    className="flex-row items-center mr-5 px-1.5 py-1"
                     onPress={(e) => {
                       e.stopPropagation();
                       openGraphModal(item);
@@ -1608,6 +1626,9 @@ export default function UserProfileScreen() {
                     activeOpacity={0.7}
                   >
                     <Feather name="bar-chart-2" size={20} color="#64748b" />
+                    <Text className="text-gray-600 ml-1 text-xs font-medium">
+                      {item.ContentViewCount || 0}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </View>
