@@ -1870,10 +1870,10 @@ export default function SentinelFeed(): React.JSX.Element {
 
   const fetchDeletedUser = useCallback(async () => {
     try {
-      const collSentinelDeletedUsers = collection(db, 'DeletedUsers');
+      const collSentinelDeletedUsers = collection(db, 'UserDeletionAudit');
       console.log("Sentinel DeletedUsers Called");
 
-      const unsubscribeSentinelUpdate = onSnapshot(collSentinelDeletedUsers, updateSnapshot => {
+      const unsubscribeSentinelDeletedUsers = onSnapshot(collSentinelDeletedUsers, updateSnapshot => {
         const updateDataArr = updateSnapshot.docs.map(doc => ({
           id: doc.id,
           data: doc.data(),
@@ -1882,7 +1882,7 @@ export default function SentinelFeed(): React.JSX.Element {
         for (const doc of updateDataArr) {
           const deletedData = doc.data;
           
-          if (userId === deletedData.DeletedUserId) {
+          if (userId === deletedData.userName) {
             confirmAccDeletedLogout();
           }
 
@@ -1891,7 +1891,7 @@ export default function SentinelFeed(): React.JSX.Element {
       })
 
       return () => {
-        unsubscribeSentinelUpdate();
+        unsubscribeSentinelDeletedUsers();
       };
 
     } catch (error) {
@@ -2449,14 +2449,15 @@ export default function SentinelFeed(): React.JSX.Element {
         console.log('Call Delete Account...');
         
         const response = await fetch(
-          'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/delete-self-data',
+          'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/user-access/status',
           {
-            method: 'POST',
+            method: 'PATCH',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              "userName" : selectedPostUserId
+              "username" : selectedPostUserId,
+              "enabled" : false
             })
           }
         );
@@ -2471,12 +2472,12 @@ export default function SentinelFeed(): React.JSX.Element {
             visibilityTime: 3000,
           });
         } else {
-          await addDoc(collection(db, 'DeletedUsers'), {
-            DeletedUserId: selectedPostUserId,
-            DeletedOn: new Date(),
-            DeletedById: userId,
-            DeletedBy: userName
-          });
+          // await addDoc(collection(db, 'DeletedUsers'), {
+          //   DeletedUserId: selectedPostUserId,
+          //   DeletedOn: new Date(),
+          //   DeletedById: userId,
+          //   DeletedBy: userName
+          // });
           
           // Optional: Show success message
           Toast.show({
