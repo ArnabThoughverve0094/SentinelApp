@@ -5,7 +5,9 @@ import * as Application from 'expo-application';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from "expo-sharing";
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, startAfter, updateDoc, where } from 'firebase/firestore';
+import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, 
+  increment, limit, onSnapshot, orderBy, query, serverTimestamp, startAfter,
+   updateDoc, where, writeBatch } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -254,8 +256,6 @@ const MediaCarousel: React.FC<MediaCarouselProps> = React.memo(({
           horizontal
           pagingEnabled={false} // ✅ Changed to false, using snapToInterval instead
           showsHorizontalScrollIndicator={false}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
           // ✅ CRITICAL SNAP PROPS
           snapToInterval={ITEM_WIDTH}
           snapToAlignment="start"
@@ -1019,60 +1019,177 @@ export default function SentinelFeed(): React.JSX.Element {
   const lastTrackedPost = useRef<string | null>(null);
   
   const [sharingId, setSharingId] = useState(null);
+  const initializeAllViewCounts = async () => {
+  try {
+    console.log('🔧 Starting view count initialization...');
+    
+    const collections = ['SentinelPosts', 'X-Data'];
+    let totalUpdated = 0;
+    
+    for (const collectionName of collections) {
+      const postsRef = collection(db, collectionName);
+      const snapshot = await getDocs(postsRef);
+      
+      const batch = writeBatch(db);
+      let batchCount = 0;
+      
+      snapshot.docs.forEach(docSnap => {
+        const data = docSnap.data();
+        
+        // Only update if missing view count fields
+        if (!('ContentViewCount' in data)) {
+          batch.update(docSnap.ref, {
+            ContentViewCount: 0,
+            ViewedBy: [],
+            lastViewUpdate: serverTimestamp()
+          });
+          batchCount++;
+        }
+      });
+      
+      if (batchCount > 0) {
+        await batch.commit();
+        totalUpdated += batchCount;
+        console.log(`✅ Initialized ${batchCount} posts in ${collectionName}`);
+      }
+    }
+    
+    console.log(`✅ Total posts initialized: ${totalUpdated}`);
+    
+    if (totalUpdated === 0) {
+      console.log('✅ All posts already have view counts!');
+    }
+    
+  } catch (error) {
+    console.error('❌ Error initializing view counts:', error);
+  }
+};
 
-  const trackPostView = useCallback(async (postId: string, postType: string) => {
+// Call this ONCE when app loads (add to useEffect)
+useEffect(() => {
+  const runOnce = async () => {
+    const hasInitialized = await AsyncStorage.getItem('viewCountsInitialized');
+    if (!hasInitialized) {
+      await initializeAllViewCounts();
+      await AsyncStorage.setItem('viewCountsInitialized', 'true');
+    }
+  };
+  runOnce();
+}, []);
+     
+    
+const trackPostView = useCallback(async (postId: string, postType: string) => {
   try {
     if (!userId || !postId) {
-      console.log("⚠️ Missing userId or postId for view tracking");
       return;
     }
 
-    // Determine correct collection
-    const collectionName = postType === "X-Data" ? "X-Data" : "SentinelPosts";
-    const postRef = doc(db, collectionName, postId);
+    // Check if already tracked in this session
+    if (viewedPosts.has(postId)) {
+      return;
+    }
 
-    // Get current post data
+    const collectionName = postType === 'X-Data' ? 'X-Data' : 'SentinelPosts';
+    const postRef = doc(db, collectionName, postId);
+    
     const postDoc = await getDoc(postRef);
     
     if (!postDoc.exists()) {
-      console.warn(`⚠️ Post ${postId} not found in ${collectionName}`);
+      console.warn(`Post ${postId} not found in ${collectionName}`);
       return;
     }
 
-    const currentViewedBy = postDoc.data().ViewedBy || [];
-    const currentViewCount = postDoc.data().ContentViewCount || 0;
+    const postData = postDoc.data();
+    const currentViewedBy = postData.ViewedBy || [];
+    const currentViewCount = postData.ContentViewCount || 0;
+    
+    // Check if user already viewed this post (in database)
+    const hasViewed = currentViewedBy.includes(userId);
+    
+    // ✅ ALWAYS INCREMENT (like X/Twitter)
+    const newCount = currentViewCount + 1;
+    
+    // Update Firebase
+    await updateDoc(postRef, {
+      ContentViewCount: newCount,
+      ViewedBy: hasViewed ? currentViewedBy : arrayUnion(userId),
+      lastViewUpdate: new Date()
+    });
+    
+    console.log(`✅ View tracked: ${collectionName}/${postId} → ${newCount} views`);
+    
+    // Optimistic UI update
+    setFetchedData(prev =>
+      prev.map(p =>
+        p.id === postId
+          ? { 
+              ...p, 
+              ContentViewCount: newCount,
+              ViewedBy: hasViewed ? p.ViewedBy : [...(p.ViewedBy || []), userId]
+            }
+          : p
+      )
+    );
+    
+    // Mark as viewed to prevent duplicate tracking
+    setViewedPosts(prev => new Set(prev).add(postId));
+    
+  } catch (error) {
+    console.error('Error tracking view:', error);
+  }
+}, [userId, viewedPosts]);
 
-    // Only increment if user hasn't viewed before (unique views)
-    if (!currentViewedBy.includes(userId)) {
-      await updateDoc(postRef, {
-        ContentViewCount: currentViewCount + 1,
-        ViewedBy: arrayUnion(userId),
+
+
+    useEffect(() => {
+    // Reset viewed posts when switching tabs
+    setViewedPosts(new Set());
+    console.log(`🔄 Reset viewed posts for tab: ${activeTab}`);
+  }, [activeTab]);
+  // Add this temporarily to check your Firebase collections
+const debugFirebaseCollections = async () => {
+  try {
+    // Check X-Data collection
+    const xDataRef = collection(db, 'X-Data');
+    const xDataSnapshot = await getDocs(query(xDataRef, limit(1)));
+    
+    if (!xDataSnapshot.empty) {
+      const sampleDoc = xDataSnapshot.docs[0];
+      console.log('✅ X-Data Collection Structure:', {
+        id: sampleDoc.id,
+        data: sampleDoc.data(),
+        hasViewCount: 'ContentViewCount' in sampleDoc.data(),
+        hasViewedBy: 'ViewedBy' in sampleDoc.data()
       });
-
-      console.log(`✅ View tracked for ${collectionName} post ${postId}. New count: ${currentViewCount + 1}`);
-
-      // Update local state immediately for UI responsiveness
-      setFetchedData((prev) =>
-        prev.map((p) =>
-          p.id === postId
-            ? {
-                ...p,
-                ContentViewCount: currentViewCount + 1,
-                ViewedBy: [...(p.ViewedBy || []), userId],
-              }
-            : p
-        )
-      );
-
-      // Mark as viewed in local Set
-      setViewedPosts((prev) => new Set(prev).add(postId));
     } else {
-      console.log(`ℹ️ User already viewed post ${postId}`);
+      console.log('❌ X-Data collection is empty');
+    }
+
+    // Check SentinelPosts collection
+    const sentinelRef = collection(db, 'SentinelPosts');
+    const sentinelSnapshot = await getDocs(query(sentinelRef, limit(1)));
+    
+    if (!sentinelSnapshot.empty) {
+      const sampleDoc = sentinelSnapshot.docs[0];
+      console.log('✅ SentinelPosts Collection Structure:', {
+        id: sampleDoc.id,
+        data: sampleDoc.data(),
+        hasViewCount: 'ContentViewCount' in sampleDoc.data(),
+        hasViewedBy: 'ViewedBy' in sampleDoc.data()
+      });
     }
   } catch (error) {
-    console.error("❌ Error tracking view:", error);
+    console.error('❌ Error checking Firebase collections:', error);
   }
-}, [userId]);
+};
+
+// Call this in useEffect once
+useEffect(() => {
+  debugFirebaseCollections();
+}, []);
+
+
+
 
 
 
@@ -3528,17 +3645,16 @@ export default function SentinelFeed(): React.JSX.Element {
   }, [fetchedData, userRole, activeTab, followingUserIds]);
 
 
-    const handleScroll = useCallback(
-      (event: any) => {
+    const handleScroll = useCallback((event: any) => {
+      try {
         const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
         const currentScrollY = contentOffset.y;
         const viewHeight = layoutMeasurement.height;
-        const viewCenter = currentScrollY + viewHeight / 2;
 
-        // Check if close to bottom for lazy loading
-        const isCloseToBottom =
+        // Lazy loading
+        const isCloseToBottom = 
           contentOffset.y + layoutMeasurement.height >= contentSize.height * 0.9;
-
+        
         if (isCloseToBottom && hasMore && !loading && !isFetchingMore) {
           handleLoadMore();
         }
@@ -3548,68 +3664,72 @@ export default function SentinelFeed(): React.JSX.Element {
           clearTimeout(viewTrackingTimeout.current);
         }
 
-        // Debounce view tracking
+        // ✅ FIXED: Single setTimeout for view tracking
         viewTrackingTimeout.current = setTimeout(() => {
-          // Find the most centered visible post
-          let closestPost: { item: PostItem; distance: number } | null = null;
-
           filteredData.forEach((item, index) => {
-            const itemY = index * 400; // Adjust based on your card height
-            const itemCenter = itemY + 200; // Half of card height
-            const distance = Math.abs(viewCenter - itemCenter);
+            try {
+              const itemY = index * 450;
+              const itemHeight = 450;
+              const itemTop = itemY;
+              const itemBottom = itemY + itemHeight;
 
-            // Only consider posts within viewport
-            if (distance < viewHeight / 2) {
-              if (!closestPost || distance < closestPost.distance) {
-                closestPost = { item, distance };
+              // Calculate visibility
+              const visibleTop = Math.max(itemTop, currentScrollY);
+              const visibleBottom = Math.min(itemBottom, currentScrollY + viewHeight);
+              const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+              const visibilityPercentage = (visibleHeight / itemHeight) * 100;
+              const isVisible = visibilityPercentage >= 50;
+
+              // Track view if visible and not already tracked
+              if (isVisible && !viewedPosts.has(item.id)) {
+                console.log('Tracking view:', {
+                  postId: item.id,
+                  postType: item.postType,
+                  visibility: `${visibilityPercentage.toFixed(0)}%`
+                });
+                trackPostView(item.id, item.postType);
               }
-            }
-          });
 
-          // Track view for the most centered post
-          if (closestPost && !viewedPosts.has(closestPost.item.id)) {
-            // Prevent tracking the same post multiple times rapidly
-            if (lastTrackedPost.current !== closestPost.item.id) {
-              lastTrackedPost.current = closestPost.item.id;
-              trackPostView(closestPost.item.id, closestPost.item.postType);
-            }
-          }
-
-          // Video handling for centered post
-          filteredData.forEach((item, index) => {
-            const itemY = index * 400;
-            const itemCenter = itemY + 200;
-            const distance = Math.abs(viewCenter - itemCenter);
-
-            const mediaUrls =
-              item.ContentURLs?.length > 0
-                ? item.ContentURLs
-                : item.ContentURL
-                ? [item.ContentURL]
-                : [];
-
-            if (mediaUrls.length > 0 && getMediaType(mediaUrls[0]) === "video") {
-              if (distance < 100) {
-                if (currentVideoIndex !== index) {
+              // Video handling (without nested setTimeout)
+              const mediaUrls = 
+                item.ContentURLs?.length > 0 
+                  ? item.ContentURLs 
+                  : item.ContentURL 
+                  ? [item.ContentURL] 
+                  : [];
+              
+              if (mediaUrls.length > 0 && getMediaType(mediaUrls[0]) === 'video') {
+                const itemCenter = itemY + itemHeight / 2;
+                const viewCenter = currentScrollY + viewHeight / 2;
+                const distance = Math.abs(viewCenter - itemCenter);
+                
+                if (distance < 100 && currentVideoIndex !== index) {
                   setCurrentVideoIndex(index);
                 }
               }
+            } catch (itemError) {
+              console.error(`Error processing item ${item.id}:`, itemError);
             }
           });
-        }, 1000); // Increased debounce to 1 second for more stable tracking
-      },
-      [
-        filteredData,
-        getMediaType,
-        currentVideoIndex,
-        hasMore,
-        loading,
-        isFetchingMore,
-        handleLoadMore,
-        viewedPosts,
-        trackPostView,
-      ]
-    );
+        }, 800); // Single 800ms debounce
+        
+      } catch (error) {
+        console.error('Error in handleScroll:', error);
+      }
+    }, [
+      filteredData, 
+      getMediaType, 
+      currentVideoIndex, 
+      hasMore, 
+      loading, 
+      isFetchingMore, 
+      handleLoadMore, 
+      viewedPosts, 
+      trackPostView
+    ]);
+
+
+
 
     // Cleanup timeout on unmount
     useEffect(() => {
@@ -3619,6 +3739,75 @@ export default function SentinelFeed(): React.JSX.Element {
         }
       };
     }, []);
+
+        const setupViewCountListeners = useCallback(() => {
+      // Only setup listeners for visible posts (first 10-20 posts)
+      const visiblePosts = filteredData.slice(0, 20);
+      const unsubscribers: (() => void)[] = [];
+
+      visiblePosts.forEach(post => {
+        const collectionName = post.postType === 'X-Data' ? 'X-Data' : 'SentinelPosts';
+        const postRef = doc(db, collectionName, post.id);
+        
+        const unsubscribe = onSnapshot(postRef, (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.data();
+            const newViewCount = data.ContentViewCount || 0;
+            
+            // Only update if count actually changed
+            setFetchedData(prev =>
+              prev.map(p =>
+                p.id === post.id && p.ContentViewCount !== newViewCount
+                  ? { ...p, ContentViewCount: newViewCount }
+                  : p
+              )
+            );
+          }
+        }, (error) => {
+          console.error(`Error listening to post ${post.id}:`, error);
+        });
+        
+        unsubscribers.push(unsubscribe);
+      });
+
+      return () => {
+        unsubscribers.forEach(unsub => unsub());
+      };
+    }, [filteredData.map(p => p.id).join(',')]);
+
+    // Update useEffect to only setup when tab changes or data loads
+        useEffect(() => {
+      if (filteredData.length > 0) {
+        const cleanup = setupViewCountListeners();
+        return cleanup;
+      }
+    }, [activeTab, setupViewCountListeners]); 
+
+
+
+    const formatViewCount = useCallback((count: number): string => {
+      if (!count || count === 0) return '0';
+      
+      if (count < 1000) {
+        return count.toString();
+      } else if (count < 10000) {
+        // For 1K-9.9K, show 1 decimal place
+        return (count / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+      } else if (count < 1000000) {
+        // For 10K-999K, show no decimals
+        return Math.floor(count / 1000) + 'K';
+      } else if (count < 10000000) {
+        // For 1M-9.9M, show 1 decimal place
+        return (count / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+      } else if (count < 1000000000) {
+        // For 10M-999M, show no decimals
+        return Math.floor(count / 1000000) + 'M';
+      } else {
+        return (count / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
+      }
+    }, []);
+
+
 
 
   const ApprovalToggle = useCallback(({ isApproved, isNew, onToggle, postId, postItem, isFullScreen = false }: { 
@@ -3932,23 +4121,22 @@ export default function SentinelFeed(): React.JSX.Element {
                       {item.ContentRepostCount}
                     </Text>
                   </TouchableOpacity>
-
-                  {/* Graph/Sentiment Icon with View Count */}
+                {/* GRAPH WITH VIEW COUNT LIKE X/TWITTER */}
                 <TouchableOpacity
-                  className="flex-row items-center mr-5 px-1.5 py-1"
+                  className="flex-row items-center mr-4 px-1.5 py-1"
                   onPress={(e) => {
                     e.stopPropagation();
                     openGraphModal(item);
                   }}
                   activeOpacity={0.7}
-                  disabled={areInteractionsDisabled(item)}
                 >
                   <Feather name="bar-chart-2" size={20} color="#64748b" />
-                  <Text className="text-gray-600 ml-1 text-xs font-medium">
-                    {item.ContentViewCount || 0}
-                  </Text>
+                  {item.ContentViewCount !== undefined && item.ContentViewCount > 0 && (
+                    <Text className="text-gray-600 ml-1.5 text-xs font-medium">
+                      {formatViewCount(item.ContentViewCount)}
+                    </Text>
+                  )}
                 </TouchableOpacity>
-
 
                 </View>
           
@@ -4573,8 +4761,6 @@ export default function SentinelFeed(): React.JSX.Element {
           paddingTop: 6, 
           paddingBottom: 16,
         }}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -4585,6 +4771,8 @@ export default function SentinelFeed(): React.JSX.Element {
             titleColor="#64748b"
           />
         }
+        onScroll={handleScroll}          // ✅ ADD THIS LINE
+        scrollEventThrottle={16}
       >
         {/* {loading ? (
           <View className="flex-1 justify-center items-center py-20">
