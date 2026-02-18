@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import * as Sharing from "expo-sharing";
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { addDoc, arrayRemove, arrayUnion, collection, doc, getDoc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
+import { addDoc, arrayRemove, arrayUnion, collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
@@ -594,60 +594,111 @@ export default function BookmarksPage(): React.JSX.Element {
   const [viewedPosts, setViewedPosts] = useState<Set<string>>(new Set());
   const viewTrackingTimeout = useRef<NodeJS.Timeout | number | null>(null);
   const lastTrackedPost = useRef<string | null>(null);
-  
-    const trackPostView = useCallback(async (postId: string, postType: string) => {
-    try {
-      if (!userId || !postId) {
-        console.log("⚠️ Missing userId or postId for view tracking");
-        return;
-      }
-  
-      // Determine correct collection
-      const collectionName = postType === "X-Data" ? "X-Data" : "SentinelPosts";
-      const postRef = doc(db, collectionName, postId);
-  
-      // Get current post data
-      const postDoc = await getDoc(postRef);
-      
-      if (!postDoc.exists()) {
-        console.warn(`⚠️ Post ${postId} not found in ${collectionName}`);
-        return;
-      }
-  
-      const currentViewedBy = postDoc.data().ViewedBy || [];
-      const currentViewCount = postDoc.data().ContentViewCount || 0;
-  
-      // Only increment if user hasn't viewed before (unique views)
-      if (!currentViewedBy.includes(userId)) {
-        await updateDoc(postRef, {
-          ContentViewCount: currentViewCount + 1,
-          ViewedBy: arrayUnion(userId),
-        });
-  
-        console.log(`✅ View tracked for ${collectionName} post ${postId}. New count: ${currentViewCount + 1}`);
-  
-        // Update local state immediately for UI responsiveness
-        // setFetchedData((prev) =>
-        //   prev.map((p) =>
-        //     p.id === postId
-        //       ? {
-        //           ...p,
-        //           ContentViewCount: currentViewCount + 1,
-        //           ViewedBy: [...(p.ViewedBy || []), userId],
-        //         }
-        //       : p
-        //   )
-        // );
-  
-        // Mark as viewed in local Set
-        setViewedPosts((prev) => new Set(prev).add(postId));
-      } else {
-        console.log(`ℹ️ User already viewed post ${postId}`);
-      }
-    } catch (error) {
-      console.error("❌ Error tracking view:", error);
+
+  const formatViewCount = useCallback((count: number): string => {
+    if (!count || count === 0) return '0';
+    
+    if (count < 1000) {
+      return count.toString();
+    } else if (count < 10000) {
+      return (count / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+    } else if (count < 1000000) {
+      return Math.floor(count / 1000) + 'K';
+    } else if (count < 10000000) {
+      return (count / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+    } else if (count < 1000000000) {
+      return Math.floor(count / 1000000) + 'M';
+    } else {
+      return (count / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
     }
-  }, [userId]);
+  }, []);
+  
+  
+    // ✅ TRACK POST VIEW
+    const trackPostView = useCallback(async (postId: string, postType: string) => {
+      try {
+        if (!userId || !postId || viewedPosts.has(postId)) {
+          return;
+        }
+
+        const collectionName = postType === 'X-Data' ? 'X-Data' : 'SentinelPosts';
+        const postRef = doc(db, collectionName, postId);
+        
+        const postDoc = await getDoc(postRef);
+        
+        if (!postDoc.exists()) {
+          return;
+        }
+
+        const postData = postDoc.data();
+        const currentViewedBy = postData.ViewedBy || [];
+        const currentViewCount = postData.ContentViewCount || 0;
+        const hasViewed = currentViewedBy.includes(userId);
+        
+        const newCount = currentViewCount + 1;
+        
+        await updateDoc(postRef, {
+          ContentViewCount: newCount,
+          ViewedBy: hasViewed ? currentViewedBy : arrayUnion(userId),
+          lastViewUpdate: new Date()
+        });
+        
+        // Optimistic UI update
+        setBookmarkedPosts(prev =>
+          prev.map(p =>
+            p.id === postId
+              ? { 
+                  ...p, 
+                  ContentViewCount: newCount,
+                  ViewedBy: hasViewed ? p.ViewedBy : [...(p.ViewedBy || []), userId]
+                }
+              : p
+          )
+        );
+        
+        setViewedPosts(prev => new Set(prev).add(postId));
+        
+      } catch (error) {
+        console.error('Error tracking view:', error);
+      }
+    }, [userId, viewedPosts]);
+    // Reset viewed posts when page loads
+    useEffect(() => {
+      setViewedPosts(new Set());
+    }, []);
+
+    const handleScroll = useCallback((event: any) => {
+    const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+    const currentScrollY = contentOffset.y;
+    const viewHeight = layoutMeasurement.height;
+
+    if (viewTrackingTimeout.current) {
+      clearTimeout(viewTrackingTimeout.current);
+    }
+
+    viewTrackingTimeout.current = setTimeout(() => {
+      filteredAndSortedPosts.forEach((item, index) => {
+        const itemY = index * 450;
+        const itemHeight = 450;
+        const itemTop = itemY;
+        const itemBottom = itemY + itemHeight;
+        
+        const visibleTop = Math.max(itemTop, currentScrollY);
+        const visibleBottom = Math.min(itemBottom, currentScrollY + viewHeight);
+        const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+        const visibilityPercentage = (visibleHeight / itemHeight) * 100;
+        
+        const isVisible = visibilityPercentage >= 50;
+        
+        if (isVisible && !viewedPosts.has(item.id)) {
+          trackPostView(item.id, item.postType);
+        }
+      });
+    }, 800);
+  }, [bookmarkedPosts, viewedPosts, trackPostView]);
+  
+
+
   
 
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
@@ -894,165 +945,119 @@ export default function BookmarksPage(): React.JSX.Element {
     setLoading(true);
     
     let fetchuserID = userId;
-    if(fetchuserID == ""){
-      fetchuserID = await AsyncStorage.getItem('userId') || "";
+    if (!fetchuserID) {
+      fetchuserID = await AsyncStorage.getItem('userId') || '';
       setUserId(fetchuserID);
     }
 
-    setLoading(true);
     try {
-      const postsXData: any = [];
-      
-      const collXDataRefPost = collection(db, 'X-Data');
-      const queryXData = query(
-        collXDataRefPost,
-        orderBy('ContentDate', 'desc')
-      );
-      const unsubscribeXData = onSnapshot(queryXData, async xDataSnapshot => {
-        const xdataDataArr = xDataSnapshot.docs.map(doc => ({
-          id: doc.id,
-          data: doc.data(),
-        }))
+      const allBookmarkedPosts: PostItem[] = [];
 
-        for (const doc of xdataDataArr) {
-          const postData = doc.data;
-          const postId = doc.id;
+      // Fetch X-Data bookmarks
+      const xDataRef = collection(db, 'X-Data');
+      const xDataQuery = query(xDataRef, orderBy('ContentDate', 'desc'));
+      const xDataSnapshot = await getDocs(xDataQuery);
 
-          if(postData.BookmarkedBy?.includes(fetchuserID)) {
-            postsXData.push({
-              uniqueId: `xdata-${postId}`,
-              id: postId,
-              AuthorImageURL: postData.AuthorImageURL,
-              AuthorName: postData.AuthorName,
-              ContentDate: postData.ContentDate,
-              ContentDesc: postData.ContentDesc,
-              ContentURL: postData.ContentURL,
-              ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
-              ContentLikeCount: postData.ContentLikeCount || 0,
-              ContentRepostCount: postData.ContentRepostCount || 0,
-              ContentCommentCount: postData.ContentCommentCount || 0,
-              isApproved: true,
-              isNew: false,
-              postType: "X-Data",
-              Liked: (postData.LikedBy?.includes(fetchuserID) || false),
-              Reposted: false,
-              Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
-              createdAt: postData.createdAt || postData.ContentDate,
-              CommentTemplate: postData.CommentTemplate || "Standard Template",
-              isAnonymous: postData.isAnonymous || false,
-              contentType: postData.contentType || 'My Thoughts',
-              ContentViewCount: postData.ContentViewCount || 0,
-              ViewedBy: postData.ViewedBy || [],
-            });
-          }
+      xDataSnapshot.docs.forEach(doc => {
+        const postData = doc.data();
+        if (postData.BookmarkedBy?.includes(fetchuserID)) {
+          allBookmarkedPosts.push({
+            uniqueId: `xdata-${doc.id}`,
+            id: doc.id,
+            AuthorImageURL: postData.AuthorImageURL,
+            AuthorName: postData.AuthorName,
+            AuthorBio: postData.AuthorBio || '',
+            AuthorUserID: postData.AuthorUserID,
+            ContentDate: postData.ContentDate,
+            ContentDesc: postData.ContentDesc,
+            ContentURL: postData.ContentURL,
+            ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+            ContentLikeCount: postData.ContentLikeCount || 0,
+            ContentRepostCount: postData.ContentRepostCount || 0,
+            ContentCommentCount: postData.ContentCommentCount || 0,
+            ContentViewCount: postData.ContentViewCount || 0, // ✅ VIEW COUNT
+            ViewedBy: postData.ViewedBy || [], // ✅ VIEW TRACKING
+            isApproved: true,
+            isNew: false,
+            postType: 'X-Data',
+            Liked: postData.LikedBy?.includes(fetchuserID) || false,
+            Reposted: postData.RepostedBy?.includes(fetchuserID) || false,
+            Bookmarked: true,
+            createdAt: postData.createdAt || postData.ContentDate,
+            bookmarkedAt: postData.bookmarkedAt || new Date(),
+            CommentTemplate: postData.CommentTemplate || 'Standard Template',
+            isAnonymous: false,
+            contentType: postData.contentType || 'My Thoughts',
+          });
         }
-
-        setFetchedXData(postsXData);
       });
 
-      const collSentinelRefPost = collection(db, 'SentinelPosts');
-      const querySentinel = query(
-        collSentinelRefPost,
-        orderBy('ContentDate', 'desc')
-      );
+      // Fetch SentinelPosts bookmarks
+      const sentinelRef = collection(db, 'SentinelPosts');
+      const sentinelQuery = query(sentinelRef, orderBy('ContentDate', 'desc'));
+      const sentinelSnapshot = await getDocs(sentinelQuery);
 
-      console.log("Sentinel OnSnapshot");
-      const unsubscribeSentinel = onSnapshot(querySentinel, async sentinelSnapshot => {
-        const sentineldataArr = sentinelSnapshot.docs.map(doc => ({
-          id: doc.id,
-          data: doc.data(),
-        }))
-
-        const postsData = [];
-        for (const doc of sentineldataArr) {
-          const postData = doc.data;
-          const postId = doc.id;
-
-          try {
-            console.log("Liked By List: ", postData.LikedBy);
-            console.log("UserID: ", fetchuserID);
-            console.log("Liked By: ", (postData.LikedBy?.includes(fetchuserID) || false));
-          } catch (error) {
-            console.log(error);
-          }
-
-          if(postData.BookmarkedBy?.includes(fetchuserID)) {
-            postsData.push({
-              uniqueId: `sentinel-${postId}`,
-              id: postId,
-              AuthorImageURL: postData.AuthorImageURL,
-              AuthorName: postData.AuthorName,
-              AuthorUserID: postData.AuthorUserID || postData.repostedBy || '123456',
-              ContentDate: postData.ContentDate,
-              ContentDesc: postData.ContentDesc,
-              ContentURL: postData.ContentURL,
-              ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
-              ContentLikeCount: postData.ContentLikeCount || 0,
-              ContentRepostCount: postData.ContentRepostCount || 0,
-              ContentCommentCount: postData.ContentCommentCount || 0,
-              isApproved: postData.isApproved || false,
-              isNew: postData.isNew !== undefined ? postData.isNew : true,
-              postType: postData.postType || "SentinelPosts",
-              Liked: (postData.LikedBy?.includes(fetchuserID) || false),
-              Reposted: (postData.RepostedBy?.includes(fetchuserID) || false),
-              Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
-              createdAt: postData.createdAt || postData.ContentDate,
-              CommentTemplate: postData.CommentTemplate || "Standard Template",
-              isRepost: postData.isRepost || false,
-              originalPost: postData.originalPost || null,
-              repostComment: postData.repostComment || '',
-              repostedBy: postData.repostedBy || '',
-              repostedAt: postData.repostedAt || null,
-              isAnonymous: postData.isAnonymous || false,
-              contentType: postData.contentType || 'My Thoughts',
-              isEducational: postData.isEducational || false,
-              ContentViewCount: postData.ContentViewCount || 0,
-              ViewedBy: postData.ViewedBy || [],
-            });
-          }
-
+      sentinelSnapshot.docs.forEach(doc => {
+        const postData = doc.data();
+        if (postData.BookmarkedBy?.includes(fetchuserID)) {
+          allBookmarkedPosts.push({
+            uniqueId: `sentinel-${doc.id}`,
+            id: doc.id,
+            AuthorImageURL: postData.AuthorImageURL,
+            AuthorName: postData.AuthorName,
+            AuthorBio: postData.AuthorBio || '',
+            AuthorUserID: postData.AuthorUserID || postData.repostedBy || '123456',
+            ContentDate: postData.ContentDate,
+            ContentDesc: postData.ContentDesc,
+            ContentURL: postData.ContentURL,
+            ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+            ContentLikeCount: postData.ContentLikeCount || 0,
+            ContentRepostCount: postData.ContentRepostCount || 0,
+            ContentCommentCount: postData.ContentCommentCount || 0,
+            ContentViewCount: postData.ContentViewCount || 0, // ✅ VIEW COUNT
+            ViewedBy: postData.ViewedBy || [], // ✅ VIEW TRACKING
+            isApproved: postData.isApproved || false,
+            isNew: postData.isNew !== undefined ? postData.isNew : true,
+            postType: postData.postType || 'SentinelPosts',
+            Liked: postData.LikedBy?.includes(fetchuserID) || false,
+            Reposted: postData.RepostedBy?.includes(fetchuserID) || false,
+            Bookmarked: true,
+            createdAt: postData.createdAt || postData.ContentDate,
+            bookmarkedAt: postData.bookmarkedAt || new Date(),
+            CommentTemplate: postData.CommentTemplate || 'Standard Template',
+            isRepost: postData.isRepost || false,
+            originalPost: postData.originalPost || null,
+            repostComment: postData.repostComment || '',
+            repostedBy: postData.repostedBy || '',
+            repostedAt: postData.repostedAt || null,
+            isAnonymous: postData.isAnonymous || false,
+            contentType: postData.contentType || 'My Thoughts',
+          });
         }
-
-        const allData = postsData.concat(postsXData);
-        setBookmarkedPosts(allData);
-        console.log('OnSnapshot Fetched and Sorted', `Total: ${allData.length} documents`);
-
-        allData.forEach(post => {
-          onSnapshot(
-            collection(doc(db, post.postType, post.id), 'Comments'),
-            (commentsSnap) => {
-              const totalComments = commentsSnap.size;
-              
-              setBookmarkedPosts(prev =>
-                prev.map(p =>
-                  p.id === post.id
-                  ? { ...p, ContentCommentCount: totalComments }
-                  : p
-                )
-              );
-            },
-            (error) => {
-              console.error(`Error listening to comments for post ${post.id}:`, error);
-            }
-          );
-        });
-
-        
       });
-      
-      return () => {
-        unsubscribeSentinel();
-        unsubscribeXData();
-      };
-      
+
+      setBookmarkedPosts(allBookmarkedPosts);
+      console.log(`✅ Loaded ${allBookmarkedPosts.length} bookmarked posts`);
+
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('Error fetching bookmarked posts:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to load bookmarks',
+        position: 'bottom',
+      });
     } finally {
       setLoading(false);
     }
-  }, [dummyAuthorImage]);
+  }, [userId]);
 
+  // Initialize on mount
   useEffect(() => {
+    const getItem = async () => {
+      const fetchuserID = await AsyncStorage.getItem('userId');
+      if (fetchuserID) setUserId(fetchuserID);
+    };
     getItem();
     handleFetchBookmarkedPosts();
   }, []);
@@ -1594,6 +1599,50 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
 
     return filtered;
   }, [bookmarkedPosts, searchQuery, sortBy]);
+  // SETUP REAL-TIME VIEW COUNT LISTENERS
+    const setupViewCountListeners = useCallback(() => {
+      // Only setup listeners for first 10 posts to save resources
+      const visiblePosts = filteredAndSortedPosts.slice(0, 10);
+      const unsubscribers: (() => void)[] = [];
+
+      visiblePosts.forEach((post) => {
+        const collectionName = post.postType === 'X-Data' ? 'X-Data' : 'SentinelPosts';
+        const postRef = doc(db, collectionName, post.id);
+        
+        const unsubscribe = onSnapshot(postRef, (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.data();
+            const newViewCount = data.ContentViewCount || 0;
+            
+            // Only update if count actually changed
+            setBookmarkedPosts(prev =>
+              prev.map(p =>
+                p.id === post.id && p.ContentViewCount !== newViewCount
+                  ? { ...p, ContentViewCount: newViewCount }
+                  : p
+              )
+            );
+          }
+        }, (error) => {
+          console.error(`Error listening to post ${post.id}:`, error);
+        });
+        
+        unsubscribers.push(unsubscribe);
+      });
+
+      return () => {
+        unsubscribers.forEach(unsub => unsub());
+      };
+    }, [filteredAndSortedPosts]);
+
+    // Add to useEffect
+    useEffect(() => {
+      if (filteredAndSortedPosts.length > 0) {
+        const cleanup = setupViewCountListeners();
+        return cleanup;
+      }
+    }, [filteredAndSortedPosts.length, setupViewCountListeners]);
+
 
   // Enhanced Card Component
   const EnhancedCard = useCallback(({ children, postId }: { children: React.ReactNode, postId: string }) => {
@@ -1755,19 +1804,24 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
                     </Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity
-                  className="flex-row items-center mr-5 px-1.5 py-1"
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    openGraphModal(item);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Feather name="bar-chart-2" size={20} color="#64748b" />
-                  <Text className="text-gray-600 ml-1 text-xs font-medium">
-                    {item.ContentViewCount || 0}
+                  {/* ✅ GRAPH WITH VIEW COUNT (LIKE X/TWITTER) */}
+              <TouchableOpacity
+                className="flex-row items-center mr-4 px-1.5 py-1"
+                onPress={(e) => {
+                  e.stopPropagation();
+                  setSelectedGraphPostId(item.id);
+                  setSelectedGraphPostType(item.postType);
+                  setIsGraphModalVisible(true);
+                }}
+                activeOpacity={0.7}
+              >
+                <Feather name="bar-chart-2" size={20} color="#64748b" />
+                {item.ContentViewCount !== undefined && item.ContentViewCount > 0 && (
+                  <Text className="text-gray-600 ml-1.5 text-xs font-medium">
+                    {formatViewCount(item.ContentViewCount)}
                   </Text>
-                </TouchableOpacity>
+                )}
+              </TouchableOpacity>
 
                 </View>
           
@@ -1901,6 +1955,8 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
             titleColor="#64748b"
           />
         }
+        onScroll={handleScroll}          
+        scrollEventThrottle={16}    
       >
         {loading ? (
           <View className="flex-1 justify-center items-center py-20">
