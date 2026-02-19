@@ -1065,12 +1065,56 @@ const compressAndGetUrl = async (localUri) => {
       setLoading(false);
     }
   };
+  // **NEW: Generate thumbnail for video posts**
+    const generateThumbnail = async (videoUrl: string): Promise<string | null> => {
+      try {
+        console.log('🖼️ Generating thumbnail for video:', videoUrl);
+
+        const response = await fetch(
+          'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/create-thumbnail-pic',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ videoUrl }),
+          }
+        );
+
+        if (!response.ok) {
+          console.warn('⚠️ Thumbnail API returned error:', response.status);
+          return null;
+        }
+
+        const data = await response.json();
+
+        if (data?.thumbnailUrl) {
+          console.log('✅ Thumbnail generated:', data.thumbnailUrl);
+          return data.thumbnailUrl;
+        }
+
+        return null;
+      } catch (error) {
+        console.error('❌ Thumbnail generation failed:', error);
+        return null; // Non-blocking: post will still be created without thumbnail
+      }
+    };
+
+
 
   // **NEW: Separated post creation**
   const createPost = async (uploadedUrls: string[], failedUploads: string[]) => {
   try {
-    // Step 1: Check if post contains any video - if yes, skip AI moderation entirely
     const hasVideo = uploadedUrls.some(url => getMediaType(url) === 'video');
+
+    // ✅ NEW: Generate thumbnail if post contains a video
+    let videoThumbnailUrl: string | null = null;
+    if (hasVideo) {
+      const videoUrl = uploadedUrls.find(url => getMediaType(url) === 'video');
+      if (videoUrl) {
+        videoThumbnailUrl = await generateThumbnail(videoUrl);
+      }
+    }
     
     let isContentApproved = false;
     let isFlagged = false;
@@ -1160,6 +1204,8 @@ const compressAndGetUrl = async (localUri) => {
       isAnonymous: isAnonymous,
       contentType: selectedType,
       isEducational: isEducationalEnabled,
+      // ✅ NEW: Save thumbnail URL for video posts
+      thumbnailUrl: videoThumbnailUrl || null,
       // Add moderation metadata
       moderationData: {
         flagged: isFlagged,
