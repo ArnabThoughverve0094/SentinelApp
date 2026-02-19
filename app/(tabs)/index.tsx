@@ -1080,64 +1080,65 @@ useEffect(() => {
     
 const trackPostView = useCallback(async (postId: string, postType: string) => {
   try {
-    if (!userId || !postId) {
-      return;
-    }
-
-    // Check if already tracked in this session
-    if (viewedPosts.has(postId)) {
-      return;
-    }
+    if (!userId || !postId) return;
+    if (viewedPosts.has(postId)) return;
 
     const collectionName = postType === 'X-Data' ? 'X-Data' : 'SentinelPosts';
-    const postRef = doc(db, collectionName, postId);
     
+    // ✅ FIX: Strip 'x-' prefix if present (uniqueId vs id mismatch)
+    const cleanPostId = postId.startsWith('x-') ? postId.replace('x-', '') : postId;
+    
+    console.log('📊 Tracking view for:', { postId, cleanPostId, postType, collectionName });
+
+    const postRef = doc(db, collectionName, cleanPostId);
     const postDoc = await getDoc(postRef);
-    
+
     if (!postDoc.exists()) {
-      console.warn(`Post ${postId} not found in ${collectionName}`);
+      console.warn(`❌ Post ${cleanPostId} not found in ${collectionName}`);
       return;
     }
 
     const postData = postDoc.data();
-    const currentViewedBy = postData.ViewedBy || [];
     const currentViewCount = postData.ContentViewCount || 0;
-    
-    // Check if user already viewed this post (in database)
-    const hasViewed = currentViewedBy.includes(userId);
-    
-    // ✅ ALWAYS INCREMENT (like X/Twitter)
     const newCount = currentViewCount + 1;
-    
-    // Update Firebase
+    const currentViewedBy = postData.ViewedBy || [];
+    const hasViewed = currentViewedBy.includes(userId);
+
     await updateDoc(postRef, {
       ContentViewCount: newCount,
       ViewedBy: hasViewed ? currentViewedBy : arrayUnion(userId),
       lastViewUpdate: new Date()
     });
-    
-    console.log(`✅ View tracked: ${collectionName}/${postId} → ${newCount} views`);
-    
-    // Optimistic UI update
+
+    console.log(`✅ View tracked: ${collectionName}/${cleanPostId} → ${newCount} views`);
+
+    // Optimistic UI update - use original postId to match local state
     setFetchedData(prev =>
       prev.map(p =>
-        p.id === postId
-          ? { 
-              ...p, 
-              ContentViewCount: newCount,
-              ViewedBy: hasViewed ? p.ViewedBy : [...(p.ViewedBy || []), userId]
-            }
+        p.id === postId || p.id === cleanPostId
+          ? { ...p, ContentViewCount: newCount }
           : p
       )
     );
-    
-    // Mark as viewed to prevent duplicate tracking
+
+    if (postType === 'X-Data') {
+      setFetchedXData(prev =>
+        prev.map(p =>
+          p.id === postId || p.id === cleanPostId
+            ? { ...p, ContentViewCount: newCount }
+            : p
+        )
+      );
+    }
+
     setViewedPosts(prev => new Set(prev).add(postId));
-    
+
   } catch (error) {
-    console.error('Error tracking view:', error);
+    console.error('❌ Error tracking view:', error);
   }
 }, [userId, viewedPosts]);
+
+
 
 
 
@@ -1701,7 +1702,67 @@ useEffect(() => {
 
         // 3. Set the posts data (Initial batch)
         setSentinelData(postsData);
-        setFetchedData(postsData);
+        // Also fetch X-Data and merge
+        try {
+          const xDataRef = collection(db, 'X-Data');
+          const xDataQuery = query(xDataRef, orderBy('ContentDate', 'desc'), limit(BATCH_SIZE));
+          const xDataSnapshot = await getDocs(xDataQuery);
+
+          const xPostsData: PostItem[] = xDataSnapshot.docs.map(docSnap => {
+            const xData = docSnap.data();
+            return {
+              id: docSnap.id,              // ✅ Firestore doc ID → used for getDoc/updateDoc
+              uniqueId: `x-${docSnap.id}`, // ✅ React key 
+              AuthorImageURL: xData.AuthorImageURL || '',
+              AuthorName: xData.AuthorName || 'Unknown',
+              AuthorBio: xData.AuthorBio || '',
+              AuthorUserID: xData.AuthorUserID || '',
+              ContentDate: xData.ContentDate,
+              ContentDesc: xData.ContentDesc || '',
+              ContentURL: xData.ContentURL || '',
+              ContentURLs: xData.ContentURLs || (xData.ContentURL ? [xData.ContentURL] : []),
+              ContentLikeCount: xData.ContentLikeCount || 0,
+              ContentRepostCount: xData.ContentRepostCount || 0,
+              ContentCommentCount: xData.ContentCommentCount || 0,
+              isApproved: true,          // ✅ X-Data is always approved
+              isNew: false,              // ✅ never pending
+              postType: 'X-Data',        // ✅ exact string used in all filters
+              Liked: false,
+              Reposted: false,
+              Bookmarked: false,
+              createdAt: xData.createdAt || xData.ContentDate,
+              CommentTemplate: xData.CommentTemplate || 'Standard Template',
+              isRepost: false,
+              originalPost: null,
+              repostComment: '',
+              repostedBy: '',
+              repostedAt: null,
+              isAnonymous: false,
+              contentType: xData.contentType || 'Found Online',
+              isEducational: xData.isEducational || false,
+              moderationData: null,
+              isReported: false,
+              reportedAt: null,
+              reportReasons: [],
+              reportedBy: [],
+              moderationStatus: 'approved',
+              ContentViewCount: xData.ContentViewCount || 0,   // ✅ view count
+              ViewedBy: xData.ViewedBy || [],
+            };
+          });
+
+          setFetchedXData(xPostsData);
+
+          // ✅ Merge both into fetchedData sorted by date
+          const merged = [...postsData, ...xPostsData].sort(
+            (a, b) => new Date(b.ContentDate).getTime() - new Date(a.ContentDate).getTime()
+          );
+          setFetchedData(merged);
+
+        } catch (xError) {
+          console.error('Error fetching X-Data:', xError);
+          setFetchedData(postsData); // fallback
+        }
         setHasMore(sentinelSnapshot.docs.length === BATCH_SIZE); // Check if more data exists
         
       });
@@ -3590,10 +3651,9 @@ useEffect(() => {
 
     // Published Posts - exclude educational content
     let publishedData = fetchedData.filter((item) => {
+      const isXData = item.postType.includes('X-Data');
       if (userRole === "User") {
-        return (
-          item.isApproved && 
-          !item.isNew && 
+        return (isXData || (item.isApproved && !item.isNew) &&
           item.contentType !== "Educational" && 
           !item.isEducational
         );
@@ -4124,19 +4184,21 @@ useEffect(() => {
                 {/* GRAPH WITH VIEW COUNT LIKE X/TWITTER */}
                 <TouchableOpacity
                   className="flex-row items-center mr-4 px-1.5 py-1"
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    openGraphModal(item);
-                  }}
+                  style={areInteractionsDisabled(item) ? { opacity: 0.5 } : {}}
+                  onPress={(e) => { e.stopPropagation(); openGraphModal(item); }}
                   activeOpacity={0.7}
+                  disabled={areInteractionsDisabled(item)}
                 >
                   <Feather name="bar-chart-2" size={20} color="#64748b" />
+                  
+                  {/* ✅ This now works because X-Data is in fetchedData with ContentViewCount */}
                   {item.ContentViewCount !== undefined && item.ContentViewCount > 0 && (
                     <Text className="text-gray-600 ml-1.5 text-xs font-medium">
                       {formatViewCount(item.ContentViewCount)}
                     </Text>
                   )}
                 </TouchableOpacity>
+
 
                 </View>
           
