@@ -1111,12 +1111,14 @@ const confirmDeleteComment = async () => {
                   alignItems: 'center'
                 }}
               >
-                <Image
-                  source={{ uri: optionData?.icon}}
-                  style={{ width: 28, height: 28, marginRight: 8 }}
-                  resizeMode="contain"
-                  resizeMethod="resize"
-                />
+                {optionData?.icon && optionData.icon !== "" && (
+                  <Image
+                    source={{ uri: optionData.icon }}
+                    style={{ width: 28, height: 28, marginRight: 8 }}
+                    resizeMode="contain"
+                    resizeMethod="resize"
+                  />
+                )}
                 <View style={{ flex: 1 }}> 
                   <Text 
                     style={{ 
@@ -1752,12 +1754,14 @@ const confirmDeleteComment = async () => {
                       elevation: selectedOption === option.id ? 4 : 0,
                     }}
                   >
-                    <Image
-                      source={{ uri: option.icon}}
-                      style={{ width: 64, height: 40 }}
-                      resizeMode="contain"
-                      resizeMethod="resize"
-                    />
+                    {option?.icon && option.icon !== "" && (
+                      <Image
+                        source={{ uri: option.icon }}
+                        style={{ width: 64, height: 40 }}
+                        resizeMode="contain"
+                        resizeMethod="resize"
+                      />
+                    )}
                     <Text style={{
                       fontSize: 16,
                       fontWeight: '600',

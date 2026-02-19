@@ -5,9 +5,11 @@ import * as Application from 'expo-application';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from "expo-sharing";
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, 
-  increment, limit, onSnapshot, orderBy, query, serverTimestamp, startAfter,
-   updateDoc, where, writeBatch } from 'firebase/firestore';
+import {
+  addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs,
+  limit, onSnapshot, orderBy, query, serverTimestamp, startAfter,
+  updateDoc, where, writeBatch
+} from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -2060,6 +2062,51 @@ useEffect(() => {
       console.log("Sentinel DeletedUsers Called");
 
       const unsubscribeSentinelDeletedUsers = onSnapshot(collSentinelDeletedUsers, async updateSnapshot => {
+        const updateDataArr = updateSnapshot.docs.map(doc => ({
+          id: doc.id,
+          data: doc.data(),
+        }));
+
+        console.log("DeletedUsers Data: ", updateDataArr);
+
+        for (const doc of updateDataArr) {
+          const deletedData = doc.data;
+          console.log("DeletedUsers Data: ", deletedData);
+          let fetchuserID = "";
+          if(fetchuserID === ""){
+            fetchuserID = await AsyncStorage.getItem('userId') || "";
+            setUserId(fetchuserID);
+          }
+          console.log("userId Data: ", fetchuserID);
+          
+          if (fetchuserID === deletedData.userName) {
+            confirmAccDeletedLogout();
+          }
+
+        }
+
+      })
+
+      return () => {
+        unsubscribeSentinelDeletedUsers();
+      };
+
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  },[]);
+
+  const fetchBlockedUser = useCallback(async () => {
+    try {
+      // Reference the collection
+      const collSentinelBlockedUsers = collection(db, 'UserBlocked');
+      // Create the query
+      const queryBlockedUser = query(collSentinelBlockedUsers, where("userId", "==", userId));
+      console.log("Sentinel Blocked Users Called");
+
+      const unsubscribeSentinelDeletedUsers = onSnapshot(queryBlockedUser, async updateSnapshot => {
         const updateDataArr = updateSnapshot.docs.map(doc => ({
           id: doc.id,
           data: doc.data(),
