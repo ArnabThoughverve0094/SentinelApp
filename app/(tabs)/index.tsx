@@ -7,7 +7,7 @@ import * as Sharing from "expo-sharing";
 import { VideoView, useVideoPlayer } from 'expo-video';
 import {
   addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs,
-  limit, onSnapshot, orderBy, query, serverTimestamp, startAfter,
+  limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter,
   updateDoc, where, writeBatch
 } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -1016,6 +1016,12 @@ export default function SentinelFeed(): React.JSX.Element {
   const [reportPostId, setReportPostId] = useState<string | null>(null);
   const [selectedReportReasons, setSelectedReportReasons] = useState<string[]>([]);
 
+  const [isBlockModalVisible, setIsBlockModalVisible] = useState(false);
+  const [blockUserId, setBlockUserId] = useState<string | null>(null);
+  const [allBlockedIds, setAllBlockedIds] = useState<any>([]);
+  const [isBlocklLoading, setIsBlockLoading] = useState(false);
+  
+
   const [viewedPosts, setViewedPosts] = useState<Set<string>>(new Set());
   const viewTrackingTimeout = useRef<NodeJS.Timeout | number | null>(null);
   const lastTrackedPost = useRef<string | null>(null);
@@ -1222,93 +1228,96 @@ useEffect(() => {
       });
     }, []);
 
-      const handleReportSubmit = useCallback(async () => {
-  if (selectedReportReasons.length === 0 || !reportPostId) {
-    Toast.show({
-      type: "error",
-      text1: "Selection Required",
-      text2: "Please select at least one reason for reporting.",
-      position: "bottom",
-      visibilityTime: 3000,
-    });
-    return;
-  }
+    const handleReportSubmit = useCallback(async () => {
+      if (selectedReportReasons.length === 0 || !reportPostId) {
+        Toast.show({
+          type: "error",
+          text1: "Selection Required",
+          text2: "Please select at least one reason for reporting.",
+          position: "bottom",
+          visibilityTime: 3000,
+        });
+        return;
+      }
 
-  try {
-    const postRef = doc(db, "SentinelPosts", reportPostId);
+      try {
+        const postRef = doc(db, "SentinelPosts", reportPostId);
     
-    // ✅ CHECK IF USER ALREADY REPORTED THIS POST
-    const currentPost = fetchedData.find((item) => item.id === reportPostId);
-    if (currentPost?.reportedBy?.includes(userId)) {
-      Toast.show({
-        type: "info",
-        text1: "Already Reported",
-        text2: "You have already reported this post.",
-        position: "bottom",
-        visibilityTime: 3000,
-      });
-      closeReportModal();
-      return;
-    }
+        // ✅ CHECK IF USER ALREADY REPORTED THIS POST
+        const currentPost = fetchedData.find((item) => item.id === reportPostId);
+        if (currentPost?.reportedBy?.includes(userId)) {
+          Toast.show({
+            type: "info",
+            text1: "Already Reported",
+            text2: "You have already reported this post.",
+            position: "bottom",
+            visibilityTime: 3000,
+          });
+          closeReportModal();
+          return;
+        }
 
-    // Update the post with report flag and details
-    await updateDoc(postRef, {
-      isReported: true,
-      reportedAt: new Date(),
-      reportReasons: arrayUnion(...selectedReportReasons),
-      reportedBy: arrayUnion(userId),
-      isNew: true,
-      isApproved: false,
-      moderationStatus: "pending-review",
-    });
+        // Update the post with report flag and details
+        await updateDoc(postRef, {
+          isReported: true,
+          reportedAt: new Date(),
+          reportReasons: arrayUnion(...selectedReportReasons),
+          reportedBy: arrayUnion(userId),
+          isNew: true,
+          isApproved: false,
+          moderationStatus: "pending-review",
+        });
 
-    // Update local state...
-    setFetchedData((prevData) =>
-      prevData.map((item) =>
-        item.id === reportPostId
-          ? {
-              ...item,
-              isReported: true,
-              reportedAt: new Date(),
-              reportReasons: [
-                ...(item.reportReasons || []),
-                ...selectedReportReasons,
-              ],
-              reportedBy: [...(item.reportedBy || []), userId],
-              isNew: true,
+        // Update local state...
+        setFetchedData((prevData) =>
+          prevData.map((item) =>
+            item.id === reportPostId
+              ? {
+                ...item,
+                isReported: true,
+                reportedAt: new Date(),
+                reportReasons: [
+                  ...(item.reportReasons || []),
+                  ...selectedReportReasons,
+                ],
+                reportedBy: [...(item.reportedBy || []), userId],
+                isNew: true,
               isApproved: false,
               moderationStatus: "pending-review",
             }
           : item
-      )
-    );
+          )
+        );
 
-    closeReportModal();
+        closeReportModal();
 
-    Toast.show({
-      type: "success",
-      text1: "Report Submitted",
-      text2: "Thank you for helping keep our community safe.",
-      position: "bottom",
-      visibilityTime: 3000,
-    });
+        Toast.show({
+          type: "success",
+          text1: "Report Submitted",
+          text2: "Thank you for helping keep our community safe.",
+          position: "bottom",
+          visibilityTime: 3000,
+        });
 
-    console.log("Post reported successfully:", reportPostId);
-    console.log("Report reasons:", selectedReportReasons);
-    console.log("Reported by:", userId);
-  } catch (error) {
-    console.error("Error reporting post:", error);
-    Toast.show({
-      type: "error",
-      text1: "Report Failed",
-      text2: "Failed to submit report. Please try again.",
-      position: "bottom",
-      visibilityTime: 3000,
-    });
-  }
-      }, [selectedReportReasons, reportPostId, userId, closeReportModal, fetchedData]);
+        console.log("Post reported successfully:", reportPostId);
+        console.log("Report reasons:", selectedReportReasons);
+        console.log("Reported by:", userId);
+      } catch (error) {
+      console.error("Error reporting post:", error);
+      Toast.show({
+        type: "error",
+        text1: "Report Failed",
+        text2: "Failed to submit report. Please try again.",
+        position: "bottom",
+        visibilityTime: 3000,
+      });
+    }
+    }, [selectedReportReasons, reportPostId, userId, closeReportModal, fetchedData]);
 
-
+    const closeBlockUserModal = useCallback(() => {
+      setIsBlockModalVisible(false);
+      setBlockUserId(null);
+    }, []);
 
 
 
@@ -1402,30 +1411,30 @@ useEffect(() => {
     }
   }, [userId]);
 
-    const fetchAllUsersForNotifications = useCallback(async () => {
-      try {
-        const sentinelUsersRef = collection(db, 'SentinelUsers');
-        const q = query(sentinelUsersRef);
+    // const fetchAllUsersForNotifications = useCallback(async () => {
+    //   try {
+    //     const sentinelUsersRef = collection(db, 'SentinelUsers');
+    //     const q = query(sentinelUsersRef);
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-          const notificationlist = snapshot.docs.map(doc => ({
-            docID: doc.id,
-            userID: doc.data().userID,
-          }));
+    //     const unsubscribe = onSnapshot(q, (snapshot) => {
+    //       const notificationlist = snapshot.docs.map(doc => ({
+    //         docID: doc.id,
+    //         userID: doc.data().userID,
+    //       }));
 
-          console.log('✅ All users notification list updated:', notificationlist);
-          setNotificationDetails(notificationlist);
-        }, (error) => {
-          console.error('❌ Error fetching all users:', error);
-          setNotificationDetails([]);
-        });
+    //       console.log('✅ All users notification list updated:', notificationlist);
+    //       setNotificationDetails(notificationlist);
+    //     }, (error) => {
+    //       console.error('❌ Error fetching all users:', error);
+    //       setNotificationDetails([]);
+    //     });
 
-        return unsubscribe;
-      } catch (error) {
-        console.error('❌ Error in fetchAllUsersForNotifications:', error);
-        setNotificationDetails([]);
-      }
-    }, []);
+    //     return unsubscribe;
+    //   } catch (error) {
+    //     console.error('❌ Error in fetchAllUsersForNotifications:', error);
+    //     setNotificationDetails([]);
+    //   }
+    // }, []);
 
     useEffect(() => {
       let unsubFollowing: (() => void) | undefined;
@@ -1436,8 +1445,8 @@ useEffect(() => {
         try {
           const u1 = await fetchUserFollowing();
           if (mounted) unsubFollowing = u1;
-          const u2 = await fetchAllUsersForNotifications();
-          if (mounted) unsubNotifications = u2;
+          // const u2 = await fetchAllUsersForNotifications();
+          // if (mounted) unsubNotifications = u2;
         } catch (err) {
           console.error('Error initializing listeners:', err);
         }
@@ -1446,9 +1455,10 @@ useEffect(() => {
       return () => {
         mounted = false;
         if (unsubFollowing) unsubFollowing();
-        if (unsubNotifications) unsubNotifications();
+        // if (unsubNotifications) unsubNotifications();
       };
-    }, [fetchUserFollowing, fetchAllUsersForNotifications]);
+    }, [fetchUserFollowing]);
+  // }, [fetchUserFollowing, fetchAllUsersForNotifications]);
 
 
 
@@ -2100,35 +2110,36 @@ useEffect(() => {
 
   const fetchBlockedUser = useCallback(async () => {
     try {
+      let fetchuserID = "";
+      if(fetchuserID === ""){
+        fetchuserID = await AsyncStorage.getItem('userId') || "";
+        setUserId(fetchuserID);
+      }
+      console.log("userId Data: ", fetchuserID);
+
       // Reference the collection
       const collSentinelBlockedUsers = collection(db, 'UserBlocked');
       // Create the query
-      const queryBlockedUser = query(collSentinelBlockedUsers, where("userId", "==", userId));
+      const queryBlockedUser = query(collSentinelBlockedUsers, where("userid", "==", fetchuserID));
       console.log("Sentinel Blocked Users Called");
 
       const unsubscribeSentinelDeletedUsers = onSnapshot(queryBlockedUser, async updateSnapshot => {
-        const updateDataArr = updateSnapshot.docs.map(doc => ({
-          id: doc.id,
-          data: doc.data(),
-        }));
-
-        console.log("DeletedUsers Data: ", updateDataArr);
-
-        for (const doc of updateDataArr) {
-          const deletedData = doc.data;
-          console.log("DeletedUsers Data: ", deletedData);
-          let fetchuserID = "";
-          if(fetchuserID === ""){
-            fetchuserID = await AsyncStorage.getItem('userId') || "";
-            setUserId(fetchuserID);
+        // 1. Collect ALL blocked IDs from all documents into one Set (for O(1) lookup)
+        const newBlockedIds = new Set();
+        
+        updateSnapshot.docs.forEach(doc => {
+          const data = doc.data();
+          if (data.blockedList) {
+            data.blockedList.forEach((item: any) => {
+              if (item.postauthoruserid) {
+                newBlockedIds.add(item.postauthoruserid);
+              }
+            });
           }
-          console.log("userId Data: ", fetchuserID);
-          
-          if (fetchuserID === deletedData.userName) {
-            confirmAccDeletedLogout();
-          }
+        });
 
-        }
+        setAllBlockedIds(newBlockedIds);
+        console.log("Unique Blocked IDs found:", newBlockedIds.size);
 
       })
 
@@ -2143,13 +2154,61 @@ useEffect(() => {
     }
   },[]);
 
+  const blockUser = async () => {
+    console.log("BlockUser called");
+    let fetchuserID = userId;
+    if (fetchuserID === "") {
+      fetchuserID = await AsyncStorage.getItem('userId') || "";
+    }
+    // Reference the document specifically for the current user
+    const userBlockDocRef = doc(db, 'UserBlocked', fetchuserID);
+  
+    try {
+      await setDoc(userBlockDocRef, {
+        userid: fetchuserID,
+        // arrayUnion adds the new object to the existing 'blockedList' array
+        blockedList: arrayUnion({
+          postauthoruserid: blockUserId,
+          blockedat: new Date() // Or use a standard JS Date for array objects
+        })
+      }, { merge: true }); // 'merge: true' ensures we don't delete other fields
+      
+      console.log("User added to your blocked list.");
+
+      Toast.show({
+        type: 'success',
+        text1: 'User Blocked',
+        text2: 'User user blocked successfully',
+        position: 'bottom',
+        visibilityTime: 3000,
+      });
+
+      setIsBlockModalVisible(false);
+      setShowMenuModal(false);
+      setSelectedPostUserId(null);
+      setBlockUserId(null);
+      setIsBlockLoading(false);
+
+    } catch (error) {
+      console.error("Error updating blocked list: ", error);
+      setIsBlockModalVisible(false);
+      setShowMenuModal(false);
+      setSelectedPostUserId(null);
+      setBlockUserId(null);
+      setIsBlockLoading(false);
+    } finally {
+      setIsBlockLoading(false);
+    }
+  };
+
   useEffect(() => {
     getItem();
     fetchUserFollowing();
-    fetchAllUsersForNotifications();
+    // fetchAllUsersForNotifications();
     handleFetchAllData();
     fetchCommentTemplate();
     fetchDeletedUser();
+    fetchBlockedUser();
 
   }, []);
 
@@ -3673,17 +3732,21 @@ useEffect(() => {
     setRefreshing(false);
   }, [handleFetchAllData]);
 
-    const filteredData = useMemo(() => {
+  const filteredData = useMemo(() => {
+    // Remove blocked users immediately from the source
+    const sourceData = fetchedData.filter(item => !allBlockedIds.has(item.AuthorUserID));
+    console.log("allBlockedIds: ", allBlockedIds.size);
     // Base data - all approved posts for Users, all posts for Admins
-    let baseData = fetchedData.filter((item) => {
+    let baseData = sourceData.filter((item) => {
       if (userRole === "User") {
         return item.isApproved && !item.isNew || item.postType.includes("X-Data");
       }
       return true;
     });
 
+
     // Educational data - based on contentType
-    let educationalData = fetchedData.filter((item) => {
+    let educationalData = sourceData.filter((item) => {
       if (userRole === "User") {
         // ✅ FIX: Check contentType AND isEducational field
         return (
@@ -3697,7 +3760,7 @@ useEffect(() => {
     });
 
     // Published Posts - exclude educational content
-    let publishedData = fetchedData.filter((item) => {
+    let publishedData = sourceData.filter((item) => {
       const isXData = item.postType.includes('X-Data');
       if (userRole === "User") {
         return (isXData || (item.isApproved && !item.isNew) &&
@@ -3749,7 +3812,7 @@ useEffect(() => {
     // FOR YOU TAB (default)
     console.log("📱 For You Tab - showing:", publishedData.length, "posts");
     return publishedData;
-  }, [fetchedData, userRole, activeTab, followingUserIds]);
+  }, [fetchedData, userRole, activeTab, followingUserIds, allBlockedIds]);
 
 
     const handleScroll = useCallback((event: any) => {
@@ -3847,7 +3910,7 @@ useEffect(() => {
       };
     }, []);
 
-        const setupViewCountListeners = useCallback(() => {
+    const setupViewCountListeners = useCallback(() => {
       // Only setup listeners for visible posts (first 10-20 posts)
       const visiblePosts = filteredData.slice(0, 20);
       const unsubscribers: (() => void)[] = [];
@@ -4880,7 +4943,7 @@ useEffect(() => {
             titleColor="#64748b"
           />
         }
-        onScroll={handleScroll}          // ✅ ADD THIS LINE
+        onScroll={handleScroll} 
         scrollEventThrottle={16}
       >
         {/* {loading ? (
@@ -5335,6 +5398,42 @@ useEffect(() => {
           }}
         />
 
+        {/* BLOCK USER MODAL */}
+        <CustomModal
+          visible={isBlockModalVisible}
+          type="warning"
+          title="Block User"
+          message="You will no longer see their posts. This user will also be reported to our moderation team for review."
+          buttons={[
+            {
+              text: "Cancel",
+              style: "cancel",
+              onPress: () => {
+                setIsBlockModalVisible(false);
+                setBlockUserId(null);
+                setShowMenuModal(false); 
+              }
+            },
+            {
+              text: "Block",
+              style: "destructive",
+              onPress: () => {
+                console.log("BlockUser called");
+                console.log("BlockUser loading: ", isBlocklLoading);
+                if (!isBlocklLoading) {
+                  blockUser;
+                  setIsBlockLoading(true);
+                }
+              }
+            }
+          ]}
+          onClose={() => {
+            setIsBlockModalVisible(false);
+            setBlockUserId(null);
+            setShowMenuModal(false);
+          }}
+        />
+
 
       <RepostModal
         visible={isRepostModalVisible}
@@ -5405,32 +5504,62 @@ useEffect(() => {
               }}>
                 {/* Report Option - FOR ALL USERS */}
                 {fetchedData.find((post) => post.id === selectedPostId)?.AuthorUserID !==
-                userId && (
-                <TouchableOpacity
-                  onPress={() => {
-                    if (selectedPostId) {
-                      setReportPostId(selectedPostId);
-                      setShowMenuModal(false);
-                      setIsReportModalVisible(true);
-                    }
-                  }}
-                  style={{
-                    paddingHorizontal: 16,
-                    paddingVertical: 12,
-                    flexDirection: 'row',
-                    alignItems: 'center'
-                  }}
-                >
-                  <Ionicons name="flag" size={18} color="#FF9500" />
-                  <Text style={{ 
-                    marginLeft: 12, 
-                    fontSize: 15, 
-                    color: '#FF9500', 
-                    fontWeight: '600' 
-                  }}>
-                    Report
-                  </Text>
-                </TouchableOpacity>
+                  userId && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (selectedPostId) {
+                          setReportPostId(selectedPostId);
+                          setShowMenuModal(false);
+                          setIsReportModalVisible(true);
+                        }
+                      }}
+                      style={{
+                        paddingHorizontal: 16,
+                        paddingVertical: 12,
+                        flexDirection: 'row',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <Ionicons name="flag" size={18} color="#FF9500" />
+                      <Text style={{ 
+                        marginLeft: 12, 
+                        fontSize: 15, 
+                        color: '#FF9500', 
+                        fontWeight: '600' 
+                      }}>
+                        Report
+                      </Text>
+                    </TouchableOpacity>
+                )}
+
+                {/* Block Option - FOR ALL USERS */}
+                {fetchedData.find((post) => post.id === selectedPostId)?.AuthorUserID !==
+                  userId && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (selectedPostUserId) {
+                          setBlockUserId(selectedPostUserId);
+                          setShowMenuModal(false);
+                          setIsBlockModalVisible(true);
+                        }
+                      }}
+                      style={{
+                        paddingHorizontal: 16,
+                        paddingVertical: 12,
+                        flexDirection: 'row',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <Ionicons name="ban" size={18} color="#FF3B30" />
+                      <Text style={{ 
+                        marginLeft: 12, 
+                        fontSize: 15, 
+                        color: '#FF3B30', 
+                        fontWeight: '600' 
+                      }}>
+                        Block User
+                      </Text>
+                    </TouchableOpacity>
                 )}
                 
                 {/* Divider - Only if user owns post */}
