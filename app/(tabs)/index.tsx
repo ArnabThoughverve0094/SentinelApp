@@ -5426,12 +5426,9 @@ useEffect(() => {
               text: "Block",
               style: "destructive",
               onPress: () => {
-                console.log("BlockUser selected");
-                console.log("BlockUser loading: ", isBlocklLoading);
                 if (!isBlocklLoading) {
                   blockUser();
                   setIsBlockLoading(true);
-                  console.log("BlockUser loading: ", true);
                 }
               }
             }
