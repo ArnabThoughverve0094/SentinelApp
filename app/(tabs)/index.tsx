@@ -4022,37 +4022,44 @@ useEffect(() => {
         {/* ✅ REPORTED POST BADGE - VISIBLE TO ADMINS */}
        {/* ✅ REPORTED POST BADGE - TOP RIGHT */}
         {userRole !== "User" &&
-        item.isReported === true &&
-      item.reportedBy &&
-      item.reportedBy.length > 0 &&
-      !(item.isApproved === true && item.isNew === false) && (
-        <View
-          style={{
-            position: "absolute",
-            top: 8,
-            right: 8,
-            zIndex: 10,
-            flexDirection: "row",
-            alignItems: "center",
-            backgroundColor: "#EF4444",
-            paddingHorizontal: 10,
-            paddingVertical: 6,
-            borderRadius: 20,
-          }}
-        >
-          <Ionicons name="flag" size={14} color="white" />
-          <Text
-            style={{
-              color: "white",
-              fontSize: 12,
-              fontWeight: "bold",
-              marginLeft: 4,
-            }}
-          >
-            Reported
-          </Text>
-        </View>
-      )}
+          item.isReported === true &&
+          item.reportedBy &&
+          item.reportedBy.length > 0 &&
+          !(item.isApproved === true && item.isNew === false) && (
+            <View
+              style={{
+                position: 'absolute',
+                top: 37,
+                right: 20,
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: '#EF4444',
+                paddingHorizontal: 8,
+                paddingVertical: 4,
+                borderRadius: 20,
+                zIndex: 10,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.2,
+                shadowRadius: 2,
+                elevation: 3,
+              }}
+            >
+              <Ionicons name="flag" size={8} color="white" />
+              <Text
+                style={{
+                  color: 'white',
+                  fontSize: 5,
+                  fontWeight: '700',
+                  marginLeft: 3,
+                  letterSpacing: 0.3,
+                }}
+              >
+                Reported
+              </Text>
+            </View>
+          )}
+
 
 
         <EnhancedCard postId={item.uniqueId}>
