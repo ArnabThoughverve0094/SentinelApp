@@ -5459,14 +5459,27 @@ useEffect(() => {
         onQuoteRepost={handleQuoteRepost}
       />
 
-      <CommentsModal
-        visible={isCommentModalVisible}
-        onClose={closeCommentsModal}
-        postId={selectedPostId}
-        postType={selectedPostType}
-        postData={fetchedData.find(item => item.id === selectedPostId)}
-        commentTemplate={selectedCommentTemplate}
-      />
+<CommentsModal
+  visible={isCommentModalVisible}
+  onClose={closeCommentsModal}
+  postId={selectedPostId}
+  postType={selectedPostType}
+  commentTemplate={selectedCommentTemplate}
+  postData={fetchedData.find(item => item.id === selectedPostId)}
+  // ✅ ADD THIS — navigation happens here, outside the modal
+  onNavigateToProfile={(targetUserId, authorName, authorImageUrl) => {
+    router.push({
+      pathname: '/profile/[userId]',
+      params: {
+        userId: targetUserId,
+        authorName: authorName,
+        authorImageUrl: authorImageUrl,
+        isAnonymous: 'false',
+      },
+    });
+  }}
+/>
+
 
       {/* GRAPH MODAL */}
       <TotalSentiment
