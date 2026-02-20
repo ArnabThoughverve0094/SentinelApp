@@ -5419,17 +5419,19 @@ useEffect(() => {
                 setIsBlockModalVisible(false);
                 setBlockUserId(null);
                 setShowMenuModal(false); 
+                setIsBlockLoading(false);
               }
             },
             {
               text: "Block",
               style: "destructive",
               onPress: () => {
-                console.log("BlockUser called");
+                console.log("BlockUser selected");
                 console.log("BlockUser loading: ", isBlocklLoading);
                 if (!isBlocklLoading) {
-                  blockUser;
+                  blockUser();
                   setIsBlockLoading(true);
+                  console.log("BlockUser loading: ", true);
                 }
               }
             }
@@ -5438,6 +5440,7 @@ useEffect(() => {
             setIsBlockModalVisible(false);
             setBlockUserId(null);
             setShowMenuModal(false);
+            setIsBlockLoading(false);
           }}
         />
 
