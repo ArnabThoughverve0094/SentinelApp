@@ -16,6 +16,7 @@ import {
   arrayUnion,
   collection,
   doc,
+  getDoc,
   getDocs,
   increment,
   onSnapshot,
@@ -24,7 +25,7 @@ import {
   updateDoc,
   where
 } from "firebase/firestore";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -305,6 +306,167 @@ export default function UserProfileScreen() {
 
   const [realFollowersCount, setRealFollowersCount] = useState<number>(0);
   const [realFollowingCount, setRealFollowingCount] = useState<number>(0);
+  const [viewedPosts, setViewedPosts] = useState<Set<string>>(new Set());
+  const viewTrackingTimeout = useRef<NodeJS.Timeout | number | null>(null);
+
+  // ✅ FORMAT VIEW COUNT LIKE X/TWITTER
+  const formatViewCount = useCallback((count: number): string => {
+    if (!count || count === 0) return '0';
+    
+    if (count < 1000) {
+      return count.toString();
+    } else if (count < 10000) {
+      return (count / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+    } else if (count < 1000000) {
+      return Math.floor(count / 1000) + 'K';
+    } else if (count < 10000000) {
+      return (count / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+    } else if (count < 1000000000) {
+      return Math.floor(count / 1000000) + 'M';
+    } else {
+      return (count / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
+    }
+  }, []);
+  // ✅ TRACK POST VIEW
+  const trackPostView = useCallback(async (postId: string, postType: string) => {
+    try {
+      if (!currentUserId || !postId) {
+        return;
+      }
+
+      // Check if already tracked in this session
+      if (viewedPosts.has(postId)) {
+        return;
+      }
+
+      const collectionName = postType === 'X-Data' ? 'X-Data' : 'SentinelPosts';
+      const postRef = doc(db, collectionName, postId);
+      
+      const postDoc = await getDoc(postRef);
+      
+      if (!postDoc.exists()) {
+        console.warn(`Post ${postId} not found in ${collectionName}`);
+        return;
+      }
+
+      const postData = postDoc.data();
+      const currentViewedBy = postData.ViewedBy || [];
+      const currentViewCount = postData.ContentViewCount || 0;
+      const hasViewed = currentViewedBy.includes(currentUserId);
+      
+      // ✅ ALWAYS INCREMENT (like X/Twitter)
+      const newCount = currentViewCount + 1;
+      
+      // Update Firebase
+      await updateDoc(postRef, {
+        ContentViewCount: newCount,
+        ViewedBy: hasViewed ? currentViewedBy : arrayUnion(currentUserId),
+        lastViewUpdate: new Date()
+      });
+      
+      console.log(`✅ View tracked: ${collectionName}/${postId} → ${newCount} views`);
+      
+      // Optimistic UI update
+      setUserPosts(prev =>
+        prev.map(p =>
+          p.id === postId
+            ? { 
+                ...p, 
+                ContentViewCount: newCount,
+                ViewedBy: hasViewed ? p.ViewedBy : [...(p.ViewedBy || []), currentUserId]
+              }
+            : p
+        )
+      );
+      
+      // Mark as viewed
+      setViewedPosts(prev => new Set(prev).add(postId));
+      
+    } catch (error) {
+      console.error('Error tracking view:', error);
+    }
+  }, [currentUserId, viewedPosts]);
+  // ✅ HANDLE SCROLL WITH VIEW TRACKING
+  const handleScroll = useCallback((event: any) => {
+    const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+    const currentScrollY = contentOffset.y;
+    const viewHeight = layoutMeasurement.height;
+
+    // Clear previous timeout
+    if (viewTrackingTimeout.current) {
+      clearTimeout(viewTrackingTimeout.current);
+    }
+
+    // Debounced view tracking
+    viewTrackingTimeout.current = setTimeout(() => {
+      userPosts.forEach((item, index) => {
+        const itemY = index * 450; // Adjust based on your post card height
+        const itemHeight = 450;
+        const itemTop = itemY;
+        const itemBottom = itemY + itemHeight;
+        
+        // Calculate visibility
+        const visibleTop = Math.max(itemTop, currentScrollY);
+        const visibleBottom = Math.min(itemBottom, currentScrollY + viewHeight);
+        const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+        const visibilityPercentage = (visibleHeight / itemHeight) * 100;
+        
+        const isVisible = visibilityPercentage >= 50; // 50% threshold like X
+        
+        // Track view if visible and not already tracked
+        if (isVisible && !viewedPosts.has(item.id)) {
+          trackPostView(item.id, item.postType);
+        }
+      });
+    }, 800);
+  }, [userPosts, viewedPosts, trackPostView]);
+  // ✅ SETUP REAL-TIME VIEW COUNT LISTENERS
+    const setupViewCountListeners = useCallback(() => {
+      // Only setup listeners for first 10 posts
+      const visiblePosts = userPosts.slice(0, 10);
+      const unsubscribers: (() => void)[] = [];
+
+      visiblePosts.forEach(post => {
+        const collectionName = post.postType === 'X-Data' ? 'X-Data' : 'SentinelPosts';
+        const postRef = doc(db, collectionName, post.id);
+        
+        const unsubscribe = onSnapshot(postRef, (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.data();
+            const newViewCount = data.ContentViewCount || 0;
+            
+            // Only update if count actually changed
+            setUserPosts(prev =>
+              prev.map(p =>
+                p.id === post.id && p.ContentViewCount !== newViewCount
+                  ? { ...p, ContentViewCount: newViewCount }
+                  : p
+              )
+            );
+          }
+        }, (error) => {
+          console.error(`Error listening to post ${post.id}:`, error);
+        });
+        
+        unsubscribers.push(unsubscribe);
+      });
+
+      return () => {
+        unsubscribers.forEach(unsub => unsub());
+      };
+    }, [userPosts]);
+
+    // Add to useEffect
+    useEffect(() => {
+    if (userPosts.length > 0) {
+      const cleanup = setupViewCountListeners();
+      return cleanup;
+    }
+  }, [userPosts.length, setupViewCountListeners]);
+
+
+
+
     
 
     // Replace your existing realFollowersCount/realFollowingCount useEffect with this:
@@ -1617,19 +1779,22 @@ export default function UserProfileScreen() {
                     </Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity
-                    className="flex-row items-center mr-5 px-1.5 py-1"
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      openGraphModal(item);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Feather name="bar-chart-2" size={20} color="#64748b" />
-                    <Text className="text-gray-600 ml-1 text-xs font-medium">
-                      {item.ContentViewCount || 0}
+                  {/* ✅ GRAPH WITH VIEW COUNT (LIKE X/TWITTER) */}
+                <TouchableOpacity
+                  className="flex-row items-center mr-4 px-1.5 py-1"
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    openGraphModal(item);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Feather name="bar-chart-2" size={20} color="#64748b" />
+                  {item.ContentViewCount !== undefined && item.ContentViewCount > 0 && (
+                    <Text className="text-gray-600 ml-1.5 text-xs font-medium">
+                      {formatViewCount(item.ContentViewCount)}
                     </Text>
-                  </TouchableOpacity>
+                  )}
+                </TouchableOpacity>
                 </View>
               </View>
 
@@ -1712,6 +1877,8 @@ export default function UserProfileScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#8B5CF6"]} />
         }
+        onScroll={handleScroll}      // ✅ ADD THIS
+        scrollEventThrottle={16}
       >
         <View className="px-4">
           <View className="h-5" />

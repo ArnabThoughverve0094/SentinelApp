@@ -54,11 +54,9 @@
       <true/>
     </dict>
     <key>NSCameraUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your camera</string>
-    <key>NSMicrophoneUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your microphone</string>
+    <string>This app requires camera access to allow you to take and upload photos for yor profile and to share images in your posts.</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your photos</string>
+    <string>This app requires photo library access to allow you to select and upload photos for yor profile and to share images or videos in your posts.</string>
     <key>NSUserActivityTypes</key>
     <array>
       <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>
@@ -92,8 +90,8 @@
     <key>UIViewControllerBasedStatusBarAppearance</key>
     <false/>
     <key>Privacy - Camera Usage Description</key>
-    <string>Capture photos of receipts to automatically extract expense data and attach them to your monthly reports.</string>
+    <string>This app requires camera access to allow you to take and upload photos for yor profile and to share images in your posts.</string>
     <key>Privacy - Photo Library Usage Description</key>
-    <string>Select existing photos of your property to include in your maintenance requests and share them with your landlord.</string>
+    <string>This app requires photo library access to allow you to select and upload photos for yor profile and to share images or videos in your posts.</string>
   </dict>
 </plist>

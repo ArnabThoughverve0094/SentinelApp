@@ -5,7 +5,11 @@ import * as Application from 'expo-application';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from "expo-sharing";
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, startAfter, updateDoc, where } from 'firebase/firestore';
+import {
+  addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs,
+  limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter,
+  updateDoc, where, writeBatch
+} from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -254,8 +258,6 @@ const MediaCarousel: React.FC<MediaCarouselProps> = React.memo(({
           horizontal
           pagingEnabled={false} // ✅ Changed to false, using snapToInterval instead
           showsHorizontalScrollIndicator={false}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
           // ✅ CRITICAL SNAP PROPS
           snapToInterval={ITEM_WIDTH}
           snapToAlignment="start"
@@ -1014,65 +1016,189 @@ export default function SentinelFeed(): React.JSX.Element {
   const [reportPostId, setReportPostId] = useState<string | null>(null);
   const [selectedReportReasons, setSelectedReportReasons] = useState<string[]>([]);
 
+  const [isBlockModalVisible, setIsBlockModalVisible] = useState(false);
+  const [blockUserId, setBlockUserId] = useState<string | null>(null);
+  const [allBlockedIds, setAllBlockedIds] = useState<any>([]);
+  const [isBlocklLoading, setIsBlockLoading] = useState(false);
+  
+
   const [viewedPosts, setViewedPosts] = useState<Set<string>>(new Set());
   const viewTrackingTimeout = useRef<NodeJS.Timeout | number | null>(null);
   const lastTrackedPost = useRef<string | null>(null);
   
   const [sharingId, setSharingId] = useState(null);
-
-  const trackPostView = useCallback(async (postId: string, postType: string) => {
+  const initializeAllViewCounts = async () => {
   try {
-    if (!userId || !postId) {
-      console.log("⚠️ Missing userId or postId for view tracking");
-      return;
-    }
-
-    // Determine correct collection
-    const collectionName = postType === "X-Data" ? "X-Data" : "SentinelPosts";
-    const postRef = doc(db, collectionName, postId);
-
-    // Get current post data
-    const postDoc = await getDoc(postRef);
+    console.log('🔧 Starting view count initialization...');
     
+    const collections = ['SentinelPosts', 'X-Data'];
+    let totalUpdated = 0;
+    
+    for (const collectionName of collections) {
+      const postsRef = collection(db, collectionName);
+      const snapshot = await getDocs(postsRef);
+      
+      const batch = writeBatch(db);
+      let batchCount = 0;
+      
+      snapshot.docs.forEach(docSnap => {
+        const data = docSnap.data();
+        
+        // Only update if missing view count fields
+        if (!('ContentViewCount' in data)) {
+          batch.update(docSnap.ref, {
+            ContentViewCount: 0,
+            ViewedBy: [],
+            lastViewUpdate: serverTimestamp()
+          });
+          batchCount++;
+        }
+      });
+      
+      if (batchCount > 0) {
+        await batch.commit();
+        totalUpdated += batchCount;
+        console.log(`✅ Initialized ${batchCount} posts in ${collectionName}`);
+      }
+    }
+    
+    console.log(`✅ Total posts initialized: ${totalUpdated}`);
+    
+    if (totalUpdated === 0) {
+      console.log('✅ All posts already have view counts!');
+    }
+    
+  } catch (error) {
+    console.error('❌ Error initializing view counts:', error);
+  }
+};
+
+// Call this ONCE when app loads (add to useEffect)
+useEffect(() => {
+  const runOnce = async () => {
+    const hasInitialized = await AsyncStorage.getItem('viewCountsInitialized');
+    if (!hasInitialized) {
+      await initializeAllViewCounts();
+      await AsyncStorage.setItem('viewCountsInitialized', 'true');
+    }
+  };
+  runOnce();
+}, []);
+     
+    
+const trackPostView = useCallback(async (postId: string, postType: string) => {
+  try {
+    if (!userId || !postId) return;
+    if (viewedPosts.has(postId)) return;
+
+    const collectionName = postType === 'X-Data' ? 'X-Data' : 'SentinelPosts';
+    
+    // ✅ FIX: Strip 'x-' prefix if present (uniqueId vs id mismatch)
+    const cleanPostId = postId.startsWith('x-') ? postId.replace('x-', '') : postId;
+    
+    console.log('📊 Tracking view for:', { postId, cleanPostId, postType, collectionName });
+
+    const postRef = doc(db, collectionName, cleanPostId);
+    const postDoc = await getDoc(postRef);
+
     if (!postDoc.exists()) {
-      console.warn(`⚠️ Post ${postId} not found in ${collectionName}`);
+      console.warn(`❌ Post ${cleanPostId} not found in ${collectionName}`);
       return;
     }
 
-    const currentViewedBy = postDoc.data().ViewedBy || [];
-    const currentViewCount = postDoc.data().ContentViewCount || 0;
+    const postData = postDoc.data();
+    const currentViewCount = postData.ContentViewCount || 0;
+    const newCount = currentViewCount + 1;
+    const currentViewedBy = postData.ViewedBy || [];
+    const hasViewed = currentViewedBy.includes(userId);
 
-    // Only increment if user hasn't viewed before (unique views)
-    if (!currentViewedBy.includes(userId)) {
-      await updateDoc(postRef, {
-        ContentViewCount: currentViewCount + 1,
-        ViewedBy: arrayUnion(userId),
-      });
+    await updateDoc(postRef, {
+      ContentViewCount: newCount,
+      ViewedBy: hasViewed ? currentViewedBy : arrayUnion(userId),
+      lastViewUpdate: new Date()
+    });
 
-      console.log(`✅ View tracked for ${collectionName} post ${postId}. New count: ${currentViewCount + 1}`);
+    console.log(`✅ View tracked: ${collectionName}/${cleanPostId} → ${newCount} views`);
 
-      // Update local state immediately for UI responsiveness
-      setFetchedData((prev) =>
-        prev.map((p) =>
-          p.id === postId
-            ? {
-                ...p,
-                ContentViewCount: currentViewCount + 1,
-                ViewedBy: [...(p.ViewedBy || []), userId],
-              }
+    // Optimistic UI update - use original postId to match local state
+    setFetchedData(prev =>
+      prev.map(p =>
+        p.id === postId || p.id === cleanPostId
+          ? { ...p, ContentViewCount: newCount }
+          : p
+      )
+    );
+
+    if (postType === 'X-Data') {
+      setFetchedXData(prev =>
+        prev.map(p =>
+          p.id === postId || p.id === cleanPostId
+            ? { ...p, ContentViewCount: newCount }
             : p
         )
       );
+    }
 
-      // Mark as viewed in local Set
-      setViewedPosts((prev) => new Set(prev).add(postId));
+    setViewedPosts(prev => new Set(prev).add(postId));
+
+  } catch (error) {
+    console.error('❌ Error tracking view:', error);
+  }
+}, [userId, viewedPosts]);
+
+
+
+
+
+    useEffect(() => {
+    // Reset viewed posts when switching tabs
+    setViewedPosts(new Set());
+    console.log(`🔄 Reset viewed posts for tab: ${activeTab}`);
+  }, [activeTab]);
+  // Add this temporarily to check your Firebase collections
+const debugFirebaseCollections = async () => {
+  try {
+    // Check X-Data collection
+    const xDataRef = collection(db, 'X-Data');
+    const xDataSnapshot = await getDocs(query(xDataRef, limit(1)));
+    
+    if (!xDataSnapshot.empty) {
+      const sampleDoc = xDataSnapshot.docs[0];
+      console.log('✅ X-Data Collection Structure:', {
+        id: sampleDoc.id,
+        data: sampleDoc.data(),
+        hasViewCount: 'ContentViewCount' in sampleDoc.data(),
+        hasViewedBy: 'ViewedBy' in sampleDoc.data()
+      });
     } else {
-      console.log(`ℹ️ User already viewed post ${postId}`);
+      console.log('❌ X-Data collection is empty');
+    }
+
+    // Check SentinelPosts collection
+    const sentinelRef = collection(db, 'SentinelPosts');
+    const sentinelSnapshot = await getDocs(query(sentinelRef, limit(1)));
+    
+    if (!sentinelSnapshot.empty) {
+      const sampleDoc = sentinelSnapshot.docs[0];
+      console.log('✅ SentinelPosts Collection Structure:', {
+        id: sampleDoc.id,
+        data: sampleDoc.data(),
+        hasViewCount: 'ContentViewCount' in sampleDoc.data(),
+        hasViewedBy: 'ViewedBy' in sampleDoc.data()
+      });
     }
   } catch (error) {
-    console.error("❌ Error tracking view:", error);
+    console.error('❌ Error checking Firebase collections:', error);
   }
-}, [userId]);
+};
+
+// Call this in useEffect once
+useEffect(() => {
+  debugFirebaseCollections();
+}, []);
+
+
+
 
 
 
@@ -1102,93 +1228,96 @@ export default function SentinelFeed(): React.JSX.Element {
       });
     }, []);
 
-      const handleReportSubmit = useCallback(async () => {
-  if (selectedReportReasons.length === 0 || !reportPostId) {
-    Toast.show({
-      type: "error",
-      text1: "Selection Required",
-      text2: "Please select at least one reason for reporting.",
-      position: "bottom",
-      visibilityTime: 3000,
-    });
-    return;
-  }
+    const handleReportSubmit = useCallback(async () => {
+      if (selectedReportReasons.length === 0 || !reportPostId) {
+        Toast.show({
+          type: "error",
+          text1: "Selection Required",
+          text2: "Please select at least one reason for reporting.",
+          position: "bottom",
+          visibilityTime: 3000,
+        });
+        return;
+      }
 
-  try {
-    const postRef = doc(db, "SentinelPosts", reportPostId);
+      try {
+        const postRef = doc(db, "SentinelPosts", reportPostId);
     
-    // ✅ CHECK IF USER ALREADY REPORTED THIS POST
-    const currentPost = fetchedData.find((item) => item.id === reportPostId);
-    if (currentPost?.reportedBy?.includes(userId)) {
-      Toast.show({
-        type: "info",
-        text1: "Already Reported",
-        text2: "You have already reported this post.",
-        position: "bottom",
-        visibilityTime: 3000,
-      });
-      closeReportModal();
-      return;
-    }
+        // ✅ CHECK IF USER ALREADY REPORTED THIS POST
+        const currentPost = fetchedData.find((item) => item.id === reportPostId);
+        if (currentPost?.reportedBy?.includes(userId)) {
+          Toast.show({
+            type: "info",
+            text1: "Already Reported",
+            text2: "You have already reported this post.",
+            position: "bottom",
+            visibilityTime: 3000,
+          });
+          closeReportModal();
+          return;
+        }
 
-    // Update the post with report flag and details
-    await updateDoc(postRef, {
-      isReported: true,
-      reportedAt: new Date(),
-      reportReasons: arrayUnion(...selectedReportReasons),
-      reportedBy: arrayUnion(userId),
-      isNew: true,
-      isApproved: false,
-      moderationStatus: "pending-review",
-    });
+        // Update the post with report flag and details
+        await updateDoc(postRef, {
+          isReported: true,
+          reportedAt: new Date(),
+          reportReasons: arrayUnion(...selectedReportReasons),
+          reportedBy: arrayUnion(userId),
+          isNew: true,
+          isApproved: false,
+          moderationStatus: "pending-review",
+        });
 
-    // Update local state...
-    setFetchedData((prevData) =>
-      prevData.map((item) =>
-        item.id === reportPostId
-          ? {
-              ...item,
-              isReported: true,
-              reportedAt: new Date(),
-              reportReasons: [
-                ...(item.reportReasons || []),
-                ...selectedReportReasons,
-              ],
-              reportedBy: [...(item.reportedBy || []), userId],
-              isNew: true,
+        // Update local state...
+        setFetchedData((prevData) =>
+          prevData.map((item) =>
+            item.id === reportPostId
+              ? {
+                ...item,
+                isReported: true,
+                reportedAt: new Date(),
+                reportReasons: [
+                  ...(item.reportReasons || []),
+                  ...selectedReportReasons,
+                ],
+                reportedBy: [...(item.reportedBy || []), userId],
+                isNew: true,
               isApproved: false,
               moderationStatus: "pending-review",
             }
           : item
-      )
-    );
+          )
+        );
 
-    closeReportModal();
+        closeReportModal();
 
-    Toast.show({
-      type: "success",
-      text1: "Report Submitted",
-      text2: "Thank you for helping keep our community safe.",
-      position: "bottom",
-      visibilityTime: 3000,
-    });
+        Toast.show({
+          type: "success",
+          text1: "Report Submitted",
+          text2: "Thank you for helping keep our community safe.",
+          position: "bottom",
+          visibilityTime: 3000,
+        });
 
-    console.log("Post reported successfully:", reportPostId);
-    console.log("Report reasons:", selectedReportReasons);
-    console.log("Reported by:", userId);
-  } catch (error) {
-    console.error("Error reporting post:", error);
-    Toast.show({
-      type: "error",
-      text1: "Report Failed",
-      text2: "Failed to submit report. Please try again.",
-      position: "bottom",
-      visibilityTime: 3000,
-    });
-  }
-      }, [selectedReportReasons, reportPostId, userId, closeReportModal, fetchedData]);
+        console.log("Post reported successfully:", reportPostId);
+        console.log("Report reasons:", selectedReportReasons);
+        console.log("Reported by:", userId);
+      } catch (error) {
+      console.error("Error reporting post:", error);
+      Toast.show({
+        type: "error",
+        text1: "Report Failed",
+        text2: "Failed to submit report. Please try again.",
+        position: "bottom",
+        visibilityTime: 3000,
+      });
+    }
+    }, [selectedReportReasons, reportPostId, userId, closeReportModal, fetchedData]);
 
-
+    const closeBlockUserModal = useCallback(() => {
+      setIsBlockModalVisible(false);
+      setBlockUserId(null);
+    }, []);
 
 
 
@@ -1282,30 +1411,30 @@ export default function SentinelFeed(): React.JSX.Element {
     }
   }, [userId]);
 
-    const fetchAllUsersForNotifications = useCallback(async () => {
-      try {
-        const sentinelUsersRef = collection(db, 'SentinelUsers');
-        const q = query(sentinelUsersRef);
+    // const fetchAllUsersForNotifications = useCallback(async () => {
+    //   try {
+    //     const sentinelUsersRef = collection(db, 'SentinelUsers');
+    //     const q = query(sentinelUsersRef);
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-          const notificationlist = snapshot.docs.map(doc => ({
-            docID: doc.id,
-            userID: doc.data().userID,
-          }));
+    //     const unsubscribe = onSnapshot(q, (snapshot) => {
+    //       const notificationlist = snapshot.docs.map(doc => ({
+    //         docID: doc.id,
+    //         userID: doc.data().userID,
+    //       }));
 
-          console.log('✅ All users notification list updated:', notificationlist);
-          setNotificationDetails(notificationlist);
-        }, (error) => {
-          console.error('❌ Error fetching all users:', error);
-          setNotificationDetails([]);
-        });
+    //       console.log('✅ All users notification list updated:', notificationlist);
+    //       setNotificationDetails(notificationlist);
+    //     }, (error) => {
+    //       console.error('❌ Error fetching all users:', error);
+    //       setNotificationDetails([]);
+    //     });
 
-        return unsubscribe;
-      } catch (error) {
-        console.error('❌ Error in fetchAllUsersForNotifications:', error);
-        setNotificationDetails([]);
-      }
-    }, []);
+    //     return unsubscribe;
+    //   } catch (error) {
+    //     console.error('❌ Error in fetchAllUsersForNotifications:', error);
+    //     setNotificationDetails([]);
+    //   }
+    // }, []);
 
     useEffect(() => {
       let unsubFollowing: (() => void) | undefined;
@@ -1316,8 +1445,8 @@ export default function SentinelFeed(): React.JSX.Element {
         try {
           const u1 = await fetchUserFollowing();
           if (mounted) unsubFollowing = u1;
-          const u2 = await fetchAllUsersForNotifications();
-          if (mounted) unsubNotifications = u2;
+          // const u2 = await fetchAllUsersForNotifications();
+          // if (mounted) unsubNotifications = u2;
         } catch (err) {
           console.error('Error initializing listeners:', err);
         }
@@ -1326,9 +1455,10 @@ export default function SentinelFeed(): React.JSX.Element {
       return () => {
         mounted = false;
         if (unsubFollowing) unsubFollowing();
-        if (unsubNotifications) unsubNotifications();
+        // if (unsubNotifications) unsubNotifications();
       };
-    }, [fetchUserFollowing, fetchAllUsersForNotifications]);
+    }, [fetchUserFollowing]);
+  // }, [fetchUserFollowing, fetchAllUsersForNotifications]);
 
 
 
@@ -1584,7 +1714,67 @@ export default function SentinelFeed(): React.JSX.Element {
 
         // 3. Set the posts data (Initial batch)
         setSentinelData(postsData);
-        setFetchedData(postsData);
+        // Also fetch X-Data and merge
+        try {
+          const xDataRef = collection(db, 'X-Data');
+          const xDataQuery = query(xDataRef, orderBy('ContentDate', 'desc'), limit(BATCH_SIZE));
+          const xDataSnapshot = await getDocs(xDataQuery);
+
+          const xPostsData: PostItem[] = xDataSnapshot.docs.map(docSnap => {
+            const xData = docSnap.data();
+            return {
+              id: docSnap.id,              // ✅ Firestore doc ID → used for getDoc/updateDoc
+              uniqueId: `x-${docSnap.id}`, // ✅ React key 
+              AuthorImageURL: xData.AuthorImageURL || '',
+              AuthorName: xData.AuthorName || 'Unknown',
+              AuthorBio: xData.AuthorBio || '',
+              AuthorUserID: xData.AuthorUserID || '',
+              ContentDate: xData.ContentDate,
+              ContentDesc: xData.ContentDesc || '',
+              ContentURL: xData.ContentURL || '',
+              ContentURLs: xData.ContentURLs || (xData.ContentURL ? [xData.ContentURL] : []),
+              ContentLikeCount: xData.ContentLikeCount || 0,
+              ContentRepostCount: xData.ContentRepostCount || 0,
+              ContentCommentCount: xData.ContentCommentCount || 0,
+              isApproved: true,          // ✅ X-Data is always approved
+              isNew: false,              // ✅ never pending
+              postType: 'X-Data',        // ✅ exact string used in all filters
+              Liked: false,
+              Reposted: false,
+              Bookmarked: false,
+              createdAt: xData.createdAt || xData.ContentDate,
+              CommentTemplate: xData.CommentTemplate || 'Standard Template',
+              isRepost: false,
+              originalPost: null,
+              repostComment: '',
+              repostedBy: '',
+              repostedAt: null,
+              isAnonymous: false,
+              contentType: xData.contentType || 'Found Online',
+              isEducational: xData.isEducational || false,
+              moderationData: null,
+              isReported: false,
+              reportedAt: null,
+              reportReasons: [],
+              reportedBy: [],
+              moderationStatus: 'approved',
+              ContentViewCount: xData.ContentViewCount || 0,   // ✅ view count
+              ViewedBy: xData.ViewedBy || [],
+            };
+          });
+
+          setFetchedXData(xPostsData);
+
+          // ✅ Merge both into fetchedData sorted by date
+          const merged = [...postsData, ...xPostsData].sort(
+            (a, b) => new Date(b.ContentDate).getTime() - new Date(a.ContentDate).getTime()
+          );
+          setFetchedData(merged);
+
+        } catch (xError) {
+          console.error('Error fetching X-Data:', xError);
+          setFetchedData(postsData); // fallback
+        }
         setHasMore(sentinelSnapshot.docs.length === BATCH_SIZE); // Check if more data exists
         
       });
@@ -1918,13 +2108,107 @@ export default function SentinelFeed(): React.JSX.Element {
     }
   },[]);
 
+  const fetchBlockedUser = useCallback(async () => {
+    try {
+      let fetchuserID = "";
+      if(fetchuserID === ""){
+        fetchuserID = await AsyncStorage.getItem('userId') || "";
+        setUserId(fetchuserID);
+      }
+      console.log("userId Data: ", fetchuserID);
+
+      // Reference the collection
+      const collSentinelBlockedUsers = collection(db, 'UserBlocked');
+      // Create the query
+      const queryBlockedUser = query(collSentinelBlockedUsers, where("userid", "==", fetchuserID));
+      console.log("Sentinel Blocked Users Called");
+
+      const unsubscribeSentinelDeletedUsers = onSnapshot(queryBlockedUser, async updateSnapshot => {
+        // 1. Collect ALL blocked IDs from all documents into one Set (for O(1) lookup)
+        const newBlockedIds = new Set();
+        
+        updateSnapshot.docs.forEach(doc => {
+          const data = doc.data();
+          if (data.blockedList) {
+            data.blockedList.forEach((item: any) => {
+              if (item.postauthoruserid) {
+                newBlockedIds.add(item.postauthoruserid);
+              }
+            });
+          }
+        });
+
+        setAllBlockedIds(newBlockedIds);
+        console.log("Unique Blocked IDs found:", newBlockedIds.size);
+
+      })
+
+      return () => {
+        unsubscribeSentinelDeletedUsers();
+      };
+
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  },[]);
+
+  const blockUser = async () => {
+    console.log("BlockUser called");
+    let fetchuserID = userId;
+    if (fetchuserID === "") {
+      fetchuserID = await AsyncStorage.getItem('userId') || "";
+    }
+    // Reference the document specifically for the current user
+    const userBlockDocRef = doc(db, 'UserBlocked', fetchuserID);
+  
+    try {
+      await setDoc(userBlockDocRef, {
+        userid: fetchuserID,
+        // arrayUnion adds the new object to the existing 'blockedList' array
+        blockedList: arrayUnion({
+          postauthoruserid: blockUserId,
+          blockedat: new Date() // Or use a standard JS Date for array objects
+        })
+      }, { merge: true }); // 'merge: true' ensures we don't delete other fields
+      
+      console.log("User added to your blocked list.");
+
+      Toast.show({
+        type: 'success',
+        text1: 'User Blocked',
+        text2: 'User user blocked successfully',
+        position: 'bottom',
+        visibilityTime: 3000,
+      });
+
+      setIsBlockModalVisible(false);
+      setShowMenuModal(false);
+      setSelectedPostUserId(null);
+      setBlockUserId(null);
+      setIsBlockLoading(false);
+
+    } catch (error) {
+      console.error("Error updating blocked list: ", error);
+      setIsBlockModalVisible(false);
+      setShowMenuModal(false);
+      setSelectedPostUserId(null);
+      setBlockUserId(null);
+      setIsBlockLoading(false);
+    } finally {
+      setIsBlockLoading(false);
+    }
+  };
+
   useEffect(() => {
     getItem();
     fetchUserFollowing();
-    fetchAllUsersForNotifications();
+    // fetchAllUsersForNotifications();
     handleFetchAllData();
     fetchCommentTemplate();
     fetchDeletedUser();
+    fetchBlockedUser();
 
   }, []);
 
@@ -3448,17 +3732,21 @@ export default function SentinelFeed(): React.JSX.Element {
     setRefreshing(false);
   }, [handleFetchAllData]);
 
-    const filteredData = useMemo(() => {
+  const filteredData = useMemo(() => {
+    // Remove blocked users immediately from the source
+    const sourceData = fetchedData.filter(item => !allBlockedIds.has(item.AuthorUserID));
+    console.log("allBlockedIds: ", allBlockedIds.size);
     // Base data - all approved posts for Users, all posts for Admins
-    let baseData = fetchedData.filter((item) => {
+    let baseData = sourceData.filter((item) => {
       if (userRole === "User") {
         return item.isApproved && !item.isNew || item.postType.includes("X-Data");
       }
       return true;
     });
 
+
     // Educational data - based on contentType
-    let educationalData = fetchedData.filter((item) => {
+    let educationalData = sourceData.filter((item) => {
       if (userRole === "User") {
         // ✅ FIX: Check contentType AND isEducational field
         return (
@@ -3472,11 +3760,10 @@ export default function SentinelFeed(): React.JSX.Element {
     });
 
     // Published Posts - exclude educational content
-    let publishedData = fetchedData.filter((item) => {
+    let publishedData = sourceData.filter((item) => {
+      const isXData = item.postType.includes('X-Data');
       if (userRole === "User") {
-        return (
-          item.isApproved && 
-          !item.isNew && 
+        return (isXData || (item.isApproved && !item.isNew) &&
           item.contentType !== "Educational" && 
           !item.isEducational
         );
@@ -3525,20 +3812,19 @@ export default function SentinelFeed(): React.JSX.Element {
     // FOR YOU TAB (default)
     console.log("📱 For You Tab - showing:", publishedData.length, "posts");
     return publishedData;
-  }, [fetchedData, userRole, activeTab, followingUserIds]);
+  }, [fetchedData, userRole, activeTab, followingUserIds, allBlockedIds]);
 
 
-    const handleScroll = useCallback(
-      (event: any) => {
+    const handleScroll = useCallback((event: any) => {
+      try {
         const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
         const currentScrollY = contentOffset.y;
         const viewHeight = layoutMeasurement.height;
-        const viewCenter = currentScrollY + viewHeight / 2;
 
-        // Check if close to bottom for lazy loading
-        const isCloseToBottom =
+        // Lazy loading
+        const isCloseToBottom = 
           contentOffset.y + layoutMeasurement.height >= contentSize.height * 0.9;
-
+        
         if (isCloseToBottom && hasMore && !loading && !isFetchingMore) {
           handleLoadMore();
         }
@@ -3548,68 +3834,72 @@ export default function SentinelFeed(): React.JSX.Element {
           clearTimeout(viewTrackingTimeout.current);
         }
 
-        // Debounce view tracking
+        // ✅ FIXED: Single setTimeout for view tracking
         viewTrackingTimeout.current = setTimeout(() => {
-          // Find the most centered visible post
-          let closestPost: { item: PostItem; distance: number } | null = null;
-
           filteredData.forEach((item, index) => {
-            const itemY = index * 400; // Adjust based on your card height
-            const itemCenter = itemY + 200; // Half of card height
-            const distance = Math.abs(viewCenter - itemCenter);
+            try {
+              const itemY = index * 450;
+              const itemHeight = 450;
+              const itemTop = itemY;
+              const itemBottom = itemY + itemHeight;
 
-            // Only consider posts within viewport
-            if (distance < viewHeight / 2) {
-              if (!closestPost || distance < closestPost.distance) {
-                closestPost = { item, distance };
+              // Calculate visibility
+              const visibleTop = Math.max(itemTop, currentScrollY);
+              const visibleBottom = Math.min(itemBottom, currentScrollY + viewHeight);
+              const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+              const visibilityPercentage = (visibleHeight / itemHeight) * 100;
+              const isVisible = visibilityPercentage >= 50;
+
+              // Track view if visible and not already tracked
+              if (isVisible && !viewedPosts.has(item.id)) {
+                console.log('Tracking view:', {
+                  postId: item.id,
+                  postType: item.postType,
+                  visibility: `${visibilityPercentage.toFixed(0)}%`
+                });
+                trackPostView(item.id, item.postType);
               }
-            }
-          });
 
-          // Track view for the most centered post
-          if (closestPost && !viewedPosts.has(closestPost.item.id)) {
-            // Prevent tracking the same post multiple times rapidly
-            if (lastTrackedPost.current !== closestPost.item.id) {
-              lastTrackedPost.current = closestPost.item.id;
-              trackPostView(closestPost.item.id, closestPost.item.postType);
-            }
-          }
-
-          // Video handling for centered post
-          filteredData.forEach((item, index) => {
-            const itemY = index * 400;
-            const itemCenter = itemY + 200;
-            const distance = Math.abs(viewCenter - itemCenter);
-
-            const mediaUrls =
-              item.ContentURLs?.length > 0
-                ? item.ContentURLs
-                : item.ContentURL
-                ? [item.ContentURL]
-                : [];
-
-            if (mediaUrls.length > 0 && getMediaType(mediaUrls[0]) === "video") {
-              if (distance < 100) {
-                if (currentVideoIndex !== index) {
+              // Video handling (without nested setTimeout)
+              const mediaUrls = 
+                item.ContentURLs?.length > 0 
+                  ? item.ContentURLs 
+                  : item.ContentURL 
+                  ? [item.ContentURL] 
+                  : [];
+              
+              if (mediaUrls.length > 0 && getMediaType(mediaUrls[0]) === 'video') {
+                const itemCenter = itemY + itemHeight / 2;
+                const viewCenter = currentScrollY + viewHeight / 2;
+                const distance = Math.abs(viewCenter - itemCenter);
+                
+                if (distance < 100 && currentVideoIndex !== index) {
                   setCurrentVideoIndex(index);
                 }
               }
+            } catch (itemError) {
+              console.error(`Error processing item ${item.id}:`, itemError);
             }
           });
-        }, 1000); // Increased debounce to 1 second for more stable tracking
-      },
-      [
-        filteredData,
-        getMediaType,
-        currentVideoIndex,
-        hasMore,
-        loading,
-        isFetchingMore,
-        handleLoadMore,
-        viewedPosts,
-        trackPostView,
-      ]
-    );
+        }, 800); // Single 800ms debounce
+        
+      } catch (error) {
+        console.error('Error in handleScroll:', error);
+      }
+    }, [
+      filteredData, 
+      getMediaType, 
+      currentVideoIndex, 
+      hasMore, 
+      loading, 
+      isFetchingMore, 
+      handleLoadMore, 
+      viewedPosts, 
+      trackPostView
+    ]);
+
+
+
 
     // Cleanup timeout on unmount
     useEffect(() => {
@@ -3619,6 +3909,75 @@ export default function SentinelFeed(): React.JSX.Element {
         }
       };
     }, []);
+
+    const setupViewCountListeners = useCallback(() => {
+      // Only setup listeners for visible posts (first 10-20 posts)
+      const visiblePosts = filteredData.slice(0, 20);
+      const unsubscribers: (() => void)[] = [];
+
+      visiblePosts.forEach(post => {
+        const collectionName = post.postType === 'X-Data' ? 'X-Data' : 'SentinelPosts';
+        const postRef = doc(db, collectionName, post.id);
+        
+        const unsubscribe = onSnapshot(postRef, (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.data();
+            const newViewCount = data.ContentViewCount || 0;
+            
+            // Only update if count actually changed
+            setFetchedData(prev =>
+              prev.map(p =>
+                p.id === post.id && p.ContentViewCount !== newViewCount
+                  ? { ...p, ContentViewCount: newViewCount }
+                  : p
+              )
+            );
+          }
+        }, (error) => {
+          console.error(`Error listening to post ${post.id}:`, error);
+        });
+        
+        unsubscribers.push(unsubscribe);
+      });
+
+      return () => {
+        unsubscribers.forEach(unsub => unsub());
+      };
+    }, [filteredData.map(p => p.id).join(',')]);
+
+    // Update useEffect to only setup when tab changes or data loads
+        useEffect(() => {
+      if (filteredData.length > 0) {
+        const cleanup = setupViewCountListeners();
+        return cleanup;
+      }
+    }, [activeTab, setupViewCountListeners]); 
+
+
+
+    const formatViewCount = useCallback((count: number): string => {
+      if (!count || count === 0) return '0';
+      
+      if (count < 1000) {
+        return count.toString();
+      } else if (count < 10000) {
+        // For 1K-9.9K, show 1 decimal place
+        return (count / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+      } else if (count < 1000000) {
+        // For 10K-999K, show no decimals
+        return Math.floor(count / 1000) + 'K';
+      } else if (count < 10000000) {
+        // For 1M-9.9M, show 1 decimal place
+        return (count / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+      } else if (count < 1000000000) {
+        // For 10M-999M, show no decimals
+        return Math.floor(count / 1000000) + 'M';
+      } else {
+        return (count / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
+      }
+    }, []);
+
+
 
 
   const ApprovalToggle = useCallback(({ isApproved, isNew, onToggle, postId, postItem, isFullScreen = false }: { 
@@ -3773,37 +4132,44 @@ export default function SentinelFeed(): React.JSX.Element {
         {/* ✅ REPORTED POST BADGE - VISIBLE TO ADMINS */}
        {/* ✅ REPORTED POST BADGE - TOP RIGHT */}
         {userRole !== "User" &&
-        item.isReported === true &&
-      item.reportedBy &&
-      item.reportedBy.length > 0 &&
-      !(item.isApproved === true && item.isNew === false) && (
-        <View
-          style={{
-            position: "absolute",
-            top: 8,
-            right: 8,
-            zIndex: 10,
-            flexDirection: "row",
-            alignItems: "center",
-            backgroundColor: "#EF4444",
-            paddingHorizontal: 10,
-            paddingVertical: 6,
-            borderRadius: 20,
-          }}
-        >
-          <Ionicons name="flag" size={14} color="white" />
-          <Text
-            style={{
-              color: "white",
-              fontSize: 12,
-              fontWeight: "bold",
-              marginLeft: 4,
-            }}
-          >
-            Reported
-          </Text>
-        </View>
-      )}
+          item.isReported === true &&
+          item.reportedBy &&
+          item.reportedBy.length > 0 &&
+          !(item.isApproved === true && item.isNew === false) && (
+            <View
+              style={{
+                position: 'absolute',
+                top: 37,
+                right: 20,
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: '#EF4444',
+                paddingHorizontal: 8,
+                paddingVertical: 4,
+                borderRadius: 20,
+                zIndex: 10,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.2,
+                shadowRadius: 2,
+                elevation: 3,
+              }}
+            >
+              <Ionicons name="flag" size={8} color="white" />
+              <Text
+                style={{
+                  color: 'white',
+                  fontSize: 5,
+                  fontWeight: '700',
+                  marginLeft: 3,
+                  letterSpacing: 0.3,
+                }}
+              >
+                Reported
+              </Text>
+            </View>
+          )}
+
 
 
         <EnhancedCard postId={item.uniqueId}>
@@ -3932,21 +4298,22 @@ export default function SentinelFeed(): React.JSX.Element {
                       {item.ContentRepostCount}
                     </Text>
                   </TouchableOpacity>
-
-                  {/* Graph/Sentiment Icon with View Count */}
+                {/* GRAPH WITH VIEW COUNT LIKE X/TWITTER */}
                 <TouchableOpacity
-                  className="flex-row items-center mr-5 px-1.5 py-1"
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    openGraphModal(item);
-                  }}
+                  className="flex-row items-center mr-4 px-1.5 py-1"
+                  style={areInteractionsDisabled(item) ? { opacity: 0.5 } : {}}
+                  onPress={(e) => { e.stopPropagation(); openGraphModal(item); }}
                   activeOpacity={0.7}
                   disabled={areInteractionsDisabled(item)}
                 >
                   <Feather name="bar-chart-2" size={20} color="#64748b" />
-                  <Text className="text-gray-600 ml-1 text-xs font-medium">
-                    {item.ContentViewCount || 0}
-                  </Text>
+                  
+                  {/* ✅ This now works because X-Data is in fetchedData with ContentViewCount */}
+                  {item.ContentViewCount !== undefined && item.ContentViewCount > 0 && (
+                    <Text className="text-gray-600 ml-1.5 text-xs font-medium">
+                      {formatViewCount(item.ContentViewCount)}
+                    </Text>
+                  )}
                 </TouchableOpacity>
 
 
@@ -4573,8 +4940,6 @@ export default function SentinelFeed(): React.JSX.Element {
           paddingTop: 6, 
           paddingBottom: 16,
         }}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -4585,6 +4950,8 @@ export default function SentinelFeed(): React.JSX.Element {
             titleColor="#64748b"
           />
         }
+        onScroll={handleScroll} 
+        scrollEventThrottle={16}
       >
         {/* {loading ? (
           <View className="flex-1 justify-center items-center py-20">
@@ -5038,6 +5405,42 @@ export default function SentinelFeed(): React.JSX.Element {
           }}
         />
 
+        {/* BLOCK USER MODAL */}
+        <CustomModal
+          visible={isBlockModalVisible}
+          type="warning"
+          title="Block User"
+          message="You will no longer see their posts. This user will also be reported to our moderation team for review."
+          buttons={[
+            {
+              text: "Cancel",
+              style: "cancel",
+              onPress: () => {
+                setIsBlockModalVisible(false);
+                setBlockUserId(null);
+                setShowMenuModal(false); 
+              }
+            },
+            {
+              text: "Block",
+              style: "destructive",
+              onPress: () => {
+                console.log("BlockUser called");
+                console.log("BlockUser loading: ", isBlocklLoading);
+                if (!isBlocklLoading) {
+                  blockUser;
+                  setIsBlockLoading(true);
+                }
+              }
+            }
+          ]}
+          onClose={() => {
+            setIsBlockModalVisible(false);
+            setBlockUserId(null);
+            setShowMenuModal(false);
+          }}
+        />
+
 
       <RepostModal
         visible={isRepostModalVisible}
@@ -5108,32 +5511,62 @@ export default function SentinelFeed(): React.JSX.Element {
               }}>
                 {/* Report Option - FOR ALL USERS */}
                 {fetchedData.find((post) => post.id === selectedPostId)?.AuthorUserID !==
-                userId && (
-                <TouchableOpacity
-                  onPress={() => {
-                    if (selectedPostId) {
-                      setReportPostId(selectedPostId);
-                      setShowMenuModal(false);
-                      setIsReportModalVisible(true);
-                    }
-                  }}
-                  style={{
-                    paddingHorizontal: 16,
-                    paddingVertical: 12,
-                    flexDirection: 'row',
-                    alignItems: 'center'
-                  }}
-                >
-                  <Ionicons name="flag" size={18} color="#FF9500" />
-                  <Text style={{ 
-                    marginLeft: 12, 
-                    fontSize: 15, 
-                    color: '#FF9500', 
-                    fontWeight: '600' 
-                  }}>
-                    Report
-                  </Text>
-                </TouchableOpacity>
+                  userId && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (selectedPostId) {
+                          setReportPostId(selectedPostId);
+                          setShowMenuModal(false);
+                          setIsReportModalVisible(true);
+                        }
+                      }}
+                      style={{
+                        paddingHorizontal: 16,
+                        paddingVertical: 12,
+                        flexDirection: 'row',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <Ionicons name="flag" size={18} color="#FF9500" />
+                      <Text style={{ 
+                        marginLeft: 12, 
+                        fontSize: 15, 
+                        color: '#FF9500', 
+                        fontWeight: '600' 
+                      }}>
+                        Report
+                      </Text>
+                    </TouchableOpacity>
+                )}
+
+                {/* Block Option - FOR ALL USERS */}
+                {fetchedData.find((post) => post.id === selectedPostId)?.AuthorUserID !==
+                  userId && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (selectedPostUserId) {
+                          setBlockUserId(selectedPostUserId);
+                          setShowMenuModal(false);
+                          setIsBlockModalVisible(true);
+                        }
+                      }}
+                      style={{
+                        paddingHorizontal: 16,
+                        paddingVertical: 12,
+                        flexDirection: 'row',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <Ionicons name="ban" size={18} color="#FF3B30" />
+                      <Text style={{ 
+                        marginLeft: 12, 
+                        fontSize: 15, 
+                        color: '#FF3B30', 
+                        fontWeight: '600' 
+                      }}>
+                        Block User
+                      </Text>
+                    </TouchableOpacity>
                 )}
                 
                 {/* Divider - Only if user owns post */}

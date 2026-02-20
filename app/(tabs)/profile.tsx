@@ -1216,60 +1216,128 @@ export default function ProfilePage(): React.JSX.Element {
   const [viewedPosts, setViewedPosts] = useState<Set<string>>(new Set());
     const viewTrackingTimeout = useRef<NodeJS.Timeout | number | null>(null);
     const lastTrackedPost = useRef<string | null>(null);
+
+    // ✅ FORMAT VIEW COUNT LIKE X/TWITTER
+    const formatViewCount = useCallback((count: number): string => {
+      if (!count || count === 0) return '0';
+      
+      if (count < 1000) {
+        return count.toString();
+      } else if (count < 10000) {
+        return (count / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+      } else if (count < 1000000) {
+        return Math.floor(count / 1000) + 'K';
+      } else if (count < 10000000) {
+        return (count / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+      } else if (count < 1000000000) {
+        return Math.floor(count / 1000000) + 'M';
+      } else {
+        return (count / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
+      }
+    }, []);
+
     
-      const trackPostView = useCallback(async (postId: string, postType: string) => {
+          const trackPostView = useCallback(async (postId: string, postType: string) => {
       try {
         if (!userId || !postId) {
-          console.log("⚠️ Missing userId or postId for view tracking");
           return;
         }
-    
-        // Determine correct collection
-        const collectionName = postType === "X-Data" ? "X-Data" : "SentinelPosts";
+
+        // Check if already tracked in this session
+        if (viewedPosts.has(postId)) {
+          return;
+        }
+
+        const collectionName = postType === 'X-Data' ? 'X-Data' : 'SentinelPosts';
         const postRef = doc(db, collectionName, postId);
-    
-        // Get current post data
+        
         const postDoc = await getDoc(postRef);
         
         if (!postDoc.exists()) {
-          console.warn(`⚠️ Post ${postId} not found in ${collectionName}`);
+          console.warn(`Post ${postId} not found in ${collectionName}`);
           return;
         }
-    
-        const currentViewedBy = postDoc.data().ViewedBy || [];
-        const currentViewCount = postDoc.data().ContentViewCount || 0;
-    
-        // Only increment if user hasn't viewed before (unique views)
-        if (!currentViewedBy.includes(userId)) {
-          await updateDoc(postRef, {
-            ContentViewCount: currentViewCount + 1,
-            ViewedBy: arrayUnion(userId),
-          });
-    
-          console.log(`✅ View tracked for ${collectionName} post ${postId}. New count: ${currentViewCount + 1}`);
-    
-          // Update local state immediately for UI responsiveness
-          // setFetchedData((prev) =>
-          //   prev.map((p) =>
-          //     p.id === postId
-          //       ? {
-          //           ...p,
-          //           ContentViewCount: currentViewCount + 1,
-          //           ViewedBy: [...(p.ViewedBy || []), userId],
-          //         }
-          //       : p
-          //   )
-          // );
-    
-          // Mark as viewed in local Set
-          setViewedPosts((prev) => new Set(prev).add(postId));
-        } else {
-          console.log(`ℹ️ User already viewed post ${postId}`);
-        }
+
+        const postData = postDoc.data();
+        const currentViewedBy = postData.ViewedBy || [];
+        const currentViewCount = postData.ContentViewCount || 0;
+        const hasViewed = currentViewedBy.includes(userId);
+        
+        // ✅ ALWAYS INCREMENT (like X/Twitter)
+        const newCount = currentViewCount + 1;
+        
+        // Update Firebase
+        await updateDoc(postRef, {
+          ContentViewCount: newCount,
+          ViewedBy: hasViewed ? currentViewedBy : arrayUnion(userId),
+          lastViewUpdate: new Date()
+        });
+        
+        console.log(`✅ View tracked: ${collectionName}/${postId} → ${newCount} views`);
+        
+        // Optimistic UI update
+        setUserPosts(prev =>
+          prev.map(p =>
+            p.id === postId
+              ? { 
+                  ...p, 
+                  ContentViewCount: newCount,
+                  ViewedBy: hasViewed ? p.ViewedBy : [...(p.ViewedBy || []), userId]
+                }
+              : p
+          )
+        );
+        
+        // Mark as viewed
+        setViewedPosts(prev => new Set(prev).add(postId));
+        
       } catch (error) {
-        console.error("❌ Error tracking view:", error);
+        console.error('Error tracking view:', error);
       }
-    }, [userId]);
+    }, [userId, viewedPosts]);
+    // ✅ SETUP REAL-TIME VIEW COUNT LISTENERS
+    const setupViewCountListeners = useCallback(() => {
+      // Only setup listeners for first 10 posts to save resources
+      const visiblePosts = userPosts.slice(0, 10);
+      const unsubscribers: (() => void)[] = [];
+
+      visiblePosts.forEach(post => {
+        const collectionName = post.postType === 'X-Data' ? 'X-Data' : 'SentinelPosts';
+        const postRef = doc(db, collectionName, post.id);
+        
+        const unsubscribe = onSnapshot(postRef, (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.data();
+            const newViewCount = data.ContentViewCount || 0;
+            
+            // Only update if count actually changed
+            setUserPosts(prev =>
+              prev.map(p =>
+                p.id === post.id && p.ContentViewCount !== newViewCount
+                  ? { ...p, ContentViewCount: newViewCount }
+                  : p
+              )
+            );
+          }
+        }, (error) => {
+          console.error(`Error listening to post ${post.id}:`, error);
+        });
+        
+        unsubscribers.push(unsubscribe);
+      });
+
+      return () => {
+        unsubscribers.forEach(unsub => unsub());
+      };
+    }, [userPosts]);
+
+// Add to useEffect
+useEffect(() => {
+  if (userPosts.length > 0) {
+    const cleanup = setupViewCountListeners();
+    return cleanup;
+  }
+}, [userPosts.length]);
 
 
   // Add this function in your ProfilePage component
@@ -1937,6 +2005,51 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
       console.log('Load more requested');
     }
   }, [loadingMore, hasMorePosts, userPosts.length]);
+  // ✅ HANDLE SCROLL WITH VIEW TRACKING
+const handleScroll = useCallback((event: any) => {
+  const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+  const currentScrollY = contentOffset.y;
+  const viewHeight = layoutMeasurement.height;
+
+  // Clear previous timeout
+  if (viewTrackingTimeout.current) {
+    clearTimeout(viewTrackingTimeout.current);
+  }
+
+  // Debounced view tracking
+  viewTrackingTimeout.current = setTimeout(() => {
+    userPosts.forEach((item, index) => {
+      const itemY = index * 450; // Adjust based on your post card height
+      const itemHeight = 450;
+      const itemTop = itemY;
+      const itemBottom = itemY + itemHeight;
+      
+      // Calculate visibility
+      const visibleTop = Math.max(itemTop, currentScrollY);
+      const visibleBottom = Math.min(itemBottom, currentScrollY + viewHeight);
+      const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+      const visibilityPercentage = (visibleHeight / itemHeight) * 100;
+      
+      const isVisible = visibilityPercentage >= 50; // 50% threshold
+      
+      // Track view if visible and not already tracked
+      if (isVisible && !viewedPosts.has(item.id)) {
+        trackPostView(item.id, item.postType);
+      }
+    });
+  }, 800);
+
+  // Existing pagination logic
+  const layoutMeasurement2 = event.nativeEvent.layoutMeasurement;
+  const contentOffset2 = event.nativeEvent.contentOffset;
+  const contentSize2 = event.nativeEvent.contentSize;
+  const paddingToBottom = 20;
+  
+  if (layoutMeasurement2.height + contentOffset2.y >= contentSize2.height - paddingToBottom) {
+    handleLoadMore();
+  }
+}, [userPosts, viewedPosts, trackPostView, handleLoadMore]);
+
 
   // Helper: Convert path to full URL for display
   const getFullImageUrl = (profilePath: string): string => {
@@ -3457,8 +3570,10 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
                     </Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity 
-                    className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                  {/* Graph/Sentiment with View Count - LIKE X/TWITTER */}
+                  {/* GRAPH WITH VIEW COUNT LIKE X/TWITTER */}
+                  <TouchableOpacity
+                    className="flex-row items-center mr-4 px-1.5 py-1"
                     onPress={(e) => {
                       e.stopPropagation();
                       openGraphModal(item);
@@ -3467,11 +3582,12 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
                     disabled={areInteractionsDisabled(item)}
                   >
                     <Feather name="bar-chart-2" size={20} color="#64748b" />
-                    <Text className="text-gray-600 ml-1 text-xs font-medium">
-                      {item.ContentViewCount || 0}
-                    </Text>
+                    {item.ContentViewCount !== undefined && item.ContentViewCount > 0 && (
+                      <Text className="text-gray-600 ml-1.5 text-xs font-medium">
+                        {formatViewCount(item.ContentViewCount)}
+                      </Text>
+                    )}
                   </TouchableOpacity>
-
                 </View>
           
               </View>
@@ -3767,14 +3883,16 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
             tintColor="#8B5CF6"
           />
         }
-        onScroll={({ nativeEvent }) => {
-          const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
-          const paddingToBottom = 20;
-          if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
-            handleLoadMore();
-          }
-        }}
-        scrollEventThrottle={400}
+        onScroll={handleScroll}  // ✅ ADD THIS
+        scrollEventThrottle={16}  // ✅ ADD THIS
+        // onScroll={({ nativeEvent }) => {
+        //   const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+        //   const paddingToBottom = 20;
+        //   if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
+        //     handleLoadMore();
+        //   }
+        // }}
+        // scrollEventThrottle={400}
       >
         <View style={{ flex: 1 }}>
         {/* Your normal screen content */}
