@@ -28,7 +28,7 @@ import {
   View, useWindowDimensions
 } from "react-native";
 import { Dropdown } from 'react-native-element-dropdown';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import CommentsModal from '../../components/CommentsModal';
 import { LoadingComponent } from '../../components/LoadingComponent';
@@ -1025,6 +1025,8 @@ export default function SentinelFeed(): React.JSX.Element {
   const [viewedPosts, setViewedPosts] = useState<Set<string>>(new Set());
   const viewTrackingTimeout = useRef<NodeJS.Timeout | number | null>(null);
   const lastTrackedPost = useRef<string | null>(null);
+  const insets = useSafeAreaInsets();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   
   const [sharingId, setSharingId] = useState(null);
   const initializeAllViewCounts = async () => {
@@ -2416,7 +2418,7 @@ useEffect(() => {
         text1: 'Post Under Review',
         text2: 'Comments are disabled until this post is approved by moderators.',
         position: 'bottom',
-        visibilityTime: 3000,
+        visibilityTime: 1000,
       });
     } else {
       Toast.show({
@@ -2424,7 +2426,7 @@ useEffect(() => {
         text1: 'Post Not Available',
         text2: 'This post has been rejected and interactions are disabled.',
         position: 'bottom',
-        visibilityTime: 3000,
+        visibilityTime: 1000,
       });
     }
     return;
@@ -2451,7 +2453,7 @@ useEffect(() => {
         text1: 'Post Under Review',
         text2: 'Sentiment analysis is available after moderation approval.',
         position: 'bottom',
-        visibilityTime: 3000,
+        visibilityTime: 1000,
       });
     } else {
       Toast.show({
@@ -2459,7 +2461,7 @@ useEffect(() => {
         text1: 'Post Not Available',
         text2: 'This post has been rejected and interactions are disabled.',
         position: 'bottom',
-        visibilityTime: 3000,
+        visibilityTime: 1000,
       });
     }
     return;
@@ -4475,7 +4477,7 @@ useEffect(() => {
                         text1: "Report Reasons",
                         text2: reasonsList,
                         position: "bottom",
-                        visibilityTime: 5000,
+                        visibilityTime: 1000,
                       });
                     }}
                     className="px-3 py-1.5 bg-red-100 rounded-md"
@@ -5115,11 +5117,18 @@ useEffect(() => {
             transparent={true}
             animationType="slide"
             onRequestClose={closeReportModal}
+            statusBarTranslucent
           >
             <View className="flex-1 bg-black/50 justify-end">
               <KeyboardAvoidingView 
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                className="bg-white rounded-t-3xl max-h-[80%]"
+                style={{
+                    backgroundColor: 'white',
+                    borderTopLeftRadius: 24,
+                    borderTopRightRadius: 24,
+                    maxHeight: windowHeight * 0.80,       // ✅ Dynamic: 85% of real screen height
+                    paddingBottom: insets.bottom > 0 ? insets.bottom : 16, // ✅ Above nav bar
+                  }}
               >
                 {/* Header */}
                 <View className="px-6 pt-6 pb-4 border-b border-gray-200">
