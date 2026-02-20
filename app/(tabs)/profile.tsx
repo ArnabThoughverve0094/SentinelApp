@@ -74,6 +74,11 @@ interface PostItem {
   contentType: string;
   ContentViewCount?: number;
   ViewedBy?: string[];
+  isReported?: boolean;
+  reportedAt?: any;
+  reportReasons?: string[];
+  reportedBy?: string[];
+  moderationStatus?: string;
 }
 
 interface MediaCarouselProps {
@@ -1952,6 +1957,11 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
             contentType: postData.contentType || 'My Thoughts',
             ContentViewCount: postData.ContentViewCount || 0,
             ViewedBy: postData.ViewedBy || [],
+            isReported: postData.isReported || false,
+            reportedAt: postData.reportedAt || null,
+            reportReasons: postData.reportReasons || [],
+            reportedBy: postData.reportedBy || [],
+            moderationStatus: postData.moderationStatus || '',
           });
         }
 
@@ -3428,6 +3438,10 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
         bgColor: 'bg-blue-100'
       };
     }
+    // ✅ ADD THIS BLOCK — check reported first
+    if (item.isReported && item.moderationStatus === 'pending-review') {
+      return { text: 'REPORTED', color: '#EF4444', bgColor: 'bg-red-100' };
+    }
     
     if (item.isNew) {
       return {
@@ -3509,6 +3523,44 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
         {renderRepostContent(item)}
 
         {renderMediaContent(item, index)}
+        {/* ✅ ADD THIS — Reported Banner shown under post card */}
+        {item.isReported && item.moderationStatus === 'pending-review' && (
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#FEF2F2',
+            borderColor: '#FECACA',
+            borderWidth: 1,
+            borderRadius: 8,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            marginHorizontal: 12,
+            marginBottom: 10,
+            marginTop: 4,
+          }}>
+            <Ionicons name="flag" size={14} color="#EF4444" />
+            <View style={{ flex: 1, marginLeft: 8 }}>
+              <Text style={{ color: '#DC2626', fontSize: 12, fontWeight: '700' }}>
+                This post has been reported and is under review
+              </Text>
+              {item.reportReasons && item.reportReasons.length > 0 && (
+                <Text style={{ color: '#EF4444', fontSize: 11, marginTop: 2 }}>
+                  Reason: {item.reportReasons.join(', ')}
+                </Text>
+              )}
+            </View>
+            <View style={{
+              backgroundColor: '#EF4444',
+              borderRadius: 10,
+              paddingHorizontal: 6,
+              paddingVertical: 2,
+            }}>
+              <Text style={{ color: 'white', fontSize: 10, fontWeight: '700' }}>
+                {item.reportedBy?.length || 1} report{(item.reportedBy?.length || 1) > 1 ? 's' : ''}
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* UPDATED: Post Actions with DISABLED STATE for rejected posts */}
         <View className="flex-row items-center">
