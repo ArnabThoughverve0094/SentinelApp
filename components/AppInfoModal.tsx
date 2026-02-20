@@ -331,7 +331,7 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({ visible, onClose }) => {
                   width: 56,
                   height: 56,
                   borderRadius: 28,
-                  backgroundColor: '#1DA1F2',
+                  backgroundColor: '#000000',
                   justifyContent: 'center',
                   alignItems: 'center'
                 }}
@@ -340,7 +340,7 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({ visible, onClose }) => {
               </TouchableOpacity>
               
               <TouchableOpacity
-                onPress={() => handleLink('https://ironexsafe.com')}
+                onPress={() => handleLink('https://ironexsafe.app/')}
                 style={{
                   width: 56,
                   height: 56,
