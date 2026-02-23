@@ -93,6 +93,7 @@ interface CommentScreenProps {
   postType: string | null;
   postData: PostData | undefined;
   commentTemplate: string | null;
+  onNavigateToProfile?: (userId: string, authorName: string, authorImageUrl: string) => void;
 }
 
 interface TemplateResponseType
@@ -345,6 +346,7 @@ export default function CommentScreen({
   postId, 
   postType, 
   postData,
+  onNavigateToProfile,
   commentTemplate
 }: CommentScreenProps) {
   const insets = useSafeAreaInsets();
@@ -390,6 +392,17 @@ export default function CommentScreen({
     player.loop = false;
     player.play();
   });
+    const handleProfileNavigation = (
+    targetUserId: string,
+    authorName: string,
+    authorImageUrl: string
+  ) => {
+    if (!targetUserId) return;
+    onClose();  // close modal first
+    setTimeout(() => {
+      onNavigateToProfile?.(targetUserId, authorName, authorImageUrl);
+    }, 10);
+  };
 
   const openFullScreenImage = useCallback((imageUrl: string) => {
     setFullScreenImage(imageUrl);
@@ -1330,18 +1343,31 @@ const confirmDeleteComment = async () => {
                       alignItems: 'flex-start'
                     }}>
                       {/* Avatar - 32x32 */}
-                      <Image 
-                        source={{ uri: comment.AuthorImageURL || dummyAuthorImage }} 
-                        style={{ 
-                          width: 32, 
-                          height: 32, 
-                          borderRadius: 16, 
-                          marginRight: 10,
-                          backgroundColor: '#e8e8e8' 
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={() => {
+                          if (!comment.userId) return;
+                          onClose();
+                          setTimeout(() => {
+                            router.push({
+                              pathname: '/profile/[userId]',
+                              params: {
+                                userId: comment.userId,
+                                authorName: comment.AuthorName,
+                                authorImageUrl: comment.AuthorImageURL || '',
+                                isAnonymous: 'false',
+                              },
+                            });
+                          }, 10);
                         }}
-                        resizeMode="cover"
-                        resizeMethod="resize"
-                      />
+                      >
+                        <Image
+                          source={{ uri: comment.AuthorImageURL || dummyAuthorImage }}
+                          style={{ width: 32, height: 32, borderRadius: 16, marginRight: 10, backgroundColor: '#e8e8e8' }}
+                          resizeMode="cover"
+                          resizeMethod="resize"
+                        />
+                      </TouchableOpacity>
                       
                       <View style={{ flex: 1 }}>
                         {/* Username Row with 3 dots on RIGHT */}

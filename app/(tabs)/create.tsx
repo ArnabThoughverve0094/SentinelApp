@@ -1117,6 +1117,7 @@ const compressAndGetUrl = async (localUri) => {
     }
     
     let isContentApproved = false;
+    let isPostRelevant = true; // Assume relevant until AI checks
     let isFlagged = false;
     let moderationResult: any = null;
     
@@ -1177,45 +1178,82 @@ const compressAndGetUrl = async (localUri) => {
         const templateResponse: TemplateResponseType = await response.json();
         if (templateResponse?.success) {
           generatedTemplateName = templateResponse.templateName || "Standard Template";
+           await addDoc(collection(db, 'SentinelPosts'), {
+            AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+            AuthorName: userName,
+            AuthorNickName: userNickName,
+            AuthorUserID: userId,
+            ContentDate: new Date(),
+            ContentDesc: postText,
+            ContentURL: uploadedUrls.length > 0 ? uploadedUrls[0] : null,
+            ContentURLs: uploadedUrls,
+            ContentLikeCount: 0,
+            ContentRepostCount: 0,
+            CommentTemplate: generatedTemplateName,
+            isApproved: isContentApproved,
+            isLiked: false,
+            isNew: !isContentApproved, // If approved, not new for admin; if flagged, new for review
+            isAnonymous: isAnonymous,
+            contentType: selectedType,
+            isEducational: isEducationalEnabled,
+            // ✅ NEW: Save thumbnail URL for video posts
+            thumbnailUrl: videoThumbnailUrl || null,
+            // Add moderation metadata
+            moderationData: {
+              flagged: isFlagged,
+              violations: moderationResult?.violations || [],
+              categories: moderationResult?.categories || {},
+              checkedAt: new Date(),
+              videoSkipped: hasVideo,
+              requiresManualReview: hasVideo || isFlagged // Mark for admin review
+            }
+          }); 
+        }
+        else{
+          isPostRelevant = false; // Treat as irrelevant if template generation fails
+           await addDoc(collection(db, 'SentinelPosts'), {
+            AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+            AuthorName: userName,
+            AuthorNickName: userNickName,
+            AuthorUserID: userId,
+            ContentDate: new Date(),
+            ContentDesc: postText,
+            ContentURL: uploadedUrls.length > 0 ? uploadedUrls[0] : null,
+            ContentURLs: uploadedUrls,
+            ContentLikeCount: 0,
+            ContentRepostCount: 0,
+            CommentTemplate: generatedTemplateName,
+            isApproved: false,
+            isLiked: false,
+            isNew: true, // If approved, not new for admin; if flagged, new for review
+            isAnonymous: isAnonymous,
+            contentType: selectedType,
+            isEducational: isEducationalEnabled,
+            // ✅ NEW: Save thumbnail URL for video posts
+            thumbnailUrl: videoThumbnailUrl || null,
+            // Add moderation metadata
+            moderationData: {
+              flagged: true,
+              violations:  ["Irrelevant content or media detected"],
+              categories:  {"irrelevant_content": true},
+              checkedAt: new Date(),
+              videoSkipped: hasVideo,
+              requiresManualReview: hasVideo || isFlagged // Mark for admin review
+            }
+          }); 
+
         }
       } catch (error) {
         console.error("❌ Error generating comment template:", error);
       }
-    } else {
+     }
+     else {
       console.log("⏭️ Skipping template generation -", hasVideo ? "Video requires manual review" : "Post flagged by AI");
     }
     
-    // Step 6: Save post to Firestore
-    await addDoc(collection(db, 'SentinelPosts'), {
-      AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
-      AuthorName: userName,
-      AuthorNickName: userNickName,
-      AuthorUserID: userId,
-      ContentDate: new Date(),
-      ContentDesc: postText,
-      ContentURL: uploadedUrls.length > 0 ? uploadedUrls[0] : null,
-      ContentURLs: uploadedUrls,
-      ContentLikeCount: 0,
-      ContentRepostCount: 0,
-      CommentTemplate: generatedTemplateName,
-      isApproved: isContentApproved,
-      isLiked: false,
-      isNew: !isContentApproved, // If approved, not new for admin; if flagged, new for review
-      isAnonymous: isAnonymous,
-      contentType: selectedType,
-      isEducational: isEducationalEnabled,
-      // ✅ NEW: Save thumbnail URL for video posts
-      thumbnailUrl: videoThumbnailUrl || null,
-      // Add moderation metadata
-      moderationData: {
-        flagged: isFlagged,
-        violations: moderationResult?.violations || [],
-        categories: moderationResult?.categories || {},
-        checkedAt: new Date(),
-        videoSkipped: hasVideo,
-        requiresManualReview: hasVideo || isFlagged // Mark for admin review
-      }
-    });
+    
+    
+   
     
     console.log("📝 Using comment template:", generatedTemplateName);
     console.log("📊 Post saved with status:", isContentApproved ? "Approved & Published" : hasVideo ? "Video - Pending Manual Review" : "Flagged - Pending Review");
@@ -1229,11 +1267,14 @@ const compressAndGetUrl = async (localUri) => {
     let notificationDescription = '';
     let notificationStatus = '';
     
-    if (isContentApproved) {
+    if (isContentApproved && isPostRelevant) {
       successTitle = 'Post Published!';
       successMessage = `Your post has been published successfully!`;
       notificationDescription = 'Congrats! Your post has been published successfully.';
       notificationStatus = 'approved';
+    }else if (isContentApproved && !isPostRelevant) {
+      successTitle = 'Post Submitted!';
+      successMessage = `Your post has been submitted successfully but was flagged as potentially irrelevant. It will be reviewed by our team.`;   
     } else if (hasVideo) {
       successTitle = 'Post Submitted!';
       successMessage = `Your video post has been submitted successfully! Video content requires manual admin review before publishing.`;
