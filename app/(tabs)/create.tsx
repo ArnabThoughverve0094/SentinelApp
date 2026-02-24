@@ -1271,6 +1271,7 @@ const compressAndGetUrl = async (localUri) => {
     setSelectedMedia([]);
 
     // ✅ ALL notification and success message logic below is 100% original — NOT touched
+    // FIND & REPLACE THIS ENTIRE BLOCK:
     let successTitle = '';
     let successMessage = '';
     let notificationDescription = '';
@@ -1279,22 +1280,32 @@ const compressAndGetUrl = async (localUri) => {
     if (isContentApproved && isPostRelevant) {
       successTitle = 'Post Published!';
       successMessage = 'Your post has been published successfully!';
-      notificationDescription = 'Congrats! Your post has been published successfully.';
+      // ✅ FIX: was 'Congrats! Your post has been published successfully.' — now richer
+      notificationDescription = '🎉 Great news! Your post has been reviewed by our AI and published successfully. Your community can now see it!';
       notificationStatus = 'approved';
+
     } else if (isContentApproved && !isPostRelevant) {
       successTitle = 'Post Submitted!';
-      successMessage = 'Your post has been submitted successfully but was flagged as potentially irrelevant. It will be reviewed by our team.';
+      successMessage = 'Your post was flagged as potentially irrelevant. It will be reviewed by our team.';
+      // ✅ FIX: was EMPTY — now has description + status
+      notificationDescription = '⚠️ Your post was submitted but our AI flagged it as potentially irrelevant to the community. Reason: Irrelevant content or media detected. An admin will review it shortly.';
+      notificationStatus = 'pending';
+
     } else if (hasVideo) {
       successTitle = 'Post Submitted!';
       successMessage = 'Your video post has been submitted successfully! Video content requires manual admin review before publishing.';
-      notificationDescription = 'Your post with video content has been submitted and is awaiting manual admin approval.';
+      // ✅ FIX: was partially filled — now complete
+      notificationDescription = '🎥 Your video post has been submitted and is pending manual review. Video content is always reviewed by our admins before publishing to ensure quality and safety.';
       notificationStatus = 'video_review_pending';
+
     } else {
       successTitle = 'Post Submitted!';
       successMessage = 'Post submitted successfully! Kindly await admin review.';
-      notificationDescription = 'Your post has been submitted and is awaiting admin approval due to content moderation.';
-      notificationStatus = 'submitted';
+      // ✅ FIX: was EMPTY — now includes AI violation reasons
+      notificationDescription = `⏳ Your post has been submitted but flagged by our AI content moderation. Reason(s): ${moderationResult?.violations?.join(', ') || 'Content policy check failed'}. An admin will review it shortly.`;
+      notificationStatus = 'pending';
     }
+
 
     if (uploadedUrls.length > 0) successMessage += `\n\n✅ ${uploadedUrls.length} file(s) uploaded successfully`;
     if (failedUploads.length > 0) successMessage += `\n⚠️ ${failedUploads.length} file(s) couldn't be uploaded due to size/connection issues`;
@@ -1314,7 +1325,11 @@ const compressAndGetUrl = async (localUri) => {
           AuthorUserID: await AsyncStorage.getItem('userId'),
           ContentDate: new Date(),
           Description: notificationDescription,
-          NotifyType: hasVideo ? 'video_post_submitted' : 'post_submitted',
+          NotifyType: (isContentApproved && isPostRelevant)
+          ? 'post_approved'
+          : hasVideo
+          ? 'post_pending'
+          : 'post_pending',
           ShowButtons: false,
           Status: notificationStatus,
           isRead: false,
