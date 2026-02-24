@@ -13,101 +13,138 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-// ✅ Extended Notification type to support all cases
 type Notification = {
   id: string;
   type: string;
-  user: {
-    name: string;
-    avatar: string;
-  };
+  user: { name: string; avatar: string };
   time: any;
   message: string;
   showButtons: boolean;
   status?: string;
 };
 
-// ✅ Config map for every NotifyType — icon, badge label, badge colors
-const NOTIFY_CONFIG: Record<
-  string,
-  { icon: keyof typeof Ionicons.glyphMap; iconColor: string; badgeLabel: string; badgeBg: string; badgeText: string }
-> = {
+// ✅ Central config — add any new NotifyType here in future
+type NotifyConfig = {
+  icon: keyof typeof Ionicons.glyphMap;
+  iconColor: string;
+  iconBg: string;
+  badgeLabel: string;
+  badgeBg: string;
+  badgeText: string;
+};
+
+const NOTIFY_CONFIG: Record<string, NotifyConfig> = {
   post_approved: {
     icon: "checkmark-circle",
     iconColor: "#22C55E",
-    badgeLabel: "Post Approved",
+    iconBg: "#DCFCE7",
+    badgeLabel: "✅  Post Approved",
+    badgeBg: "#DCFCE7",
+    badgeText: "#15803D",
+  },
+  postapproved: {
+    icon: "checkmark-circle",
+    iconColor: "#22C55E",
+    iconBg: "#DCFCE7",
+    badgeLabel: "✅  Post Approved",
     badgeBg: "#DCFCE7",
     badgeText: "#15803D",
   },
   post_rejected: {
     icon: "close-circle",
     iconColor: "#EF4444",
-    badgeLabel: "Post Rejected",
+    iconBg: "#FEE2E2",
+    badgeLabel: "❌  Post Rejected",
+    badgeBg: "#FEE2E2",
+    badgeText: "#B91C1C",
+  },
+  postrejected: {
+    icon: "close-circle",
+    iconColor: "#EF4444",
+    iconBg: "#FEE2E2",
+    badgeLabel: "❌  Post Rejected",
     badgeBg: "#FEE2E2",
     badgeText: "#B91C1C",
   },
   post_pending: {
     icon: "time",
     iconColor: "#F59E0B",
-    badgeLabel: "Post Under Review",
+    iconBg: "#FEF3C7",
+    badgeLabel: "⏳  Post Under Review",
     badgeBg: "#FEF3C7",
     badgeText: "#92400E",
   },
   postsubmitted: {
     icon: "time",
     iconColor: "#F59E0B",
-    badgeLabel: "Post Under Review",
+    iconBg: "#FEF3C7",
+    badgeLabel: "⏳  Post Under Review",
     badgeBg: "#FEF3C7",
     badgeText: "#92400E",
   },
   videopostsubmitted: {
     icon: "videocam",
     iconColor: "#8B5CF6",
-    badgeLabel: "Video Under Review",
+    iconBg: "#EDE9FE",
+    badgeLabel: "🎥  Video Under Review",
     badgeBg: "#EDE9FE",
-    badgeText: "#6D28D9",
+    badgeText: "#5B21B6",
   },
   video_review_pending: {
     icon: "videocam",
     iconColor: "#8B5CF6",
-    badgeLabel: "Video Under Review",
+    iconBg: "#EDE9FE",
+    badgeLabel: "🎥  Video Under Review",
     badgeBg: "#EDE9FE",
-    badgeText: "#6D28D9",
+    badgeText: "#5B21B6",
   },
   post_reported: {
     icon: "flag",
     iconColor: "#F97316",
-    badgeLabel: "Post Reported",
+    iconBg: "#FFEDD5",
+    badgeLabel: "🚩  Post Reported",
+    badgeBg: "#FFEDD5",
+    badgeText: "#9A3412",
+  },
+  postreported: {
+    icon: "flag",
+    iconColor: "#F97316",
+    iconBg: "#FFEDD5",
+    badgeLabel: "🚩  Post Reported",
     badgeBg: "#FFEDD5",
     badgeText: "#9A3412",
   },
   user_blocked: {
     icon: "ban",
     iconColor: "#6B7280",
-    badgeLabel: "User Restricted",
+    iconBg: "#F3F4F6",
+    badgeLabel: "🚫  Account Restricted",
     badgeBg: "#F3F4F6",
     badgeText: "#374151",
   },
   follow: {
     icon: "person-add",
     iconColor: "#3B82F6",
-    badgeLabel: "New Follower",
+    iconBg: "#DBEAFE",
+    badgeLabel: "👤  New Follower",
     badgeBg: "#DBEAFE",
     badgeText: "#1D40AF",
   },
   like: {
     icon: "heart",
     iconColor: "#EF4444",
-    badgeLabel: "Post Liked",
+    iconBg: "#FEE2E2",
+    badgeLabel: "❤️  Post Liked",
     badgeBg: "#FEE2E2",
     badgeText: "#B91C1C",
   },
 };
 
-const DEFAULT_CONFIG = {
-  icon: "notifications" as keyof typeof Ionicons.glyphMap,
+const DEFAULT_CONFIG: NotifyConfig = {
+  icon: "notifications",
   iconColor: "#6B7280",
-  badgeLabel: "Notification",
+  iconBg: "#F3F4F6",
+  badgeLabel: "🔔  Notification",
   badgeBg: "#F3F4F6",
   badgeText: "#374151",
 };
@@ -152,23 +189,19 @@ export default function NotificationPage() {
         fetchuserID = (await AsyncStorage.getItem("userId")) || "";
         setUserId(fetchuserID);
       }
-
       if (fetchuserID) {
         const sentinelUsersRef = collection(db, "SentinelUsers");
         const q = query(sentinelUsersRef, where("userID", "==", fetchuserID));
-
         const unsubscribe = onSnapshot(q, (snapshot) => {
           const snapshotDataArr = snapshot.docs.map((doc) => ({
             id: doc.id,
             data: doc.data(),
           }));
-
           const fetchNotific: Notification[] = [];
           for (const doc of snapshotDataArr) {
             const postData = doc.data;
             const postId = doc.id;
             setCurrentUserDocId(postId);
-
             if (postData.Notification != null) {
               for (const docNotification of postData.Notification) {
                 fetchNotific.push({
@@ -186,11 +219,9 @@ export default function NotificationPage() {
               }
             }
           }
-
           fetchNotific.sort((a, b) => getMillis(b.time) - getMillis(a.time));
           setNotificationDetails(fetchNotific);
         });
-
         return unsubscribe;
       }
     } catch (error) {
@@ -224,97 +255,97 @@ export default function NotificationPage() {
       const diffInWeeks = Math.floor(diffInDays / 7);
       const diffInMonths = Math.floor(diffInDays / 30);
       const diffInYears = Math.floor(diffInDays / 365);
-
       if (diffInSeconds < 60) return diffInSeconds <= 0 ? "Just now" : `${diffInSeconds}s`;
-      else if (diffInMinutes < 60) return `${diffInMinutes}m`;
-      else if (diffInHours < 24) return `${diffInHours}h`;
-      else if (diffInDays < 7) return `${diffInDays}d`;
-      else if (diffInWeeks < 4) return `${diffInWeeks}w`;
-      else if (diffInMonths < 12) return `${diffInMonths}mo`;
-      else return `${diffInYears}y`;
-    } catch (error) {
+      if (diffInMinutes < 60) return `${diffInMinutes}m`;
+      if (diffInHours < 24) return `${diffInHours}h`;
+      if (diffInDays < 7) return `${diffInDays}d`;
+      if (diffInWeeks < 4) return `${diffInWeeks}w`;
+      if (diffInMonths < 12) return `${diffInMonths}mo`;
+      return `${diffInYears}y`;
+    } catch {
       return "Just now";
     }
   }, []);
 
-  // ✅ Single NotificationItem handles ALL types beautifully
   const NotificationItem = ({ notification }: { notification: Notification }) => {
-    const config = NOTIFY_CONFIG[notification.type] ?? DEFAULT_CONFIG;
-
+    const cfg = NOTIFY_CONFIG[notification.type] ?? DEFAULT_CONFIG;
     return (
-      <View className="flex-row items-start px-4 py-3 bg-white">
+      <View style={{ flexDirection: "row", alignItems: "flex-start", paddingHorizontal: 16, paddingVertical: 14, backgroundColor: "#fff" }}>
         
-        {/* Avatar with type icon overlay */}
-        <View className="relative mr-3">
+        {/* Avatar + icon badge */}
+        <View style={{ marginRight: 12 }}>
           <Image
             source={{
-              uri:
-                notification.user.avatar ||
+              uri: notification.user.avatar ||
                 "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
             }}
-            className="w-12 h-12 rounded-full"
+            style={{ width: 48, height: 48, borderRadius: 24 }}
             resizeMode="cover"
           />
-          {/* ✅ Icon overlay on avatar for every notification type */}
+          {/* ✅ Icon overlay — enabled for ALL types */}
           <View
             style={{
               position: "absolute",
-              bottom: -2,
-              right: -2,
+              bottom: -3,
+              right: -3,
               width: 22,
               height: 22,
-              backgroundColor: "white",
               borderRadius: 11,
+              backgroundColor: cfg.iconBg,
               alignItems: "center",
               justifyContent: "center",
+              borderWidth: 1.5,
+              borderColor: "#fff",
+              elevation: 3,
               shadowColor: "#000",
               shadowOpacity: 0.15,
               shadowRadius: 3,
-              elevation: 3,
             }}
           >
-            <Ionicons name={config.icon} size={13} color={config.iconColor} />
+            <Ionicons name={cfg.icon} size={12} color={cfg.iconColor} />
           </View>
         </View>
 
         {/* Content */}
-        <View className="flex-1">
+        <View style={{ flex: 1 }}>
           
-          {/* Name + Message */}
-          <Text className="text-sm text-gray-900 leading-5 mb-1">
-            <Text className="font-semibold">{notification.user.name}</Text>{" "}
+          {/* Sender name + message */}
+          <Text style={{ fontSize: 14, color: "#111827", lineHeight: 20, marginBottom: 3 }}>
+            <Text style={{ fontWeight: "700" }}>{notification.user.name}</Text>
+            {"  "}
             {notification.message}
           </Text>
 
           {/* Time */}
-          <Text className="text-xs text-gray-400 mb-2">
+          <Text style={{ fontSize: 12, color: "#9CA3AF", marginBottom: 6 }}>
             {getTimeAgo(notification.time)}
           </Text>
 
-          {/* ✅ Status Badge — shown for every notification type */}
+          {/* ✅ Status badge — shown for ALL notification types */}
           <View
             style={{
               alignSelf: "flex-start",
-              paddingHorizontal: 8,
-              paddingVertical: 3,
+              paddingHorizontal: 10,
+              paddingVertical: 4,
               borderRadius: 20,
-              marginBottom: 4,
-              backgroundColor: config.badgeBg,
+              backgroundColor: cfg.badgeBg,
             }}
           >
-            <Text style={{ fontSize: 11, fontWeight: "600", color: config.badgeText }}>
-              {config.badgeLabel}
+            <Text style={{ fontSize: 11, fontWeight: "700", color: cfg.badgeText }}>
+              {cfg.badgeLabel}
             </Text>
           </View>
 
-          {/* Follow/Decline Buttons */}
+          {/* Follow/Decline Buttons (unchanged) */}
           {notification.showButtons && (
-            <View className="flex-row mt-1">
-              <TouchableOpacity className="bg-black px-4 py-2 rounded-md mr-2">
-                <Text className="text-white text-sm font-medium">Follow</Text>
+            <View style={{ flexDirection: "row", marginTop: 8 }}>
+              <TouchableOpacity
+                style={{ backgroundColor: "#000", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, marginRight: 8 }}
+              >
+                <Text style={{ color: "#fff", fontSize: 13, fontWeight: "600" }}>Follow</Text>
               </TouchableOpacity>
-              <TouchableOpacity className="px-4 py-2 rounded-md">
-                <Text className="text-gray-700 text-sm font-medium">Decline</Text>
+              <TouchableOpacity style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}>
+                <Text style={{ color: "#374151", fontSize: 13, fontWeight: "500" }}>Decline</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -324,30 +355,35 @@ export default function NotificationPage() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
-      <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
 
       {/* Header */}
-      <View className="px-4 pt-10 pb-3 bg-gray-50">
-        <Text className="text-2xl font-bold text-gray-900 pt-3">
+      <View style={{ paddingHorizontal: 16, paddingTop: 40, paddingBottom: 12, backgroundColor: "#F9FAFB" }}>
+        <Text style={{ fontSize: 26, fontWeight: "800", color: "#111827", paddingTop: 12 }}>
           Notifications
         </Text>
       </View>
 
       {/* List */}
-      <View className="flex-1">
+      <View style={{ flex: 1 }}>
         <FlatList
           data={notificationDetails}
           keyExtractor={(_item, index) => index.toString()}
           renderItem={({ item }) => <NotificationItem notification={item} />}
           showsVerticalScrollIndicator={false}
           ItemSeparatorComponent={() => (
-            <View className="h-px bg-gray-100 ml-16" />
+            <View style={{ height: 1, backgroundColor: "#F3F4F6", marginLeft: 76 }} />
           )}
           ListEmptyComponent={
-            <View className="items-center mt-32">
-              <Ionicons name="notifications-off-outline" size={60} color="#D1D5DB" />
-              <Text className="text-lg text-gray-400 mt-4">No notifications yet</Text>
+            <View style={{ alignItems: "center", marginTop: 120 }}>
+              <Ionicons name="notifications-off-outline" size={64} color="#D1D5DB" />
+              <Text style={{ fontSize: 17, color: "#9CA3AF", marginTop: 16, fontWeight: "500" }}>
+                No notifications yet
+              </Text>
+              <Text style={{ fontSize: 13, color: "#D1D5DB", marginTop: 6 }}>
+                We'll notify you when something happens
+              </Text>
             </View>
           }
         />
