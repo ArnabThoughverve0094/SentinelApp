@@ -11,8 +11,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView } from "react-native-safe-area-context";
 
+// ✅ Extended Notification type to support all cases
 type Notification = {
   id: string;
   type: string;
@@ -20,31 +21,101 @@ type Notification = {
     name: string;
     avatar: string;
   };
-  time: any; // changed to any to support Firestore Timestamp, string, or number
+  time: any;
   message: string;
   showButtons: boolean;
-  status?: "approved" | "rejected";
+  status?: string;
 };
 
-const getNotificationIcon = (type: string, status?: string) => {
-  switch (type) {
-    case "follow":
-      return <Ionicons name="person-add" size={16} color="#3B82F6" />;
-    case "like":
-      return <Ionicons name="heart" size={16} color="#EF4444" />;
-    case "post_approved":
-      return <Ionicons name="checkmark-circle" size={16} color="#22C55E" />;
-    case "post_rejected":
-      return <Ionicons name="close-circle" size={16} color="#EF4444" />;
-    default:
-      return <Ionicons name="notifications" size={16} color="#6B7280" />;
-  }
+// ✅ Config map for every NotifyType — icon, badge label, badge colors
+const NOTIFY_CONFIG: Record<
+  string,
+  { icon: keyof typeof Ionicons.glyphMap; iconColor: string; badgeLabel: string; badgeBg: string; badgeText: string }
+> = {
+  post_approved: {
+    icon: "checkmark-circle",
+    iconColor: "#22C55E",
+    badgeLabel: "Post Approved",
+    badgeBg: "#DCFCE7",
+    badgeText: "#15803D",
+  },
+  post_rejected: {
+    icon: "close-circle",
+    iconColor: "#EF4444",
+    badgeLabel: "Post Rejected",
+    badgeBg: "#FEE2E2",
+    badgeText: "#B91C1C",
+  },
+  post_pending: {
+    icon: "time",
+    iconColor: "#F59E0B",
+    badgeLabel: "Post Under Review",
+    badgeBg: "#FEF3C7",
+    badgeText: "#92400E",
+  },
+  postsubmitted: {
+    icon: "time",
+    iconColor: "#F59E0B",
+    badgeLabel: "Post Under Review",
+    badgeBg: "#FEF3C7",
+    badgeText: "#92400E",
+  },
+  videopostsubmitted: {
+    icon: "videocam",
+    iconColor: "#8B5CF6",
+    badgeLabel: "Video Under Review",
+    badgeBg: "#EDE9FE",
+    badgeText: "#6D28D9",
+  },
+  video_review_pending: {
+    icon: "videocam",
+    iconColor: "#8B5CF6",
+    badgeLabel: "Video Under Review",
+    badgeBg: "#EDE9FE",
+    badgeText: "#6D28D9",
+  },
+  post_reported: {
+    icon: "flag",
+    iconColor: "#F97316",
+    badgeLabel: "Post Reported",
+    badgeBg: "#FFEDD5",
+    badgeText: "#9A3412",
+  },
+  user_blocked: {
+    icon: "ban",
+    iconColor: "#6B7280",
+    badgeLabel: "User Restricted",
+    badgeBg: "#F3F4F6",
+    badgeText: "#374151",
+  },
+  follow: {
+    icon: "person-add",
+    iconColor: "#3B82F6",
+    badgeLabel: "New Follower",
+    badgeBg: "#DBEAFE",
+    badgeText: "#1D40AF",
+  },
+  like: {
+    icon: "heart",
+    iconColor: "#EF4444",
+    badgeLabel: "Post Liked",
+    badgeBg: "#FEE2E2",
+    badgeText: "#B91C1C",
+  },
+};
+
+const DEFAULT_CONFIG = {
+  icon: "notifications" as keyof typeof Ionicons.glyphMap,
+  iconColor: "#6B7280",
+  badgeLabel: "Notification",
+  badgeBg: "#F3F4F6",
+  badgeText: "#374151",
 };
 
 function getMillis(val: any): number {
-  // Supports Firestore Timestamp, string date, or ms number
   if (!val) return 0;
-  if (typeof val === "object" && typeof val.toDate === "function") return val.toDate().getTime();
+  if (typeof val === "object" && typeof val.toDate === "function")
+    return val.toDate().getTime();
   if (typeof val === "number") return val;
   return new Date(val).getTime();
 }
@@ -54,7 +125,7 @@ export default function NotificationPage() {
   const [userName, setUserName] = useState("");
   const [userId, setUserId] = useState("");
   const [notificationDetails, setNotificationDetails] = useState<Notification[]>([]);
-  const [currentUserDocId, setCurrentUserDocId] = useState('');
+  const [currentUserDocId, setCurrentUserDocId] = useState("");
 
   useEffect(() => {
     getItem();
@@ -63,33 +134,31 @@ export default function NotificationPage() {
 
   const getItem = async () => {
     try {
-      const fetchuserName = await AsyncStorage.getItem('userName');
-      const fetchUserImage = await AsyncStorage.getItem('profilePicUrl');
-      const fetchuserID = await AsyncStorage.getItem('userId');
-      if(fetchuserName !== null) setUserName(fetchuserName);
-      if(fetchUserImage !== null) setUserImage(fetchUserImage);
-      if(fetchuserID !== null) setUserId(fetchuserID);
+      const fetchuserName = await AsyncStorage.getItem("userName");
+      const fetchUserImage = await AsyncStorage.getItem("profilePicUrl");
+      const fetchuserID = await AsyncStorage.getItem("userId");
+      if (fetchuserName !== null) setUserName(fetchuserName);
+      if (fetchUserImage !== null) setUserImage(fetchUserImage);
+      if (fetchuserID !== null) setUserId(fetchuserID);
     } catch (error) {
       console.log("Error retrieving item", error);
     }
-  }
+  };
 
   const fetchUserData = useCallback(async () => {
     try {
       let fetchuserID = userId;
-      if(fetchuserID === "") {
-        fetchuserID = await AsyncStorage.getItem('userId') || "";
+      if (fetchuserID === "") {
+        fetchuserID = (await AsyncStorage.getItem("userId")) || "";
         setUserId(fetchuserID);
       }
 
       if (fetchuserID) {
-        const sentinelUsersRef = collection(db, 'SentinelUsers');
-        const q = query(
-          sentinelUsersRef, 
-          where('userID', '==', fetchuserID));
+        const sentinelUsersRef = collection(db, "SentinelUsers");
+        const q = query(sentinelUsersRef, where("userID", "==", fetchuserID));
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-          const snapshotDataArr = snapshot.docs.map(doc => ({
+          const snapshotDataArr = snapshot.docs.map((doc) => ({
             id: doc.id,
             data: doc.data(),
           }));
@@ -117,7 +186,7 @@ export default function NotificationPage() {
               }
             }
           }
-          // Robust sort (latest first)
+
           fetchNotific.sort((a, b) => getMillis(b.time) - getMillis(a.time));
           setNotificationDetails(fetchNotific);
         });
@@ -125,30 +194,26 @@ export default function NotificationPage() {
         return unsubscribe;
       }
     } catch (error) {
-      console.error('Error fetching notification list:', error);
+      console.error("Error fetching notification list:", error);
       setNotificationDetails([]);
-      setCurrentUserDocId('');
+      setCurrentUserDocId("");
     }
   }, [userId]);
 
   const getTimeAgo = useCallback((dateString: any) => {
-    if (!dateString) return 'Just now';
+    if (!dateString) return "Just now";
     try {
       let postDate: Date;
-      if (dateString && typeof dateString === 'object' && dateString.toDate) {
+      if (dateString && typeof dateString === "object" && dateString.toDate) {
         postDate = dateString.toDate();
-      }
-      else if (typeof dateString === 'string') {
+      } else if (typeof dateString === "string") {
         postDate = new Date(dateString);
-      }
-      else if (dateString instanceof Date) {
+      } else if (dateString instanceof Date) {
         postDate = dateString;
-      }
-      else if (typeof dateString === 'number') {
+      } else if (typeof dateString === "number") {
         postDate = new Date(dateString);
-      }
-      else {
-        return 'Just now';
+      } else {
+        return "Just now";
       }
       const now = new Date();
       const diffInMs = now.getTime() - postDate.getTime();
@@ -160,103 +225,103 @@ export default function NotificationPage() {
       const diffInMonths = Math.floor(diffInDays / 30);
       const diffInYears = Math.floor(diffInDays / 365);
 
-      if (diffInSeconds < 60) {
-        return diffInSeconds <= 0 ? 'Just now' : `${diffInSeconds}s`;
-      } else if (diffInMinutes < 60) {
-        return `${diffInMinutes}m`;
-      } else if (diffInHours < 24) {
-        return `${diffInHours}h`;
-      } else if (diffInDays < 7) {
-        return `${diffInDays}d`;
-      } else if (diffInWeeks < 4) {
-        return `${diffInWeeks}w`;
-      } else if (diffInMonths < 12) {
-        return `${diffInMonths}mo`;
-      } else {
-        return `${diffInYears}y`;
-      }
+      if (diffInSeconds < 60) return diffInSeconds <= 0 ? "Just now" : `${diffInSeconds}s`;
+      else if (diffInMinutes < 60) return `${diffInMinutes}m`;
+      else if (diffInHours < 24) return `${diffInHours}h`;
+      else if (diffInDays < 7) return `${diffInDays}d`;
+      else if (diffInWeeks < 4) return `${diffInWeeks}w`;
+      else if (diffInMonths < 12) return `${diffInMonths}mo`;
+      else return `${diffInYears}y`;
     } catch (error) {
-      console.error('Error parsing date:', error);
-      return 'Just now';
+      return "Just now";
     }
   }, []);
 
-  const NotificationItem = ({ notification }: { notification: Notification }) => (
-    <View className="flex-row items-start px-4 py-3 bg-white">
-      {/* Avatar with status indicator */}
-      <View className="relative mr-3">
-        <Image
-          source={{ uri: notification.user.avatar }}
-          className="w-12 h-12 rounded-full"
-          resizeMode="cover"
-        />
-        {/* Status icon overlay for post notifications */}
-        {(notification.type === "post_approved" ||
-          notification.type === "post_rejected") && (
-          <View className="absolute -bottom-1 -right-1 w-6 h-6 bg-white rounded-full items-center justify-center shadow-sm">
-            {/* {getNotificationIcon(notification.type, notification.status)} */}
-          </View>
-        )}
-      </View>
+  // ✅ Single NotificationItem handles ALL types beautifully
+  const NotificationItem = ({ notification }: { notification: Notification }) => {
+    const config = NOTIFY_CONFIG[notification.type] ?? DEFAULT_CONFIG;
 
-      {/* Content */}
-      <View className="flex-1">
-        {/* User name and message */}
-        <View className="flex-row items-start mb-1">
-          <View className="flex-1">
-            <Text className="text-sm text-gray-900 leading-5">
-              <Text className="font-semibold">{notification.user.name}</Text>{" "}
-              {notification.message}
-            </Text>
+    return (
+      <View className="flex-row items-start px-4 py-3 bg-white">
+        
+        {/* Avatar with type icon overlay */}
+        <View className="relative mr-3">
+          <Image
+            source={{
+              uri:
+                notification.user.avatar ||
+                "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+            }}
+            className="w-12 h-12 rounded-full"
+            resizeMode="cover"
+          />
+          {/* ✅ Icon overlay on avatar for every notification type */}
+          <View
+            style={{
+              position: "absolute",
+              bottom: -2,
+              right: -2,
+              width: 22,
+              height: 22,
+              backgroundColor: "white",
+              borderRadius: 11,
+              alignItems: "center",
+              justifyContent: "center",
+              shadowColor: "#000",
+              shadowOpacity: 0.15,
+              shadowRadius: 3,
+              elevation: 3,
+            }}
+          >
+            <Ionicons name={config.icon} size={13} color={config.iconColor} />
           </View>
-          {/* Notification type icon */}
-          {notification.type !== "post_approved" &&
-            notification.type !== "post_rejected" && (
-              <View className="ml-2 mt-1">
-                {/* {getNotificationIcon(notification.type)} */}
-              </View>
-            )}
         </View>
 
-        {/* Time */}
-        <Text className="text-xs text-gray-500 mb-2">{getTimeAgo(notification.time)}</Text>
+        {/* Content */}
+        <View className="flex-1">
+          
+          {/* Name + Message */}
+          <Text className="text-sm text-gray-900 leading-5 mb-1">
+            <Text className="font-semibold">{notification.user.name}</Text>{" "}
+            {notification.message}
+          </Text>
 
-        {/* Status badge for post notifications */}
-        {(notification.type === "post_approved" ||
-          notification.type === "post_rejected") && (
+          {/* Time */}
+          <Text className="text-xs text-gray-400 mb-2">
+            {getTimeAgo(notification.time)}
+          </Text>
+
+          {/* ✅ Status Badge — shown for every notification type */}
           <View
-            className={`self-start px-2 py-1 rounded-full mb-2 ${
-              notification.status === "approved" ? "bg-green-100" : "bg-red-100"
-            }`}
+            style={{
+              alignSelf: "flex-start",
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+              borderRadius: 20,
+              marginBottom: 4,
+              backgroundColor: config.badgeBg,
+            }}
           >
-            <Text
-              className={`text-xs font-medium ${
-                notification.status === "approved"
-                  ? "text-green-700"
-                  : "text-red-700"
-              }`}
-            >
-              {notification.status === "approved"
-                ? "Post Approved"
-                : "Post Rejected"}
+            <Text style={{ fontSize: 11, fontWeight: "600", color: config.badgeText }}>
+              {config.badgeLabel}
             </Text>
           </View>
-        )}
 
-        {/* Follow/Decline Buttons */}
-        {notification.showButtons && (
-          <View className="flex-row">
-            <TouchableOpacity className="bg-black px-4 py-2 rounded-md mr-2">
-              <Text className="text-white text-sm font-medium">Follow</Text>
-            </TouchableOpacity>
-            <TouchableOpacity className="px-4 py-2 rounded-md">
-              <Text className="text-gray-700 text-sm font-medium">Decline</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+          {/* Follow/Decline Buttons */}
+          {notification.showButtons && (
+            <View className="flex-row mt-1">
+              <TouchableOpacity className="bg-black px-4 py-2 rounded-md mr-2">
+                <Text className="text-white text-sm font-medium">Follow</Text>
+              </TouchableOpacity>
+              <TouchableOpacity className="px-4 py-2 rounded-md">
+                <Text className="text-gray-700 text-sm font-medium">Decline</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -269,7 +334,7 @@ export default function NotificationPage() {
         </Text>
       </View>
 
-      {/* Notifications List */}
+      {/* List */}
       <View className="flex-1">
         <FlatList
           data={notificationDetails}
@@ -281,14 +346,8 @@ export default function NotificationPage() {
           )}
           ListEmptyComponent={
             <View className="items-center mt-32">
-              <Ionicons
-                name="notifications-off-outline"
-                size={60}
-                color="#D1D5DB"
-              />
-              <Text className="text-lg text-gray-400 mt-4">
-                No notifications yet
-              </Text>
+              <Ionicons name="notifications-off-outline" size={60} color="#D1D5DB" />
+              <Text className="text-lg text-gray-400 mt-4">No notifications yet</Text>
             </View>
           }
         />
