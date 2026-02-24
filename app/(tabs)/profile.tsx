@@ -1448,124 +1448,194 @@ const loadProfileData = async () => {
 
 
   const handleSaveEditPost = async () => {
-    if (!editPostData) return;
+  if (!editPostData) return;
 
-    if (!editPostContent.trim()) {
-      Toast.show({
-        type: 'error',
-        text1: 'Empty Content',
-        text2: 'Post content cannot be empty.',
-        position: 'bottom',
-        visibilityTime: 1000,
-      });
-      return;
-    }
+  if (!editPostContent.trim()) {
+    Toast.show({
+      type: 'error',
+      text1: 'Empty Content',
+      text2: 'Post content cannot be empty.',
+      position: 'bottom',
+      visibilityTime: 1000,
+    });
+    return;
+  }
 
-    try {
-      // ✅ STEP 1: Validate post description with AI
-      console.log('🤖 Validating edited post description with AI...');
-      
-      const moderationResult = await checkPostContent(editPostContent.trim(), null);
-      console.log('✅ AI Moderation Result:', moderationResult);
-      
-      // ✅ STEP 2: Check if content is approved
-      if (moderationResult.postStatus !== 'approved' || moderationResult.flagged) {
-        console.warn('❌ Post description does not meet content guidelines');
-        
-        // Build rejection reason message
-        let rejectionReason = 'Your post description does not meet our community guidelines.';
-        
-        if (moderationResult.violations && moderationResult.violations.length > 0) {
-          rejectionReason += `\n\nReasons:\n• ${moderationResult.violations.join('\n• ')}`;
-        }
-        
-        // Show error alert with rejection reason
-        showCustomAlert(
-          'error',
-          'Post Content Not Acceptable',
-          rejectionReason + '\n\nPlease revise your post description and try again.',
-          [
-            {
-              text: 'Edit Again',
-              onPress: () => {
-                hideModal();
-                // Keep edit modal open
-              }
-            },
-            {
-              text: 'Cancel',
-              style: 'cancel',
-              onPress: () => {
-                hideModal();
-                setIsEditModalVisible(false);
-                setEditPostData(null);
-                setEditPostContent('');
-              }
-            }
-          ]
-        );
-        
-        return; // Stop execution if validation fails
+  try {
+    // ── STEP 1: AI Content Moderation ──────────────────────────────────────
+    console.log('✅ Validating edited post description with AI...');
+    const moderationResult = await checkPostContent(editPostContent.trim(), null);
+    console.log('🤖 AI Moderation Result:', moderationResult);
+
+    const isContentApproved = moderationResult.postStatus === 'approved';
+
+    // ── STEP 2: Block if content is flagged ────────────────────────────────
+    if (!isContentApproved || moderationResult.flagged) {
+      console.warn('🚫 Post description does not meet content guidelines');
+
+      let rejectionReason = 'Your post description does not meet our community guidelines.';
+      if (moderationResult.violations && moderationResult.violations.length > 0) {
+        rejectionReason = moderationResult.violations.join(', ');
       }
 
-      // ✅ STEP 3: Content approved - proceed with update
-      console.log('✅ Post description validated successfully!');
-      
+      showCustomAlert(
+        'error',
+        'Post Content Not Acceptable',
+        `${rejectionReason}\n\nPlease revise your post description and try again.`,
+        [
+          { text: 'Edit Again', onPress: hideModal }, // Keep edit modal open
+          {
+            text: 'Cancel',
+            style: 'cancel',
+            onPress: () => {
+              hideModal();
+              setIsEditModalVisible(false);
+              setEditPostData(null);
+              setEditPostContent('');
+            },
+          },
+        ]
+      );
+      return; // Stop execution
+    }
+
+    // ── STEP 3: Content approved → Check Relevance with opinion-generator-ai ──
+    console.log('✅ Content approved. Checking relevance with opinion-generator-ai...');
+
+    let isPostRelevant = true;
+    let generatedTemplateName = editPostData.CommentTemplate || 'Standard Template';
+
+    try {
+      const relevanceResponse = await fetch(
+        'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/opinion-generator-ai',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            postText: editPostContent.trim(),
+            uploadedUrls: editPostData.ContentURLs || (editPostData.ContentURL ? [editPostData.ContentURL] : []),
+          }),
+        }
+      );
+
+      const templateResponse = await relevanceResponse.json();
+      console.log('🧠 Relevance Check Result:', templateResponse);
+
+      if (templateResponse?.success) {
+        // Post is relevant ✅ — use generated template name
+        generatedTemplateName = templateResponse.templateName || 'Standard Template';
+        isPostRelevant = true;
+      } else {
+        // Post is NOT relevant ❌ — block approval
+        isPostRelevant = false;
+        console.warn('⚠️ Post flagged as irrelevant by opinion-generator-ai');
+      }
+    } catch (relevanceError) {
+      console.error('❌ Error calling opinion-generator-ai:', relevanceError);
+      // On API error, treat as irrelevant for safety
+      isPostRelevant = false;
+    }
+
+    // ── STEP 4: If NOT relevant → save as pending, show error message ──────
+    if (!isPostRelevant) {
       const postRef = doc(db, editPostData.postType, editPostData.id);
-      
       await updateDoc(postRef, {
         ContentDesc: editPostContent.trim(),
-        isApproved: true, // ✅ Mark as approved since AI validated it
-        isNew: false,      // ✅ No longer needs admin review
+        isApproved: false,        // NOT approved
+        isNew: true,              // Back to pending review
         updatedAt: new Date(),
-        // Store moderation data for record
         moderationData: {
-          flagged: false,
-          violations: [],
-          categories: moderationResult.categories || {},
+          flagged: true,
+          violations: ['Irrelevant content or media detected'],
+          categories: { irrelevant_content: true },
           checkedAt: new Date(),
-          validatedBy: 'AI'
-        }
+          validatedBy: 'opinion-generator-ai',
+        },
       });
 
-      // Update local state
+      // Update local state to reflect pending status
       setUserPosts((prevData) =>
         prevData.map((item) =>
           item.id === editPostData.id
-            ? {
-                ...item,
-                ContentDesc: editPostContent.trim(),
-                isApproved: true,
-                isNew: false
-              }
+            ? { ...item, ContentDesc: editPostContent.trim(), isApproved: false, isNew: true }
             : item
         )
       );
 
-      Toast.show({
-        type: 'success',
-        text1: 'Post Updated & Approved!',
-        text2: 'Your post has been updated and approved by AI.',
-        position: 'bottom',
-        visibilityTime: 1000,
-      });
-
-      // Close modal and reset
+      // Close modal first
       setIsEditModalVisible(false);
       setEditPostData(null);
       setEditPostContent('');
-      
-    } catch (error) {
-      console.error('❌ Error updating post:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Update Failed',
-        text2: 'Failed to update post. Please try again.',
-        position: 'bottom',
-        visibilityTime: 1000,
-      });
+
+      // Show "not relevant" alert — matching your createPost style
+      showCustomAlert(
+        'warning',
+        'Post Not Relevant',
+        '⚠️ Your post was updated but our AI flagged it as potentially irrelevant to the community.\n\nReason: Irrelevant content or media detected.\n\nAn admin will review it shortly.',
+        [{ text: 'OK', onPress: hideModal }]
+      );
+      return;
     }
-  };
+
+    // ── STEP 5: Content approved + relevant → Save and Approve ────────────
+    console.log('🎉 Post is approved and relevant! Saving...');
+
+    const postRef = doc(db, editPostData.postType, editPostData.id);
+    await updateDoc(postRef, {
+      ContentDesc: editPostContent.trim(),
+      isApproved: true,
+      isNew: false,
+      CommentTemplate: generatedTemplateName,
+      updatedAt: new Date(),
+      moderationData: {
+        flagged: false,
+        violations: [],
+        categories: moderationResult.categories,
+        checkedAt: new Date(),
+        validatedBy: 'AI + opinion-generator-ai',
+      },
+    });
+
+    // Update local state
+    setUserPosts((prevData) =>
+      prevData.map((item) =>
+        item.id === editPostData.id
+          ? {
+              ...item,
+              ContentDesc: editPostContent.trim(),
+              isApproved: true,
+              isNew: false,
+              CommentTemplate: generatedTemplateName,
+            }
+          : item
+      )
+    );
+
+    Toast.show({
+      type: 'success',
+      text1: '🎉 Post Updated & Approved!',
+      text2: 'Your post has been updated and approved by AI.',
+      position: 'bottom',
+      visibilityTime: 2000,
+    });
+
+    // Close modal
+    setIsEditModalVisible(false);
+    setEditPostData(null);
+    setEditPostContent('');
+
+  } catch (error) {
+    console.error('❌ Error updating post:', error);
+    Toast.show({
+      type: 'error',
+      text1: 'Update Failed',
+      text2: 'Failed to update post. Please try again.',
+      position: 'bottom',
+      visibilityTime: 1000,
+    });
+  }
+};
+
   // Helper function to call the AI moderation API
   const checkPostContent = async (postText: string, imageUrl: string | null) => {
     try {
