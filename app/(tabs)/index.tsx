@@ -1304,6 +1304,46 @@ useEffect(() => {
         console.log("Post reported successfully:", reportPostId);
         console.log("Report reasons:", selectedReportReasons);
         console.log("Reported by:", userId);
+        // ✅ NEW: Notify the post author that their post was reported
+        try {
+          const reportedPost = fetchedData.find(item => item.id === reportPostId);
+          const postAuthorId = reportedPost?.AuthorUserID;
+
+          if (postAuthorId && postAuthorId !== userId) { // Don't notify if user reports own post
+            const reportNotifyPayload = {
+              id: `post_reported_${reportPostId}_${Date.now()}`,
+              AuthorImageURL: 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg',
+              AuthorName: 'IronEx Safety',
+              AuthorUserID: userId,
+              ContentDate: new Date(),
+              NotifyType: 'post_reported',
+              ShowButtons: false,
+              Status: 'reported',
+              Description: `🚩 Your post has been reported by a community member.\n\nReason(s):\n• ${selectedReportReasons.join('\n• ')}.\n\nYour post is now under admin review and may be temporarily hidden until reviewed.`,
+              isRead: false,
+            };
+
+            let reportNotifSent = false;
+            for (const docUser of notificationDetails) {
+              if (docUser.userID === postAuthorId) {
+                await updateDoc(doc(db, 'SentinelUsers', docUser.docID), {
+                  Notification: arrayUnion(reportNotifyPayload),
+                });
+                reportNotifSent = true;
+                console.log('Report notification sent to post author:', postAuthorId);
+                break;
+              }
+            }
+            if (!reportNotifSent) {
+              await addDoc(collection(db, 'SentinelUsers'), {
+                userID: postAuthorId,
+                Notification: [reportNotifyPayload],
+              });
+            }
+          }
+        } catch (reportNotifError) {
+          console.error('Report notification error (non-critical):', reportNotifError);
+        }
       } catch (error) {
       console.error("Error reporting post:", error);
       Toast.show({
@@ -2180,7 +2220,7 @@ useEffect(() => {
       Toast.show({
         type: 'success',
         text1: 'User Blocked',
-        text2: 'User user blocked successfully',
+        text2: 'User blocked successfully',
         position: 'bottom',
         visibilityTime: 3000,
       });
@@ -2190,6 +2230,44 @@ useEffect(() => {
       setSelectedPostUserId(null);
       setBlockUserId(null);
       setIsBlockLoading(false);
+      // ✅ NEW: Notify the blocked user
+      try {
+        const blockerName = userName || (await AsyncStorage.getItem('userName')) || 'A user';
+        const blockNotifyPayload = {
+          id: `user_blocked_${fetchuserID}_${Date.now()}`,
+          AuthorImageURL: 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg',
+          AuthorName: 'IronEx Safety',
+          AuthorUserID: fetchuserID,
+          ContentDate: new Date(),
+          NotifyType: 'user_blocked',
+          ShowButtons: false,
+          Status: 'blocked',
+          Description: `🚫 Your account has been restricted by another community member. You may have limited interaction with them. If you believe this is a mistake, please contact our support team.`,
+          isRead: false,
+        };
+
+        // Find blocked user's Firestore doc and send
+        let blockNotifSent = false;
+        for (const docUser of notificationDetails) {
+          if (docUser.userID === blockUserId) {
+            await updateDoc(doc(db, 'SentinelUsers', docUser.docID), {
+              Notification: arrayUnion(blockNotifyPayload),
+            });
+            blockNotifSent = true;
+            console.log('Block notification sent to user:', blockUserId);
+            break;
+          }
+        }
+        if (!blockNotifSent) {
+          await addDoc(collection(db, 'SentinelUsers'), {
+            userID: blockUserId,
+            Notification: [blockNotifyPayload],
+          });
+        }
+      } catch (blockNotifError) {
+        console.error('Block notification error (non-critical):', blockNotifError);
+      }
+
 
     } catch (error) {
       console.error("Error updating blocked list: ", error);
@@ -2543,40 +2621,48 @@ useEffect(() => {
       });
 
       // Create Notification
-      if (postUserDocId) {
-        const userRef = doc(db, "SentinelUsers", postUserDocId);
-        await updateDoc(userRef, {
-          Notification: arrayUnion({
-            AuthorImageURL: "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
-            AuthorName: 'Admin',
-            AuthorUserID: await AsyncStorage.getItem('userId'),
-            ContentDate: new Date(),
-            NotifyType: 'post_rejected',
-            ShowButtons: false,
-            Status: 'rejected',
-            Description: 'Post has been rejected with '+ selectedRejectionReasons.length + ' reason(s).',
-            isRead: false,
-          }),
-        });
-        console.log(`✅ Rejected post`);
-      } else {
-        // Create new document if it doesn't exist
-        await addDoc(collection(db, 'SentinelUsers'), {
-          userID: postUserIdNotify,
-          Notification: [{
-            AuthorImageURL: "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
-            AuthorName: 'Admin',
-            AuthorUserID: await AsyncStorage.getItem('userId'),
-            ContentDate: new Date(),
-            NotifyType: 'post_rejected',
-            ShowButtons: false,
-            Status: 'rejected',
-            Description: 'Post has been rejected with '+ selectedRejectionReasons.length + ' reason(s).',
-            isRead: false,
-          }],
-        });
-        console.log(`✅ Created new user document and notification`);
-      }
+          // ✅ Notify the post author - same pattern as handleReportSubmit
+        try {
+          const rejectedPost = fetchedData.find(item => item.id === rejectionPostId);
+          const postAuthorId = rejectedPost?.AuthorUserID;
+
+          if (postAuthorId) {
+            const rejectNotifyPayload = {
+              id: `post_rejected_${rejectionPostId}_${Date.now()}`,
+              AuthorImageURL: 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg',
+              AuthorName: 'Admin',
+              AuthorUserID: await AsyncStorage.getItem('userId'),
+              ContentDate: new Date(),
+              NotifyType: 'post_rejected',
+              ShowButtons: false,
+              Status: 'rejected',
+              Description: `❌ Your post has been reviewed and rejected by our admin team.\n\nReason(s):\n• ${selectedRejectionReasons.join('\n• ')}.\n\nPlease review our community guidelines and feel free to repost with appropriate changes.`,
+              isRead: false,
+            };
+
+            let rejectNotifSent = false;
+            for (const docUser of notificationDetails) {
+              if (docUser.userID === postAuthorId) {
+                await updateDoc(doc(db, 'SentinelUsers', docUser.docID), {
+                  Notification: arrayUnion(rejectNotifyPayload),
+                });
+                rejectNotifSent = true;
+                console.log('Rejection notification sent to post author:', postAuthorId);
+                break;
+              }
+            }
+            if (!rejectNotifSent) {
+              await addDoc(collection(db, 'SentinelUsers'), {
+                userID: postAuthorId,
+                Notification: [rejectNotifyPayload],
+              });
+              console.log('Rejection notification: created new doc for user:', postAuthorId);
+            }
+          }
+        } catch (rejectNotifError) {
+          console.error('Rejection notification error (non-critical):', rejectNotifError);
+        }
+
 
       // Create a new Expo client instance
       // let expo = new Expo();
