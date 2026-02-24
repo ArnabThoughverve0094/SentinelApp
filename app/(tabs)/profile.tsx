@@ -1416,8 +1416,12 @@ const loadProfileData = async () => {
       text1: 'Post Not Found',
       text2: 'Unable to find the post to edit.',
       position: 'bottom',
-      visibilityTime: 2000,
+      visibilityTime: 1000,
     });
+    return;
+  }
+  if (post.isReported) {
+    Toast.show({ type: 'warning', text1: 'Cannot Edit Reported Post', text2: 'This post is under review and cannot be edited.', position: 'bottom', visibilityTime: 1000 });
     return;
   }
 
@@ -1428,7 +1432,7 @@ const loadProfileData = async () => {
       text1: 'Cannot Edit Post',
       text2: 'You can only edit posts with "New" status.',
       position: 'bottom',
-      visibilityTime: 3000,
+      visibilityTime: 1000,
     });
     return;
   }
@@ -1452,7 +1456,7 @@ const loadProfileData = async () => {
         text1: 'Empty Content',
         text2: 'Post content cannot be empty.',
         position: 'bottom',
-        visibilityTime: 2000,
+        visibilityTime: 1000,
       });
       return;
     }
@@ -1543,7 +1547,7 @@ const loadProfileData = async () => {
         text1: 'Post Updated & Approved!',
         text2: 'Your post has been updated and approved by AI.',
         position: 'bottom',
-        visibilityTime: 3000,
+        visibilityTime: 1000,
       });
 
       // Close modal and reset
@@ -1558,7 +1562,7 @@ const loadProfileData = async () => {
         text1: 'Update Failed',
         text2: 'Failed to update post. Please try again.',
         position: 'bottom',
-        visibilityTime: 2000,
+        visibilityTime: 1000,
       });
     }
   };
@@ -2689,7 +2693,7 @@ const checkProfilePicture = async (imageUrl: string) => {
         text1: 'Action Not Available',
         text2: 'This post has been rejected and interactions are disabled.',
         position: 'bottom',
-        visibilityTime: 3000,
+        visibilityTime: 1000,
       });
       return;
     }
@@ -2700,7 +2704,7 @@ const checkProfilePicture = async (imageUrl: string) => {
         text1: 'Already Reposted',
         text2: 'You have already reposted this Post.',
         position: 'bottom',
-        visibilityTime: 2000,
+        visibilityTime: 1000,
       });
 
       return;
@@ -2724,7 +2728,7 @@ const checkProfilePicture = async (imageUrl: string) => {
       text1: 'Pending Approval',
       text2: 'This post is waiting for admin approval. You can perform actions after approval.',
       position: 'bottom',
-      visibilityTime: 3000,
+      visibilityTime: 1000,
     });
     return;
   }
@@ -2736,7 +2740,7 @@ const checkProfilePicture = async (imageUrl: string) => {
       text1: 'Post Not Available',
       text2: 'This post has been rejected and interactions are disabled.',
       position: 'bottom',
-      visibilityTime: 2000,
+      visibilityTime: 1000,
     });
     return;
   }
@@ -2766,7 +2770,7 @@ const checkProfilePicture = async (imageUrl: string) => {
       text1: 'Pending Approval',
       text2: 'This post is waiting for admin approval. You can perform actions after approval.',
       position: 'bottom',
-      visibilityTime: 3000,
+      visibilityTime: 1000,
     });
     return;
   }
@@ -2778,7 +2782,7 @@ const checkProfilePicture = async (imageUrl: string) => {
       text1: 'Post Not Available',
       text2: 'This post has been rejected and interactions are disabled.',
       position: 'bottom',
-      visibilityTime: 2000,
+      visibilityTime: 1000,
     });
     return;
   }
@@ -2833,7 +2837,7 @@ const checkProfilePicture = async (imageUrl: string) => {
         text1: 'Pending Approval',
         text2: 'This post is waiting for admin approval. You can perform actions after approval.',
         position: 'bottom',
-        visibilityTime: 3000,
+        visibilityTime: 1000,
       });
       return;
     }
@@ -2845,7 +2849,7 @@ const checkProfilePicture = async (imageUrl: string) => {
         text1: 'Action Not Available',
         text2: 'This post has been rejected and interactions are disabled.',
         position: 'bottom',
-        visibilityTime: 2000,
+        visibilityTime: 1000,
       });
       return;
     }
@@ -2919,7 +2923,7 @@ const checkProfilePicture = async (imageUrl: string) => {
         text1: 'Action Failed',
         text2: 'Failed to update like. Please try again.',
         position: 'bottom',
-        visibilityTime: 2000,
+        visibilityTime: 1000,
       });
     }
   }, [userId, areInteractionsDisabled]);
@@ -2945,7 +2949,7 @@ const checkProfilePicture = async (imageUrl: string) => {
         text1: 'Already Reposted',
         text2: 'You have already reposted this Post.',
         position: 'bottom',
-        visibilityTime: 2000,
+        visibilityTime: 1000,
       });
       return; // ✅ Exit early
     }
@@ -3013,7 +3017,7 @@ const checkProfilePicture = async (imageUrl: string) => {
       text1: 'Reposted Successfully',
       text2: 'Post has been shared to your followers.',
       position: 'bottom',
-      visibilityTime: 2000,
+      visibilityTime: 1000,
     });
 
   } catch (error) {
@@ -3039,7 +3043,7 @@ const checkProfilePicture = async (imageUrl: string) => {
       text1: 'Repost Failed',
       text2: 'Failed to repost. Please try again.',
       position: 'bottom',
-      visibilityTime: 3000,
+      visibilityTime: 1000,
     });
   }
 }, [selectedRepostPost, userId]);
@@ -3066,7 +3070,7 @@ const checkProfilePicture = async (imageUrl: string) => {
         text1: 'Already Reposted',
         text2: 'You have already reposted this Post.',
         position: 'bottom',
-        visibilityTime: 2000,
+        visibilityTime: 1000,
       });
       return; // ✅ Exit early
     }
@@ -3134,7 +3138,7 @@ const checkProfilePicture = async (imageUrl: string) => {
       text1: 'Quote Repost Created',
       text2: 'Your quote repost has been shared to your followers.',
       position: 'bottom',
-      visibilityTime: 2000,
+      visibilityTime: 1000,
     });
 
   } catch (error) {
@@ -3160,7 +3164,7 @@ const checkProfilePicture = async (imageUrl: string) => {
       text1: 'Quote Repost Failed',
       text2: 'Failed to create quote repost. Please try again.',
       position: 'bottom',
-      visibilityTime: 3000,
+      visibilityTime: 1000,
     });
   }
 }, [selectedRepostPost, userId]);
@@ -3174,7 +3178,7 @@ const handleRepost = useCallback(async (postItem: PostItem) => {
       text1: 'Pending Approval',
       text2: 'This post is waiting for admin approval. You can perform actions after approval.',
       position: 'bottom',
-      visibilityTime: 3000,
+      visibilityTime: 1000,
     });
     return;
   }
@@ -3186,7 +3190,7 @@ const handleRepost = useCallback(async (postItem: PostItem) => {
       text1: 'Action Not Available',
       text2: 'This post has been rejected and interactions are disabled.',
       position: 'bottom',
-      visibilityTime: 2000,
+      visibilityTime: 1000,
     });
     return;
   }
@@ -3203,7 +3207,7 @@ const handleRepost = useCallback(async (postItem: PostItem) => {
       text1: 'Pending Approval',
       text2: 'This post is waiting for admin approval. You can perform actions after approval.',
       position: 'bottom',
-      visibilityTime: 3000,
+      visibilityTime: 1000,
     });
     return;
   }
@@ -3215,7 +3219,7 @@ const handleRepost = useCallback(async (postItem: PostItem) => {
       text1: 'Action Not Available',
       text2: 'This post has been rejected and interactions are disabled.',
       position: 'bottom',
-      visibilityTime: 2000,
+      visibilityTime: 1000,
     });
     return;
   }
@@ -3258,7 +3262,7 @@ const handleRepost = useCallback(async (postItem: PostItem) => {
       text1: 'Action Failed',
       text2: 'Failed to update bookmark. Please try again.',
       position: 'bottom',
-      visibilityTime: 2000,
+      visibilityTime: 1000,
     });
   }
   }, [userId, areInteractionsDisabled]);
@@ -3271,7 +3275,7 @@ const handleRepost = useCallback(async (postItem: PostItem) => {
       text1: 'Pending Approval',
       text2: 'This post is waiting for admin approval. You can perform actions after approval.',
       position: 'bottom',
-      visibilityTime: 3000,
+      visibilityTime: 1000,
     });
     return;
   }
@@ -3283,7 +3287,7 @@ const handleRepost = useCallback(async (postItem: PostItem) => {
       text1: 'Action Not Available',
       text2: 'This post has been rejected and interactions are disabled.',
       position: 'bottom',
-      visibilityTime: 2000,
+      visibilityTime: 1000,
     });
     return;
   }
@@ -3321,7 +3325,7 @@ const handleRepost = useCallback(async (postItem: PostItem) => {
       text1: 'Share Failed',
       text2: 'Failed to share post. Please try again.',
       position: 'bottom',
-      visibilityTime: 2000,
+      visibilityTime: 1000,
     });
   }
   }, [areInteractionsDisabled]);
@@ -3359,7 +3363,7 @@ const confirmDeletePost = async () => {
       text1: 'Success',
       text2: 'Post deleted successfully',
       position: 'top',
-      visibilityTime: 3000,
+      visibilityTime: 1000,
     });
   } catch (error) {
     console.error('Error deleting post:', error);
@@ -4033,7 +4037,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
                                 text1: 'Profile Updated',
                                 text2: 'Your profile has been updated successfully.',
                                 position: 'bottom',
-                                visibilityTime: 2000,
+                                visibilityTime: 1000,
                               });
                             }}
                           />
@@ -4396,7 +4400,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
               {/* Edit Button - Only show if post is "new" */}
               {(() => {
                 const currentPost = userPosts.find(item => item.id === selectedPostId);
-                if (currentPost?.isNew) {
+                if (currentPost?.isNew && !currentPost?.isReported) {
                   return (
                     <>
                       <TouchableOpacity
