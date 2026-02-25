@@ -1281,28 +1281,28 @@ const compressAndGetUrl = async (localUri) => {
       successTitle = 'Post Published!';
       successMessage = 'Your post has been published successfully!';
       // ✅ FIX: was 'Congrats! Your post has been published successfully.' — now richer
-      notificationDescription = '🎉 Great news! Your post has been reviewed by our AI and published successfully. Your community can now see it!';
+      notificationDescription = '🎉 Great news! Your post has been reviewed by our AI moderator and published successfully. Your community can now see it!';
       notificationStatus = 'approved';
 
     } else if (isContentApproved && !isPostRelevant) {
       successTitle = 'Post Submitted!';
       successMessage = 'Your post was flagged as potentially irrelevant. It will be reviewed by our team.';
       // ✅ FIX: was EMPTY — now has description + status
-      notificationDescription = '⚠️ Your post was submitted but our AI flagged it as potentially irrelevant to the community. Reason: Irrelevant content or media detected. An admin will review it shortly.';
+      notificationDescription = '⚠️ Your post was submitted but our AI moderator flagged it as potentially irrelevant to the community.  An admin will  manually review it shortly.Reason: Irrelevant content or media detected.';
       notificationStatus = 'pending';
 
     } else if (hasVideo) {
       successTitle = 'Post Submitted!';
       successMessage = 'Your video post has been submitted successfully! Video content requires manual admin review before publishing.';
       // ✅ FIX: was partially filled — now complete
-      notificationDescription = '🎥 Your video post has been submitted and is pending manual review. Video content is always reviewed by our admins before publishing to ensure quality and safety.';
+      notificationDescription = '🎥 Your video post has been submitted and is pending review. Video content is always reviewed manually by our admin before publishing, to ensure quality and safety.';
       notificationStatus = 'video_review_pending';
 
     } else {
       successTitle = 'Post Submitted!';
       successMessage = 'Post submitted successfully! Kindly await admin review.';
       // ✅ FIX: was EMPTY — now includes AI violation reasons
-      notificationDescription = `⏳ Your post has been submitted but flagged by our AI content moderation. Reason(s): ${moderationResult?.violations?.join(', ') || 'Content policy check failed'}. An admin will review it shortly.`;
+      notificationDescription = `⏳ Your post has been submitted but flagged by our AI content moderator. An admin will manually review it shortly.Reason(s): ${moderationResult?.violations?.join(', ') || 'Content policy check failed'}.`;
       notificationStatus = 'pending';
     }
 
