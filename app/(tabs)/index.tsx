@@ -2242,12 +2242,7 @@ useEffect(() => {
           NotifyType: 'user_blocked',
           ShowButtons: false,
           Status: 'blocked',
-          Description: `🚫 Your account has been restricted by fellow community member. You may have limited interaction till this is reviewed by the admin team. If you believe this is a mistake, please contact our support team by sending an email to <Text 
-                className="text-sm text-blue-600 underline mt-1"
-                onPress={() => Linking.openURL('mailto:ironexsafe@gmail.com')}
-              >
-                ironexsafe@gmail.com
-              </Text>.`,
+          Description: "🚫 Your account has been restricted by a fellow community member. You may have limited interaction till this is reviewed by the admin team. If you believe this is a mistake, please contact our support team by sending an email to ironexsafe@gmail.com.",
           isRead: false,
         };
 
@@ -2641,12 +2636,7 @@ useEffect(() => {
               NotifyType: 'post_rejected',
               ShowButtons: false,
               Status: 'rejected',
-              Description: `❌ Your post has been reviewed and rejected by our admin team.Please review our community guidelines and feel free to create posts which are appropriate for the community. If you believe this is a mistake, please contact our support team by sending an email to <Text 
-                              className="text-sm text-blue-600 underline mt-1"
-                              onPress={() => Linking.openURL('mailto:ironexsafe@gmail.com')}
-                            >
-                              ironexsafe@gmail.com
-                            </Text>.\n\nReason(s):\n• ${selectedRejectionReasons.join('\n• ')}.\n\n`,
+              Description: `❌ Your post has been reviewed and rejected by our admin team.Please review our community guidelines and feel free to create posts which are appropriate for the community. If you believe this is a mistake, please contact our support team by sending an email to ironexsafe@gmail.com.\n\nReason(s):\n• ${selectedRejectionReasons.join('\n• ')}.\n\n`,
               isRead: false,
             };
 
