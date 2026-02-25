@@ -1319,7 +1319,7 @@ useEffect(() => {
               NotifyType: 'post_reported',
               ShowButtons: false,
               Status: 'reported',
-              Description: `🚩 Your post has been reported by a community member.\n\nReason(s):\n• ${selectedReportReasons.join('\n• ')}.\n\nYour post is now under admin review and may be temporarily hidden until reviewed.`,
+              Description: `🚩 Your post has been reported by a community member.Your post is now under admin review and may be temporarily hidden until reviewed.\n\nReason(s):\n• ${selectedReportReasons.join('\n• ')}.\n\n`,
               isRead: false,
             };
 
@@ -2242,7 +2242,12 @@ useEffect(() => {
           NotifyType: 'user_blocked',
           ShowButtons: false,
           Status: 'blocked',
-          Description: `🚫 Your account has been restricted by another community member. You may have limited interaction with them. If you believe this is a mistake, please contact our support team.`,
+          Description: `🚫 Your account has been restricted by fellow community member. You may have limited interaction till this is reviewed by the admin team. If you believe this is a mistake, please contact our support team by sending an email to <Text 
+                className="text-sm text-blue-600 underline mt-1"
+                onPress={() => Linking.openURL('mailto:ironexsafe@gmail.com')}
+              >
+                ironexsafe@gmail.com
+              </Text>.`,
           isRead: false,
         };
 
@@ -2636,7 +2641,12 @@ useEffect(() => {
               NotifyType: 'post_rejected',
               ShowButtons: false,
               Status: 'rejected',
-              Description: `❌ Your post has been reviewed and rejected by our admin team.\n\nReason(s):\n• ${selectedRejectionReasons.join('\n• ')}.\n\nPlease review our community guidelines and feel free to repost with appropriate changes.`,
+              Description: `❌ Your post has been reviewed and rejected by our admin team.Please review our community guidelines and feel free to create posts which are appropriate for the community. If you believe this is a mistake, please contact our support team by sending an email to <Text 
+                              className="text-sm text-blue-600 underline mt-1"
+                              onPress={() => Linking.openURL('mailto:ironexsafe@gmail.com')}
+                            >
+                              ironexsafe@gmail.com
+                            </Text>.\n\nReason(s):\n• ${selectedRejectionReasons.join('\n• ')}.\n\n`,
               isRead: false,
             };
 
@@ -3031,7 +3041,7 @@ useEffect(() => {
                   AuthorName: "Admin",
                   AuthorUserID: await AsyncStorage.getItem("userId"),
                   ContentDate: new Date(),
-                  Description: "Great news! Your recent post has been approved and is now live.",
+                  Description: "🎉 Great news! Your recent post has been approved and is now live.",
                   NotifyType: "postapproved",
                   ShowButtons: false,
                   Status: "approved",
