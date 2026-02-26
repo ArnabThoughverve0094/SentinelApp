@@ -3,12 +3,16 @@ import { db } from "@/FirebaseConfig";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
+  arrayRemove,
   collection,
+  doc,
   getDocs,
+  onSnapshot,
   query,
+  updateDoc,
   where,
 } from "firebase/firestore";
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -18,6 +22,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Toast } from "react-native-toast-message/lib/src/Toast";
 
 const dummyAuthorImage =
   "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg";
@@ -51,6 +56,8 @@ export default function FollowersFollowingScreen() {
     (type as "followers" | "following") || "followers"
   );
 
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+
   // ✅ Fetch user details from SentinelUsers collection (primary source)
   const fetchUserDetailsFromSentinelUsers = async (userIds: string[]): Promise<Map<string, UserItem>> => {
     const uniqueUsers = new Map<string, UserItem>();
@@ -77,7 +84,7 @@ export default function FollowersFollowingScreen() {
           if (userId && !uniqueUsers.has(userId)) {
             uniqueUsers.set(userId, {
               userId: userId,
-              userName: data.userName || data.name || "Unknown User",
+              userName: data.userName || data.name || "Account Deleted",
               userNickName: data.userNickName || data.nickName || data.userName || data.name,
               profilePicUrl: data.profilePicUrl || "",
               userBio: data.userBio || data.bio || "",
@@ -102,7 +109,7 @@ export default function FollowersFollowingScreen() {
           if (authorId && missingUserIds.includes(authorId) && !uniqueUsers.has(authorId)) {
             uniqueUsers.set(authorId, {
               userId: authorId,
-              userName: data.AuthorName || "Unknown User",
+              userName: data.AuthorName || "Account Deleted",
               userNickName: data.AuthorNickName || data.AuthorName,
               profilePicUrl: data.AuthorImageURL || "",
               userBio: data.AuthorBio || "",
@@ -274,19 +281,76 @@ export default function FollowersFollowingScreen() {
 
   const handleUserPress = useCallback(
     (user: UserItem) => {
-      router.push({
-        pathname: "/profile/[userId]" as any,
-        params: {
-          userId: user.userId,
-          authorName: user.userName,
-          authorImageUrl: getFullImageUrl(user.profilePicUrl),
-          userBio: user.userBio || "",
-          isAnonymous: "false",
-        },
-      });
+      if (user.userName != 'Account Deleted') {
+        router.push({
+          pathname: "/profile/[userId]" as any,
+          params: {
+            userId: user.userId,
+            authorName: user.userName,
+            authorImageUrl: getFullImageUrl(user.profilePicUrl),
+            userBio: user.userBio || "",
+            isAnonymous: "false",
+          },
+        });
+      }
+      
     },
     [router]
   );
+
+  const handleFollowPress = useCallback(async (itemUserId: any, itemUserName: any) => {
+    setLoadingId(itemUserId);
+    try {
+      if (itemUserId) {
+        const userDocRef = collection(db, "SentinelUsers");
+        let followingDocId="";
+
+        const unsubscribeFollowing = onSnapshot(userDocRef, async followingSnapshot => {
+          const followingdataArr = followingSnapshot.docs.map(doc => ({
+            id: doc.id,
+            data: doc.data(),
+          }))
+
+          for (const doc of followingdataArr) {
+            const followingObjData = doc.data;
+      
+            if (followingObjData.userID === userid) {
+              followingDocId = doc.id;
+            }
+          }
+        })
+
+        const userRef = doc(db, "SentinelUsers", followingDocId);
+          await updateDoc(userRef, {
+            Following: arrayRemove(itemUserId),
+          });
+        console.log(`✅ Successfully unfollowed user: ${itemUserId}`);
+        Toast.show({
+          type: "success",
+          text1: "Unfollowed",
+          text2: `You unfollowed ${itemUserName || "this user"}`,
+          position: "bottom",
+          visibilityTime: 2000,
+        });
+
+        return unsubscribeFollowing;
+
+      }
+
+      console.log("⏳ Waiting for onSnapshot to update UI...\n");
+    } catch (error) {
+      console.error("❌ Error handling follow/unfollow:", error);
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Failed to update follow status. Please try again.",
+        position: "bottom",
+        visibilityTime: 3000,
+      });
+    } finally {
+      setLoadingId(null); // Stop loading regardless of success/fail
+    }
+  }, []);
 
   const renderUserItem = useCallback(
     ({ item }: { item: UserItem }) => (
@@ -315,7 +379,28 @@ export default function FollowersFollowingScreen() {
           )}
         </View>
 
-        <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+        {item.userName === 'Account Deleted' ? (
+        null
+        ) : (
+          <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+        )}
+
+       {/* {item.userName === 'Account Deleted' ? (
+        <TouchableOpacity 
+          className={`px-5 py-2 rounded-full bg-gray-200`}
+          onPress={() => handleFollowPress(item.userId, item.userName)}
+          disabled={loadingId === item.userId} // Prevent double-clicks
+          activeOpacity={0.8}
+         >
+          {loadingId === item.userId ? (
+            <ActivityIndicator size="small" color="#374151" />
+            ) : (
+            <Text className="font-semibold text-sm text-gray-700">Unfollow</Text>
+          )}
+        </TouchableOpacity>
+        ) : (
+          <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+        )} */}
       </TouchableOpacity>
     ),
     [handleUserPress]
