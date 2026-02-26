@@ -2782,37 +2782,83 @@ useEffect(() => {
 
     const confirmDeletePost = async () => {
       if (!postToDelete) return;
-      
+
       try {
-        const postRef = doc(db, "SentinelPosts", postToDelete);
+        // Step 1: Get the post data to find its associated template
+        const postRef = doc(db, 'SentinelPosts', postToDelete);
+        const postSnap = await getDoc(postRef);
+
+        let templateNameToDelete: string | null = null;
+
+        if (postSnap.exists()) {
+          const postData = postSnap.data();
+          const commentTemplate = postData?.CommentTemplate;
+
+          // Only delete if it's NOT a Standard Template (i.e., AI-generated custom template)
+          if (commentTemplate && commentTemplate !== 'Standard Template') {
+            templateNameToDelete = commentTemplate;
+          }
+        }
+
+        // Step 2: Delete the post
         await deleteDoc(postRef);
         console.log('Post deleted successfully');
-        
+
+        // Step 3: Delete the associated template from the 'templates' collection
+        if (templateNameToDelete) {
+          try {
+            const templatesRef = collection(db, 'templates');
+            const templateQuery = query(
+              templatesRef,
+              where('name', '==', templateNameToDelete)
+            );
+            const templateSnapshot = await getDocs(templateQuery);
+
+            if (!templateSnapshot.empty) {
+              const deletePromises = templateSnapshot.docs.map((templateDoc) =>
+                deleteDoc(doc(db, 'templates', templateDoc.id))
+              );
+              await Promise.all(deletePromises);
+              console.log(`Template "${templateNameToDelete}" deleted successfully`);
+            } else {
+              console.log(`No template found with name "${templateNameToDelete}"`);
+            }
+          } catch (templateError) {
+            // Non-critical: post is already deleted, just log template deletion error
+            console.error('Error deleting template (non-critical):', templateError);
+          }
+        }
+
+        // Step 4: Cleanup UI state
         setIsDeleteModalVisible(false);
         setShowMenuModal(false);
         setSelectedPostId(null);
         setPostToDelete(null);
-        
-        
-        // Optional: Show success message
+
         Toast.show({
           type: 'success',
           text1: 'Success',
-          text2: 'Post deleted successfully',
+          text2: 'Post and its template deleted successfully',
           position: 'top',
           visibilityTime: 3000,
         });
+
       } catch (error) {
         console.error('Error deleting post:', error);
         setIsDeleteModalVisible(false);
         setShowMenuModal(false);
         setSelectedPostId(null);
         setPostToDelete(null);
-        
-        // Show error with CustomModal
-        setIsDeleteModalVisible(true);
+        Toast.show({
+          type: 'error',
+          text1: 'Delete Failed',
+          text2: 'Failed to delete post. Please try again.',
+          position: 'bottom',
+          visibilityTime: 3000,
+        });
       }
     };
+
 
     const confirmDeleteUser = async () => {
       if (!userToDelete) return;
