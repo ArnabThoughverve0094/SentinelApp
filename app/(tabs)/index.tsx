@@ -1018,6 +1018,7 @@ export default function SentinelFeed(): React.JSX.Element {
 
   const [isBlockModalVisible, setIsBlockModalVisible] = useState(false);
   const [blockUserId, setBlockUserId] = useState<string | null>(null);
+  const [blockUserEmail, setBlockUserEmail] = useState<string | null>(null);
   const [allBlockedIds, setAllBlockedIds] = useState<any>([]);
   const [isBlocklLoading, setIsBlockLoading] = useState(false);
   
@@ -2211,6 +2212,7 @@ useEffect(() => {
         // arrayUnion adds the new object to the existing 'blockedList' array
         blockedList: arrayUnion({
           postauthoruserid: blockUserId,
+          postauthoruseremail: blockUserEmail,
           blockedat: new Date() // Or use a standard JS Date for array objects
         })
       }, { merge: true }); // 'merge: true' ensures we don't delete other fields
@@ -2229,6 +2231,7 @@ useEffect(() => {
       setShowMenuModal(false);
       setSelectedPostUserId(null);
       setBlockUserId(null);
+      setBlockUserEmail(null);
       setIsBlockLoading(false);
       // ✅ NEW: Notify the blocked user
       try {
@@ -2275,6 +2278,7 @@ useEffect(() => {
       setShowMenuModal(false);
       setSelectedPostUserId(null);
       setBlockUserId(null);
+      setBlockUserEmail(null);
       setIsBlockLoading(false);
     } finally {
       setIsBlockLoading(false);
@@ -2766,6 +2770,7 @@ useEffect(() => {
     const { pageX, pageY } = event.nativeEvent;
     setSelectedPostId(item.id);
     setSelectedPostUserId(item.AuthorUserID);
+    setBlockUserEmail(item.AuthorName);
     setMenuPosition({ x: pageX - 120, y: pageY + 10 });
     setShowMenuModal(true);
   };
@@ -5513,6 +5518,7 @@ useEffect(() => {
               onPress: () => {
                 setIsBlockModalVisible(false);
                 setBlockUserId(null);
+                setBlockUserEmail(null);
                 setShowMenuModal(false); 
                 setIsBlockLoading(false);
               }
@@ -5531,6 +5537,7 @@ useEffect(() => {
           onClose={() => {
             setIsBlockModalVisible(false);
             setBlockUserId(null);
+            setBlockUserEmail(null);
             setShowMenuModal(false);
             setIsBlockLoading(false);
           }}

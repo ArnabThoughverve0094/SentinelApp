@@ -17,7 +17,6 @@ import {
   collection,
   doc,
   getDoc,
-  getDocs,
   increment,
   onSnapshot,
   query,
@@ -464,75 +463,83 @@ export default function UserProfileScreen() {
     }
   }, [userPosts.length, setupViewCountListeners]);
 
-
-
-
-    
-
-    // Replace your existing realFollowersCount/realFollowingCount useEffect with this:
-
   useEffect(() => {
   if (!userId) return;
 
-  const fetchRealCounts = async () => {
-    try {
-      const usersRef = collection(db, "SentinelUsers");
-      
-      // Get real followers count (users who have this userId in their Following array)
-      const followersQuery = query(usersRef, where("Following", "array-contains", userId));
-      const followersUnsubscribe = onSnapshot(followersQuery, (snapshot) => {
-        // Use Set to deduplicate by userID
-        const uniqueFollowerIds = new Set<string>();
-        
-        snapshot.docs.forEach(doc => {
-          const data = doc.data();
-          const followerId = data.userID;
-          
-          // Only count valid app users with proper UUID format
-          if (followerId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(followerId)) {
-            uniqueFollowerIds.add(followerId);
-          }
-        });
-        
-        const realCount = uniqueFollowerIds.size;
-        setRealFollowersCount(realCount);
-        console.log(`📊 Real Unique Followers Count: ${realCount}`);
-      });
-
-      // Get real following count (valid app user IDs in this user's Following array)
-      const userQuery = query(usersRef, where("userID", "==", userId));
-      const followingUnsubscribe = onSnapshot(userQuery, (snapshot) => {
-        if (!snapshot.empty) {
-          const followingIds = snapshot.docs[0].data().Following || [];
-          
-          // Filter to only valid UUIDs (exclude Twitter IDs)
-          const validUUIDs = followingIds.filter((id: string) => {
-            return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-          });
-          
-          // Use Set to remove duplicates
-          const uniqueFollowingIds = new Set(validUUIDs);
-          const realCount = uniqueFollowingIds.size;
-          
-          setRealFollowingCount(realCount);
-          console.log(`📊 Real Unique Following Count: ${realCount} (filtered from ${followingIds.length} total IDs)`);
-        } else {
-          setRealFollowingCount(0);
-        }
-      });
-
-      return () => {
-        followersUnsubscribe();
-        followingUnsubscribe();
-      };
-    } catch (error) {
-      console.error("Error fetching real counts:", error);
-    }
-  };
-
-  fetchRealCounts();
+  fetchFollowingCounts();
+  fetchFollowerCounts();
 }, [userId]);
 
+const fetchFollowingCounts = async () => {
+  console.log("fetchFollowingCounts called");
+
+  console.log("userId: ", userId);
+  console.log("currentUserId: ", currentUserId);
+
+  const userDocRef = collection(db, "SentinelUsers");
+
+  const unsubscribeFollowing = onSnapshot(userDocRef, async followingSnapshot => {
+    const followingdataArr = followingSnapshot.docs.map(doc => ({
+      id: doc.id,
+      data: doc.data(),
+    }))
+    
+    // Create a temporary container
+    let combinedFollowers: any[] = [];
+
+    for (const doc of followingdataArr) {
+      const followingObjData = doc.data;
+
+      if (followingObjData.userID === userId) {
+        const newFollowers = followingObjData.Following || [];
+        combinedFollowers = [...combinedFollowers, ...newFollowers];
+      }
+    }
+
+    const uniqueFollowers = [...new Set(combinedFollowers)];
+
+    const validUUIDs = uniqueFollowers.filter((id: string) => {
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+      if (!isUUID) {
+        console.log(`⚠️ Filtering out non-UUID ID: ${id}`);
+      }
+      return isUUID;
+    });
+
+    setRealFollowingCount(validUUIDs.length);
+
+  })
+
+  return () => {
+    unsubscribeFollowing();
+  };
+}
+
+const fetchFollowerCounts = async () => {
+
+  console.log("fetchFollowerCounts called");
+
+  console.log("userId: ", userId);
+  console.log("currentUserId: ", currentUserId);
+
+  const followersQuery = query(
+    collection(db, "SentinelUsers"), 
+    where("Following", "array-contains", userId)
+  );
+  
+  const unsubscribeFollowers = onSnapshot(followersQuery, (snapshot) => {
+    // The size of the snapshot is the number of people following the user
+    setRealFollowersCount(snapshot.size);
+    
+    // If you need the list of names/IDs:
+    const followerList = snapshot.docs.map(doc => doc.data().userID);
+    console.log("Users following you:", followerList);
+  });
+
+  return () => {
+    unsubscribeFollowers();
+  };
+}
 
   const ImageFullScreenModal = () => (
     <Modal
