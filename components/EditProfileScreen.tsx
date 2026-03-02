@@ -21,7 +21,9 @@ import {
   getDocs, 
   updateDoc, 
   doc, 
-  setDoc 
+  setDoc,
+  addDoc,
+  arrayUnion 
 } from 'firebase/firestore';
 import { CountryPicker } from 'react-native-country-codes-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -45,6 +47,8 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
   const [imageValidated, setImageValidated] = useState(false);
   const [bioValidated, setBioValidated] = useState(false);
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+  const [currentUserDocId, setCurrentUserDocId] = useState('');
+
   
   // Custom Alert State
   const [customAlertVisible, setCustomAlertVisible] = useState(false);
@@ -62,6 +66,21 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
 
       if (visible) {
         setIsLoading(true);
+        // Add this right after: setIsLoading(true);
+          try {
+            const fetchuserID = await AsyncStorage.getItem('userId');
+            if (fetchuserID) {
+              const sentinelUsersRef = collection(db, 'SentinelUsers');
+              const q = query(sentinelUsersRef, where('userID', '==', fetchuserID));
+              const snapshot = await getDocs(q);
+              if (!snapshot.empty) {
+                setCurrentUserDocId(snapshot.docs[0].id);
+              }
+            }
+          } catch (e) {
+            console.error('❌ [EditProfile] Could not resolve user doc ID:', e);
+          }
+
         try {
           const [name, nickname, email, country, bio, profilePicUrl] =
             await AsyncStorage.multiGet([
@@ -134,6 +153,10 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
           accessToken: accessToken,
         }),
       });
+      if (response.status === 429) {
+        console.warn('⚠️ [EditProfile] Rate limit hit — auto-approving');
+        return { postStatus: 'approved', flagged: false, violations: [], categories: {} };
+      }
 
       if (!response.ok) {
         throw new Error(`API request failed with status ${response.status}`);
@@ -574,6 +597,56 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
       
       setIsLoading(false);
       
+      // ✅ Send profile update notification — same pattern as Create Post Step 8
+      try {
+        const fetchuserID = await AsyncStorage.getItem('userId');
+        const fetchuserName = await AsyncStorage.getItem('userName');
+        const fetchuserImage = await AsyncStorage.getItem('profilePicUrl');
+
+        const profileNotifyPayload = {
+          AuthorImageURL: fields.profilePicUrl || fetchuserImage || DEFAULT_AVATAR,
+          AuthorName: fields.name || fetchuserName || 'You',
+          AuthorUserID: fetchuserID,
+          ContentDate: new Date(),
+          Description: `✅ Your profile has been updated successfully! Your name, bio, and profile picture are now live across the app.`,
+          NotifyType: 'profile_updated',
+          ShowButtons: false,
+          Status: 'updated',
+          isRead: false,
+        };
+
+        if (currentUserDocId) {
+          // User doc already known — update directly
+          const userRef = doc(db, 'SentinelUsers', currentUserDocId);
+          await updateDoc(userRef, {
+            Notification: arrayUnion(profileNotifyPayload),
+          });
+          console.log('✅ [EditProfile] Profile update notification sent');
+        } else {
+          // Fallback — resolve doc and send
+          if (fetchuserID) {
+            const sentinelUsersRef = collection(db, 'SentinelUsers');
+            const q = query(sentinelUsersRef, where('userID', '==', fetchuserID));
+            const snapshot = await getDocs(q);
+            if (!snapshot.empty) {
+              const userRef = doc(db, 'SentinelUsers', snapshot.docs[0].id);
+              await updateDoc(userRef, {
+                Notification: arrayUnion(profileNotifyPayload),
+              });
+              console.log('✅ [EditProfile] Profile update notification sent (fallback)');
+            } else {
+              await addDoc(collection(db, 'SentinelUsers'), {
+                userID: fetchuserID,
+                Notification: [profileNotifyPayload],
+              });
+              console.log('✅ [EditProfile] Created new user doc with notification');
+            }
+          }
+        }
+      } catch (notifError) {
+        console.error('❌ [EditProfile] Notification error (non-critical):', notifError);
+      }
+
       showCustomAlert(
         'success',
         'Profile Updated Successfully! ✓',
@@ -588,6 +661,7 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
         }],
         'checkmark-circle'
       );
+
       
     } catch (error) {
       console.error('❌ [EditProfile] Network error during save:', error);

@@ -138,6 +138,14 @@ const NOTIFY_CONFIG: Record<string, NotifyConfig> = {
     badgeBg: "#FEE2E2",
     badgeText: "#B91C1C",
   },
+  profile_updated: {
+  icon: 'person-circle',
+  iconColor: '#3B82F6',
+  iconBg: '#DBEAFE',
+  badgeLabel: '👤  Profile Updated',
+  badgeBg: '#DBEAFE',
+  badgeText: '#1D40AF',
+},
 };
 
 const DEFAULT_CONFIG: NotifyConfig = {
