@@ -441,6 +441,7 @@ export default function CreatePost() {
   const [postText, setPostText] = useState("");
   const [userImage, setUserImage] = useState("");
   const [userName, setUserName] = useState("");
+  const [userEmail, setUserEmail] = useState("");
   const [userNickName, setUserNickName] = useState("");
   const [userId, setUserId] = useState("");
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia[]>([]);
@@ -559,11 +560,13 @@ export default function CreatePost() {
 
   const getItem = async () => {
     try {
-      const fetchuserName = await AsyncStorage.getItem('userName');
-      const fetchUserImage = await AsyncStorage.getItem('profilePicUrl');
-      const fetchuserID = await AsyncStorage.getItem('userId');
-      const fetchCreateType = await AsyncStorage.getItem('createType');
-      const fetchuseNickrName = await AsyncStorage.getItem('userNickName');
+      const fetchuserName = (await AsyncStorage.getItem('userName') || '');
+      const fetchUserImage = (await AsyncStorage.getItem('profilePicUrl') || '');
+      const fetchuserID = (await AsyncStorage.getItem('userId') || '1234');
+      const fetchCreateType = (await AsyncStorage.getItem('createType') || '');
+      const fetchuseNickrName = (await AsyncStorage.getItem('userNickName') || '');
+
+      setUserEmail(await AsyncStorage.getItem('userEmail') || '');
 
       if(fetchuserName !== null) {
         console.log("userName: ", fetchuserName);
@@ -1139,6 +1142,7 @@ const compressAndGetUrl = async (localUri) => {
         AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
         AuthorName: userName,
         AuthorNickName: userNickName,
+        AuthorEmail: userEmail,
         AuthorUserID: userId,
         ContentDate: new Date(),
         ContentDesc: postText,
@@ -1201,6 +1205,7 @@ const compressAndGetUrl = async (localUri) => {
               AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
               AuthorName: userName,
               AuthorNickName: userNickName,
+              AuthorEmail: userEmail,
               AuthorUserID: userId,
               ContentDate: new Date(),
               ContentDesc: postText,
@@ -1231,6 +1236,7 @@ const compressAndGetUrl = async (localUri) => {
               AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
               AuthorName: userName,
               AuthorNickName: userNickName,
+              AuthorEmail: userEmail,
               AuthorUserID: userId,
               ContentDate: new Date(),
               ContentDesc: postText,

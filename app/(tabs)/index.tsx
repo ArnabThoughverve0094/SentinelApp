@@ -1021,6 +1021,7 @@ export default function SentinelFeed(): React.JSX.Element {
   const [isBlockModalVisible, setIsBlockModalVisible] = useState(false);
   const [blockUserId, setBlockUserId] = useState<string | null>(null);
   const [blockUserEmail, setBlockUserEmail] = useState<string | null>(null);
+  const [blockUserName, setBlockUserName] = useState<string | null>(null);
   const [allBlockedIds, setAllBlockedIds] = useState<any>([]);
   const [isBlocklLoading, setIsBlockLoading] = useState(false);
   
@@ -1707,13 +1708,15 @@ useEffect(() => {
           postsData.push({
             uniqueId: `sentinel-${postId}`,
             id: postId,
-            AuthorImageURL: postData.AuthorImageURL,
-            AuthorName: postData.AuthorName,
+            AuthorImageURL: postData.AuthorImageURL|| '',
+            AuthorName: postData.AuthorName|| '',
+            AuthorNickName: postData.AuthorNickName|| '',
+            AuthorEmail: postData.AuthorEmail|| '',
             AuthorBio: postData.AuthorBio || postData.Bio || '',  // ✅ ADD THIS
             AuthorUserID: postData.AuthorUserID || postData.repostedBy || '123456',
-            ContentDate: postData.ContentDate,
-            ContentDesc: postData.ContentDesc,
-            ContentURL: postData.ContentURL,
+            ContentDate: postData.ContentDate|| '',
+            ContentDesc: postData.ContentDesc|| '',
+            ContentURL: postData.ContentURL|| '',
             ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
             ContentLikeCount: postData.ContentLikeCount || 0,
             ContentRepostCount: postData.ContentRepostCount || 0,
@@ -1755,67 +1758,69 @@ useEffect(() => {
 
         // 3. Set the posts data (Initial batch)
         setSentinelData(postsData);
+        setFetchedData(postsData);
         // Also fetch X-Data and merge
-        try {
-          const xDataRef = collection(db, 'X-Data');
-          const xDataQuery = query(xDataRef, orderBy('ContentDate', 'desc'), limit(BATCH_SIZE));
-          const xDataSnapshot = await getDocs(xDataQuery);
+        // try {
+        //   const xDataRef = collection(db, 'X-Data');
+        //   const xDataQuery = query(xDataRef, orderBy('ContentDate', 'desc'), limit(BATCH_SIZE));
+        //   const xDataSnapshot = await getDocs(xDataQuery);
 
-          const xPostsData: PostItem[] = xDataSnapshot.docs.map(docSnap => {
-            const xData = docSnap.data();
-            return {
-              id: docSnap.id,              // ✅ Firestore doc ID → used for getDoc/updateDoc
-              uniqueId: `x-${docSnap.id}`, // ✅ React key 
-              AuthorImageURL: xData.AuthorImageURL || '',
-              AuthorName: xData.AuthorName || 'Unknown',
-              AuthorBio: xData.AuthorBio || '',
-              AuthorUserID: xData.AuthorUserID || '',
-              ContentDate: xData.ContentDate,
-              ContentDesc: xData.ContentDesc || '',
-              ContentURL: xData.ContentURL || '',
-              ContentURLs: xData.ContentURLs || (xData.ContentURL ? [xData.ContentURL] : []),
-              ContentLikeCount: xData.ContentLikeCount || 0,
-              ContentRepostCount: xData.ContentRepostCount || 0,
-              ContentCommentCount: xData.ContentCommentCount || 0,
-              isApproved: true,          // ✅ X-Data is always approved
-              isNew: false,              // ✅ never pending
-              postType: 'X-Data',        // ✅ exact string used in all filters
-              Liked: false,
-              Reposted: false,
-              Bookmarked: false,
-              createdAt: xData.createdAt || xData.ContentDate,
-              CommentTemplate: xData.CommentTemplate || 'Standard Template',
-              isRepost: false,
-              originalPost: null,
-              repostComment: '',
-              repostedBy: '',
-              repostedAt: null,
-              isAnonymous: false,
-              contentType: xData.contentType || 'Found Online',
-              isEducational: xData.isEducational || false,
-              moderationData: null,
-              isReported: false,
-              reportedAt: null,
-              reportReasons: [],
-              reportedBy: [],
-              moderationStatus: 'approved',
-              ContentViewCount: xData.ContentViewCount || 0,   // ✅ view count
-              ViewedBy: xData.ViewedBy || [],
-            };
-          });
+        //   const xPostsData: PostItem[] = xDataSnapshot.docs.map(docSnap => {
+        //     const xData = docSnap.data();
+        //     return {
+        //       id: docSnap.id,              // ✅ Firestore doc ID → used for getDoc/updateDoc
+        //       uniqueId: `x-${docSnap.id}`, // ✅ React key 
+        //       AuthorImageURL: xData.AuthorImageURL || '',
+        //       AuthorName: xData.AuthorName || 'Unknown',
+        //       AuthorBio: xData.AuthorBio || '',
+        //       AuthorUserID: xData.AuthorUserID || '',
+        //       ContentDate: xData.ContentDate,
+        //       ContentDesc: xData.ContentDesc || '',
+        //       ContentURL: xData.ContentURL || '',
+        //       ContentURLs: xData.ContentURLs || (xData.ContentURL ? [xData.ContentURL] : []),
+        //       ContentLikeCount: xData.ContentLikeCount || 0,
+        //       ContentRepostCount: xData.ContentRepostCount || 0,
+        //       ContentCommentCount: xData.ContentCommentCount || 0,
+        //       isApproved: true,          // ✅ X-Data is always approved
+        //       isNew: false,              // ✅ never pending
+        //       postType: 'X-Data',        // ✅ exact string used in all filters
+        //       Liked: false,
+        //       Reposted: false,
+        //       Bookmarked: false,
+        //       createdAt: xData.createdAt || xData.ContentDate,
+        //       CommentTemplate: xData.CommentTemplate || 'Standard Template',
+        //       isRepost: false,
+        //       originalPost: null,
+        //       repostComment: '',
+        //       repostedBy: '',
+        //       repostedAt: null,
+        //       isAnonymous: false,
+        //       contentType: xData.contentType || 'Found Online',
+        //       isEducational: xData.isEducational || false,
+        //       moderationData: null,
+        //       isReported: false,
+        //       reportedAt: null,
+        //       reportReasons: [],
+        //       reportedBy: [],
+        //       moderationStatus: 'approved',
+        //       ContentViewCount: xData.ContentViewCount || 0,   // ✅ view count
+        //       ViewedBy: xData.ViewedBy || [],
+        //     };
+        //   });
 
-          setFetchedXData(xPostsData);
+        //   setFetchedXData(xPostsData);
 
-          // ✅ Merge both into fetchedData sorted by date
-          const merged = [...postsData, ...xPostsData].sort(
-            (a, b) => new Date(b.ContentDate).getTime() - new Date(a.ContentDate).getTime()
-          );
-          setFetchedData(merged);
+        //   // ✅ Merge both into fetchedData sorted by date
+        //   const merged = [...postsData, ...xPostsData].sort(
+        //     (a, b) => new Date(b.ContentDate).getTime() - new Date(a.ContentDate).getTime()
+        //   );
+        //   setFetchedData(merged);
 
-        } catch (xError) {
-          console.error('Error fetching X-Data:', xError);
-          setFetchedData(postsData); // fallback
-        }
+        // } catch (xError) {
+        //   console.error('Error fetching X-Data:', xError);
+        //   setFetchedData(postsData); // fallback
+        // }
+
         setHasMore(sentinelSnapshot.docs.length === BATCH_SIZE); // Check if more data exists
         
       });
@@ -1881,7 +1886,9 @@ useEffect(() => {
             uniqueId: `sentinel-${postId}`,
             id: postId,
             AuthorImageURL: postData.AuthorImageURL,
-            AuthorName: postData.AuthorName,
+            AuthorName: postData.AuthorName || '',
+            AuthorNickName: postData.AuthorNickName|| '',
+            AuthorEmail: postData.AuthorEmail|| '',
             AuthorBio: postData.AuthorBio || postData.Bio || '',  // ✅ ADD THIS
             AuthorUserID: postData.AuthorUserID || postData.repostedBy || '123456',
             ContentDate: postData.ContentDate,
@@ -2205,70 +2212,81 @@ useEffect(() => {
     const userBlockDocRef = doc(db, 'UserBlocked', fetchuserID);
   
     try {
-      await setDoc(userBlockDocRef, {
-        userid: fetchuserID,
-        // arrayUnion adds the new object to the existing 'blockedList' array
-        blockedList: arrayUnion({
-          postauthoruserid: blockUserId,
-          postauthoruseremail: blockUserEmail,
-          blockedat: new Date() // Or use a standard JS Date for array objects
-        })
-      }, { merge: true }); // 'merge: true' ensures we don't delete other fields
-      
-      console.log("User added to your blocked list.");
-
-      Toast.show({
-        type: 'success',
-        text1: 'User Blocked',
-        text2: 'User blocked successfully',
-        position: 'bottom',
-        visibilityTime: 3000,
-      });
-
-      setIsBlockModalVisible(false);
-      setShowMenuModal(false);
-      setSelectedPostUserId(null);
-      setBlockUserId(null);
-      setBlockUserEmail(null);
-      setIsBlockLoading(false);
-      // ✅ NEW: Notify the blocked user
-      try {
-        const blockerName = userName || (await AsyncStorage.getItem('userName')) || 'A user';
-        const blockNotifyPayload = {
-          id: `user_blocked_${fetchuserID}_${Date.now()}`,
-          AuthorImageURL: 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg',
-          AuthorName: 'IronEx Safety',
-          AuthorUserID: fetchuserID,
-          ContentDate: new Date(),
-          NotifyType: 'user_blocked',
-          ShowButtons: false,
-          Status: 'blocked',
-          Description: "🚫 Your account has been restricted by a fellow community member. You may have limited interaction till this is reviewed by the admin team. If you believe this is a mistake, please contact our support team by sending an email to ironexsafe@gmail.com.",
-          isRead: false,
-        };
-
-        // Find blocked user's Firestore doc and send
-        let blockNotifSent = false;
-        for (const docUser of notificationDetails) {
-          if (docUser.userID === blockUserId) {
-            await updateDoc(doc(db, 'SentinelUsers', docUser.docID), {
-              Notification: arrayUnion(blockNotifyPayload),
-            });
-            blockNotifSent = true;
-            console.log('Block notification sent to user:', blockUserId);
-            break;
-          }
-        }
-        if (!blockNotifSent) {
-          await addDoc(collection(db, 'SentinelUsers'), {
-            userID: blockUserId,
-            Notification: [blockNotifyPayload],
-          });
-        }
-      } catch (blockNotifError) {
-        console.error('Block notification error (non-critical):', blockNotifError);
+      let haveEmail = false;
+      if (blockUserEmail == null) {
+        haveEmail=true;
+      } else {
+        haveEmail=true;
       }
 
+      if (haveEmail) {
+        await setDoc(userBlockDocRef, {
+          userid: fetchuserID,
+          // arrayUnion adds the new object to the existing 'blockedList' array
+          blockedList: arrayUnion({
+            postauthoruserid: blockUserId,
+            AuthorEmail: blockUserEmail,
+            AuthorName: blockUserName,
+            blockedat: new Date() // Or use a standard JS Date for array objects
+          })
+        }, { merge: true }); // 'merge: true' ensures we don't delete other fields
+        
+        console.log("User added to your blocked list.");
+  
+        Toast.show({
+          type: 'success',
+          text1: 'User Blocked',
+          text2: 'User blocked successfully',
+          position: 'bottom',
+          visibilityTime: 3000,
+        });
+  
+        setIsBlockModalVisible(false);
+        setShowMenuModal(false);
+        setSelectedPostUserId(null);
+        setBlockUserId(null);
+        setBlockUserEmail(null);
+        setBlockUserName(null);
+        setIsBlockLoading(false);
+        // ✅ NEW: Notify the blocked user
+        try {
+          const blockerName = userName || (await AsyncStorage.getItem('userName')) || 'A user';
+          const blockNotifyPayload = {
+            id: `user_blocked_${fetchuserID}_${Date.now()}`,
+            AuthorImageURL: 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg',
+            AuthorName: 'IronEx Safety',
+            AuthorUserID: fetchuserID,
+            ContentDate: new Date(),
+            NotifyType: 'user_blocked',
+            ShowButtons: false,
+            Status: 'blocked',
+            Description: "🚫 Your account has been restricted by a fellow community member. You may have limited interaction till this is reviewed by the admin team. If you believe this is a mistake, please contact our support team by sending an email to ironexsafe@gmail.com.",
+            isRead: false,
+          };
+  
+          // Find blocked user's Firestore doc and send
+          let blockNotifSent = false;
+          for (const docUser of notificationDetails) {
+            if (docUser.userID === blockUserId) {
+              await updateDoc(doc(db, 'SentinelUsers', docUser.docID), {
+                Notification: arrayUnion(blockNotifyPayload),
+              });
+              blockNotifSent = true;
+              console.log('Block notification sent to user:', blockUserId);
+              break;
+            }
+          }
+          if (!blockNotifSent) {
+            await addDoc(collection(db, 'SentinelUsers'), {
+              userID: blockUserId,
+              Notification: [blockNotifyPayload],
+            });
+          }
+        } catch (blockNotifError) {
+          console.error('Block notification error (non-critical):', blockNotifError);
+        }
+        
+      }
 
     } catch (error) {
       console.error("Error updating blocked list: ", error);
@@ -2277,6 +2295,7 @@ useEffect(() => {
       setSelectedPostUserId(null);
       setBlockUserId(null);
       setBlockUserEmail(null);
+      setBlockUserName(null);
       setIsBlockLoading(false);
     } finally {
       setIsBlockLoading(false);
@@ -2768,7 +2787,8 @@ useEffect(() => {
     const { pageX, pageY } = event.nativeEvent;
     setSelectedPostId(item.id);
     setSelectedPostUserId(item.AuthorUserID);
-    setBlockUserEmail(item.AuthorName);
+    setBlockUserName(item.AuthorName);
+    setBlockUserEmail(item.AuthorEmail);
     setMenuPosition({ x: pageX - 120, y: pageY + 10 });
     setShowMenuModal(true);
   };
@@ -5370,6 +5390,7 @@ useEffect(() => {
                 setIsBlockModalVisible(false);
                 setBlockUserId(null);
                 setBlockUserEmail(null);
+                setBlockUserName(null);
                 setShowMenuModal(false); 
                 setIsBlockLoading(false);
               }
@@ -5389,6 +5410,7 @@ useEffect(() => {
             setIsBlockModalVisible(false);
             setBlockUserId(null);
             setBlockUserEmail(null);
+            setBlockUserName(null)
             setShowMenuModal(false);
             setIsBlockLoading(false);
           }}
