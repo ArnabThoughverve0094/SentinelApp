@@ -16,14 +16,14 @@ import {
   arrayUnion,
   collection,
   doc,
+  getCountFromServer,
   getDoc,
-  getDocs,
   increment,
   onSnapshot,
   query,
-  setDoc,
   updateDoc,
-  where
+  where,
+  writeBatch
 } from "firebase/firestore";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -50,6 +50,7 @@ interface UserDoc {
   userID?: string;
   userName?: string;
   userNickName?: string;
+  userEmail?: string;
   profilePicUrl?: string;
   userBio?: string;
   Website?: string;
@@ -65,6 +66,8 @@ interface PostItem {
   AuthorUserID?: string;
   AuthorImageURL: string;
   AuthorName: string;
+  AuthorNickName: string;
+  AuthorEmail: string;
   AuthorBio: string;
   ContentDate: string;
   ContentDesc: string;
@@ -261,9 +264,11 @@ const RepostModal: React.FC<RepostModalProps> = ({
 
 
 export default function UserProfileScreen() {
-  const { userId, authorName, authorImageUrl, isAnonymous, userBio } = useLocalSearchParams<{
+  const { userId, userEmail, authorName, userNickName, authorImageUrl, isAnonymous, userBio } = useLocalSearchParams<{
     userId: string;
+    userEmail?: string;
     authorName?: string;
+    userNickName?: string;
     authorImageUrl?: string;
     isAnonymous?: string;
     userBio?: string;
@@ -285,6 +290,10 @@ export default function UserProfileScreen() {
   const [userDoc, setUserDoc] = useState<UserDoc | null>(null);
   const [userPosts, setUserPosts] = useState<PostItem[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [currentUserEmail, setCurrentUserEmail] = useState<string>("");
+  const [currentUserName, setCurrentUserName] = useState<string>("");
+  const [currentUserNickName, setCurrentUserNickName] = useState<string>("");
+  const [currentUserProfilePicURL, setCurrentUserProfilePicURL] = useState<string>("");
 
   const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
   const [currentUserDocId, setCurrentUserDocId] = useState("");
@@ -464,75 +473,143 @@ export default function UserProfileScreen() {
     }
   }, [userPosts.length, setupViewCountListeners]);
 
-
-
-
-    
-
-    // Replace your existing realFollowersCount/realFollowingCount useEffect with this:
-
   useEffect(() => {
   if (!userId) return;
 
-  const fetchRealCounts = async () => {
-    try {
-      const usersRef = collection(db, "SentinelUsers");
-      
-      // Get real followers count (users who have this userId in their Following array)
-      const followersQuery = query(usersRef, where("Following", "array-contains", userId));
-      const followersUnsubscribe = onSnapshot(followersQuery, (snapshot) => {
-        // Use Set to deduplicate by userID
-        const uniqueFollowerIds = new Set<string>();
-        
-        snapshot.docs.forEach(doc => {
-          const data = doc.data();
-          const followerId = data.userID;
-          
-          // Only count valid app users with proper UUID format
-          if (followerId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(followerId)) {
-            uniqueFollowerIds.add(followerId);
-          }
-        });
-        
-        const realCount = uniqueFollowerIds.size;
-        setRealFollowersCount(realCount);
-        console.log(`📊 Real Unique Followers Count: ${realCount}`);
-      });
-
-      // Get real following count (valid app user IDs in this user's Following array)
-      const userQuery = query(usersRef, where("userID", "==", userId));
-      const followingUnsubscribe = onSnapshot(userQuery, (snapshot) => {
-        if (!snapshot.empty) {
-          const followingIds = snapshot.docs[0].data().Following || [];
-          
-          // Filter to only valid UUIDs (exclude Twitter IDs)
-          const validUUIDs = followingIds.filter((id: string) => {
-            return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-          });
-          
-          // Use Set to remove duplicates
-          const uniqueFollowingIds = new Set(validUUIDs);
-          const realCount = uniqueFollowingIds.size;
-          
-          setRealFollowingCount(realCount);
-          console.log(`📊 Real Unique Following Count: ${realCount} (filtered from ${followingIds.length} total IDs)`);
-        } else {
-          setRealFollowingCount(0);
-        }
-      });
-
-      return () => {
-        followersUnsubscribe();
-        followingUnsubscribe();
-      };
-    } catch (error) {
-      console.error("Error fetching real counts:", error);
-    }
-  };
-
-  fetchRealCounts();
+  fetchCounts();
+  // fetchFollowingCounts();
+  // fetchFollowerCounts();
 }, [userId]);
 
+const fetchCounts = async () => {
+  console.log("fetchCounts called");
+  console.log("userId: ", userId);
+
+  const userDocRef = doc(db, 'IronExUsers', userId);
+
+  const unsubscribeFollowing = onSnapshot(userDocRef, (docSnapshot) => {
+    if (docSnapshot.exists()) {
+      const data = docSnapshot.data();
+
+      // 1. Get the Array of following objects
+      const followingList = data.Following || [];
+      
+      // 2. Get the specific count fields
+      // Ensure you are using the 'increment' logic in your follow function
+      // for these fields to exist!
+      const followingCount = data.followingCount || followingList.length;
+      const followerCount = data.followerCount || 0;
+
+      // Update your React states
+      // setFollowingData(followingList);
+      setRealFollowingCount(followingCount);
+      setRealFollowersCount(followerCount);
+    }
+  }, (error) => {
+    console.error("❌ Real-time listener failed:", error);
+  });
+
+  return () => {
+    unsubscribeFollowing();
+  };
+}
+
+const fetchFollowingCounts = async () => {
+  console.log("fetchFollowingCounts called");
+
+  console.log("userId: ", userId);
+  console.log("currentUserId: ", currentUserId);
+
+  // const userDocRef = collection(db, "IronExUsers");
+
+  // const unsubscribeFollowing = onSnapshot(userDocRef, async followingSnapshot => {
+  //   const followingdataArr = followingSnapshot.docs.map(doc => ({
+  //     id: doc.id,
+  //     data: doc.data(),
+  //   }))
+    
+  //   // Create a temporary container
+  //   let combinedFollowers: any[] = [];
+
+  //   for (const doc of followingdataArr) {
+  //     const followingObjData = doc.data;
+
+  //     if (followingObjData.userID === userId) {
+  //       const newFollowers = followingObjData.Following || [];
+  //       combinedFollowers = [...combinedFollowers, ...newFollowers];
+  //     }
+  //   }
+
+  //   const uniqueFollowers = [...new Set(combinedFollowers)];
+
+  //   const validUUIDs = uniqueFollowers.filter((id: string) => {
+  //     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+  //     if (!isUUID) {
+  //       console.log(`⚠️ Filtering out non-UUID ID: ${id}`);
+  //     }
+  //     return isUUID;
+  //   });
+
+  //   setRealFollowingCount(validUUIDs.length);
+
+  // })
+
+  // return () => {
+  //   unsubscribeFollowing();
+  // };
+
+  const userDocRef = doc(db, 'IronExUsers', userId);
+  const docSnap = await getDoc(userDocRef);
+
+  if (docSnap.exists()) {
+    const data = docSnap.data();
+    // Use optional chaining and default to 0 if the array doesn't exist yet
+    
+    setRealFollowingCount(data.Following?.length || 0);
+
+  }
+}
+
+const fetchFollowerCounts = async () => {
+
+  console.log("fetchFollowerCounts called");
+
+  console.log("userId: ", userId);
+  console.log("currentUserId: ", currentUserId);
+
+  // const followersQuery = query(
+  //   collection(db, "IronExUsers"), 
+  //   where("Following", "array-contains", userId)
+  // );
+  
+  // const unsubscribeFollowers = onSnapshot(followersQuery, (snapshot) => {
+  //   // The size of the snapshot is the number of people following the user
+  //   setRealFollowersCount(snapshot.size);
+    
+  //   // If you need the list of names/IDs:
+  //   const followerList = snapshot.docs.map(doc => doc.data().userID);
+  //   console.log("Users following you:", followerList);
+  // });
+
+  // return () => {
+  //   unsubscribeFollowers();
+  // };
+
+  const usersRef = collection(db, 'IronExUsers');
+
+  // We query the 'Following' array for an object that matches the target ID.
+  // IMPORTANT: array-contains requires an EXACT object match. 
+  // If you don't have the full object, this query style is difficult.
+  const q = query(
+    usersRef, 
+    where("Following", "array-contains", { userId: userId })
+  );
+
+  const snapshot = await getCountFromServer(q);
+
+  setRealFollowersCount(snapshot.data().count);
+
+}
 
   const ImageFullScreenModal = () => (
     <Modal
@@ -681,8 +758,20 @@ export default function UserProfileScreen() {
 
   useEffect(() => {
     const loadCurrentUser = async () => {
-      const id = await AsyncStorage.getItem("userId");
-      if (id) setCurrentUserId(id);
+      const fetchUserId = await AsyncStorage.getItem("userId");
+      if (fetchUserId !== null) setCurrentUserId(fetchUserId);
+
+      const fetchUserEmail = await AsyncStorage.getItem("userEmail");
+      if (fetchUserEmail !== null) setCurrentUserEmail(fetchUserEmail);
+
+      const fetchUserName = await AsyncStorage.getItem("userName");
+      if (fetchUserName !== null) setCurrentUserName(fetchUserName);
+
+      const fetchUserNickName = await AsyncStorage.getItem("userNickName");
+      if (fetchUserNickName !== null) setCurrentUserNickName(fetchUserNickName);
+
+      const fetchUserProfilePicURL = await AsyncStorage.getItem("profilePicUrl");
+      if (fetchUserProfilePicURL !== null) setCurrentUserProfilePicURL(fetchUserProfilePicURL);
     };
     loadCurrentUser();
   }, []);
@@ -700,30 +789,41 @@ export default function UserProfileScreen() {
 
       if (fetchuserID) {
         console.log("👤 Fetching following list for user:", fetchuserID);
-        const sentinelUsersRef = collection(db, "SentinelUsers");
-        const q = query(sentinelUsersRef, where("userID", "==", fetchuserID));
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-          if (!snapshot.empty) {
-            const userDoc = snapshot.docs[0];
-            const userData = userDoc.data();
-            setCurrentUserDocId(userDoc.id);
-            const following = userData.Following || [];
-            setFollowingUserIds(following);
-            console.log("✅ Following list updated:", following);
+        const userDocRef = doc(db, 'IronExUsers', fetchuserID);
 
-            if (userId) {
-              const isUserFollowing = following.includes(userId);
-              setIsFollowing(isUserFollowing);
-              console.log(`📌 Is following ${userId}:`, isUserFollowing);
-            }
-          } else {
-            console.log("📝 No user document found");
-            setFollowingUserIds([]);
-            setCurrentUserDocId("");
-            setIsFollowing(false);
+        const unsubscribe = onSnapshot(userDocRef, (doc) => {
+          if (doc.exists()) {
+            const following = doc.data().Following || [];
+            const alreadyFollowing = following.some(u => u.userId === userId);
+            setIsFollowing(alreadyFollowing);
           }
         });
+
+        // const sentinelUsersRef = collection(db, "SentinelUsers");
+        // const q = query(sentinelUsersRef, where("userID", "==", fetchuserID));
+
+        // const unsubscribe = onSnapshot(q, (snapshot) => {
+        //   if (!snapshot.empty) {
+        //     const userDoc = snapshot.docs[0];
+        //     const userData = userDoc.data();
+        //     setCurrentUserDocId(userDoc.id);
+        //     const following = userData.Following || [];
+        //     setFollowingUserIds(following);
+        //     console.log("✅ Following list updated:", following);
+
+        //     if (userId) {
+        //       const isUserFollowing = following.includes(userId);
+        //       setIsFollowing(isUserFollowing);
+        //       console.log(`📌 Is following ${userId}:`, isUserFollowing);
+        //     }
+        //   } else {
+        //     console.log("📝 No user document found");
+        //     setFollowingUserIds([]);
+        //     setCurrentUserDocId("");
+        //     setIsFollowing(false);
+        //   }
+        // });
 
         return unsubscribe;
       }
@@ -791,6 +891,7 @@ export default function UserProfileScreen() {
               userID: storedUserId,
               userName: name[1] || authorName || "",
               userNickName: nickname[1] || "",
+              userEmail: userEmail[1] || "",
               profilePicUrl: profilePicUrl[1] || (authorImageUrl as string) || "",
               userBio: bio[1] || "",
               Website: undefined,
@@ -933,6 +1034,8 @@ export default function UserProfileScreen() {
             id: postId,
             AuthorImageURL: postData.AuthorImageURL,
             AuthorName: postData.AuthorName,
+            AuthorNickName: postData.AuthorNickName,
+            AuthorEmail: postData.AuthorEmail,
             AuthorUserID: postData.AuthorUserID || postData.repostedBy || "",
             AuthorBio: postData.AuthorBio || '',
             ContentDate: postData.ContentDate,
@@ -1009,117 +1112,291 @@ export default function UserProfileScreen() {
     setRefreshing(false);
   }, [fetchUserPosts]);
 
+  // const handleFollowPress = useCallback(async () => {
+  //   if (!userId) return;
+
+  //   console.log(`\n🔄 ${isFollowing ? "Unfollowing" : "Following"} user`);
+  //   console.log("User ID:", userId);
+  //   console.log("Profile User Doc ID:", profileUserDocId);
+
+  //   let fetchuserID = currentUserDocId;
+  //   if (fetchuserID === "") {
+  //     fetchuserID = await AsyncStorage.getItem('userId') || "";
+  //   }
+
+  //   try {
+  //     if (isFollowing) {
+
+  //       const userUsersDocRef = doc(db, 'IronExUsers', fetchuserID);
+
+  //       try {
+  //         // 1. Fetch the current document
+  //         const docSnap = await getDoc(userUsersDocRef);
+
+  //         if (docSnap.exists()) {
+  //           const userData = docSnap.data();
+  //           const currentFollowing = userData.Following || [];
+
+  //           // 2. Filter out the user you want to remove
+  //           const updatedFollowing = currentFollowing.filter(
+  //             (item) => item.userId !== userId
+  //           );
+
+  //           // 3. Overwrite the array with the filtered version
+  //           await updateDoc(userUsersDocRef, {
+  //             Following: updatedFollowing,
+  //             followingCount: increment(-1)
+  //           });
+
+  //           const targetUserDocRef = doc(db, 'IronExUsers', userId);
+  //           try {
+  //             // 1. Fetch the current document
+  //             const followerDocSnap = await getDoc(targetUserDocRef);
+  //             const userFollowerData = followerDocSnap.data();
+  //             const currentFollower = userFollowerData.Follower || [];
+
+  //             // 2. Filter out the user you want to remove
+  //             const updatedFollower = currentFollower.filter(
+  //               (item) => item.userId !== fetchuserID
+  //           );
+
+  //             // 3. Overwrite the array with the filtered version
+  //             await updateDoc(targetUserDocRef, {
+  //               Follower: updatedFollower,
+  //               followerCount: increment(-1)
+  //             });
+  //           } catch (error) {
+  //             console.error("❌ Error during unfollow follower:", error);
+  //           }
+
+  //           Toast.show({
+  //             type: "info",
+  //             text1: "Unfollowed",
+  //             text2: "User removed from your following list.",
+  //             position: "bottom"
+  //           });
+  //         }
+  //       } catch (error) {
+  //         console.error("❌ Error during unfollow following:", error);
+  //       }
+
+  //     } else {
+        
+  //       // Reference the document specifically for the current user
+  //       const userUsersDocRef = doc(db, 'IronExUsers', fetchuserID);
+
+  //       try {
+  //         await setDoc(userUsersDocRef, {
+  //           userID: fetchuserID,
+  //           userEmail: currentUserEmail || '',
+  //           userName: currentUserName || '',
+  //           userNickName: currentUserNickName || '',
+  //           userProfilePicURL: currentUserProfilePicURL || '',
+  //           // arrayUnion adds the new object to the existing 'blockedList' array
+  //           Following: arrayUnion({
+  //             userId: userId,
+  //             userEmail: userEmail || '',
+  //             userName: authorName || '',
+  //             userNickName: userNickName || '',
+  //             profilePicUrl: authorImageUrl || ''
+  //           }),
+  //           followingCount: increment(1)
+  //         }, { merge: true }); // 'merge: true' ensures we don't delete other fields
+
+  //         const targetUserDocRef = doc(db, 'IronExUsers', userId);
+  //         try {
+  //           await setDoc(targetUserDocRef, {
+  //             userID: userId,
+  //             userEmail: userEmail || '',
+  //             userName: authorName || '',
+  //             userNickName: userNickName || '',
+  //             userProfilePicURL: authorImageUrl || '',
+  //             // arrayUnion adds the new object to the existing 'blockedList' array
+  //             Follower: arrayUnion({
+  //               userId: fetchuserID,
+  //               userEmail: currentUserEmail || '',
+  //               userName: currentUserName || '',
+  //               userNickName: currentUserNickName || '',
+  //               profilePicUrl: currentUserProfilePicURL || ''
+  //             }),
+  //             followerCount: increment(1)
+  //           }, { merge: true });
+  //         } catch (error) {
+  //           console.error("❌ Error during follow follower:", error);
+  //         }
+          
+
+  //         Toast.show({
+  //           type: "success",
+  //           text1: "Following",
+  //           text2: `You are now following ${userDoc?.userName || "this user"}`,
+  //           position: "bottom",
+  //           visibilityTime: 2000,
+  //         });
+
+  //       } catch (error) {
+  //         console.error("❌ Error handling follow:", error);
+  //       }
+
+  //       // if (currentUserDocId) {
+  //       //   const userRef = doc(db, "SentinelUsers", currentUserDocId);
+  //       //   await updateDoc(userRef, {
+  //       //     Following: arrayUnion(userId),
+  //       //   });
+
+  //       //   if (profileUserDocId) {
+  //       //     const profileRef = doc(db, "SentinelUsers", profileUserDocId);
+  //       //     await updateDoc(profileRef, {
+  //       //       FollowersCount: increment(1),
+  //       //     });
+  //       //     console.log("✅ Increased follower count for profile user");
+  //       //   } else {
+  //       //     console.log("📝 Creating new document for profile user...");
+  //       //     const profileRef = doc(db, "SentinelUsers", `user_${userId}`);
+  //       //     await setDoc(profileRef, {
+  //       //       userID: userId,
+  //       //       FollowersCount: 1,
+  //       //       Following: [],
+  //       //       PostsCount: 0,
+  //       //     }, { merge: true });
+  //       //     setProfileUserDocId(`user_${userId}`);
+  //       //     console.log("✅ Created document for profile user with follower count");
+  //       //   }
+
+  //       //   console.log(`✅ Successfully followed user: ${userId}`);
+  //       //   Toast.show({
+  //       //     type: "success",
+  //       //     text1: "Following",
+  //       //     text2: `You are now following ${userDoc?.userName || "this user"}`,
+  //       //     position: "bottom",
+  //       //     visibilityTime: 2000,
+  //       //   });
+  //       // } else {
+  //       //   console.log("📝 Creating new user document...");
+  //       //   const newDocRef = await addDoc(collection(db, "SentinelUsers"), {
+  //       //     userID: currentUserId,
+  //       //     Following: [userId],
+  //       //   });
+  //       //   setCurrentUserDocId(newDocRef.id);
+
+  //       //   if (profileUserDocId) {
+  //       //     const profileRef = doc(db, "SentinelUsers", profileUserDocId);
+  //       //     await updateDoc(profileRef, {
+  //       //       FollowersCount: increment(1),
+  //       //     });
+  //       //   } else {
+  //       //     const profileRef = doc(db, "SentinelUsers", `user_${userId}`);
+  //       //     await setDoc(profileRef, {
+  //       //       userID: userId,
+  //       //       FollowersCount: 1,
+  //       //       Following: [],
+  //       //       PostsCount: 0,
+  //       //     }, { merge: true });
+  //       //     setProfileUserDocId(`user_${userId}`);
+  //       //   }
+
+  //       //   console.log(`✅ Created document and followed user: ${userId}`);
+  //       //   Toast.show({
+  //       //     type: "success",
+  //       //     text1: "Following",
+  //       //     text2: `You are now following ${userDoc?.userName || "this user"}`,
+  //       //     position: "bottom",
+  //       //     visibilityTime: 2000,
+  //       //   });
+  //       // }
+  //     }
+
+  //     console.log("⏳ Waiting for onSnapshot to update UI...\n");
+  //   } catch (error) {
+  //     console.error("❌ Error handling follow/unfollow:", error);
+  //     Toast.show({
+  //       type: "error",
+  //       text1: "Error",
+  //       text2: "Failed to update follow status. Please try again.",
+  //       position: "bottom",
+  //       visibilityTime: 3000,
+  //     });
+  //   }
+  // }, [currentUserDocId, currentUserId, userId, isFollowing, userDoc, profileUserDocId]);
+
   const handleFollowPress = useCallback(async () => {
+    let fetchuserID = currentUserDocId;
+    if (fetchuserID === "") {
+      fetchuserID = await AsyncStorage.getItem('userId') || "";
+    }
+
     if (!userId) return;
-
-    console.log(`\n🔄 ${isFollowing ? "Unfollowing" : "Following"} user`);
-    console.log("User ID:", userId);
-    console.log("Profile User Doc ID:", profileUserDocId);
-
+  
+    const batch = writeBatch(db);
+    const userUsersDocRef = doc(db, 'IronExUsers', fetchuserID);
+    const targetUserDocRef = doc(db, 'IronExUsers', userId);
+  
+    // Data objects for the arrays
+    const followingData = {
+      userId: userId,
+      userEmail: userEmail || '',
+      userName: authorName || '',
+      userNickName: userNickName || '',
+      profilePicUrl: authorImageUrl || ''
+    };
+  
+    const followerData = {
+      userId: fetchuserID,
+      userEmail: currentUserEmail || '',
+      userName: currentUserName || '',
+      userNickName: currentUserNickName || '',
+      profilePicUrl: currentUserProfilePicURL || ''
+    };
+  
     try {
       if (isFollowing) {
-        if (currentUserDocId) {
-          const userRef = doc(db, "SentinelUsers", currentUserDocId);
-          await updateDoc(userRef, {
-            Following: arrayRemove(userId),
-          });
-
-          if (profileUserDocId) {
-            const profileRef = doc(db, "SentinelUsers", profileUserDocId);
-            await updateDoc(profileRef, {
-              FollowersCount: increment(-1),
-            });
-            console.log("✅ Decreased follower count for profile user");
-          }
-
-          console.log(`✅ Successfully unfollowed user: ${userId}`);
-          Toast.show({
-            type: "success",
-            text1: "Unfollowed",
-            text2: `You unfollowed ${userDoc?.userName || "this user"}`,
-            position: "bottom",
-            visibilityTime: 2000,
-          });
-        }
+        // --- UNFOLLOW LOGIC ---
+        batch.update(userUsersDocRef, {
+          Following: arrayRemove(followingData), // Atomic remove
+          followingCount: increment(-1)
+        });
+  
+        batch.update(targetUserDocRef, {
+          Follower: arrayRemove(followerData), // Atomic remove
+          followerCount: increment(-1)
+        });
+  
       } else {
-        if (currentUserDocId) {
-          const userRef = doc(db, "SentinelUsers", currentUserDocId);
-          await updateDoc(userRef, {
-            Following: arrayUnion(userId),
-          });
-
-          if (profileUserDocId) {
-            const profileRef = doc(db, "SentinelUsers", profileUserDocId);
-            await updateDoc(profileRef, {
-              FollowersCount: increment(1),
-            });
-            console.log("✅ Increased follower count for profile user");
-          } else {
-            console.log("📝 Creating new document for profile user...");
-            const profileRef = doc(db, "SentinelUsers", `user_${userId}`);
-            await setDoc(profileRef, {
-              userID: userId,
-              FollowersCount: 1,
-              Following: [],
-              PostsCount: 0,
-            }, { merge: true });
-            setProfileUserDocId(`user_${userId}`);
-            console.log("✅ Created document for profile user with follower count");
-          }
-
-          console.log(`✅ Successfully followed user: ${userId}`);
-          Toast.show({
-            type: "success",
-            text1: "Following",
-            text2: `You are now following ${userDoc?.userName || "this user"}`,
-            position: "bottom",
-            visibilityTime: 2000,
-          });
-        } else {
-          console.log("📝 Creating new user document...");
-          const newDocRef = await addDoc(collection(db, "SentinelUsers"), {
-            userID: currentUserId,
-            Following: [userId],
-          });
-          setCurrentUserDocId(newDocRef.id);
-
-          if (profileUserDocId) {
-            const profileRef = doc(db, "SentinelUsers", profileUserDocId);
-            await updateDoc(profileRef, {
-              FollowersCount: increment(1),
-            });
-          } else {
-            const profileRef = doc(db, "SentinelUsers", `user_${userId}`);
-            await setDoc(profileRef, {
-              userID: userId,
-              FollowersCount: 1,
-              Following: [],
-              PostsCount: 0,
-            }, { merge: true });
-            setProfileUserDocId(`user_${userId}`);
-          }
-
-          console.log(`✅ Created document and followed user: ${userId}`);
-          Toast.show({
-            type: "success",
-            text1: "Following",
-            text2: `You are now following ${userDoc?.userName || "this user"}`,
-            position: "bottom",
-            visibilityTime: 2000,
-          });
-        }
+        // --- FOLLOW LOGIC ---
+        batch.set(userUsersDocRef, {
+          userID: fetchuserID,
+          userEmail: currentUserEmail || '',
+          userName: currentUserName || '',
+          userNickName: currentUserNickName || '',
+          profilePicUrl: currentUserProfilePicURL || '',
+          Following: arrayUnion(followingData),
+          followingCount: increment(1)
+        }, { merge: true });
+  
+        batch.set(targetUserDocRef, {
+          userID: userId,
+          userEmail: userEmail || '',
+          userName: authorName || '',
+          userNickName: userNickName || '',
+          profilePicUrl: authorImageUrl || '',
+          Follower: arrayUnion(followerData),
+          followerCount: increment(1)
+        }, { merge: true });
       }
-
-      console.log("⏳ Waiting for onSnapshot to update UI...\n");
-    } catch (error) {
-      console.error("❌ Error handling follow/unfollow:", error);
+  
+      // Commit both updates at once
+      await batch.commit();
+  
       Toast.show({
-        type: "error",
-        text1: "Error",
-        text2: "Failed to update follow status. Please try again.",
-        position: "bottom",
-        visibilityTime: 3000,
+        type: isFollowing ? "info" : "success",
+        text1: isFollowing ? "Unfollowed" : "Following",
+        text2: isFollowing ? "User removed." : `You are now following ${authorName}`,
+        position: "bottom"
       });
+  
+    } catch (error) {
+      console.error("❌ Follow Toggle Error:", error);
+      Toast.show({ type: "error", text1: "Action failed" });
     }
   }, [currentUserDocId, currentUserId, userId, isFollowing, userDoc, profileUserDocId]);
 

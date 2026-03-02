@@ -441,6 +441,7 @@ export default function CreatePost() {
   const [postText, setPostText] = useState("");
   const [userImage, setUserImage] = useState("");
   const [userName, setUserName] = useState("");
+  const [userEmail, setUserEmail] = useState("");
   const [userNickName, setUserNickName] = useState("");
   const [userId, setUserId] = useState("");
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia[]>([]);
@@ -559,11 +560,13 @@ export default function CreatePost() {
 
   const getItem = async () => {
     try {
-      const fetchuserName = await AsyncStorage.getItem('userName');
-      const fetchUserImage = await AsyncStorage.getItem('profilePicUrl');
-      const fetchuserID = await AsyncStorage.getItem('userId');
-      const fetchCreateType = await AsyncStorage.getItem('createType');
-      const fetchuseNickrName = await AsyncStorage.getItem('userNickName');
+      const fetchuserName = (await AsyncStorage.getItem('userName') || '');
+      const fetchUserImage = (await AsyncStorage.getItem('profilePicUrl') || '');
+      const fetchuserID = (await AsyncStorage.getItem('userId') || '1234');
+      const fetchCreateType = (await AsyncStorage.getItem('createType') || '');
+      const fetchuseNickrName = (await AsyncStorage.getItem('userNickName') || '');
+
+      setUserEmail(await AsyncStorage.getItem('userEmail') || '');
 
       if(fetchuserName !== null) {
         console.log("userName: ", fetchuserName);
@@ -1117,7 +1120,7 @@ const compressAndGetUrl = async (localUri) => {
     }
 
     let isContentApproved = false;
-    let isPostRelevant = true;
+    let isPostRelevant = true;  // ✅ FIX: Declare at outer scope
     let isFlagged = false;
     let moderationResult: any = null;
 
@@ -1134,11 +1137,12 @@ const compressAndGetUrl = async (localUri) => {
         videoSkipped: true
       };
 
-      // ✅ FIX: addDoc was completely missing for video posts — added here
+      // Save video post to Firestore
       await addDoc(collection(db, 'SentinelPosts'), {
         AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
         AuthorName: userName,
         AuthorNickName: userNickName,
+        AuthorEmail: userEmail,
         AuthorUserID: userId,
         ContentDate: new Date(),
         ContentDesc: postText,
@@ -1153,7 +1157,7 @@ const compressAndGetUrl = async (localUri) => {
         isAnonymous: isAnonymous,
         contentType: selectedType,
         isEducational: isEducationalEnabled,
-        thumbnailUrl: videoThumbnailUrl,  // ✅ Now saved correctly
+        thumbnailUrl: videoThumbnailUrl,
         moderationData: {
           flagged: true,
           violations: ['video content requires manual review'],
@@ -1165,7 +1169,7 @@ const compressAndGetUrl = async (localUri) => {
       });
 
     } else {
-      // No video — original flow untouched
+      // No video — proceed with AI moderation
       console.log("✅ No video detected - Proceeding with AI moderation");
 
       const nonVideoUrl = uploadedUrls.find(url => {
@@ -1197,10 +1201,12 @@ const compressAndGetUrl = async (localUri) => {
           const templateResponse: TemplateResponseType = await response.json();
           if (templateResponse?.success) {
             generatedTemplateName = templateResponse.templateName || "Standard Template";
+            // Save approved post
             await addDoc(collection(db, 'SentinelPosts'), {
               AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
               AuthorName: userName,
               AuthorNickName: userNickName,
+              AuthorEmail: userEmail,
               AuthorUserID: userId,
               ContentDate: new Date(),
               ContentDesc: postText,
@@ -1226,11 +1232,13 @@ const compressAndGetUrl = async (localUri) => {
               }
             });
           } else {
+            // ✅ FIX: Template API returned failure — mark as irrelevant and SAVE to Firestore
             isPostRelevant = false;
             await addDoc(collection(db, 'SentinelPosts'), {
               AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
               AuthorName: userName,
               AuthorNickName: userNickName,
+              AuthorEmail: userEmail,
               AuthorUserID: userId,
               ContentDate: new Date(),
               ContentDesc: postText,
@@ -1252,7 +1260,7 @@ const compressAndGetUrl = async (localUri) => {
                 categories: { irrelevant_content: true },
                 checkedAt: new Date(),
                 videoSkipped: hasVideo,
-                requiresManualReview: hasVideo || isFlagged
+                requiresManualReview: true
               }
             });
           }
@@ -1260,7 +1268,36 @@ const compressAndGetUrl = async (localUri) => {
           console.error("❌ Error generating comment template:", error);
         }
       } else {
-        console.log("Skipping template generation -", hasVideo ? "Video requires manual review" : "Post flagged by AI");
+        // ✅ FIX: Post flagged by AI — MUST save to Firestore for Admin review & MyPosts
+        console.log("Skipping template generation - Post flagged by AI");
+        await addDoc(collection(db, 'SentinelPosts'), {
+          AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+          AuthorName: userName,
+          AuthorNickName: userNickName,
+          AuthorUserID: userId,
+          ContentDate: new Date(),
+          ContentDesc: postText,
+          ContentURL: uploadedUrls.length > 0 ? uploadedUrls[0] : null,
+          ContentURLs: uploadedUrls,
+          ContentLikeCount: 0,
+          ContentRepostCount: 0,
+          CommentTemplate: generatedTemplateName,
+          isApproved: false,
+          isLiked: false,
+          isNew: true,  // Marks it as pending review for Admin page
+          isAnonymous: isAnonymous,
+          contentType: selectedType,
+          isEducational: isEducationalEnabled,
+          thumbnailUrl: videoThumbnailUrl || null,
+          moderationData: {
+            flagged: true,
+            violations: moderationResult?.violations || [],
+            categories: moderationResult?.categories || {},
+            checkedAt: new Date(),
+            videoSkipped: false,
+            requiresManualReview: true
+          }
+        });
       }
     }
 
@@ -1270,8 +1307,7 @@ const compressAndGetUrl = async (localUri) => {
     setPostText('');
     setSelectedMedia([]);
 
-    // ✅ ALL notification and success message logic below is 100% original — NOT touched
-    // FIND & REPLACE THIS ENTIRE BLOCK:
+    // ✅ ALL notification and success message logic below — unchanged from your current code
     let successTitle = '';
     let successMessage = '';
     let notificationDescription = '';
@@ -1280,32 +1316,27 @@ const compressAndGetUrl = async (localUri) => {
     if (isContentApproved && isPostRelevant) {
       successTitle = 'Post Published!';
       successMessage = 'Your post has been published successfully!';
-      // ✅ FIX: was 'Congrats! Your post has been published successfully.' — now richer
       notificationDescription = '🎉 Great news! Your post has been reviewed by our AI moderator and published successfully. Your community can now see it!';
       notificationStatus = 'approved';
 
     } else if (isContentApproved && !isPostRelevant) {
       successTitle = 'Post Submitted!';
       successMessage = 'Your post was flagged as potentially irrelevant. It will be reviewed by our team.';
-      // ✅ FIX: was EMPTY — now has description + status
-      notificationDescription = '⚠️ Your post was submitted but our AI moderator flagged it as potentially irrelevant to the community.  An admin will  manually review it shortly.Reason: Irrelevant content or media detected.';
+      notificationDescription = '⚠️ Your post was submitted but our AI moderator flagged it as potentially irrelevant to the community. An admin will manually review it shortly. Reason: Irrelevant content or media detected.';
       notificationStatus = 'pending';
 
     } else if (hasVideo) {
       successTitle = 'Post Submitted!';
       successMessage = 'Your video post has been submitted successfully! Video content requires manual admin review before publishing.';
-      // ✅ FIX: was partially filled — now complete
       notificationDescription = '🎥 Your video post has been submitted and is pending review. Video content is always reviewed manually by our admin before publishing, to ensure quality and safety.';
       notificationStatus = 'video_review_pending';
 
     } else {
       successTitle = 'Post Submitted!';
       successMessage = 'Post submitted successfully! Kindly await admin review.';
-      // ✅ FIX: was EMPTY — now includes AI violation reasons
-      notificationDescription = `⏳ Your post has been submitted but flagged by our AI content moderator. An admin will manually review it shortly.Reason(s): ${moderationResult?.violations?.join(', ') || 'Content policy check failed'}.`;
+      notificationDescription = `⏳ Your post has been submitted but flagged by our AI content moderator. An admin will manually review it shortly. Reason(s): ${moderationResult?.violations?.join(', ') || 'Content policy check failed'}.`;
       notificationStatus = 'pending';
     }
-
 
     if (uploadedUrls.length > 0) successMessage += `\n\n✅ ${uploadedUrls.length} file(s) uploaded successfully`;
     if (failedUploads.length > 0) successMessage += `\n⚠️ ${failedUploads.length} file(s) couldn't be uploaded due to size/connection issues`;
@@ -1326,10 +1357,10 @@ const compressAndGetUrl = async (localUri) => {
           ContentDate: new Date(),
           Description: notificationDescription,
           NotifyType: (isContentApproved && isPostRelevant)
-          ? 'post_approved'
-          : hasVideo
-          ? 'post_pending'
-          : 'post_pending',
+            ? 'post_approved'
+            : hasVideo
+            ? 'post_pending'
+            : 'post_pending',
           ShowButtons: false,
           Status: notificationStatus,
           isRead: false,
@@ -1338,7 +1369,6 @@ const compressAndGetUrl = async (localUri) => {
       });
       console.log(isContentApproved ? 'Published' : hasVideo ? 'Video submitted for manual review' : 'Submitted for review', 'post');
     } else {
-      // Create new document if it doesn't exist
       await addDoc(collection(db, 'SentinelUsers'), {
         userID: await AsyncStorage.getItem('userId'),
         Notification: [{
@@ -1364,6 +1394,7 @@ const compressAndGetUrl = async (localUri) => {
       [{ text: 'OK', onPress: hideModal }], 'cloud-offline-outline');
   }
 };
+
 
 
 // Helper function remains the same - not called for video posts

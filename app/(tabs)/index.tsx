@@ -52,7 +52,9 @@ interface PostItem {
   uniqueId: string;
   AuthorImageURL: string;
   AuthorName: string;
+  AuthorNickName?: string
   AuthorUserID?: string;
+  AuthorEmail?: string;
   ContentDate: string;
   ContentDesc: string;
   ContentURL: string;
@@ -1018,6 +1020,8 @@ export default function SentinelFeed(): React.JSX.Element {
 
   const [isBlockModalVisible, setIsBlockModalVisible] = useState(false);
   const [blockUserId, setBlockUserId] = useState<string | null>(null);
+  const [blockUserEmail, setBlockUserEmail] = useState<string | null>(null);
+  const [blockUserName, setBlockUserName] = useState<string | null>(null);
   const [allBlockedIds, setAllBlockedIds] = useState<any>([]);
   const [isBlocklLoading, setIsBlockLoading] = useState(false);
   
@@ -1371,7 +1375,9 @@ useEffect(() => {
           pathname: "/profile/[userId]",
           params: {
             userId: authorId || '12345',                 // item.AuthorUserID
+            userEmail: item.AuthorEmail || '',
             authorName: item.AuthorName || 'Anonymous',      // from post
+            userNickName: item.AuthorNickName || '',
             authorImageUrl: item.AuthorImageURL || '', // from post
             isAnonymous: item.isAnonymous ? 'true' : 'false', // ✅ ADD THIS LINE
             userBio: item.AuthorBio || '',  // ✅ ADD THIS LINE
@@ -1419,33 +1425,27 @@ useEffect(() => {
       }
 
       if (fetchuserID) {
-        console.log('🔄 Fetching following list for user:', fetchuserID);
-      
-        const sentinelUsersRef = collection(db, 'SentinelUsers');
-        const q = query(sentinelUsersRef, where('userID', '==', fetchuserID));
-      
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-          if (!snapshot.empty) {
-            const userDoc = snapshot.docs[0];
-            const userData = userDoc.data();
-            setCurrentUserDocId(userDoc.id);
-          
-            // Get following list
-            const following = userData.Following || [];
-            setFollowingUserIds(following);
-            console.log('✅ Following list updated:', following);
-            console.log('✅ Following count:', following.length);
-          } else {
-            console.log('📱 No user document found');
-            setFollowingUserIds([]);
-            setCurrentUserDocId('');
+        console.log('👤 Fetching following list for user:', fetchuserID);
+
+        const userDocRef = doc(db, 'IronExUsers', fetchuserID);
+
+        const unsubscribeFollowing = onSnapshot(userDocRef, (docSnapshot) => {
+          if (docSnapshot.exists()) {
+            const data = docSnapshot.data();
+
+            // 1. Get the Array of following objects
+            const followingList: any[] = data.Following || [];
+            const idOnlyList: string[] = followingList.map(item => item.userId);
+
+            console.log(`✅ Displaying ${followingList.length} following`);
+            setFollowingUserIds(idOnlyList);
           }
         }, (error) => {
-          console.error('❌ Error in following list listener:', error);
+          console.error("❌ Real-time listener failed:", error);
           setFollowingUserIds([]);
         });
 
-        return unsubscribe;
+        return unsubscribeFollowing;
       }
     } catch (error) {
       console.error('❌ Error fetching following list:', error);
@@ -1708,13 +1708,15 @@ useEffect(() => {
           postsData.push({
             uniqueId: `sentinel-${postId}`,
             id: postId,
-            AuthorImageURL: postData.AuthorImageURL,
-            AuthorName: postData.AuthorName,
+            AuthorImageURL: postData.AuthorImageURL|| '',
+            AuthorName: postData.AuthorName|| '',
+            AuthorNickName: postData.AuthorNickName|| '',
+            AuthorEmail: postData.AuthorEmail|| '',
             AuthorBio: postData.AuthorBio || postData.Bio || '',  // ✅ ADD THIS
             AuthorUserID: postData.AuthorUserID || postData.repostedBy || '123456',
-            ContentDate: postData.ContentDate,
-            ContentDesc: postData.ContentDesc,
-            ContentURL: postData.ContentURL,
+            ContentDate: postData.ContentDate|| '',
+            ContentDesc: postData.ContentDesc|| '',
+            ContentURL: postData.ContentURL|| '',
             ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
             ContentLikeCount: postData.ContentLikeCount || 0,
             ContentRepostCount: postData.ContentRepostCount || 0,
@@ -1756,67 +1758,69 @@ useEffect(() => {
 
         // 3. Set the posts data (Initial batch)
         setSentinelData(postsData);
+        setFetchedData(postsData);
         // Also fetch X-Data and merge
-        try {
-          const xDataRef = collection(db, 'X-Data');
-          const xDataQuery = query(xDataRef, orderBy('ContentDate', 'desc'), limit(BATCH_SIZE));
-          const xDataSnapshot = await getDocs(xDataQuery);
+        // try {
+        //   const xDataRef = collection(db, 'X-Data');
+        //   const xDataQuery = query(xDataRef, orderBy('ContentDate', 'desc'), limit(BATCH_SIZE));
+        //   const xDataSnapshot = await getDocs(xDataQuery);
 
-          const xPostsData: PostItem[] = xDataSnapshot.docs.map(docSnap => {
-            const xData = docSnap.data();
-            return {
-              id: docSnap.id,              // ✅ Firestore doc ID → used for getDoc/updateDoc
-              uniqueId: `x-${docSnap.id}`, // ✅ React key 
-              AuthorImageURL: xData.AuthorImageURL || '',
-              AuthorName: xData.AuthorName || 'Unknown',
-              AuthorBio: xData.AuthorBio || '',
-              AuthorUserID: xData.AuthorUserID || '',
-              ContentDate: xData.ContentDate,
-              ContentDesc: xData.ContentDesc || '',
-              ContentURL: xData.ContentURL || '',
-              ContentURLs: xData.ContentURLs || (xData.ContentURL ? [xData.ContentURL] : []),
-              ContentLikeCount: xData.ContentLikeCount || 0,
-              ContentRepostCount: xData.ContentRepostCount || 0,
-              ContentCommentCount: xData.ContentCommentCount || 0,
-              isApproved: true,          // ✅ X-Data is always approved
-              isNew: false,              // ✅ never pending
-              postType: 'X-Data',        // ✅ exact string used in all filters
-              Liked: false,
-              Reposted: false,
-              Bookmarked: false,
-              createdAt: xData.createdAt || xData.ContentDate,
-              CommentTemplate: xData.CommentTemplate || 'Standard Template',
-              isRepost: false,
-              originalPost: null,
-              repostComment: '',
-              repostedBy: '',
-              repostedAt: null,
-              isAnonymous: false,
-              contentType: xData.contentType || 'Found Online',
-              isEducational: xData.isEducational || false,
-              moderationData: null,
-              isReported: false,
-              reportedAt: null,
-              reportReasons: [],
-              reportedBy: [],
-              moderationStatus: 'approved',
-              ContentViewCount: xData.ContentViewCount || 0,   // ✅ view count
-              ViewedBy: xData.ViewedBy || [],
-            };
-          });
+        //   const xPostsData: PostItem[] = xDataSnapshot.docs.map(docSnap => {
+        //     const xData = docSnap.data();
+        //     return {
+        //       id: docSnap.id,              // ✅ Firestore doc ID → used for getDoc/updateDoc
+        //       uniqueId: `x-${docSnap.id}`, // ✅ React key 
+        //       AuthorImageURL: xData.AuthorImageURL || '',
+        //       AuthorName: xData.AuthorName || 'Unknown',
+        //       AuthorBio: xData.AuthorBio || '',
+        //       AuthorUserID: xData.AuthorUserID || '',
+        //       ContentDate: xData.ContentDate,
+        //       ContentDesc: xData.ContentDesc || '',
+        //       ContentURL: xData.ContentURL || '',
+        //       ContentURLs: xData.ContentURLs || (xData.ContentURL ? [xData.ContentURL] : []),
+        //       ContentLikeCount: xData.ContentLikeCount || 0,
+        //       ContentRepostCount: xData.ContentRepostCount || 0,
+        //       ContentCommentCount: xData.ContentCommentCount || 0,
+        //       isApproved: true,          // ✅ X-Data is always approved
+        //       isNew: false,              // ✅ never pending
+        //       postType: 'X-Data',        // ✅ exact string used in all filters
+        //       Liked: false,
+        //       Reposted: false,
+        //       Bookmarked: false,
+        //       createdAt: xData.createdAt || xData.ContentDate,
+        //       CommentTemplate: xData.CommentTemplate || 'Standard Template',
+        //       isRepost: false,
+        //       originalPost: null,
+        //       repostComment: '',
+        //       repostedBy: '',
+        //       repostedAt: null,
+        //       isAnonymous: false,
+        //       contentType: xData.contentType || 'Found Online',
+        //       isEducational: xData.isEducational || false,
+        //       moderationData: null,
+        //       isReported: false,
+        //       reportedAt: null,
+        //       reportReasons: [],
+        //       reportedBy: [],
+        //       moderationStatus: 'approved',
+        //       ContentViewCount: xData.ContentViewCount || 0,   // ✅ view count
+        //       ViewedBy: xData.ViewedBy || [],
+        //     };
+        //   });
 
-          setFetchedXData(xPostsData);
+        //   setFetchedXData(xPostsData);
 
-          // ✅ Merge both into fetchedData sorted by date
-          const merged = [...postsData, ...xPostsData].sort(
-            (a, b) => new Date(b.ContentDate).getTime() - new Date(a.ContentDate).getTime()
-          );
-          setFetchedData(merged);
+        //   // ✅ Merge both into fetchedData sorted by date
+        //   const merged = [...postsData, ...xPostsData].sort(
+        //     (a, b) => new Date(b.ContentDate).getTime() - new Date(a.ContentDate).getTime()
+        //   );
+        //   setFetchedData(merged);
 
-        } catch (xError) {
-          console.error('Error fetching X-Data:', xError);
-          setFetchedData(postsData); // fallback
-        }
+        // } catch (xError) {
+        //   console.error('Error fetching X-Data:', xError);
+        //   setFetchedData(postsData); // fallback
+        // }
+
         setHasMore(sentinelSnapshot.docs.length === BATCH_SIZE); // Check if more data exists
         
       });
@@ -1882,7 +1886,9 @@ useEffect(() => {
             uniqueId: `sentinel-${postId}`,
             id: postId,
             AuthorImageURL: postData.AuthorImageURL,
-            AuthorName: postData.AuthorName,
+            AuthorName: postData.AuthorName || '',
+            AuthorNickName: postData.AuthorNickName|| '',
+            AuthorEmail: postData.AuthorEmail|| '',
             AuthorBio: postData.AuthorBio || postData.Bio || '',  // ✅ ADD THIS
             AuthorUserID: postData.AuthorUserID || postData.repostedBy || '123456',
             ContentDate: postData.ContentDate,
@@ -2206,68 +2212,81 @@ useEffect(() => {
     const userBlockDocRef = doc(db, 'UserBlocked', fetchuserID);
   
     try {
-      await setDoc(userBlockDocRef, {
-        userid: fetchuserID,
-        // arrayUnion adds the new object to the existing 'blockedList' array
-        blockedList: arrayUnion({
-          postauthoruserid: blockUserId,
-          blockedat: new Date() // Or use a standard JS Date for array objects
-        })
-      }, { merge: true }); // 'merge: true' ensures we don't delete other fields
-      
-      console.log("User added to your blocked list.");
-
-      Toast.show({
-        type: 'success',
-        text1: 'User Blocked',
-        text2: 'User blocked successfully',
-        position: 'bottom',
-        visibilityTime: 3000,
-      });
-
-      setIsBlockModalVisible(false);
-      setShowMenuModal(false);
-      setSelectedPostUserId(null);
-      setBlockUserId(null);
-      setIsBlockLoading(false);
-      // ✅ NEW: Notify the blocked user
-      try {
-        const blockerName = userName || (await AsyncStorage.getItem('userName')) || 'A user';
-        const blockNotifyPayload = {
-          id: `user_blocked_${fetchuserID}_${Date.now()}`,
-          AuthorImageURL: 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg',
-          AuthorName: 'IronEx Safety',
-          AuthorUserID: fetchuserID,
-          ContentDate: new Date(),
-          NotifyType: 'user_blocked',
-          ShowButtons: false,
-          Status: 'blocked',
-          Description: "🚫 Your account has been restricted by a fellow community member. You may have limited interaction till this is reviewed by the admin team. If you believe this is a mistake, please contact our support team by sending an email to ironexsafe@gmail.com.",
-          isRead: false,
-        };
-
-        // Find blocked user's Firestore doc and send
-        let blockNotifSent = false;
-        for (const docUser of notificationDetails) {
-          if (docUser.userID === blockUserId) {
-            await updateDoc(doc(db, 'SentinelUsers', docUser.docID), {
-              Notification: arrayUnion(blockNotifyPayload),
-            });
-            blockNotifSent = true;
-            console.log('Block notification sent to user:', blockUserId);
-            break;
-          }
-        }
-        if (!blockNotifSent) {
-          await addDoc(collection(db, 'SentinelUsers'), {
-            userID: blockUserId,
-            Notification: [blockNotifyPayload],
-          });
-        }
-      } catch (blockNotifError) {
-        console.error('Block notification error (non-critical):', blockNotifError);
+      let haveEmail = false;
+      if (blockUserEmail == null) {
+        haveEmail=true;
+      } else {
+        haveEmail=true;
       }
 
+      if (haveEmail) {
+        await setDoc(userBlockDocRef, {
+          userid: fetchuserID,
+          // arrayUnion adds the new object to the existing 'blockedList' array
+          blockedList: arrayUnion({
+            postauthoruserid: blockUserId,
+            AuthorEmail: blockUserEmail,
+            AuthorName: blockUserName,
+            blockedat: new Date() // Or use a standard JS Date for array objects
+          })
+        }, { merge: true }); // 'merge: true' ensures we don't delete other fields
+        
+        console.log("User added to your blocked list.");
+  
+        Toast.show({
+          type: 'success',
+          text1: 'User Blocked',
+          text2: 'User blocked successfully',
+          position: 'bottom',
+          visibilityTime: 3000,
+        });
+  
+        setIsBlockModalVisible(false);
+        setShowMenuModal(false);
+        setSelectedPostUserId(null);
+        setBlockUserId(null);
+        setBlockUserEmail(null);
+        setBlockUserName(null);
+        setIsBlockLoading(false);
+        // ✅ NEW: Notify the blocked user
+        try {
+          const blockerName = userName || (await AsyncStorage.getItem('userName')) || 'A user';
+          const blockNotifyPayload = {
+            id: `user_blocked_${fetchuserID}_${Date.now()}`,
+            AuthorImageURL: 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg',
+            AuthorName: 'IronEx Safety',
+            AuthorUserID: fetchuserID,
+            ContentDate: new Date(),
+            NotifyType: 'user_blocked',
+            ShowButtons: false,
+            Status: 'blocked',
+            Description: "🚫 Your account has been restricted by a fellow community member. You may have limited interaction till this is reviewed by the admin team. If you believe this is a mistake, please contact our support team by sending an email to ironexsafe@gmail.com.",
+            isRead: false,
+          };
+  
+          // Find blocked user's Firestore doc and send
+          let blockNotifSent = false;
+          for (const docUser of notificationDetails) {
+            if (docUser.userID === blockUserId) {
+              await updateDoc(doc(db, 'SentinelUsers', docUser.docID), {
+                Notification: arrayUnion(blockNotifyPayload),
+              });
+              blockNotifSent = true;
+              console.log('Block notification sent to user:', blockUserId);
+              break;
+            }
+          }
+          if (!blockNotifSent) {
+            await addDoc(collection(db, 'SentinelUsers'), {
+              userID: blockUserId,
+              Notification: [blockNotifyPayload],
+            });
+          }
+        } catch (blockNotifError) {
+          console.error('Block notification error (non-critical):', blockNotifError);
+        }
+        
+      }
 
     } catch (error) {
       console.error("Error updating blocked list: ", error);
@@ -2275,6 +2294,8 @@ useEffect(() => {
       setShowMenuModal(false);
       setSelectedPostUserId(null);
       setBlockUserId(null);
+      setBlockUserEmail(null);
+      setBlockUserName(null);
       setIsBlockLoading(false);
     } finally {
       setIsBlockLoading(false);
@@ -2766,6 +2787,8 @@ useEffect(() => {
     const { pageX, pageY } = event.nativeEvent;
     setSelectedPostId(item.id);
     setSelectedPostUserId(item.AuthorUserID);
+    setBlockUserName(item.AuthorName);
+    setBlockUserEmail(item.AuthorEmail);
     setMenuPosition({ x: pageX - 120, y: pageY + 10 });
     setShowMenuModal(true);
   };
@@ -2782,37 +2805,83 @@ useEffect(() => {
 
     const confirmDeletePost = async () => {
       if (!postToDelete) return;
-      
+
       try {
-        const postRef = doc(db, "SentinelPosts", postToDelete);
+        // Step 1: Get the post data to find its associated template
+        const postRef = doc(db, 'SentinelPosts', postToDelete);
+        const postSnap = await getDoc(postRef);
+
+        let templateNameToDelete: string | null = null;
+
+        if (postSnap.exists()) {
+          const postData = postSnap.data();
+          const commentTemplate = postData?.CommentTemplate;
+
+          // Only delete if it's NOT a Standard Template (i.e., AI-generated custom template)
+          if (commentTemplate && commentTemplate !== 'Standard Template') {
+            templateNameToDelete = commentTemplate;
+          }
+        }
+
+        // Step 2: Delete the post
         await deleteDoc(postRef);
         console.log('Post deleted successfully');
-        
+
+        // Step 3: Delete the associated template from the 'templates' collection
+        if (templateNameToDelete) {
+          try {
+            const templatesRef = collection(db, 'templates');
+            const templateQuery = query(
+              templatesRef,
+              where('name', '==', templateNameToDelete)
+            );
+            const templateSnapshot = await getDocs(templateQuery);
+
+            if (!templateSnapshot.empty) {
+              const deletePromises = templateSnapshot.docs.map((templateDoc) =>
+                deleteDoc(doc(db, 'templates', templateDoc.id))
+              );
+              await Promise.all(deletePromises);
+              console.log(`Template "${templateNameToDelete}" deleted successfully`);
+            } else {
+              console.log(`No template found with name "${templateNameToDelete}"`);
+            }
+          } catch (templateError) {
+            // Non-critical: post is already deleted, just log template deletion error
+            console.error('Error deleting template (non-critical):', templateError);
+          }
+        }
+
+        // Step 4: Cleanup UI state
         setIsDeleteModalVisible(false);
         setShowMenuModal(false);
         setSelectedPostId(null);
         setPostToDelete(null);
-        
-        
-        // Optional: Show success message
+
         Toast.show({
           type: 'success',
           text1: 'Success',
-          text2: 'Post deleted successfully',
+          text2: 'Post and its template deleted successfully',
           position: 'top',
           visibilityTime: 3000,
         });
+
       } catch (error) {
         console.error('Error deleting post:', error);
         setIsDeleteModalVisible(false);
         setShowMenuModal(false);
         setSelectedPostId(null);
         setPostToDelete(null);
-        
-        // Show error with CustomModal
-        setIsDeleteModalVisible(true);
+        Toast.show({
+          type: 'error',
+          text1: 'Delete Failed',
+          text2: 'Failed to delete post. Please try again.',
+          position: 'bottom',
+          visibilityTime: 3000,
+        });
       }
     };
+
 
     const confirmDeleteUser = async () => {
       if (!userToDelete) return;
@@ -4677,200 +4746,7 @@ useEffect(() => {
     )
   }, [openCommentsModal, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, ApprovalToggle, handleApprovalToggle, dummyAuthorImage, userRole, getPostStatus, areInteractionsDisabled, openGraphModal, renderRepostContent]);
 
-  // const renderPostUserContent = useCallback((item: PostItem, index: number) => {
-  //   let AuthorName = "";
-  //   let AuthorImage = "";
-  //   if (item.isAnonymous) {
-  //     AuthorName = "Anonymous";
-  //     AuthorImage = dummyAuthorImage;
-  //   } else {
-  //     AuthorName = item.AuthorName;
-  //     AuthorImage = item.AuthorImageURL;
-  //   }
-
-  //   return (
-  //     <TouchableOpacity 
-  //       activeOpacity={0.95}
-  //       onPress={() => openCommentsModal(item)}
-  //     >
-  //       <EnhancedCard postId={item.uniqueId}>
-  //         <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
-  //           <View className="flex-row items-center">
-  //               <View className="relative">
-  //                 <TouchableOpacity
-  //                   activeOpacity={0.8}
-  //                   onPress={() =>
-  //                     openFullScreenImage(item?.AuthorImageURL || dummyAuthorImage)
-  //                   }
-  //                 >
-  //                   <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
-  //                     <Image
-  //                       source={{ uri: AuthorImage || dummyAuthorImage }}
-  //                       className="w-full h-full"
-  //                       resizeMode="cover"
-  //                       resizeMethod="resize"
-  //                     />
-  //                   </View>
-  //                 </TouchableOpacity>
-  //               </View>
-
-  //             <View className="flex-1">
-  //             <Text className="font-bold text-gray-900 text-sm">{AuthorName}</Text>
-  //               <View className="flex-row items-center mt-0.5">
-  //                 <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
-  //                 {item.postType === 'X-Data' && (
-  //                   <View className="bg-blue-100 px-1.5 py-0.5 rounded-full">
-  //                     <Text className="text-blue-600 text-xs font-medium">𝕏 POST</Text>
-  //                   </View>
-  //                 )}
-  //               </View>
-  //             </View>
-  //             {item.AuthorUserID === userId && (
-  //               <TouchableOpacity className="p-1.5 rounded-full bg-gray-100"
-  //               onPress={(event) => handleThreeDotsPress(item, event)}>
-  //               <Ionicons name="ellipsis-horizontal" size={12} color="#64748b" />
-  //             </TouchableOpacity>
-  //             )}
-  //           </View>
-  //         </View>
-  
-  //         <View className="px-3 py-2.5">
-  //           {item.isRepost && (
-  //             <View className="flex-row items-center mb-2 pb-2 border-b border-gray-100">
-  //               <Ionicons name="repeat" size={14} color="#64748b" />
-  //               <Text className="ml-1 text-gray-600 text-xs">
-  //                 {item.repostComment ? 'Quote repost' : 'Reposted'}
-  //               </Text>
-  //             </View>
-  //           )}
-  
-  //           <Text className="text-gray-800 text-sm leading-5 mb-2"
-  //             numberOfLines={3}>
-  //             {renderStyledPostText(item.ContentDesc)}
-  //             </Text>
-  
-  //           {renderRepostContent(item)}
-  
-  //           {/* {(!item.isRepost || item.repostComment) && renderMediaContent(item, index)} */}
-  //           {renderMediaContent(item, index)}
-  
-  //           <View className="flex-row items-center">
-  //             <View className="flex-1"> 
-  //               <View className="flex-row items-center mt-1.5">
-
-  //                 <TouchableOpacity
-  //                   className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-  //                   onPress={(e) => {
-  //                     e.stopPropagation();
-  //                     toggleLike(item);
-  //                   }}
-  //                   activeOpacity={0.7}
-  //                   disabled={areInteractionsDisabled(item)}
-  //                 >
-  //                   <Ionicons
-  //                     name={item.Liked ? "heart" : "heart-outline"}
-  //                     size={20}
-  //                     color={item.Liked ? "#ef4444" : "#64748b"}
-  //                   />
-  //                   <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
-  //                     {item.ContentLikeCount}
-  //                   </Text>
-  //                 </TouchableOpacity>
-
-  //                 <TouchableOpacity
-  //                   className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-  //                   onPress={(e) => {
-  //                     e.stopPropagation();
-  //                     openCommentsModal(item);
-  //                   }}
-  //                   activeOpacity={0.7}
-  //                   disabled={areInteractionsDisabled(item)}
-  //                 >
-  //                   <MaterialCommunityIcons
-  //                     name="thumbs-up-down"
-  //                     size={20}
-  //                     color="#000000"
-  //                   />
-  //                   <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
-  //                 </TouchableOpacity>
-  
-  //                 <TouchableOpacity
-  //                   className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-  //                   onPress={(e) => {
-  //                     e.stopPropagation();
-  //                     handleRepost(item);
-  //                   }}
-  //                   activeOpacity={0.7}
-  //                   disabled={areInteractionsDisabled(item)}
-  //                 >
-  //                   <Ionicons 
-  //                     name="repeat-outline" 
-  //                     size={20} 
-  //                     color={item.Reposted ? "#0ea5e9" : "#64748b"} 
-  //                   />
-  //                   <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
-  //                     {item.ContentRepostCount}
-  //                   </Text>
-  //                 </TouchableOpacity>
-
-  //                 {/* Graph/Sentiment Icon with View Count */}
-  //             <TouchableOpacity
-  //               className="flex-row items-center mr-5 px-1.5 py-1"
-  //               onPress={(e) => {
-  //                 e.stopPropagation();
-  //                 openGraphModal(item);
-  //               }}
-  //               activeOpacity={0.7}
-  //               disabled={areInteractionsDisabled(item)}
-  //             >
-  //               <Feather name="bar-chart-2" size={20} color="#64748b" />
-  //               <Text className="text-gray-600 ml-1 text-xs font-medium">
-  //                 {item.ContentViewCount || 0}
-  //               </Text>
-  //             </TouchableOpacity>
-
-
-  //               </View>
-          
-  //             </View>
-
-  //             <View className="flex-row items-center mt-1.5">
-  //               <TouchableOpacity
-  //                 className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-  //                 onPress={(e) => {
-  //                   e.stopPropagation();
-  //                   handleBookmark(item);
-  //                 }}
-  //                 activeOpacity={0.7}
-  //                 disabled={areInteractionsDisabled(item)}
-  //               >
-  //                 <Ionicons 
-  //                   name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
-  //                   size={20} 
-  //                   color={item.Bookmarked ? "#000000" : "#64748b"} 
-  //                 />
-  //               </TouchableOpacity>
-  
-  //               <TouchableOpacity 
-  //                 className={`mr-2 p-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-  //                 onPress={(e) => {
-  //                   e.stopPropagation();
-  //                   handleShare(item);
-  //                 }}
-  //                 activeOpacity={0.7}
-  //                 disabled={areInteractionsDisabled(item)}
-  //               >
-  //                 <Feather name="share-2" size={20} color="#64748b" />
-  //               </TouchableOpacity>
-  //               </View>
-
-  //           </View>
-  //         </View>
-  //       </EnhancedCard>
-  //     </TouchableOpacity>
-  //   )
-  // }, [openCommentsModal, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, dummyAuthorImage, areInteractionsDisabled, openGraphModal, renderRepostContent]);
-
+ 
   const listItems = useMemo(() => {
     console.log(`🔄 Rendering ${filteredData.length} items for ${activeTab} tab`);
     
@@ -5513,6 +5389,8 @@ useEffect(() => {
               onPress: () => {
                 setIsBlockModalVisible(false);
                 setBlockUserId(null);
+                setBlockUserEmail(null);
+                setBlockUserName(null);
                 setShowMenuModal(false); 
                 setIsBlockLoading(false);
               }
@@ -5531,6 +5409,8 @@ useEffect(() => {
           onClose={() => {
             setIsBlockModalVisible(false);
             setBlockUserId(null);
+            setBlockUserEmail(null);
+            setBlockUserName(null)
             setShowMenuModal(false);
             setIsBlockLoading(false);
           }}
