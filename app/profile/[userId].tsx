@@ -102,6 +102,10 @@ interface RepostModalProps {
   onSimpleRepost: () => void;
   onQuoteRepost: (comment: string) => void;
 }
+type ShortURLResponse = {
+  shortURL: string;
+  id: any;
+};
 const getFullImageUrl = (profilePath?: string): string => {
   const dummy = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
   
@@ -317,6 +321,12 @@ export default function UserProfileScreen() {
   const [realFollowingCount, setRealFollowingCount] = useState<number>(0);
   const [viewedPosts, setViewedPosts] = useState<Set<string>>(new Set());
   const viewTrackingTimeout = useRef<NodeJS.Timeout | number | null>(null);
+
+  const [sharingId, setSharingId] = useState(null);
+  const [selectedPostUserId, setSelectedPostUserId] = useState<string | null>(null);
+  const [isDeleteUserModalVisible, setIsDeleteUserModalVisible] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<string | null>(null);
+  const [showMenuModal, setShowMenuModal] = useState(false);
 
   // ✅ FORMAT VIEW COUNT LIKE X/TWITTER
   const formatViewCount = useCallback((count: number): string => {
@@ -1824,72 +1834,126 @@ const fetchFollowerCounts = async () => {
   }, [currentUserId]);
 
   const handleShare = useCallback(async (postItem: PostItem) => {
-      console.log("Share pressed:", postItem?.id);
+        console.log("Share pressed:", postItem?.id);
+        
+        setSharingId(postItem.id); // Start loading
+        
+        const available = await Sharing.isAvailableAsync();
+        if (!available) {
+          Toast.show({
+            type: 'error',
+            text1: 'Sharing Not Available',
+            text2: 'Sharing is not available on this device',
+            position: 'bottom',
+            visibilityTime: 2000,
+          });
+          setSharingId(null); // Stop loading
+          return;
+        }
+    
+        try {
+          const postUrl = `https://ironex.app/post/${postItem?.id}`;
+          
+          // const shareMessage = postItem.isAnonymous
+          //   ? `✨ SENTINEL POST ✨
+    
+          // 👤 Shared by Anonymous
+    
+          // 💭 ${postItem.ContentDesc}
+    
+          // 🔗 Tap to view this amazing post:
+          // ${postUrl}
+    
+          // ━━━━━━━━━━━━━━━
+          // 📱 Join the conversation on Sentinel and discover more!`
+          //   : `✨ SENTINEL POST ✨
+    
+          // 🌟 Shared by ${postItem.AuthorName}
+    
+          // 💭 ${postItem.ContentDesc}
+    
+          // 🔗 Tap to view this amazing post:
+          // ${postUrl}
+    
+          // ━━━━━━━━━━━━━━━
+          // 📱 Join the conversation on Sentinel and discover more!`;
+    
+          // const shareMessage = `🔗 Tap to view on IronExSafe™:
+          // ${postUrl}`;
+    
+          // await Share.share({
+          //   message: `${shareMessage}\n${postUrl}`,
+          //   url: postUrl,
+          //   title: '✨ Check out this IronExSafe™ post',
+          // });
+    
+          callShortUrl(postUrl);
+          
+        } catch (error) {
+          console.log("Error sharing ", error);
+          Toast.show({
+            type: 'error',
+            text1: 'Share Failed',
+            text2: 'Failed to share post',
+            position: 'bottom',
+            visibilityTime: 2000,
+          });
+          setSharingId(null); // Stop loading
+        } 
+    
+        await new Promise(r => setTimeout(r, 200));
+      }, []);
+    
+      const callShortUrl = async (postUrl: string) => {
+        try {
+          console.log('Call Short Url...');
+          
+          const response = await fetch(
+            'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/shorten-url',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                "originalURL" : postUrl
+              })
+            }
+          );
       
-      const available = await Sharing.isAvailableAsync();
-      if (!available) {
-        Toast.show({
-          type: 'error',
-          text1: 'Sharing Not Available',
-          text2: 'Sharing is not available on this device',
-          position: 'bottom',
-          visibilityTime: 2000,
-        });
-        return;
-      }
-  
-      try {
-        const postUrl = `https://ironex.app/post/${postItem?.id}`;
-        
-        // const shareMessage = postItem.isAnonymous
-        //   ? `✨ SENTINEL POST ✨
-  
-        // 👤 Shared by Anonymous
-  
-        // 💭 ${postItem.ContentDesc}
-  
-        // 🔗 Tap to view this amazing post:
-        // ${postUrl}
-  
-        // ━━━━━━━━━━━━━━━
-        // 📱 Join the conversation on Sentinel and discover more!`
-        //   : `✨ SENTINEL POST ✨
-  
-        // 🌟 Shared by ${postItem.AuthorName}
-  
-        // 💭 ${postItem.ContentDesc}
-  
-        // 🔗 Tap to view this amazing post:
-        // ${postUrl}
-  
-        // ━━━━━━━━━━━━━━━
-        // 📱 Join the conversation on Sentinel and discover more!`;
-  
-        const shareMessage = `🔗 Tap to view on IronExSafe™:
-        ${postUrl}`;
-  
-        await Share.share({
-          message: `${shareMessage}\n${postUrl}`,
-          url: postUrl,
-          title: '✨ Check out this IronExSafe™ post',
-        });
-  
-  
-  
-        
-      } catch (error) {
-        console.log("Error sharing ", error);
-        Toast.show({
-          type: 'error',
-          text1: 'Share Failed',
-          text2: 'Failed to share post',
-          position: 'bottom',
-          visibilityTime: 2000,
-        });
-      }
-  
-      await new Promise(r => setTimeout(r, 200));
-    }, []);
+          if (!response.ok) {
+            // Optional: Show success message
+            Toast.show({
+              type: 'error',
+              text1: 'Share Failed',
+              text2: 'Failed to share post',
+              position: 'bottom',
+              visibilityTime: 2000,
+            });
+          } else {
+            const data: ShortURLResponse = await response.json();
+            console.log('Short URL response:', data);
+    
+            const shareMessage = `🔗 Tap to view on IronExSafe™: ${data.shortURL}`;
+    
+            await Share.share({
+              message: `${shareMessage}`,
+              title: '✨ Check out this IronExSafe™ post',
+            });
+          }
+          
+        } catch (error) {
+          console.error('❌ Error Short URL:', error);
+    
+          setIsDeleteUserModalVisible(false);
+          setShowMenuModal(false);
+          setSelectedPostUserId(null);
+          setUserToDelete(null);
+    
+        } finally {
+          setSharingId(null); // Stop loading
+        }
+      };
 
   const avatar = React.useMemo(() => {
     if (isAnonymous === 'true') {
