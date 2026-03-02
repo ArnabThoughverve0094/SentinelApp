@@ -12,7 +12,7 @@ import { makeRedirectUri } from 'expo-auth-session';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
+import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -1496,6 +1496,29 @@ const loadProfileData = async () => {
           },
         ]
       );
+      try {
+        const fetchuserID = await AsyncStorage.getItem('userId');
+        const userDocSnap = await getDocs(query(collection(db, 'SentinelUsers'), where('userID', '==', fetchuserID)));
+        const notifyPayload = {
+          id: `post_edit_flagged_${editPostData.id}_${Date.now()}`,
+          AuthorImageURL: profilePicUrl || await AsyncStorage.getItem('profilePicUrl') || dummyAuthorImage,
+          AuthorName: userName || await AsyncStorage.getItem('userName') || 'You',
+          AuthorUserID: fetchuserID,
+          ContentDate: new Date(),
+          Description: `❌ Your edited post was flagged by our AI content moderator and could not be published.\n\nReason: ${rejectionReason}\n\nPlease revise your post and try again.`,
+          NotifyType: 'postrejected',
+          ShowButtons: false,
+          Status: 'rejected',
+          isRead: false,
+        };
+        if (!userDocSnap.empty) {
+          await updateDoc(doc(db, 'SentinelUsers', userDocSnap.docs[0].id), { Notification: arrayUnion(notifyPayload) });
+        } else {
+          await addDoc(collection(db, 'SentinelUsers'), { userID: fetchuserID, Notification: [notifyPayload] });
+        }
+      } catch (notifErr) {
+        console.error('Notification error (non-critical):', notifErr);
+      }
       return; // Stop execution
     }
 
@@ -1573,7 +1596,35 @@ const loadProfileData = async () => {
         'Post Not Relevant',
         '⚠️ Your post was updated but our AI flagged it as potentially irrelevant to the community.\n\nReason: Irrelevant content or media detected.\n\nAn admin will review it shortly.',
         [{ text: 'OK', onPress: hideModal }]
+            );showCustomAlert('warning', 'Post Not Relevant',
+        `Your post was updated but our AI flagged it as potentially irrelevant to the community. Irrelevant content or media detected. admin will review it shortly.`,
+        [{ text: 'OK', onPress: hideModal }]
       );
+
+      // ✅ NOTIFICATION — irrelevant post after edit
+      try {
+        const fetchuserID = await AsyncStorage.getItem('userId');
+        const userDocSnap = await getDocs(query(collection(db, 'SentinelUsers'), where('userID', '==', fetchuserID)));
+        const notifyPayload = {
+          id: `post_edit_irrelevant_${editPostData.id}_${Date.now()}`,
+          AuthorImageURL: profilePicUrl || await AsyncStorage.getItem('profilePicUrl') || dummyAuthorImage,
+          AuthorName: userName || await AsyncStorage.getItem('userName') || 'You',
+          AuthorUserID: fetchuserID,
+          ContentDate: new Date(),
+          Description: `⚠️ Your edited post was submitted but our AI flagged it as potentially irrelevant to the community. An admin will manually review it shortly.\n\nReason: Irrelevant content or media detected.`,
+          NotifyType: 'postsubmitted',
+          ShowButtons: false,
+          Status: 'pending',
+          isRead: false,
+        };
+        if (!userDocSnap.empty) {
+          await updateDoc(doc(db, 'SentinelUsers', userDocSnap.docs[0].id), { Notification: arrayUnion(notifyPayload) });
+        } else {
+          await addDoc(collection(db, 'SentinelUsers'), { userID: fetchuserID, Notification: [notifyPayload] });
+        }
+      } catch (notifErr) {
+        console.error('Notification error (non-critical):', notifErr);
+      }
       return;
     }
 
@@ -1611,13 +1662,38 @@ const loadProfileData = async () => {
       )
     );
 
-    Toast.show({
+        Toast.show({
       type: 'success',
-      text1: '🎉 Post Updated & Approved!',
+      text1: 'Post Updated & Approved!',
       text2: 'Your post has been updated and approved by AI.',
       position: 'bottom',
       visibilityTime: 2000,
     });
+
+    // ✅ NOTIFICATION — approved post after edit
+    try {
+      const fetchuserID = await AsyncStorage.getItem('userId');
+      const userDocSnap = await getDocs(query(collection(db, 'SentinelUsers'), where('userID', '==', fetchuserID)));
+      const notifyPayload = {
+        id: `post_edit_approved_${editPostData.id}_${Date.now()}`,
+        AuthorImageURL: profilePicUrl || await AsyncStorage.getItem('profilePicUrl') || dummyAuthorImage,
+        AuthorName: userName || await AsyncStorage.getItem('userName') || 'You',
+        AuthorUserID: fetchuserID,
+        ContentDate: new Date(),
+        Description: `✅ Great news! Your edited post has been reviewed by our AI moderator and published successfully. Your community can now see the updated version!`,
+        NotifyType: 'postapproved',
+        ShowButtons: false,
+        Status: 'approved',
+        isRead: false,
+      };
+      if (!userDocSnap.empty) {
+        await updateDoc(doc(db, 'SentinelUsers', userDocSnap.docs[0].id), { Notification: arrayUnion(notifyPayload) });
+      } else {
+        await addDoc(collection(db, 'SentinelUsers'), { userID: fetchuserID, Notification: [notifyPayload] });
+      }
+    } catch (notifErr) {
+      console.error('Notification error (non-critical):', notifErr);
+    }
 
     // Close modal
     setIsEditModalVisible(false);
