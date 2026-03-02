@@ -1503,7 +1503,7 @@ export default function Index(): React.JSX.Element {
             style={{ flex: 1 }}
           >
             <Ionicons name="notifications-outline" size={26} color="#64748b" />
-            <Text className="text-xs text-gray-500 mt-1">Notifications</Text>
+            <Text className="text-xs text-gray-500 mt-1">Notifs</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
