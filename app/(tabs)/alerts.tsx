@@ -1,8 +1,8 @@
 import { db } from "@/FirebaseConfig";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
-import { useCallback, useEffect, useState } from "react";
+import { collection, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FlatList,
   Image,
@@ -21,9 +21,9 @@ type Notification = {
   message: string;
   showButtons: boolean;
   status?: string;
+  isRead: boolean; // ✅ NEW
 };
 
-// ✅ Central config — add any new NotifyType here in future
 type NotifyConfig = {
   icon: keyof typeof Ionicons.glyphMap;
   iconColor: string;
@@ -34,118 +34,20 @@ type NotifyConfig = {
 };
 
 const NOTIFY_CONFIG: Record<string, NotifyConfig> = {
-  post_approved: {
-    icon: "checkmark-circle",
-    iconColor: "#22C55E",
-    iconBg: "#DCFCE7",
-    badgeLabel: "✅  Post Approved",
-    badgeBg: "#DCFCE7",
-    badgeText: "#15803D",
-  },
-  postapproved: {
-    icon: "checkmark-circle",
-    iconColor: "#22C55E",
-    iconBg: "#DCFCE7",
-    badgeLabel: "✅  Post Approved",
-    badgeBg: "#DCFCE7",
-    badgeText: "#15803D",
-  },
-  post_rejected: {
-    icon: "close-circle",
-    iconColor: "#EF4444",
-    iconBg: "#FEE2E2",
-    badgeLabel: "❌  Post Rejected",
-    badgeBg: "#FEE2E2",
-    badgeText: "#B91C1C",
-  },
-  postrejected: {
-    icon: "close-circle",
-    iconColor: "#EF4444",
-    iconBg: "#FEE2E2",
-    badgeLabel: "❌  Post Rejected",
-    badgeBg: "#FEE2E2",
-    badgeText: "#B91C1C",
-  },
-  post_pending: {
-    icon: "time",
-    iconColor: "#F59E0B",
-    iconBg: "#FEF3C7",
-    badgeLabel: "⏳  Post Under Review",
-    badgeBg: "#FEF3C7",
-    badgeText: "#92400E",
-  },
-  postsubmitted: {
-    icon: "time",
-    iconColor: "#F59E0B",
-    iconBg: "#FEF3C7",
-    badgeLabel: "⏳  Post Under Review",
-    badgeBg: "#FEF3C7",
-    badgeText: "#92400E",
-  },
-  videopostsubmitted: {
-    icon: "videocam",
-    iconColor: "#8B5CF6",
-    iconBg: "#EDE9FE",
-    badgeLabel: "🎥  Video Under Review",
-    badgeBg: "#EDE9FE",
-    badgeText: "#5B21B6",
-  },
-  video_review_pending: {
-    icon: "videocam",
-    iconColor: "#8B5CF6",
-    iconBg: "#EDE9FE",
-    badgeLabel: "🎥  Video Under Review",
-    badgeBg: "#EDE9FE",
-    badgeText: "#5B21B6",
-  },
-  post_reported: {
-    icon: "flag",
-    iconColor: "#F97316",
-    iconBg: "#FFEDD5",
-    badgeLabel: "🚩  Post Reported",
-    badgeBg: "#FFEDD5",
-    badgeText: "#9A3412",
-  },
-  postreported: {
-    icon: "flag",
-    iconColor: "#F97316",
-    iconBg: "#FFEDD5",
-    badgeLabel: "🚩  Post Reported",
-    badgeBg: "#FFEDD5",
-    badgeText: "#9A3412",
-  },
-  user_blocked: {
-    icon: "ban",
-    iconColor: "#6B7280",
-    iconBg: "#F3F4F6",
-    badgeLabel: "🚫  Account Restricted",
-    badgeBg: "#F3F4F6",
-    badgeText: "#374151",
-  },
-  follow: {
-    icon: "person-add",
-    iconColor: "#3B82F6",
-    iconBg: "#DBEAFE",
-    badgeLabel: "👤  New Follower",
-    badgeBg: "#DBEAFE",
-    badgeText: "#1D40AF",
-  },
-  like: {
-    icon: "heart",
-    iconColor: "#EF4444",
-    iconBg: "#FEE2E2",
-    badgeLabel: "❤️  Post Liked",
-    badgeBg: "#FEE2E2",
-    badgeText: "#B91C1C",
-  },
-  profile_updated: {
-  icon: 'person-circle',
-  iconColor: '#3B82F6',
-  iconBg: '#DBEAFE',
-  badgeLabel: '👤  Profile Updated',
-  badgeBg: '#DBEAFE',
-  badgeText: '#1D40AF',
-},
+  post_approved: { icon: "checkmark-circle", iconColor: "#22C55E", iconBg: "#DCFCE7", badgeLabel: "✅  Post Approved", badgeBg: "#DCFCE7", badgeText: "#15803D" },
+  postapproved: { icon: "checkmark-circle", iconColor: "#22C55E", iconBg: "#DCFCE7", badgeLabel: "✅  Post Approved", badgeBg: "#DCFCE7", badgeText: "#15803D" },
+  post_rejected: { icon: "close-circle", iconColor: "#EF4444", iconBg: "#FEE2E2", badgeLabel: "❌  Post Rejected", badgeBg: "#FEE2E2", badgeText: "#B91C1C" },
+  postrejected: { icon: "close-circle", iconColor: "#EF4444", iconBg: "#FEE2E2", badgeLabel: "❌  Post Rejected", badgeBg: "#FEE2E2", badgeText: "#B91C1C" },
+  post_pending: { icon: "time", iconColor: "#F59E0B", iconBg: "#FEF3C7", badgeLabel: "⏳  Post Under Review", badgeBg: "#FEF3C7", badgeText: "#92400E" },
+  postsubmitted: { icon: "time", iconColor: "#F59E0B", iconBg: "#FEF3C7", badgeLabel: "⏳  Post Under Review", badgeBg: "#FEF3C7", badgeText: "#92400E" },
+  videopostsubmitted: { icon: "videocam", iconColor: "#8B5CF6", iconBg: "#EDE9FE", badgeLabel: "🎥  Video Under Review", badgeBg: "#EDE9FE", badgeText: "#5B21B6" },
+  video_review_pending: { icon: "videocam", iconColor: "#8B5CF6", iconBg: "#EDE9FE", badgeLabel: "🎥  Video Under Review", badgeBg: "#EDE9FE", badgeText: "#5B21B6" },
+  post_reported: { icon: "flag", iconColor: "#F97316", iconBg: "#FFEDD5", badgeLabel: "🚩  Post Reported", badgeBg: "#FFEDD5", badgeText: "#9A3412" },
+  postreported: { icon: "flag", iconColor: "#F97316", iconBg: "#FFEDD5", badgeLabel: "🚩  Post Reported", badgeBg: "#FFEDD5", badgeText: "#9A3412" },
+  user_blocked: { icon: "ban", iconColor: "#6B7280", iconBg: "#F3F4F6", badgeLabel: "🚫  Account Restricted", badgeBg: "#F3F4F6", badgeText: "#374151" },
+  follow: { icon: "person-add", iconColor: "#3B82F6", iconBg: "#DBEAFE", badgeLabel: "👤  New Follower", badgeBg: "#DBEAFE", badgeText: "#1D40AF" },
+  like: { icon: "heart", iconColor: "#EF4444", iconBg: "#FEE2E2", badgeLabel: "❤️  Post Liked", badgeBg: "#FEE2E2", badgeText: "#B91C1C" },
+  profile_updated: { icon: "person-circle", iconColor: "#3B82F6", iconBg: "#DBEAFE", badgeLabel: "👤  Profile Updated", badgeBg: "#DBEAFE", badgeText: "#1D40AF" },
 };
 
 const DEFAULT_CONFIG: NotifyConfig = {
@@ -159,8 +61,7 @@ const DEFAULT_CONFIG: NotifyConfig = {
 
 function getMillis(val: any): number {
   if (!val) return 0;
-  if (typeof val === "object" && typeof val.toDate === "function")
-    return val.toDate().getTime();
+  if (typeof val === "object" && typeof val.toDate === "function") return val.toDate().getTime();
   if (typeof val === "number") return val;
   return new Date(val).getTime();
 }
@@ -171,6 +72,7 @@ export default function NotificationPage() {
   const [userId, setUserId] = useState("");
   const [notificationDetails, setNotificationDetails] = useState<Notification[]>([]);
   const [currentUserDocId, setCurrentUserDocId] = useState("");
+  const [activeFilter, setActiveFilter] = useState<"all" | "unread">("all"); // ✅ NEW
 
   useEffect(() => {
     getItem();
@@ -201,15 +103,10 @@ export default function NotificationPage() {
         const sentinelUsersRef = collection(db, "SentinelUsers");
         const q = query(sentinelUsersRef, where("userID", "==", fetchuserID));
         const unsubscribe = onSnapshot(q, (snapshot) => {
-          const snapshotDataArr = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            data: doc.data(),
-          }));
           const fetchNotific: Notification[] = [];
-          for (const doc of snapshotDataArr) {
-            const postData = doc.data;
-            const postId = doc.id;
-            setCurrentUserDocId(postId);
+          for (const docSnap of snapshot.docs) {
+            const postData = docSnap.data();
+            setCurrentUserDocId(docSnap.id);
             if (postData.Notification != null) {
               for (const docNotification of postData.Notification) {
                 fetchNotific.push({
@@ -223,6 +120,7 @@ export default function NotificationPage() {
                   message: docNotification.Description,
                   showButtons: docNotification.ShowButtons,
                   status: docNotification.Status,
+                  isRead: docNotification.isRead ?? false, // ✅ NEW
                 });
               }
             }
@@ -239,21 +137,61 @@ export default function NotificationPage() {
     }
   }, [userId]);
 
+  // ✅ Count unread notifications
+  const unreadCount = useMemo(
+    () => notificationDetails.filter((n) => !n.isRead).length,
+    [notificationDetails]
+  );
+
+  // ✅ Filtered list based on active tab
+  const filteredNotifications = useMemo(
+    () => activeFilter === "unread"
+      ? notificationDetails.filter((n) => !n.isRead)
+      : notificationDetails,
+    [notificationDetails, activeFilter]
+  );
+
+  // ✅ Mark single notification as read
+  const markAsRead = useCallback(async (notificationId: string) => {
+    if (!currentUserDocId) return;
+    try {
+      const userRef = doc(db, "SentinelUsers", currentUserDocId);
+      const userSnap = await (await import("firebase/firestore")).getDoc(userRef);
+      if (!userSnap.exists()) return;
+      const currentNotifications = userSnap.data().Notification || [];
+      const updatedNotifications = currentNotifications.map((n: any) =>
+        n.id === notificationId ? { ...n, isRead: true } : n
+      );
+      await updateDoc(userRef, { Notification: updatedNotifications });
+    } catch (e) {
+      console.error("Error marking notification as read:", e);
+    }
+  }, [currentUserDocId]);
+
+  // ✅ Mark ALL notifications as read
+  const markAllAsRead = useCallback(async () => {
+    if (!currentUserDocId) return;
+    try {
+      const userRef = doc(db, "SentinelUsers", currentUserDocId);
+      const userSnap = await (await import("firebase/firestore")).getDoc(userRef);
+      if (!userSnap.exists()) return;
+      const currentNotifications = userSnap.data().Notification || [];
+      const updatedNotifications = currentNotifications.map((n: any) => ({ ...n, isRead: true }));
+      await updateDoc(userRef, { Notification: updatedNotifications });
+    } catch (e) {
+      console.error("Error marking all as read:", e);
+    }
+  }, [currentUserDocId]);
+
   const getTimeAgo = useCallback((dateString: any) => {
     if (!dateString) return "Just now";
     try {
       let postDate: Date;
-      if (dateString && typeof dateString === "object" && dateString.toDate) {
-        postDate = dateString.toDate();
-      } else if (typeof dateString === "string") {
-        postDate = new Date(dateString);
-      } else if (dateString instanceof Date) {
-        postDate = dateString;
-      } else if (typeof dateString === "number") {
-        postDate = new Date(dateString);
-      } else {
-        return "Just now";
-      }
+      if (dateString && typeof dateString === "object" && dateString.toDate) postDate = dateString.toDate();
+      else if (typeof dateString === "string") postDate = new Date(dateString);
+      else if (dateString instanceof Date) postDate = dateString;
+      else if (typeof dateString === "number") postDate = new Date(dateString);
+      else return "Just now";
       const now = new Date();
       const diffInMs = now.getTime() - postDate.getTime();
       const diffInSeconds = Math.floor(diffInMs / 1000);
@@ -277,79 +215,76 @@ export default function NotificationPage() {
 
   const NotificationItem = ({ notification }: { notification: Notification }) => {
     const cfg = NOTIFY_CONFIG[notification.type] ?? DEFAULT_CONFIG;
+    const isUnread = !notification.isRead;
+
     return (
-      <View style={{ flexDirection: "row", alignItems: "flex-start", paddingHorizontal: 16, paddingVertical: 14, backgroundColor: "#fff" }}>
-        
+      // ✅ Tap to mark as read
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => { if (isUnread) markAsRead(notification.id); }}
+        style={{
+          flexDirection: "row",
+          alignItems: "flex-start",
+          paddingHorizontal: 16,
+          paddingVertical: 14,
+          // ✅ Unread = light blue tint background, Read = white
+          backgroundColor: isUnread ? "#EFF6FF" : "#fff",
+        }}
+      >
         {/* Avatar + icon badge */}
         <View style={{ marginRight: 12 }}>
           <Image
-            source={{
-              uri: notification.user.avatar ||
-                "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
-            }}
+            source={{ uri: notification.user.avatar || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg" }}
             style={{ width: 48, height: 48, borderRadius: 24 }}
             resizeMode="cover"
           />
-          {/* ✅ Icon overlay — enabled for ALL types */}
-          <View
-            style={{
-              position: "absolute",
-              bottom: -3,
-              right: -3,
-              width: 22,
-              height: 22,
-              borderRadius: 11,
-              backgroundColor: cfg.iconBg,
-              alignItems: "center",
-              justifyContent: "center",
-              borderWidth: 1.5,
-              borderColor: "#fff",
-              elevation: 3,
-              shadowColor: "#000",
-              shadowOpacity: 0.15,
-              shadowRadius: 3,
-            }}
-          >
+          <View style={{
+            position: "absolute", bottom: -3, right: -3,
+            width: 22, height: 22, borderRadius: 11,
+            backgroundColor: cfg.iconBg,
+            alignItems: "center", justifyContent: "center",
+            borderWidth: 1.5, borderColor: "#fff",
+            elevation: 3, shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 3,
+          }}>
             <Ionicons name={cfg.icon} size={12} color={cfg.iconColor} />
           </View>
         </View>
 
         {/* Content */}
         <View style={{ flex: 1 }}>
-          
-          {/* Sender name + message */}
-          <Text style={{ fontSize: 14, color: "#111827", lineHeight: 20, marginBottom: 3 }}>
-            <Text style={{ fontWeight: "700" }}>{notification.user.name}</Text>
-            {"  "}
-            {notification.message}
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
+            <Text style={{ fontSize: 14, color: "#111827", lineHeight: 20, marginBottom: 3, flex: 1, paddingRight: 8 }}>
+              <Text style={{ fontWeight: "700" }}>{notification.user.name}</Text>
+              {"  "}
+              {notification.message}
+            </Text>
+            {/* ✅ Blue dot for unread */}
+            {isUnread && (
+              <View style={{
+                width: 9, height: 9, borderRadius: 5,
+                backgroundColor: "#3B82F6", marginTop: 5, flexShrink: 0,
+              }} />
+            )}
+          </View>
 
-          {/* Time */}
           <Text style={{ fontSize: 12, color: "#9CA3AF", marginBottom: 6 }}>
             {getTimeAgo(notification.time)}
           </Text>
 
-          {/* ✅ Status badge — shown for ALL notification types */}
-          <View
-            style={{
-              alignSelf: "flex-start",
-              paddingHorizontal: 10,
-              paddingVertical: 4,
-              borderRadius: 20,
-              backgroundColor: cfg.badgeBg,
-            }}
-          >
+          {/* Status badge */}
+          <View style={{
+            alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 4,
+            borderRadius: 20, backgroundColor: cfg.badgeBg,
+          }}>
             <Text style={{ fontSize: 11, fontWeight: "700", color: cfg.badgeText }}>
               {cfg.badgeLabel}
             </Text>
           </View>
 
-          {/* Follow/Decline Buttons (unchanged) */}
+          {/* Follow/Decline Buttons */}
           {notification.showButtons && (
             <View style={{ flexDirection: "row", marginTop: 8 }}>
-              <TouchableOpacity
-                style={{ backgroundColor: "#000", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, marginRight: 8 }}
-              >
+              <TouchableOpacity style={{ backgroundColor: "#000", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, marginRight: 8 }}>
                 <Text style={{ color: "#fff", fontSize: 13, fontWeight: "600" }}>Follow</Text>
               </TouchableOpacity>
               <TouchableOpacity style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}>
@@ -358,7 +293,7 @@ export default function NotificationPage() {
             </View>
           )}
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -367,17 +302,78 @@ export default function NotificationPage() {
       <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
 
       {/* Header */}
-      <View style={{ paddingHorizontal: 16, paddingTop: 40, paddingBottom: 12, backgroundColor: "#F9FAFB" }}>
-        <Text style={{ fontSize: 26, fontWeight: "800", color: "#111827", paddingTop: 12 }}>
-          Notifications
-        </Text>
+      <View style={{ paddingHorizontal: 16, paddingTop: 40, paddingBottom: 8, backgroundColor: "#F9FAFB" }}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Text style={{ fontSize: 26, fontWeight: "800", color: "#111827", paddingTop: 12 }}>
+              Notifications
+            </Text>
+            {/* ✅ Unread count badge in header */}
+            {unreadCount > 0 && (
+              <View style={{
+                marginLeft: 10, marginTop: 12,
+                backgroundColor: "#EF4444", borderRadius: 12,
+                paddingHorizontal: 8, paddingVertical: 3,
+              }}>
+                <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </Text>
+              </View>
+            )}
+          </View>
+          {/* ✅ Mark all as read button */}
+          {unreadCount > 0 && (
+            <TouchableOpacity
+              onPress={markAllAsRead}
+              style={{ marginTop: 12, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: "#EFF6FF" }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: "600", color: "#3B82F6" }}>
+                Mark all read
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* ✅ All / Unread Filter Tabs */}
+        <View style={{ flexDirection: "row", marginTop: 14, gap: 8 }}>
+          <TouchableOpacity
+            onPress={() => setActiveFilter("all")}
+            style={{
+              paddingHorizontal: 18, paddingVertical: 7, borderRadius: 20,
+              backgroundColor: activeFilter === "all" ? "#111827" : "#F3F4F6",
+            }}
+          >
+            <Text style={{ fontSize: 13, fontWeight: "600", color: activeFilter === "all" ? "#fff" : "#6B7280" }}>
+              All
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setActiveFilter("unread")}
+            style={{
+              paddingHorizontal: 18, paddingVertical: 7, borderRadius: 20,
+              backgroundColor: activeFilter === "unread" ? "#111827" : "#F3F4F6",
+              flexDirection: "row", alignItems: "center", gap: 6,
+            }}
+          >
+            <Text style={{ fontSize: 13, fontWeight: "600", color: activeFilter === "unread" ? "#fff" : "#6B7280" }}>
+              Unread
+            </Text>
+            {unreadCount > 0 && (
+              <View style={{ backgroundColor: "#EF4444", borderRadius: 10, paddingHorizontal: 6, paddingVertical: 1 }}>
+                <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* List */}
       <View style={{ flex: 1 }}>
         <FlatList
-          data={notificationDetails}
-          keyExtractor={(_item, index) => index.toString()}
+          data={filteredNotifications}
+          keyExtractor={(item, index) => item.id ? item.id.toString() : index.toString()}
           renderItem={({ item }) => <NotificationItem notification={item} />}
           showsVerticalScrollIndicator={false}
           ItemSeparatorComponent={() => (
@@ -387,10 +383,10 @@ export default function NotificationPage() {
             <View style={{ alignItems: "center", marginTop: 120 }}>
               <Ionicons name="notifications-off-outline" size={64} color="#D1D5DB" />
               <Text style={{ fontSize: 17, color: "#9CA3AF", marginTop: 16, fontWeight: "500" }}>
-                No notifications yet
+                {activeFilter === "unread" ? "No unread notifications" : "No notifications yet"}
               </Text>
               <Text style={{ fontSize: 13, color: "#D1D5DB", marginTop: 6 }}>
-                We'll notify you when something happens
+                {activeFilter === "unread" ? "You're all caught up! 🎉" : "We'll notify you when something happens"}
               </Text>
             </View>
           }
