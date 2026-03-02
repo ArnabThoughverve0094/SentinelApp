@@ -6,6 +6,7 @@ import {
   arrayRemove,
   collection,
   doc,
+  getDoc,
   getDocs,
   onSnapshot,
   query,
@@ -139,60 +140,116 @@ export default function FollowersFollowingScreen() {
     setLoading(true);
 
     try {
-      const usersRef = collection(db, "SentinelUsers");
-      const q = query(usersRef, where("Following", "array-contains", userid));
+      // const usersRef = collection(db, "IronExUsers");
+      // const q = query(usersRef, where("Following", "array-contains", userid));
       
-      const snapshot = await getDocs(q);
-      console.log(`📊 Query returned ${snapshot.size} documents`);
+      // const snapshot = await getDocs(q);
+      // console.log(`📊 Query returned ${snapshot.size} documents`);
 
-      const uniqueFollowerMap = new Map<string, any>();
+      // const uniqueFollowerMap = new Map<string, any>();
       
-      snapshot.docs.forEach((doc) => {
-        const data = doc.data();
-        const followerId = data.userID;
+      // snapshot.docs.forEach((doc) => {
+      //   const data = doc.data();
+      //   const followerId = data.userID;
         
-        if (followerId) {
-          if (!uniqueFollowerMap.has(followerId)) {
-            uniqueFollowerMap.set(followerId, {
-              docId: doc.id,
-              data: data
-            });
-            console.log(`📍 Found unique follower: ${followerId} (${data.userName || 'Unknown'})`);
-          } else {
-            console.log(`⚠️ Skipping duplicate follower document for: ${followerId}`);
-          }
-        } else {
-          console.warn(`⚠️ Document ${doc.id} has no userID field`);
-        }
-      });
+      //   if (followerId) {
+      //     if (!uniqueFollowerMap.has(followerId)) {
+      //       uniqueFollowerMap.set(followerId, {
+      //         docId: doc.id,
+      //         data: data
+      //       });
+      //       console.log(`📍 Found unique follower: ${followerId} (${data.userName || 'Unknown'})`);
+      //     } else {
+      //       console.log(`⚠️ Skipping duplicate follower document for: ${followerId}`);
+      //     }
+      //   } else {
+      //     console.warn(`⚠️ Document ${doc.id} has no userID field`);
+      //   }
+      // });
 
-      const followerIdsArray = Array.from(uniqueFollowerMap.keys());
-      console.log(`✅ Total UNIQUE followers: ${followerIdsArray.length}`);
+      // const followerIdsArray = Array.from(uniqueFollowerMap.keys());
+      // console.log(`✅ Total UNIQUE followers: ${followerIdsArray.length}`);
 
-      if (followerIdsArray.length === 0) {
-        setUsers([]);
-        setLoading(false);
-        return;
+      // if (followerIdsArray.length === 0) {
+      //   setUsers([]);
+      //   setLoading(false);
+      //   return;
+      // }
+
+      // const userDetailsMap = await fetchUserDetailsFromSentinelUsers(followerIdsArray);
+      
+      // const followersList: UserItem[] = [];
+      // followerIdsArray.forEach((followerId) => {
+      //   const userDetails = userDetailsMap.get(followerId);
+      //   if (userDetails) {
+      //     followersList.push(userDetails);
+      //   } else {
+      //     console.warn(`⚠️ No user data found for follower: ${followerId}`);
+      //   }
+      // });
+
+      // console.log(`✅ Displaying ${followersList.length} followers`);
+      // setUsers(followersList);
+      // setLoading(false);
+
+      // --------------------------------------------------------
+      // const usersRef = collection(db, "IronExUsers");
+
+      // // Logic: "Find all users whose 'Following' array has an object with this userId"
+      // // Note: This works best if you keep the object structure consistent
+      // const q = query(
+      //   usersRef, 
+      //   where("Following", "array-contains", { 
+      //     userId: userid,
+      //       // If you store other fields like userName in the array, 
+      //       // they must be included here for an exact match, OR 
+      //       // see the "Better Approach" below.
+      //   })
+      // );
+
+      // try {
+      //   const querySnapshot = await getDocs(q);
+      //   const followers = querySnapshot.docs.map(doc => ({
+      //     id: doc.id,
+      //     ...doc.data()
+      //   }));
+      //   console.log(`✅ Displaying followers`, followers);
+      //   console.log(`✅ Displaying ${followers.length} followers`);
+      //   return followers;
+      // } catch (error) {
+      //   console.error("Error fetching followers:", error);
+      //   return [];
+      // }
+      // -----------------------------------------------------
+
+      const userDocRef = doc(db, 'IronExUsers', userid);
+      const docSnap = await getDoc(userDocRef);
+
+      if (docSnap.exists()) {
+        const userData = docSnap.data();
+        // Access the 'Follower' array you created in handleFollowPress
+        // const followersList: UserItem[] = [];
+        
+        // followerIdsArray.forEach((followerId) => {
+        //   const userDetails = userDetailsMap.get(followerId);
+        //   if (userDetails) {
+        //     followersList.push(userDetails);
+        //   } else {
+        //     console.warn(`⚠️ No user data found for follower: ${followerId}`);
+        //   }
+        // });
+        
+        const fetchedFollower: UserItem[] = userData.Follower || [];
+        console.log(`✅ Displaying followers`, userData);
+        console.log(`✅ Displaying ${fetchedFollower.length} followers`);
+        setUsers(fetchedFollower);
       }
 
-      const userDetailsMap = await fetchUserDetailsFromSentinelUsers(followerIdsArray);
-      
-      const followersList: UserItem[] = [];
-      followerIdsArray.forEach((followerId) => {
-        const userDetails = userDetailsMap.get(followerId);
-        if (userDetails) {
-          followersList.push(userDetails);
-        } else {
-          console.warn(`⚠️ No user data found for follower: ${followerId}`);
-        }
-      });
-
-      console.log(`✅ Displaying ${followersList.length} followers`);
-      setUsers(followersList);
-      setLoading(false);
     } catch (error) {
       console.error("❌ Error fetching followers:", error);
       setUsers([]);
+      setLoading(false);
+    } finally{
       setLoading(false);
     }
   }, [userid]);
@@ -208,63 +265,91 @@ export default function FollowersFollowingScreen() {
     setLoading(true);
 
     try {
-      const usersRef = collection(db, "SentinelUsers");
-      const userQuery = query(usersRef, where("userID", "==", userid));
+      // const usersRef = collection(db, "IronExUsers");
+      // const userQuery = query(usersRef, where("userID", "==", userid));
       
-      const snapshot = await getDocs(userQuery);
-      console.log(`📊 User query returned ${snapshot.size} documents`);
+      // const snapshot = await getDocs(userQuery);
+      // console.log(`📊 User query returned ${snapshot.size} documents`);
 
-      if (snapshot.empty) {
-        console.log("⚠️ User not found");
-        setUsers([]);
-        setLoading(false);
-        return;
-      }
+      // if (snapshot.empty) {
+      //   console.log("⚠️ User not found");
+      //   setUsers([]);
+      //   setLoading(false);
+      //   return;
+      // }
 
-      const allFollowingIds = new Set<string>();
+      // const allFollowingIds = new Set<string>();
       
-      snapshot.docs.forEach((doc) => {
-        const followingArray = doc.data().Following || [];
-        followingArray.forEach((id: string) => allFollowingIds.add(id));
-      });
+      // snapshot.docs.forEach((doc) => {
+      //   const followingArray = doc.data().Following || [];
+      //   followingArray.forEach((id: string) => allFollowingIds.add(id));
+      // });
 
-      const mergedFollowingIds = Array.from(allFollowingIds);
-      console.log(`📋 Merged Following from ${snapshot.size} documents: ${mergedFollowingIds.length} total IDs`);
+      // const mergedFollowingIds = Array.from(allFollowingIds);
+      // console.log(`📋 Merged Following from ${snapshot.size} documents: ${mergedFollowingIds.length} total IDs`);
 
-      const validUUIDs = mergedFollowingIds.filter((id: string) => {
-        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-        if (!isUUID) {
-          console.log(`⚠️ Filtering out non-UUID ID: ${id}`);
+      // const validUUIDs = mergedFollowingIds.filter((id: string) => {
+      //   const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+      //   if (!isUUID) {
+      //     console.log(`⚠️ Filtering out non-UUID ID: ${id}`);
+      //   }
+      //   return isUUID;
+      // });
+
+      // console.log(`✅ Filtered to ${validUUIDs.length} valid app user IDs`);
+
+      // if (validUUIDs.length === 0) {
+      //   setUsers([]);
+      //   setLoading(false);
+      //   return;
+      // }
+
+      // const userDetailsMap = await fetchUserDetailsFromSentinelUsers(validUUIDs);
+      
+      // const followingList: UserItem[] = [];
+      // validUUIDs.forEach((followingId: string) => {
+      //   const userDetails = userDetailsMap.get(followingId);
+      //   if (userDetails) {
+      //     followingList.push(userDetails);
+      //   } else {
+      //     console.warn(`⚠️ No user data found for following user: ${followingId}`);
+      //   }
+      // });
+
+      const userDocRef = doc(db, 'IronExUsers', userid);
+
+      const unsubscribeFollowing = onSnapshot(userDocRef, (docSnapshot) => {
+        if (docSnapshot.exists()) {
+          const data = docSnapshot.data();
+
+          // 1. Get the Array of following objects
+          const followingList: UserItem[] = data.Following || [];
+
+          // Update your React states
+          // setFollowingData(followingList);
+          console.log(`✅ Displaying ${followingList.length} following`);
+          setUsers(followingList);
         }
-        return isUUID;
+      }, (error) => {
+        console.error("❌ Real-time listener failed:", error);
       });
 
-      console.log(`✅ Filtered to ${validUUIDs.length} valid app user IDs`);
-
-      if (validUUIDs.length === 0) {
-        setUsers([]);
-        setLoading(false);
-        return;
-      }
-
-      const userDetailsMap = await fetchUserDetailsFromSentinelUsers(validUUIDs);
+  
       
-      const followingList: UserItem[] = [];
-      validUUIDs.forEach((followingId: string) => {
-        const userDetails = userDetailsMap.get(followingId);
-        if (userDetails) {
-          followingList.push(userDetails);
-        } else {
-          console.warn(`⚠️ No user data found for following user: ${followingId}`);
-        }
-      });
 
-      console.log(`✅ Displaying ${followingList.length} following`);
-      setUsers(followingList);
+      // console.log(`✅ Displaying ${followingList.length} following`);
+      // setUsers(followingList);
       setLoading(false);
+
+      return () => {
+        unsubscribeFollowing();
+      };
+      
     } catch (error) {
       console.error("❌ Error fetching following:", error);
       setUsers([]);
+      setLoading(false);
+    } finally {
       setLoading(false);
     }
   }, [userid]);

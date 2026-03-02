@@ -52,7 +52,9 @@ interface PostItem {
   uniqueId: string;
   AuthorImageURL: string;
   AuthorName: string;
+  AuthorNickName?: string
   AuthorUserID?: string;
+  AuthorEmail?: string;
   ContentDate: string;
   ContentDesc: string;
   ContentURL: string;
@@ -1372,7 +1374,9 @@ useEffect(() => {
           pathname: "/profile/[userId]",
           params: {
             userId: authorId || '12345',                 // item.AuthorUserID
+            userEmail: item.AuthorEmail || '',
             authorName: item.AuthorName || 'Anonymous',      // from post
+            userNickName: item.AuthorNickName || '',
             authorImageUrl: item.AuthorImageURL || '', // from post
             isAnonymous: item.isAnonymous ? 'true' : 'false', // ✅ ADD THIS LINE
             userBio: item.AuthorBio || '',  // ✅ ADD THIS LINE
@@ -1420,33 +1424,27 @@ useEffect(() => {
       }
 
       if (fetchuserID) {
-        console.log('🔄 Fetching following list for user:', fetchuserID);
-      
-        const sentinelUsersRef = collection(db, 'SentinelUsers');
-        const q = query(sentinelUsersRef, where('userID', '==', fetchuserID));
-      
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-          if (!snapshot.empty) {
-            const userDoc = snapshot.docs[0];
-            const userData = userDoc.data();
-            setCurrentUserDocId(userDoc.id);
-          
-            // Get following list
-            const following = userData.Following || [];
-            setFollowingUserIds(following);
-            console.log('✅ Following list updated:', following);
-            console.log('✅ Following count:', following.length);
-          } else {
-            console.log('📱 No user document found');
-            setFollowingUserIds([]);
-            setCurrentUserDocId('');
+        console.log('👤 Fetching following list for user:', fetchuserID);
+
+        const userDocRef = doc(db, 'IronExUsers', fetchuserID);
+
+        const unsubscribeFollowing = onSnapshot(userDocRef, (docSnapshot) => {
+          if (docSnapshot.exists()) {
+            const data = docSnapshot.data();
+
+            // 1. Get the Array of following objects
+            const followingList: any[] = data.Following || [];
+            const idOnlyList: string[] = followingList.map(item => item.userId);
+
+            console.log(`✅ Displaying ${followingList.length} following`);
+            setFollowingUserIds(idOnlyList);
           }
         }, (error) => {
-          console.error('❌ Error in following list listener:', error);
+          console.error("❌ Real-time listener failed:", error);
           setFollowingUserIds([]);
         });
 
-        return unsubscribe;
+        return unsubscribeFollowing;
       }
     } catch (error) {
       console.error('❌ Error fetching following list:', error);
@@ -4728,200 +4726,7 @@ useEffect(() => {
     )
   }, [openCommentsModal, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, ApprovalToggle, handleApprovalToggle, dummyAuthorImage, userRole, getPostStatus, areInteractionsDisabled, openGraphModal, renderRepostContent]);
 
-  // const renderPostUserContent = useCallback((item: PostItem, index: number) => {
-  //   let AuthorName = "";
-  //   let AuthorImage = "";
-  //   if (item.isAnonymous) {
-  //     AuthorName = "Anonymous";
-  //     AuthorImage = dummyAuthorImage;
-  //   } else {
-  //     AuthorName = item.AuthorName;
-  //     AuthorImage = item.AuthorImageURL;
-  //   }
-
-  //   return (
-  //     <TouchableOpacity 
-  //       activeOpacity={0.95}
-  //       onPress={() => openCommentsModal(item)}
-  //     >
-  //       <EnhancedCard postId={item.uniqueId}>
-  //         <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
-  //           <View className="flex-row items-center">
-  //               <View className="relative">
-  //                 <TouchableOpacity
-  //                   activeOpacity={0.8}
-  //                   onPress={() =>
-  //                     openFullScreenImage(item?.AuthorImageURL || dummyAuthorImage)
-  //                   }
-  //                 >
-  //                   <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
-  //                     <Image
-  //                       source={{ uri: AuthorImage || dummyAuthorImage }}
-  //                       className="w-full h-full"
-  //                       resizeMode="cover"
-  //                       resizeMethod="resize"
-  //                     />
-  //                   </View>
-  //                 </TouchableOpacity>
-  //               </View>
-
-  //             <View className="flex-1">
-  //             <Text className="font-bold text-gray-900 text-sm">{AuthorName}</Text>
-  //               <View className="flex-row items-center mt-0.5">
-  //                 <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
-  //                 {item.postType === 'X-Data' && (
-  //                   <View className="bg-blue-100 px-1.5 py-0.5 rounded-full">
-  //                     <Text className="text-blue-600 text-xs font-medium">𝕏 POST</Text>
-  //                   </View>
-  //                 )}
-  //               </View>
-  //             </View>
-  //             {item.AuthorUserID === userId && (
-  //               <TouchableOpacity className="p-1.5 rounded-full bg-gray-100"
-  //               onPress={(event) => handleThreeDotsPress(item, event)}>
-  //               <Ionicons name="ellipsis-horizontal" size={12} color="#64748b" />
-  //             </TouchableOpacity>
-  //             )}
-  //           </View>
-  //         </View>
-  
-  //         <View className="px-3 py-2.5">
-  //           {item.isRepost && (
-  //             <View className="flex-row items-center mb-2 pb-2 border-b border-gray-100">
-  //               <Ionicons name="repeat" size={14} color="#64748b" />
-  //               <Text className="ml-1 text-gray-600 text-xs">
-  //                 {item.repostComment ? 'Quote repost' : 'Reposted'}
-  //               </Text>
-  //             </View>
-  //           )}
-  
-  //           <Text className="text-gray-800 text-sm leading-5 mb-2"
-  //             numberOfLines={3}>
-  //             {renderStyledPostText(item.ContentDesc)}
-  //             </Text>
-  
-  //           {renderRepostContent(item)}
-  
-  //           {/* {(!item.isRepost || item.repostComment) && renderMediaContent(item, index)} */}
-  //           {renderMediaContent(item, index)}
-  
-  //           <View className="flex-row items-center">
-  //             <View className="flex-1"> 
-  //               <View className="flex-row items-center mt-1.5">
-
-  //                 <TouchableOpacity
-  //                   className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-  //                   onPress={(e) => {
-  //                     e.stopPropagation();
-  //                     toggleLike(item);
-  //                   }}
-  //                   activeOpacity={0.7}
-  //                   disabled={areInteractionsDisabled(item)}
-  //                 >
-  //                   <Ionicons
-  //                     name={item.Liked ? "heart" : "heart-outline"}
-  //                     size={20}
-  //                     color={item.Liked ? "#ef4444" : "#64748b"}
-  //                   />
-  //                   <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
-  //                     {item.ContentLikeCount}
-  //                   </Text>
-  //                 </TouchableOpacity>
-
-  //                 <TouchableOpacity
-  //                   className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-  //                   onPress={(e) => {
-  //                     e.stopPropagation();
-  //                     openCommentsModal(item);
-  //                   }}
-  //                   activeOpacity={0.7}
-  //                   disabled={areInteractionsDisabled(item)}
-  //                 >
-  //                   <MaterialCommunityIcons
-  //                     name="thumbs-up-down"
-  //                     size={20}
-  //                     color="#000000"
-  //                   />
-  //                   <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
-  //                 </TouchableOpacity>
-  
-  //                 <TouchableOpacity
-  //                   className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-  //                   onPress={(e) => {
-  //                     e.stopPropagation();
-  //                     handleRepost(item);
-  //                   }}
-  //                   activeOpacity={0.7}
-  //                   disabled={areInteractionsDisabled(item)}
-  //                 >
-  //                   <Ionicons 
-  //                     name="repeat-outline" 
-  //                     size={20} 
-  //                     color={item.Reposted ? "#0ea5e9" : "#64748b"} 
-  //                   />
-  //                   <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
-  //                     {item.ContentRepostCount}
-  //                   </Text>
-  //                 </TouchableOpacity>
-
-  //                 {/* Graph/Sentiment Icon with View Count */}
-  //             <TouchableOpacity
-  //               className="flex-row items-center mr-5 px-1.5 py-1"
-  //               onPress={(e) => {
-  //                 e.stopPropagation();
-  //                 openGraphModal(item);
-  //               }}
-  //               activeOpacity={0.7}
-  //               disabled={areInteractionsDisabled(item)}
-  //             >
-  //               <Feather name="bar-chart-2" size={20} color="#64748b" />
-  //               <Text className="text-gray-600 ml-1 text-xs font-medium">
-  //                 {item.ContentViewCount || 0}
-  //               </Text>
-  //             </TouchableOpacity>
-
-
-  //               </View>
-          
-  //             </View>
-
-  //             <View className="flex-row items-center mt-1.5">
-  //               <TouchableOpacity
-  //                 className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-  //                 onPress={(e) => {
-  //                   e.stopPropagation();
-  //                   handleBookmark(item);
-  //                 }}
-  //                 activeOpacity={0.7}
-  //                 disabled={areInteractionsDisabled(item)}
-  //               >
-  //                 <Ionicons 
-  //                   name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
-  //                   size={20} 
-  //                   color={item.Bookmarked ? "#000000" : "#64748b"} 
-  //                 />
-  //               </TouchableOpacity>
-  
-  //               <TouchableOpacity 
-  //                 className={`mr-2 p-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-  //                 onPress={(e) => {
-  //                   e.stopPropagation();
-  //                   handleShare(item);
-  //                 }}
-  //                 activeOpacity={0.7}
-  //                 disabled={areInteractionsDisabled(item)}
-  //               >
-  //                 <Feather name="share-2" size={20} color="#64748b" />
-  //               </TouchableOpacity>
-  //               </View>
-
-  //           </View>
-  //         </View>
-  //       </EnhancedCard>
-  //     </TouchableOpacity>
-  //   )
-  // }, [openCommentsModal, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, dummyAuthorImage, areInteractionsDisabled, openGraphModal, renderRepostContent]);
-
+ 
   const listItems = useMemo(() => {
     console.log(`🔄 Rendering ${filteredData.length} items for ${activeTab} tab`);
     
