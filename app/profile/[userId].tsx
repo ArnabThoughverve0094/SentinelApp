@@ -50,6 +50,7 @@ interface UserDoc {
   userID?: string;
   userName?: string;
   userNickName?: string;
+  userEmail?: string;
   profilePicUrl?: string;
   userBio?: string;
   Website?: string;
@@ -65,6 +66,8 @@ interface PostItem {
   AuthorUserID?: string;
   AuthorImageURL: string;
   AuthorName: string;
+  AuthorNickName: string;
+  AuthorEmail: string;
   AuthorBio: string;
   ContentDate: string;
   ContentDesc: string;
@@ -888,6 +891,7 @@ const fetchFollowerCounts = async () => {
               userID: storedUserId,
               userName: name[1] || authorName || "",
               userNickName: nickname[1] || "",
+              userEmail: userEmail[1] || "",
               profilePicUrl: profilePicUrl[1] || (authorImageUrl as string) || "",
               userBio: bio[1] || "",
               Website: undefined,
@@ -1030,6 +1034,8 @@ const fetchFollowerCounts = async () => {
             id: postId,
             AuthorImageURL: postData.AuthorImageURL,
             AuthorName: postData.AuthorName,
+            AuthorNickName: postData.AuthorNickName,
+            AuthorEmail: postData.AuthorEmail,
             AuthorUserID: postData.AuthorUserID || postData.repostedBy || "",
             AuthorBio: postData.AuthorBio || '',
             ContentDate: postData.ContentDate,
