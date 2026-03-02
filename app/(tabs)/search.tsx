@@ -1,8 +1,8 @@
 import { db } from '@/FirebaseConfig';
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { addDoc, arrayRemove, arrayUnion, collection, doc, getDocs, onSnapshot, updateDoc, query, where } from 'firebase/firestore';
+import { useRouter } from 'expo-router';
+import { arrayRemove, arrayUnion, collection, doc, getDocs, increment, onSnapshot, writeBatch } from 'firebase/firestore';
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -312,25 +312,26 @@ export default function SearchPage() {
 
       if (fetchuserID) {
         console.log('👤 Fetching following list for user:', fetchuserID);
-        const sentinelUsersRef = collection(db, 'SentinelUsers');
-        const q = query(sentinelUsersRef, where('userID', '==', fetchuserID));
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-          if (!snapshot.empty) {
-            const userDoc = snapshot.docs[0];
-            const userData = userDoc.data();
-            setCurrentUserDocId(userDoc.id);
-            const following = userData.Following || [];
-            setFollowingUserIds(following);
-            console.log('✅ Following list updated:', following);
-          } else {
-            console.log('📝 No user document found');
-            setFollowingUserIds([]);
-            setCurrentUserDocId('');
+        const userDocRef = doc(db, 'IronExUsers', fetchuserID);
+
+        const unsubscribeFollowing = onSnapshot(userDocRef, (docSnapshot) => {
+          if (docSnapshot.exists()) {
+            const data = docSnapshot.data();
+
+            // 1. Get the Array of following objects
+            const followingList: any[] = data.Following || [];
+            const idOnlyList: string[] = followingList.map(item => item.userId);
+
+            console.log(`✅ Displaying ${followingList.length} following`);
+            setFollowingUserIds(idOnlyList);
           }
+        }, (error) => {
+          console.error("❌ Real-time listener failed:", error);
+          setFollowingUserIds([]);
         });
 
-        return unsubscribe;
+        return unsubscribeFollowing;
       }
     } catch (error) {
       console.error('❌ Error fetching following list:', error);
@@ -381,35 +382,35 @@ export default function SearchPage() {
       }
 
       // Fetch from X-Data
-      try {
-        const xDataSnapshot = await getDocs(collection(db, 'X-Data'));
-        xDataSnapshot.docs.forEach(doc => {
-          const data = doc.data();
-          const authorId = data.AuthorUserID;
+      // try {
+      //   const xDataSnapshot = await getDocs(collection(db, 'X-Data'));
+      //   xDataSnapshot.docs.forEach(doc => {
+      //     const data = doc.data();
+      //     const authorId = data.AuthorUserID;
 
-          if (authorId) {
-            if (!uniqueUsers.has(authorId)) {
-              uniqueUsers.set(authorId, {
-                docID: "",
-                id: authorId,
-                name: data.AuthorName || 'Unknown User',
-                avatar: data.AuthorImageURL || '',
-                postCount: 1,
-                isFollowing: false,
-              });
-            } else {
-              const existing = uniqueUsers.get(authorId)!;
-              existing.postCount = (existing.postCount || 0) + 1;
-              if (!existing.avatar && data.AuthorImageURL) {
-                existing.avatar = data.AuthorImageURL;
-              }
-            }
-          }
-        });
-        console.log(`✅ Total unique users: ${uniqueUsers.size}`);
-      } catch (error) {
-        console.warn('⚠️ Error fetching from X-Data:', error);
-      }
+      //     if (authorId) {
+      //       if (!uniqueUsers.has(authorId)) {
+      //         uniqueUsers.set(authorId, {
+      //           docID: "",
+      //           id: authorId,
+      //           name: data.AuthorName || 'Unknown User',
+      //           avatar: data.AuthorImageURL || '',
+      //           postCount: 1,
+      //           isFollowing: false,
+      //         });
+      //       } else {
+      //         const existing = uniqueUsers.get(authorId)!;
+      //         existing.postCount = (existing.postCount || 0) + 1;
+      //         if (!existing.avatar && data.AuthorImageURL) {
+      //           existing.avatar = data.AuthorImageURL;
+      //         }
+      //       }
+      //     }
+      //   });
+      //   console.log(`✅ Total unique users: ${uniqueUsers.size}`);
+      // } catch (error) {
+      //   console.warn('⚠️ Error fetching from X-Data:', error);
+      // }
 
       // Sort alphabetically
       const usersArray = Array.from(uniqueUsers.values()).sort((a, b) =>
@@ -502,35 +503,76 @@ export default function SearchPage() {
     console.log(`\n🔄 ${user.isFollowing ? 'Unfollowing' : 'Following'} ${user.name}`);
     console.log('User ID:', user.id);
 
+    let fetchuserID = userId;
+    if (!fetchuserID) {
+      fetchuserID = (await AsyncStorage.getItem('userId')) || '';
+      setUserId(fetchuserID);
+    }
+
+    const fetchUserEmail = (await AsyncStorage.getItem("userEmail")) || '';
+    const fetchUserName = (await AsyncStorage.getItem("userName")) || '';
+    const fetchUserNickName = (await AsyncStorage.getItem("userNickName")) || '';
+    const fetchUserProfilePicURL = (await AsyncStorage.getItem("profilePicUrl")) || '';
+    
+    const batch = writeBatch(db);
+    const userUsersDocRef = doc(db, 'IronExUsers', fetchuserID);
+    const targetUserDocRef = doc(db, 'IronExUsers', user.id);
+
+    // Data objects for the arrays
+    const followingData = {
+      userId: user.id,
+      userEmail: user.email || '',
+      userName: user.name || '',
+      userNickName: user.nickName || '',
+      profilePicUrl: user.avatar || ''
+    };
+  
+    const followerData = {
+      userId: fetchuserID,
+      userEmail: fetchUserEmail || '',
+      userName: fetchUserName || '',
+      userNickName: fetchUserNickName || '',
+      profilePicUrl: fetchUserProfilePicURL || ''
+    };
+
     try {
       if (user.isFollowing) {
-        // Unfollow
-        if (currentUserDocId) {
-          const userRef = doc(db, "SentinelUsers", currentUserDocId);
-          await updateDoc(userRef, {
-            Following: arrayRemove(user.id),
-          });
-          console.log(`✅ Successfully unfollowed: ${user.name}`);
-        }
+        // --- UNFOLLOW LOGIC ---
+        batch.update(userUsersDocRef, {
+          Following: arrayRemove(followingData), // Atomic remove
+          followingCount: increment(-1)
+        });
+  
+        batch.update(targetUserDocRef, {
+          Follower: arrayRemove(followerData), // Atomic remove
+          followerCount: increment(-1)
+        });
+
       } else {
-        // Follow
-        if (currentUserDocId) {
-          const userRef = doc(db, "SentinelUsers", currentUserDocId);
-          await updateDoc(userRef, {
-            Following: arrayUnion(user.id),
-          });
-          console.log(`✅ Successfully followed: ${user.name}`);
-        } else {
-          // Create new document
-          console.log('📝 Creating new user document...');
-          const newDocRef = await addDoc(collection(db, 'SentinelUsers'), {
-            userID: userId,
-            Following: [user.id],
-          });
-          setCurrentUserDocId(newDocRef.id);
-          console.log(`✅ Created document and followed: ${user.name}`);
-        }
+        // --- FOLLOW LOGIC ---
+        batch.set(userUsersDocRef, {
+          userID: fetchuserID,
+          userEmail: fetchUserEmail || '',
+          userName: fetchUserName || '',
+          userNickName: fetchUserNickName || '',
+          profilePicUrl: fetchUserProfilePicURL || '',
+          Following: arrayUnion(followingData),
+          followingCount: increment(1)
+        }, { merge: true });
+  
+        batch.set(targetUserDocRef, {
+          userID: user.id,
+          userEmail: user.email || '',
+          userName: user.name || '',
+          userNickName: user.nickName || '',
+          profilePicUrl: user.avatar || '',
+          Follower: arrayUnion(followerData),
+          followerCount: increment(1)
+        }, { merge: true });
       }
+      
+      // Commit both updates at once
+      await batch.commit();
 
       // onSnapshot will automatically update the UI
       console.log('⏳ Waiting for onSnapshot to update UI...\n');
