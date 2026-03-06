@@ -1,7 +1,15 @@
 import { db } from "@/FirebaseConfig";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { collection, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDoc,
+  onSnapshot,
+  query,
+  updateDoc,
+  where,
+} from "firebase/firestore";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FlatList,
@@ -14,6 +22,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 type Notification = {
+  _stableKey: string;
   id: string;
   type: string;
   user: { name: string; avatar: string };
@@ -21,7 +30,7 @@ type Notification = {
   message: string;
   showButtons: boolean;
   status?: string;
-  isRead: boolean; // ✅ NEW
+  isRead: boolean;
 };
 
 type NotifyConfig = {
@@ -34,20 +43,20 @@ type NotifyConfig = {
 };
 
 const NOTIFY_CONFIG: Record<string, NotifyConfig> = {
-  post_approved: { icon: "checkmark-circle", iconColor: "#22C55E", iconBg: "#DCFCE7", badgeLabel: "✅  Post Approved", badgeBg: "#DCFCE7", badgeText: "#15803D" },
-  postapproved: { icon: "checkmark-circle", iconColor: "#22C55E", iconBg: "#DCFCE7", badgeLabel: "✅  Post Approved", badgeBg: "#DCFCE7", badgeText: "#15803D" },
-  post_rejected: { icon: "close-circle", iconColor: "#EF4444", iconBg: "#FEE2E2", badgeLabel: "❌  Post Rejected", badgeBg: "#FEE2E2", badgeText: "#B91C1C" },
-  postrejected: { icon: "close-circle", iconColor: "#EF4444", iconBg: "#FEE2E2", badgeLabel: "❌  Post Rejected", badgeBg: "#FEE2E2", badgeText: "#B91C1C" },
-  post_pending: { icon: "time", iconColor: "#F59E0B", iconBg: "#FEF3C7", badgeLabel: "⏳  Post Under Review", badgeBg: "#FEF3C7", badgeText: "#92400E" },
-  postsubmitted: { icon: "time", iconColor: "#F59E0B", iconBg: "#FEF3C7", badgeLabel: "⏳  Post Under Review", badgeBg: "#FEF3C7", badgeText: "#92400E" },
-  videopostsubmitted: { icon: "videocam", iconColor: "#8B5CF6", iconBg: "#EDE9FE", badgeLabel: "🎥  Video Under Review", badgeBg: "#EDE9FE", badgeText: "#5B21B6" },
-  video_review_pending: { icon: "videocam", iconColor: "#8B5CF6", iconBg: "#EDE9FE", badgeLabel: "🎥  Video Under Review", badgeBg: "#EDE9FE", badgeText: "#5B21B6" },
-  post_reported: { icon: "flag", iconColor: "#F97316", iconBg: "#FFEDD5", badgeLabel: "🚩  Post Reported", badgeBg: "#FFEDD5", badgeText: "#9A3412" },
-  postreported: { icon: "flag", iconColor: "#F97316", iconBg: "#FFEDD5", badgeLabel: "🚩  Post Reported", badgeBg: "#FFEDD5", badgeText: "#9A3412" },
-  user_blocked: { icon: "ban", iconColor: "#6B7280", iconBg: "#F3F4F6", badgeLabel: "🚫  Account Restricted", badgeBg: "#F3F4F6", badgeText: "#374151" },
-  follow: { icon: "person-add", iconColor: "#3B82F6", iconBg: "#DBEAFE", badgeLabel: "👤  New Follower", badgeBg: "#DBEAFE", badgeText: "#1D40AF" },
-  like: { icon: "heart", iconColor: "#EF4444", iconBg: "#FEE2E2", badgeLabel: "❤️  Post Liked", badgeBg: "#FEE2E2", badgeText: "#B91C1C" },
-  profile_updated: { icon: "person-circle", iconColor: "#3B82F6", iconBg: "#DBEAFE", badgeLabel: "👤  Profile Updated", badgeBg: "#DBEAFE", badgeText: "#1D40AF" },
+  post_approved:        { icon: "checkmark-circle", iconColor: "#22C55E", iconBg: "#DCFCE7", badgeLabel: "✅  Post Approved",      badgeBg: "#DCFCE7", badgeText: "#15803D" },
+  postapproved:         { icon: "checkmark-circle", iconColor: "#22C55E", iconBg: "#DCFCE7", badgeLabel: "✅  Post Approved",      badgeBg: "#DCFCE7", badgeText: "#15803D" },
+  post_rejected:        { icon: "close-circle",     iconColor: "#EF4444", iconBg: "#FEE2E2", badgeLabel: "❌  Post Rejected",      badgeBg: "#FEE2E2", badgeText: "#B91C1C" },
+  postrejected:         { icon: "close-circle",     iconColor: "#EF4444", iconBg: "#FEE2E2", badgeLabel: "❌  Post Rejected",      badgeBg: "#FEE2E2", badgeText: "#B91C1C" },
+  post_pending:         { icon: "time",             iconColor: "#F59E0B", iconBg: "#FEF3C7", badgeLabel: "⏳  Post Under Review",  badgeBg: "#FEF3C7", badgeText: "#92400E" },
+  postsubmitted:        { icon: "time",             iconColor: "#F59E0B", iconBg: "#FEF3C7", badgeLabel: "⏳  Post Under Review",  badgeBg: "#FEF3C7", badgeText: "#92400E" },
+  videopostsubmitted:   { icon: "videocam",         iconColor: "#8B5CF6", iconBg: "#EDE9FE", badgeLabel: "🎥  Video Under Review", badgeBg: "#EDE9FE", badgeText: "#5B21B6" },
+  video_review_pending: { icon: "videocam",         iconColor: "#8B5CF6", iconBg: "#EDE9FE", badgeLabel: "🎥  Video Under Review", badgeBg: "#EDE9FE", badgeText: "#5B21B6" },
+  post_reported:        { icon: "flag",             iconColor: "#F97316", iconBg: "#FFEDD5", badgeLabel: "🚩  Post Reported",      badgeBg: "#FFEDD5", badgeText: "#9A3412" },
+  postreported:         { icon: "flag",             iconColor: "#F97316", iconBg: "#FFEDD5", badgeLabel: "🚩  Post Reported",      badgeBg: "#FFEDD5", badgeText: "#9A3412" },
+  user_blocked:         { icon: "ban",              iconColor: "#6B7280", iconBg: "#F3F4F6", badgeLabel: "🚫  Account Restricted", badgeBg: "#F3F4F6", badgeText: "#374151" },
+  follow:               { icon: "person-add",       iconColor: "#3B82F6", iconBg: "#DBEAFE", badgeLabel: "👤  New Follower",       badgeBg: "#DBEAFE", badgeText: "#1D40AF" },
+  like:                 { icon: "heart",            iconColor: "#EF4444", iconBg: "#FEE2E2", badgeLabel: "❤️  Post Liked",        badgeBg: "#FEE2E2", badgeText: "#B91C1C" },
+  profile_updated:      { icon: "person-circle",   iconColor: "#3B82F6", iconBg: "#DBEAFE", badgeLabel: "👤  Profile Updated",    badgeBg: "#DBEAFE", badgeText: "#1D40AF" },
 };
 
 const DEFAULT_CONFIG: NotifyConfig = {
@@ -66,118 +75,146 @@ function getMillis(val: any): number {
   return new Date(val).getTime();
 }
 
+// ✅ Pure content-based key — NO index, always same for same notification
+function buildStableKey(n: any): string {
+  if (n.id) return String(n.id);
+  const ts = getMillis(n.ContentDate);
+  const type = (n.NotifyType || "").trim();
+  const author = (n.AuthorName || "").trim();
+  const desc = (n.Description || "").substring(0, 20).trim();
+  return `${type}__${author}__${ts}__${desc}`;
+}
+
 export default function NotificationPage() {
-  const [userImage, setUserImage] = useState("");
-  const [userName, setUserName] = useState("");
   const [userId, setUserId] = useState("");
   const [notificationDetails, setNotificationDetails] = useState<Notification[]>([]);
   const [currentUserDocId, setCurrentUserDocId] = useState("");
-  const [activeFilter, setActiveFilter] = useState<"all" | "unread">("all"); // ✅ NEW
+  const [activeFilter, setActiveFilter] = useState<"all" | "unread">("all");
 
   useEffect(() => {
-    getItem();
-    fetchUserData();
+    const init = async () => {
+      const id = await AsyncStorage.getItem("userId");
+      if (id) setUserId(id);
+    };
+    init();
   }, []);
 
-  const getItem = async () => {
-    try {
-      const fetchuserName = await AsyncStorage.getItem("userName");
-      const fetchUserImage = await AsyncStorage.getItem("profilePicUrl");
-      const fetchuserID = await AsyncStorage.getItem("userId");
-      if (fetchuserName !== null) setUserName(fetchuserName);
-      if (fetchUserImage !== null) setUserImage(fetchUserImage);
-      if (fetchuserID !== null) setUserId(fetchuserID);
-    } catch (error) {
-      console.log("Error retrieving item", error);
-    }
-  };
+  // ✅ Start listener only once userId is ready
+  useEffect(() => {
+    if (!userId) return;
 
-  const fetchUserData = useCallback(async () => {
-    try {
-      let fetchuserID = userId;
-      if (fetchuserID === "") {
-        fetchuserID = (await AsyncStorage.getItem("userId")) || "";
-        setUserId(fetchuserID);
+    const q = query(
+      collection(db, "SentinelUsers"),
+      where("userID", "==", userId)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetchNotific: Notification[] = [];
+
+      for (const docSnap of snapshot.docs) {
+        const postData = docSnap.data();
+        setCurrentUserDocId(docSnap.id);
+
+        if (postData.Notification != null) {
+          postData.Notification.forEach((n: any) => {
+            const stableKey = buildStableKey(n);
+            fetchNotific.push({
+              _stableKey: stableKey,
+              id: n.id || stableKey,
+              type: n.NotifyType || "",
+              user: {
+                name: n.AuthorName || "",
+                avatar: n.AuthorImageURL || "",
+              },
+              time: n.ContentDate,
+              message: n.Description || "",
+              showButtons: n.ShowButtons || false,
+              status: n.Status,
+              isRead: n.isRead === true, // ✅ strict boolean check
+            });
+          });
+        }
       }
-      if (fetchuserID) {
-        const sentinelUsersRef = collection(db, "SentinelUsers");
-        const q = query(sentinelUsersRef, where("userID", "==", fetchuserID));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-          const fetchNotific: Notification[] = [];
-          for (const docSnap of snapshot.docs) {
-            const postData = docSnap.data();
-            setCurrentUserDocId(docSnap.id);
-            if (postData.Notification != null) {
-              for (const docNotification of postData.Notification) {
-                fetchNotific.push({
-                  id: docNotification.id,
-                  type: docNotification.NotifyType,
-                  user: {
-                    name: docNotification.AuthorName,
-                    avatar: docNotification.AuthorImageURL,
-                  },
-                  time: docNotification.ContentDate,
-                  message: docNotification.Description,
-                  showButtons: docNotification.ShowButtons,
-                  status: docNotification.Status,
-                  isRead: docNotification.isRead ?? false, // ✅ NEW
-                });
-              }
-            }
-          }
-          fetchNotific.sort((a, b) => getMillis(b.time) - getMillis(a.time));
-          setNotificationDetails(fetchNotific);
-        });
-        return unsubscribe;
-      }
-    } catch (error) {
-      console.error("Error fetching notification list:", error);
-      setNotificationDetails([]);
-      setCurrentUserDocId("");
-    }
+
+      fetchNotific.sort((a, b) => getMillis(b.time) - getMillis(a.time));
+      setNotificationDetails(fetchNotific);
+    });
+
+    return () => unsubscribe();
   }, [userId]);
 
-  // ✅ Count unread notifications
   const unreadCount = useMemo(
     () => notificationDetails.filter((n) => !n.isRead).length,
     [notificationDetails]
   );
 
-  // ✅ Filtered list based on active tab
   const filteredNotifications = useMemo(
-    () => activeFilter === "unread"
-      ? notificationDetails.filter((n) => !n.isRead)
-      : notificationDetails,
+    () =>
+      activeFilter === "unread"
+        ? notificationDetails.filter((n) => !n.isRead)
+        : notificationDetails,
     [notificationDetails, activeFilter]
   );
 
-  // ✅ Mark single notification as read
-  const markAsRead = useCallback(async (notificationId: string) => {
-    if (!currentUserDocId) return;
-    try {
-      const userRef = doc(db, "SentinelUsers", currentUserDocId);
-      const userSnap = await (await import("firebase/firestore")).getDoc(userRef);
-      if (!userSnap.exists()) return;
-      const currentNotifications = userSnap.data().Notification || [];
-      const updatedNotifications = currentNotifications.map((n: any) =>
-        n.id === notificationId ? { ...n, isRead: true } : n
-      );
-      await updateDoc(userRef, { Notification: updatedNotifications });
-    } catch (e) {
-      console.error("Error marking notification as read:", e);
-    }
-  }, [currentUserDocId]);
+  // ✅ FIXED: optimistic UI update + Firestore update matched by stableKey
+  const markAsRead = useCallback(
+    async (notification: Notification) => {
+      if (!currentUserDocId || notification.isRead) return;
 
-  // ✅ Mark ALL notifications as read
+      // ✅ Step 1: Optimistic update — instant UI response
+      setNotificationDetails((prev) =>
+        prev.map((n) =>
+          n._stableKey === notification._stableKey ? { ...n, isRead: true } : n
+        )
+      );
+
+      // ✅ Step 2: Update Firestore
+      try {
+        const userRef = doc(db, "SentinelUsers", currentUserDocId);
+        const userSnap = await getDoc(userRef);
+        if (!userSnap.exists()) return;
+
+        const rawList: any[] = userSnap.data().Notification || [];
+
+        const updated = rawList.map((n: any) => {
+          // ✅ Match using same pure content key
+          if (buildStableKey(n) === notification._stableKey) {
+            return { ...n, isRead: true };
+          }
+          return n;
+        });
+
+        await updateDoc(userRef, { Notification: updated });
+      } catch (e) {
+        console.error("Error marking as read:", e);
+        // Rollback optimistic update on error
+        setNotificationDetails((prev) =>
+          prev.map((n) =>
+            n._stableKey === notification._stableKey ? { ...n, isRead: false } : n
+          )
+        );
+      }
+    },
+    [currentUserDocId]
+  );
+
+  // ✅ FIXED: Mark all read with optimistic update
   const markAllAsRead = useCallback(async () => {
     if (!currentUserDocId) return;
+
+    // ✅ Step 1: Optimistic update — instant UI response
+    setNotificationDetails((prev) => prev.map((n) => ({ ...n, isRead: true })));
+
+    // ✅ Step 2: Update Firestore
     try {
       const userRef = doc(db, "SentinelUsers", currentUserDocId);
-      const userSnap = await (await import("firebase/firestore")).getDoc(userRef);
+      const userSnap = await getDoc(userRef);
       if (!userSnap.exists()) return;
-      const currentNotifications = userSnap.data().Notification || [];
-      const updatedNotifications = currentNotifications.map((n: any) => ({ ...n, isRead: true }));
-      await updateDoc(userRef, { Notification: updatedNotifications });
+
+      const rawList: any[] = userSnap.data().Notification || [];
+      const updated = rawList.map((n: any) => ({ ...n, isRead: true }));
+
+      await updateDoc(userRef, { Notification: updated });
     } catch (e) {
       console.error("Error marking all as read:", e);
     }
@@ -218,23 +255,23 @@ export default function NotificationPage() {
     const isUnread = !notification.isRead;
 
     return (
-      // ✅ Tap to mark as read
       <TouchableOpacity
         activeOpacity={0.85}
-        onPress={() => { if (isUnread) markAsRead(notification.id); }}
+        onPress={() => { if (isUnread) markAsRead(notification); }}
         style={{
           flexDirection: "row",
           alignItems: "flex-start",
           paddingHorizontal: 16,
           paddingVertical: 14,
-          // ✅ Unread = light blue tint background, Read = white
           backgroundColor: isUnread ? "#EFF6FF" : "#fff",
         }}
       >
-        {/* Avatar + icon badge */}
         <View style={{ marginRight: 12 }}>
           <Image
-            source={{ uri: notification.user.avatar || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg" }}
+            source={{
+              uri: notification.user.avatar ||
+                "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
+            }}
             style={{ width: 48, height: 48, borderRadius: 24 }}
             resizeMode="cover"
           />
@@ -250,7 +287,6 @@ export default function NotificationPage() {
           </View>
         </View>
 
-        {/* Content */}
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
             <Text style={{ fontSize: 14, color: "#111827", lineHeight: 20, marginBottom: 3, flex: 1, paddingRight: 8 }}>
@@ -258,7 +294,6 @@ export default function NotificationPage() {
               {"  "}
               {notification.message}
             </Text>
-            {/* ✅ Blue dot for unread */}
             {isUnread && (
               <View style={{
                 width: 9, height: 9, borderRadius: 5,
@@ -271,7 +306,6 @@ export default function NotificationPage() {
             {getTimeAgo(notification.time)}
           </Text>
 
-          {/* Status badge */}
           <View style={{
             alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 4,
             borderRadius: 20, backgroundColor: cfg.badgeBg,
@@ -281,10 +315,12 @@ export default function NotificationPage() {
             </Text>
           </View>
 
-          {/* Follow/Decline Buttons */}
           {notification.showButtons && (
             <View style={{ flexDirection: "row", marginTop: 8 }}>
-              <TouchableOpacity style={{ backgroundColor: "#000", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, marginRight: 8 }}>
+              <TouchableOpacity style={{
+                backgroundColor: "#000", paddingHorizontal: 16,
+                paddingVertical: 8, borderRadius: 8, marginRight: 8,
+              }}>
                 <Text style={{ color: "#fff", fontSize: 13, fontWeight: "600" }}>Follow</Text>
               </TouchableOpacity>
               <TouchableOpacity style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}>
@@ -301,14 +337,12 @@ export default function NotificationPage() {
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }}>
       <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
 
-      {/* Header */}
       <View style={{ paddingHorizontal: 16, paddingTop: 40, paddingBottom: 8, backgroundColor: "#F9FAFB" }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             <Text style={{ fontSize: 26, fontWeight: "800", color: "#111827", paddingTop: 12 }}>
               Notifications
             </Text>
-            {/* ✅ Unread count badge in header */}
             {unreadCount > 0 && (
               <View style={{
                 marginLeft: 10, marginTop: 12,
@@ -321,11 +355,13 @@ export default function NotificationPage() {
               </View>
             )}
           </View>
-          {/* ✅ Mark all as read button */}
           {unreadCount > 0 && (
             <TouchableOpacity
               onPress={markAllAsRead}
-              style={{ marginTop: 12, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: "#EFF6FF" }}
+              style={{
+                marginTop: 12, paddingHorizontal: 12, paddingVertical: 6,
+                borderRadius: 8, backgroundColor: "#EFF6FF",
+              }}
             >
               <Text style={{ fontSize: 12, fontWeight: "600", color: "#3B82F6" }}>
                 Mark all read
@@ -334,7 +370,6 @@ export default function NotificationPage() {
           )}
         </View>
 
-        {/* ✅ All / Unread Filter Tabs */}
         <View style={{ flexDirection: "row", marginTop: 14, gap: 8 }}>
           <TouchableOpacity
             onPress={() => setActiveFilter("all")}
@@ -369,11 +404,10 @@ export default function NotificationPage() {
         </View>
       </View>
 
-      {/* List */}
       <View style={{ flex: 1 }}>
         <FlatList
           data={filteredNotifications}
-          keyExtractor={(item, index) => item.id ? item.id.toString() : index.toString()}
+          keyExtractor={(item) => item._stableKey}
           renderItem={({ item }) => <NotificationItem notification={item} />}
           showsVerticalScrollIndicator={false}
           ItemSeparatorComponent={() => (
