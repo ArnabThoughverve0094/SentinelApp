@@ -35,6 +35,7 @@ interface PostItem {
   AuthorUserID?: string;
   AuthorImageURL: string;
   AuthorName: string;
+  AuthorEmail: string;
   AuthorBio?: string;
   ContentDate: string;
   ContentDesc: string;
@@ -1044,43 +1045,44 @@ export default function BookmarksPage(): React.JSX.Element {
       const allBookmarkedPosts: PostItem[] = [];
 
       // Fetch X-Data bookmarks
-      const xDataRef = collection(db, 'X-Data');
-      const xDataQuery = query(xDataRef, orderBy('ContentDate', 'desc'));
-      const xDataSnapshot = await getDocs(xDataQuery);
+      // const xDataRef = collection(db, 'X-Data');
+      // const xDataQuery = query(xDataRef, orderBy('ContentDate', 'desc'));
+      // const xDataSnapshot = await getDocs(xDataQuery);
 
-      xDataSnapshot.docs.forEach(doc => {
-        const postData = doc.data();
-        if (postData.BookmarkedBy?.includes(fetchuserID)) {
-          allBookmarkedPosts.push({
-            uniqueId: `xdata-${doc.id}`,
-            id: doc.id,
-            AuthorImageURL: postData.AuthorImageURL,
-            AuthorName: postData.AuthorName,
-            AuthorBio: postData.AuthorBio || '',
-            AuthorUserID: postData.AuthorUserID,
-            ContentDate: postData.ContentDate,
-            ContentDesc: postData.ContentDesc,
-            ContentURL: postData.ContentURL,
-            ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
-            ContentLikeCount: postData.ContentLikeCount || 0,
-            ContentRepostCount: postData.ContentRepostCount || 0,
-            ContentCommentCount: postData.ContentCommentCount || 0,
-            ContentViewCount: postData.ContentViewCount || 0, // ✅ VIEW COUNT
-            ViewedBy: postData.ViewedBy || [], // ✅ VIEW TRACKING
-            isApproved: true,
-            isNew: false,
-            postType: 'X-Data',
-            Liked: postData.LikedBy?.includes(fetchuserID) || false,
-            Reposted: postData.RepostedBy?.includes(fetchuserID) || false,
-            Bookmarked: true,
-            createdAt: postData.createdAt || postData.ContentDate,
-            bookmarkedAt: postData.bookmarkedAt || new Date(),
-            CommentTemplate: postData.CommentTemplate || 'Standard Template',
-            isAnonymous: false,
-            contentType: postData.contentType || 'My Thoughts',
-          });
-        }
-      });
+      // xDataSnapshot.docs.forEach(doc => {
+      //   const postData = doc.data();
+      //   if (postData.BookmarkedBy?.includes(fetchuserID)) {
+      //     allBookmarkedPosts.push({
+      //       uniqueId: `xdata-${doc.id}`,
+      //       id: doc.id,
+      //       AuthorImageURL: postData.AuthorImageURL,
+      //       AuthorName: postData.AuthorName,
+      //       AuthorEmail: postData.AuthorEmail|| '',
+      //       AuthorBio: postData.AuthorBio || '',
+      //       AuthorUserID: postData.AuthorUserID,
+      //       ContentDate: postData.ContentDate,
+      //       ContentDesc: postData.ContentDesc,
+      //       ContentURL: postData.ContentURL,
+      //       ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+      //       ContentLikeCount: postData.ContentLikeCount || 0,
+      //       ContentRepostCount: postData.ContentRepostCount || 0,
+      //       ContentCommentCount: postData.ContentCommentCount || 0,
+      //       ContentViewCount: postData.ContentViewCount || 0, // ✅ VIEW COUNT
+      //       ViewedBy: postData.ViewedBy || [], // ✅ VIEW TRACKING
+      //       isApproved: true,
+      //       isNew: false,
+      //       postType: 'X-Data',
+      //       Liked: postData.LikedBy?.includes(fetchuserID) || false,
+      //       Reposted: postData.RepostedBy?.includes(fetchuserID) || false,
+      //       Bookmarked: true,
+      //       createdAt: postData.createdAt || postData.ContentDate,
+      //       bookmarkedAt: postData.bookmarkedAt || new Date(),
+      //       CommentTemplate: postData.CommentTemplate || 'Standard Template',
+      //       isAnonymous: false,
+      //       contentType: postData.contentType || 'My Thoughts',
+      //     });
+      //   }
+      // });
 
       // Fetch SentinelPosts bookmarks
       const sentinelRef = collection(db, 'SentinelPosts');
@@ -1095,6 +1097,7 @@ export default function BookmarksPage(): React.JSX.Element {
             id: doc.id,
             AuthorImageURL: postData.AuthorImageURL,
             AuthorName: postData.AuthorName,
+            AuthorEmail: postData.AuthorEmail|| '',
             AuthorBio: postData.AuthorBio || '',
             AuthorUserID: postData.AuthorUserID || postData.repostedBy || '123456',
             ContentDate: postData.ContentDate,
