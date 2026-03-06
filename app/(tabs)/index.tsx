@@ -1885,7 +1885,7 @@ useEffect(() => {
           postsData.push({
             uniqueId: `sentinel-${postId}`,
             id: postId,
-            AuthorImageURL: postData.AuthorImageURL,
+            AuthorImageURL: postData.AuthorImageURL || '',
             AuthorName: postData.AuthorName || '',
             AuthorNickName: postData.AuthorNickName|| '',
             AuthorEmail: postData.AuthorEmail|| '',
