@@ -35,6 +35,7 @@ interface PostItem {
   AuthorUserID?: string;
   AuthorImageURL: string;
   AuthorName: string;
+  AuthorEmail: string;
   AuthorBio?: string;
   ContentDate: string;
   ContentDesc: string;
@@ -82,6 +83,10 @@ interface MediaCarouselProps {
   VideoPlayer: any;
   index?: number;
 }
+type ShortURLResponse = {
+  shortURL: string;
+  id: any;
+};
 const renderStyledPostText = (text) => {
   if (!text) return null;
 
@@ -594,6 +599,13 @@ export default function BookmarksPage(): React.JSX.Element {
   const [viewedPosts, setViewedPosts] = useState<Set<string>>(new Set());
   const viewTrackingTimeout = useRef<NodeJS.Timeout | number | null>(null);
   const lastTrackedPost = useRef<string | null>(null);
+  const [sharingId, setSharingId] = useState(null);
+  const [selectedPostUserId, setSelectedPostUserId] = useState<string | null>(null);
+  const [isDeleteUserModalVisible, setIsDeleteUserModalVisible] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<string | null>(null);
+  const [showMenuModal, setShowMenuModal] = useState(false);
+  
+  
 
   const formatViewCount = useCallback((count: number): string => {
     if (!count || count === 0) return '0';
@@ -897,48 +909,127 @@ export default function BookmarksPage(): React.JSX.Element {
     }
   }, []);
 
-  const handleShare = useCallback(async (postItem: PostItem) => {
-    console.log("Share pressed:", postItem.id);
+    const handleShare = useCallback(async (postItem: PostItem) => {
+      console.log("Share pressed:", postItem?.id);
+      
+      setSharingId(postItem.id); // Start loading
+      
+      const available = await Sharing.isAvailableAsync();
+      if (!available) {
+        Toast.show({
+          type: 'error',
+          text1: 'Sharing Not Available',
+          text2: 'Sharing is not available on this device',
+          position: 'bottom',
+          visibilityTime: 2000,
+        });
+        setSharingId(null); // Stop loading
+        return;
+      }
+  
+      try {
+        const postUrl = `https://ironex.app/post/${postItem?.id}`;
+        
+        // const shareMessage = postItem.isAnonymous
+        //   ? `✨ SENTINEL POST ✨
+  
+        // 👤 Shared by Anonymous
+  
+        // 💭 ${postItem.ContentDesc}
+  
+        // 🔗 Tap to view this amazing post:
+        // ${postUrl}
+  
+        // ━━━━━━━━━━━━━━━
+        // 📱 Join the conversation on Sentinel and discover more!`
+        //   : `✨ SENTINEL POST ✨
+  
+        // 🌟 Shared by ${postItem.AuthorName}
+  
+        // 💭 ${postItem.ContentDesc}
+  
+        // 🔗 Tap to view this amazing post:
+        // ${postUrl}
+  
+        // ━━━━━━━━━━━━━━━
+        // 📱 Join the conversation on Sentinel and discover more!`;
+  
+        // const shareMessage = `🔗 Tap to view on IronExSafe™:
+        // ${postUrl}`;
+  
+        // await Share.share({
+        //   message: `${shareMessage}\n${postUrl}`,
+        //   url: postUrl,
+        //   title: '✨ Check out this IronExSafe™ post',
+        // });
+  
+        callShortUrl(postUrl);
+        
+      } catch (error) {
+        console.log("Error sharing ", error);
+        Toast.show({
+          type: 'error',
+          text1: 'Share Failed',
+          text2: 'Failed to share post',
+          position: 'bottom',
+          visibilityTime: 2000,
+        });
+        setSharingId(null); // Stop loading
+      } 
+  
+      await new Promise(r => setTimeout(r, 200));
+    }, []);
+  
+    const callShortUrl = async (postUrl: string) => {
+      try {
+        console.log('Call Short Url...');
+        
+        const response = await fetch(
+          'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/shorten-url',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              "originalURL" : postUrl
+            })
+          }
+        );
     
-    // first check if sharing is available
-    const available = await Sharing.isAvailableAsync();
-    if (!available) {
-      showToast.error("Sharing is not available on this device");
-      return;
-    }
-
-    try {
-      // no image, just share text / link
-      // you might use React Native's Share API
-      
-      // if (postItem.isAnonymous) {
-      //   await Share.share({
-      //     message: `SENTINEL POST\n\nShared by Anonymous\n${postItem.ContentDesc}\n${postItem.ContentURL}\n\nPlease take a look.`,
-      //   });  
-      // } else {
-      //   await Share.share({
-      //     message: `SENTINEL POST\n\nShared by ${postItem.AuthorName}\n${postItem.ContentDesc}\n${postItem.ContentURL}\n\nPlease take a look.`,
-      //   });
-      // }
-      
-      const postUrl = `https://ironex.app/post/${postItem?.id}`;
-
-      const shareMessage = `🔗 Tap to view on ironex:
-        ${postUrl}`;
-
-      await Share.share({
-        message: `${shareMessage}\n${postUrl}`,
-        url: postUrl,
-        title: '✨ Check out this IronEx post',
-      });
-      
-    } catch (error) {
-      console.log("Error sharing ", error);
-      showToast.error("Failed to share post");
-    }
-
-    await new Promise(r => setTimeout(r, 200));
-  }, []);
+        if (!response.ok) {
+          // Optional: Show success message
+          Toast.show({
+            type: 'error',
+            text1: 'Share Failed',
+            text2: 'Failed to share post',
+            position: 'bottom',
+            visibilityTime: 2000,
+          });
+        } else {
+          const data: ShortURLResponse = await response.json();
+          console.log('Short URL response:', data);
+  
+          const shareMessage = `🔗 Tap to view on IronExSafe™: ${data.shortURL}`;
+  
+          await Share.share({
+            message: `${shareMessage}`,
+            title: '✨ Check out this IronExSafe™ post',
+          });
+        }
+        
+      } catch (error) {
+        console.error('❌ Error Short URL:', error);
+  
+        setIsDeleteUserModalVisible(false);
+        setShowMenuModal(false);
+        setSelectedPostUserId(null);
+        setUserToDelete(null);
+  
+      } finally {
+        setSharingId(null); // Stop loading
+      }
+    };
 
   // FIXED: Fetch bookmarked posts without problematic queries
   const handleFetchBookmarkedPosts = useCallback(async (forceRefresh: boolean = false) => {
@@ -954,43 +1045,44 @@ export default function BookmarksPage(): React.JSX.Element {
       const allBookmarkedPosts: PostItem[] = [];
 
       // Fetch X-Data bookmarks
-      const xDataRef = collection(db, 'X-Data');
-      const xDataQuery = query(xDataRef, orderBy('ContentDate', 'desc'));
-      const xDataSnapshot = await getDocs(xDataQuery);
+      // const xDataRef = collection(db, 'X-Data');
+      // const xDataQuery = query(xDataRef, orderBy('ContentDate', 'desc'));
+      // const xDataSnapshot = await getDocs(xDataQuery);
 
-      xDataSnapshot.docs.forEach(doc => {
-        const postData = doc.data();
-        if (postData.BookmarkedBy?.includes(fetchuserID)) {
-          allBookmarkedPosts.push({
-            uniqueId: `xdata-${doc.id}`,
-            id: doc.id,
-            AuthorImageURL: postData.AuthorImageURL,
-            AuthorName: postData.AuthorName,
-            AuthorBio: postData.AuthorBio || '',
-            AuthorUserID: postData.AuthorUserID,
-            ContentDate: postData.ContentDate,
-            ContentDesc: postData.ContentDesc,
-            ContentURL: postData.ContentURL,
-            ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
-            ContentLikeCount: postData.ContentLikeCount || 0,
-            ContentRepostCount: postData.ContentRepostCount || 0,
-            ContentCommentCount: postData.ContentCommentCount || 0,
-            ContentViewCount: postData.ContentViewCount || 0, // ✅ VIEW COUNT
-            ViewedBy: postData.ViewedBy || [], // ✅ VIEW TRACKING
-            isApproved: true,
-            isNew: false,
-            postType: 'X-Data',
-            Liked: postData.LikedBy?.includes(fetchuserID) || false,
-            Reposted: postData.RepostedBy?.includes(fetchuserID) || false,
-            Bookmarked: true,
-            createdAt: postData.createdAt || postData.ContentDate,
-            bookmarkedAt: postData.bookmarkedAt || new Date(),
-            CommentTemplate: postData.CommentTemplate || 'Standard Template',
-            isAnonymous: false,
-            contentType: postData.contentType || 'My Thoughts',
-          });
-        }
-      });
+      // xDataSnapshot.docs.forEach(doc => {
+      //   const postData = doc.data();
+      //   if (postData.BookmarkedBy?.includes(fetchuserID)) {
+      //     allBookmarkedPosts.push({
+      //       uniqueId: `xdata-${doc.id}`,
+      //       id: doc.id,
+      //       AuthorImageURL: postData.AuthorImageURL,
+      //       AuthorName: postData.AuthorName,
+      //       AuthorEmail: postData.AuthorEmail|| '',
+      //       AuthorBio: postData.AuthorBio || '',
+      //       AuthorUserID: postData.AuthorUserID,
+      //       ContentDate: postData.ContentDate,
+      //       ContentDesc: postData.ContentDesc,
+      //       ContentURL: postData.ContentURL,
+      //       ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+      //       ContentLikeCount: postData.ContentLikeCount || 0,
+      //       ContentRepostCount: postData.ContentRepostCount || 0,
+      //       ContentCommentCount: postData.ContentCommentCount || 0,
+      //       ContentViewCount: postData.ContentViewCount || 0, // ✅ VIEW COUNT
+      //       ViewedBy: postData.ViewedBy || [], // ✅ VIEW TRACKING
+      //       isApproved: true,
+      //       isNew: false,
+      //       postType: 'X-Data',
+      //       Liked: postData.LikedBy?.includes(fetchuserID) || false,
+      //       Reposted: postData.RepostedBy?.includes(fetchuserID) || false,
+      //       Bookmarked: true,
+      //       createdAt: postData.createdAt || postData.ContentDate,
+      //       bookmarkedAt: postData.bookmarkedAt || new Date(),
+      //       CommentTemplate: postData.CommentTemplate || 'Standard Template',
+      //       isAnonymous: false,
+      //       contentType: postData.contentType || 'My Thoughts',
+      //     });
+      //   }
+      // });
 
       // Fetch SentinelPosts bookmarks
       const sentinelRef = collection(db, 'SentinelPosts');
@@ -1005,6 +1097,7 @@ export default function BookmarksPage(): React.JSX.Element {
             id: doc.id,
             AuthorImageURL: postData.AuthorImageURL,
             AuthorName: postData.AuthorName,
+            AuthorEmail: postData.AuthorEmail|| '',
             AuthorBio: postData.AuthorBio || '',
             AuthorUserID: postData.AuthorUserID || postData.repostedBy || '123456',
             ContentDate: postData.ContentDate,

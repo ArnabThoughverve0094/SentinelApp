@@ -12,7 +12,7 @@ import { makeRedirectUri } from 'expo-auth-session';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
+import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -91,6 +91,10 @@ interface MediaCarouselProps {
   VideoPlayer: any;
   index?: number;
 }
+type ShortURLResponse = {
+  shortURL: string;
+  id: any;
+};
 
 const renderStyledPostText = (text) => {
   if (!text) return null;
@@ -1219,8 +1223,13 @@ export default function ProfilePage(): React.JSX.Element {
   const [postToDelete, setPostToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [viewedPosts, setViewedPosts] = useState<Set<string>>(new Set());
-    const viewTrackingTimeout = useRef<NodeJS.Timeout | number | null>(null);
-    const lastTrackedPost = useRef<string | null>(null);
+  const viewTrackingTimeout = useRef<NodeJS.Timeout | number | null>(null);
+  const lastTrackedPost = useRef<string | null>(null);
+  const [sharingId, setSharingId] = useState(null);
+  const [selectedPostUserId, setSelectedPostUserId] = useState<string | null>(null);
+  const [isDeleteUserModalVisible, setIsDeleteUserModalVisible] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<string | null>(null);
+      
 
     // ✅ FORMAT VIEW COUNT LIKE X/TWITTER
     const formatViewCount = useCallback((count: number): string => {
@@ -1496,6 +1505,29 @@ const loadProfileData = async () => {
           },
         ]
       );
+      try {
+        const fetchuserID = await AsyncStorage.getItem('userId');
+        const userDocSnap = await getDocs(query(collection(db, 'SentinelUsers'), where('userID', '==', fetchuserID)));
+        const notifyPayload = {
+          id: `post_edit_flagged_${editPostData.id}_${Date.now()}`,
+          AuthorImageURL: profilePicUrl || await AsyncStorage.getItem('profilePicUrl') || dummyAuthorImage,
+          AuthorName: userName || await AsyncStorage.getItem('userName') || 'You',
+          AuthorUserID: fetchuserID,
+          ContentDate: new Date(),
+          Description: `❌ Your edited post was flagged by our AI content moderator and could not be published.\n\nReason: ${rejectionReason}\n\nPlease revise your post and try again.`,
+          NotifyType: 'postrejected',
+          ShowButtons: false,
+          Status: 'rejected',
+          isRead: false,
+        };
+        if (!userDocSnap.empty) {
+          await updateDoc(doc(db, 'SentinelUsers', userDocSnap.docs[0].id), { Notification: arrayUnion(notifyPayload) });
+        } else {
+          await addDoc(collection(db, 'SentinelUsers'), { userID: fetchuserID, Notification: [notifyPayload] });
+        }
+      } catch (notifErr) {
+        console.error('Notification error (non-critical):', notifErr);
+      }
       return; // Stop execution
     }
 
@@ -1573,7 +1605,35 @@ const loadProfileData = async () => {
         'Post Not Relevant',
         '⚠️ Your post was updated but our AI flagged it as potentially irrelevant to the community.\n\nReason: Irrelevant content or media detected.\n\nAn admin will review it shortly.',
         [{ text: 'OK', onPress: hideModal }]
+            );showCustomAlert('warning', 'Post Not Relevant',
+        `Your post was updated but our AI flagged it as potentially irrelevant to the community. Irrelevant content or media detected. admin will review it shortly.`,
+        [{ text: 'OK', onPress: hideModal }]
       );
+
+      // ✅ NOTIFICATION — irrelevant post after edit
+      try {
+        const fetchuserID = await AsyncStorage.getItem('userId');
+        const userDocSnap = await getDocs(query(collection(db, 'SentinelUsers'), where('userID', '==', fetchuserID)));
+        const notifyPayload = {
+          id: `post_edit_irrelevant_${editPostData.id}_${Date.now()}`,
+          AuthorImageURL: profilePicUrl || await AsyncStorage.getItem('profilePicUrl') || dummyAuthorImage,
+          AuthorName: userName || await AsyncStorage.getItem('userName') || 'You',
+          AuthorUserID: fetchuserID,
+          ContentDate: new Date(),
+          Description: `⚠️ Your edited post was submitted but our AI flagged it as potentially irrelevant to the community. An admin will manually review it shortly.\n\nReason: Irrelevant content or media detected.`,
+          NotifyType: 'postsubmitted',
+          ShowButtons: false,
+          Status: 'pending',
+          isRead: false,
+        };
+        if (!userDocSnap.empty) {
+          await updateDoc(doc(db, 'SentinelUsers', userDocSnap.docs[0].id), { Notification: arrayUnion(notifyPayload) });
+        } else {
+          await addDoc(collection(db, 'SentinelUsers'), { userID: fetchuserID, Notification: [notifyPayload] });
+        }
+      } catch (notifErr) {
+        console.error('Notification error (non-critical):', notifErr);
+      }
       return;
     }
 
@@ -1611,13 +1671,38 @@ const loadProfileData = async () => {
       )
     );
 
-    Toast.show({
+        Toast.show({
       type: 'success',
-      text1: '🎉 Post Updated & Approved!',
+      text1: 'Post Updated & Approved!',
       text2: 'Your post has been updated and approved by AI.',
       position: 'bottom',
       visibilityTime: 2000,
     });
+
+    // ✅ NOTIFICATION — approved post after edit
+    try {
+      const fetchuserID = await AsyncStorage.getItem('userId');
+      const userDocSnap = await getDocs(query(collection(db, 'SentinelUsers'), where('userID', '==', fetchuserID)));
+      const notifyPayload = {
+        id: `post_edit_approved_${editPostData.id}_${Date.now()}`,
+        AuthorImageURL: profilePicUrl || await AsyncStorage.getItem('profilePicUrl') || dummyAuthorImage,
+        AuthorName: userName || await AsyncStorage.getItem('userName') || 'You',
+        AuthorUserID: fetchuserID,
+        ContentDate: new Date(),
+        Description: `✅ Great news! Your edited post has been reviewed by our AI moderator and published successfully. Your community can now see the updated version!`,
+        NotifyType: 'postapproved',
+        ShowButtons: false,
+        Status: 'approved',
+        isRead: false,
+      };
+      if (!userDocSnap.empty) {
+        await updateDoc(doc(db, 'SentinelUsers', userDocSnap.docs[0].id), { Notification: arrayUnion(notifyPayload) });
+      } else {
+        await addDoc(collection(db, 'SentinelUsers'), { userID: fetchuserID, Notification: [notifyPayload] });
+      }
+    } catch (notifErr) {
+      console.error('Notification error (non-critical):', notifErr);
+    }
 
     // Close modal
     setIsEditModalVisible(false);
@@ -1765,6 +1850,10 @@ const loadProfileData = async () => {
         setIsDeleting(false); // Stop loading
       }
     };
+    const handleBlockedUsers = () => {
+        router.push('/blocked-users'); // adjust route as per your Expo Router structure
+    };
+
 
     const handleDeleteLogout = async () => {
       try {
@@ -3338,6 +3427,7 @@ const handleRepost = useCallback(async (postItem: PostItem) => {
   }, [userId, areInteractionsDisabled]);
 
   const handleSharePost = useCallback(async (postItem: PostItem) => {
+     setSharingId(postItem.id);
   // Check if post is new (waiting for approval)
   if (postItem.isNew) {
     Toast.show({
@@ -3347,6 +3437,7 @@ const handleRepost = useCallback(async (postItem: PostItem) => {
       position: 'bottom',
       visibilityTime: 1000,
     });
+    setSharingId(null);
     return;
   }
 
@@ -3359,46 +3450,112 @@ const handleRepost = useCallback(async (postItem: PostItem) => {
       position: 'bottom',
       visibilityTime: 1000,
     });
+    setSharingId(null);
     return;
   }
 
   try {
-    // const shareContent = {
-    //   title: `Post by ${postItem.AuthorName}`,
-    //   message: `Check out this post: ${renderStyledPostText(postItem.ContentDesc.substring(0, 100))}${postItem.ContentDesc.length > 100 ? '...' : ''}`,
-    //   url: postItem.ContentURL || undefined,
-    // };
-    // await Share.share(shareContent);
-    // Toast.show({
-    //   type: 'success',
-    //   text1: 'Post Shared',
-    //   text2: 'Post shared successfully!',
-    //   position: 'bottom',
-    //   visibilityTime: 2000,
-    // });
-
-    const postUrl = `https://ironex.app/post/${postItem?.id}`;
-
-    const shareMessage = `🔗 Tap to view on ironex:
-      ${postUrl}`;
-
-      await Share.share({
-        message: `${shareMessage}\n${postUrl}`,
-        url: postUrl,
-        title: '✨ Check out this Sentinel post',
-      });
-
-  } catch (error) {
-    console.error('Error sharing post:', error);
-    Toast.show({
-      type: 'error',
-      text1: 'Share Failed',
-      text2: 'Failed to share post. Please try again.',
-      position: 'bottom',
-      visibilityTime: 1000,
-    });
-  }
-  }, [areInteractionsDisabled]);
+          const postUrl = `https://ironex.app/post/${postItem?.id}`;
+          
+          // const shareMessage = postItem.isAnonymous
+          //   ? `✨ SENTINEL POST ✨
+    
+          // 👤 Shared by Anonymous
+    
+          // 💭 ${postItem.ContentDesc}
+    
+          // 🔗 Tap to view this amazing post:
+          // ${postUrl}
+    
+          // ━━━━━━━━━━━━━━━
+          // 📱 Join the conversation on Sentinel and discover more!`
+          //   : `✨ SENTINEL POST ✨
+    
+          // 🌟 Shared by ${postItem.AuthorName}
+    
+          // 💭 ${postItem.ContentDesc}
+    
+          // 🔗 Tap to view this amazing post:
+          // ${postUrl}
+    
+          // ━━━━━━━━━━━━━━━
+          // 📱 Join the conversation on Sentinel and discover more!`;
+    
+          // const shareMessage = `🔗 Tap to view on IronExSafe™:
+          // ${postUrl}`;
+    
+          // await Share.share({
+          //   message: `${shareMessage}\n${postUrl}`,
+          //   url: postUrl,
+          //   title: '✨ Check out this IronExSafe™ post',
+          // });
+    
+          callShortUrl(postUrl);
+          
+        } catch (error) {
+          console.log("Error sharing ", error);
+          Toast.show({
+            type: 'error',
+            text1: 'Share Failed',
+            text2: 'Failed to share post',
+            position: 'bottom',
+            visibilityTime: 2000,
+          });
+          setSharingId(null); // Stop loading
+        } 
+    
+        await new Promise(r => setTimeout(r, 200));
+      }, [areInteractionsDisabled]);
+      const callShortUrl = async (postUrl: string) => {
+            try {
+              console.log('Call Short Url...');
+              
+              const response = await fetch(
+                'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/shorten-url',
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    "originalURL" : postUrl
+                  })
+                }
+              );
+          
+              if (!response.ok) {
+                // Optional: Show success message
+                Toast.show({
+                  type: 'error',
+                  text1: 'Share Failed',
+                  text2: 'Failed to share post',
+                  position: 'bottom',
+                  visibilityTime: 2000,
+                });
+              } else {
+                const data: ShortURLResponse = await response.json();
+                console.log('Short URL response:', data);
+        
+                const shareMessage = `🔗 Tap to view on IronExSafe™: ${data.shortURL}`;
+        
+                await Share.share({
+                  message: `${shareMessage}`,
+                  title: '✨ Check out this IronExSafe™ post',
+                });
+              }
+              
+            } catch (error) {
+              console.error('❌ Error Short URL:', error);
+        
+              setIsDeleteUserModalVisible(false);
+              setShowMenuModal(false);
+              setSelectedPostUserId(null);
+              setUserToDelete(null);
+        
+            } finally {
+              setSharingId(null); // Stop loading
+            }
+          };
 
 
   //Post options
@@ -4314,6 +4471,19 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
                   <Text className="flex-1 text-gray-900 font-medium">F A Q</Text>
                   <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
                 </TouchableOpacity>
+                {/* Blocked Users Option */}
+                  <TouchableOpacity 
+                    onPress={handleBlockedUsers}
+                    className="flex-row items-center p-4 rounded-xl active:bg-gray-50"
+                  >
+                    <View className="w-10 h-10 bg-orange-100 rounded-full items-center justify-center mr-4">
+                      <Ionicons name="ban-outline" size={20} color="#F97316" />
+                    </View>
+                    <Text className="flex-1 text-gray-900 font-medium">Blocked Users</Text>
+                    <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+                  </TouchableOpacity>
+
+
                 {/* Delete/Deactivate Account Option */}
                 <TouchableOpacity 
                   onPress={handleDeleteAccount}

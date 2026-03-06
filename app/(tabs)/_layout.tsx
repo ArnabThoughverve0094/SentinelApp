@@ -158,7 +158,7 @@ const TabsLayout = () => {
             // ✅ Key fix: label shortens on small screens
             <Text style={labelStyle(focused)} numberOfLines={1}>{notifLabel}</Text>
           ),
-          tabBarBadge: hasNotifications ? unreadCount : undefined,
+          // tabBarBadge: hasNotifications ? unreadCount : undefined,
           tabBarBadgeStyle: {
             backgroundColor: "red",
             minWidth: 16,
