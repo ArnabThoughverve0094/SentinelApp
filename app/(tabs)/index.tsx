@@ -118,6 +118,12 @@ interface MediaCarouselProps {
   index?: number;
 }
 
+type EmailResponse = {
+  status: string;
+  userName: string;
+  email: string;
+};
+
 type ShortURLResponse = {
   shortURL: string;
   id: any;
@@ -758,6 +764,7 @@ const RepostModal: React.FC<RepostModalProps> = ({
 // Custom Modal Component with better UI
 interface CustomModalProps {
   visible: boolean;
+  loading?: boolean;
   type: 'success' | 'error' | 'info' | 'warning';
   title: string;
   message: string;
@@ -771,6 +778,7 @@ interface CustomModalProps {
 
 const CustomModal: React.FC<CustomModalProps> = ({
   visible,
+  loading = false, // Default to false
   type,
   title,
   message,
@@ -910,7 +918,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
                 </TouchableOpacity>
               ) : (
                 <View className="flex-row" style={{ gap: 12 }}>
-                  {buttons.map((button, index) => (
+                  {/* {buttons.map((button, index) => (
                     <TouchableOpacity
                       key={index}
                       className={`flex-1 py-4 px-6 rounded-xl items-center shadow-lg ${
@@ -931,7 +939,38 @@ const CustomModal: React.FC<CustomModalProps> = ({
                         {button.text}
                       </Text>
                     </TouchableOpacity>
-                  ))}
+                  ))} */}
+                  {buttons.map((button, index) => {
+                    // Check if THIS specific button is the action button (not Cancel)
+                    const isActionButton = button.style !== 'cancel';
+                    const showLoader = loading && isActionButton;
+
+                    return (
+                      <TouchableOpacity
+                        key={index}
+                        disabled={loading} // Disable ALL buttons while loading
+                        className={`flex-1 py-4 px-6 rounded-xl items-center shadow-lg ${
+                          button.style === 'cancel' 
+                            ? 'bg-gray-200' 
+                            : button.style === 'destructive'
+                            ? 'bg-red-500'
+                            : 'bg-black'
+                        } ${loading ? 'opacity-70' : ''}`} // Dim the buttons while loading
+                        onPress={button.onPress}
+                        activeOpacity={0.8}
+                      >
+                        {showLoader ? (
+                          <ActivityIndicator color="white" />
+                        ) : (
+                          <Text className={`text-lg font-semibold ${
+                            button.style === 'cancel' ? 'text-gray-700' : 'text-white'
+                          }`}>
+                            {button.text}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               )
             )}
@@ -949,6 +988,7 @@ export default function SentinelFeed(): React.JSX.Element {
   const [refreshing, setRefreshing] = useState(false);
   const [userId, setUserId] = useState("");
   const [userName, setUserName] = useState("");
+  const [userEmail, setUserEmail] = useState("");
   const [userRole, setUserRole] = useState("User");
   const [fetchedData, setFetchedData] = useState<PostItem[]>([]);
   const [sentinelData, setSentinelData] = useState<PostItem[]>([]);
@@ -1023,7 +1063,7 @@ export default function SentinelFeed(): React.JSX.Element {
   const [blockUserEmail, setBlockUserEmail] = useState<string | null>(null);
   const [blockUserName, setBlockUserName] = useState<string | null>(null);
   const [allBlockedIds, setAllBlockedIds] = useState<any>([]);
-  const [isBlocklLoading, setIsBlockLoading] = useState(false);
+  const [isBlockLoading, setIsBlockLoading] = useState(false);
   
 
   const [viewedPosts, setViewedPosts] = useState<Set<string>>(new Set());
@@ -1629,6 +1669,7 @@ useEffect(() => {
       const fetchuserID = await AsyncStorage.getItem('userId');
       const fetchuserRole = await AsyncStorage.getItem('userRole');
       const fetchuserName = await AsyncStorage.getItem('userName');
+      const fetchuserEmail = await AsyncStorage.getItem('userEmail');
       if(fetchuserID !== null) {
         setUserId(fetchuserID);
       }
@@ -1637,6 +1678,9 @@ useEffect(() => {
       }
       if(fetchuserName !== null) {
         setUserName(fetchuserName);
+      }
+      if(fetchuserEmail !== null) {
+        setUserEmail(fetchuserEmail);
       }
     } catch (error) {
       console.log("Error retrieving userId", error);
@@ -2204,16 +2248,27 @@ useEffect(() => {
 
   const blockUser = async () => {
     console.log("BlockUser called");
-    let fetchuserID = userId;
+    let fetchuserID = userId || '';
     if (fetchuserID === "") {
       fetchuserID = await AsyncStorage.getItem('userId') || "";
+    }
+    let fetchuserEmail = userEmail || '';
+    if (fetchuserEmail === '') {
+      fetchuserEmail = await AsyncStorage.getItem('userEmail') || "";
+    }
+    let fetchuserName = userName || '';
+    if (fetchuserName === '') {
+      fetchuserName = await AsyncStorage.getItem('userName') || "";
     }
     // Reference the document specifically for the current user
     const userBlockDocRef = doc(db, 'UserBlocked', fetchuserID);
   
     try {
       let haveEmail = false;
-      if (blockUserEmail == null) {
+      let blockUserEmailFetch = blockUserEmail;
+      if (blockUserEmailFetch == null || blockUserEmailFetch == '') {
+        blockUserEmailFetch = await handleGetEmail();
+        setBlockUserEmail(blockUserEmailFetch);
         haveEmail=true;
       } else {
         haveEmail=true;
@@ -2222,11 +2277,13 @@ useEffect(() => {
       if (haveEmail) {
         await setDoc(userBlockDocRef, {
           userid: fetchuserID,
+          UserEmail: fetchuserEmail || '',
+          UserName: fetchuserName || '',
           // arrayUnion adds the new object to the existing 'blockedList' array
           blockedList: arrayUnion({
             postauthoruserid: blockUserId,
-            AuthorEmail: blockUserEmail,
-            AuthorName: blockUserName,
+            AuthorEmail: blockUserEmailFetch || '',
+            AuthorName: blockUserName || '',
             blockedat: new Date() // Or use a standard JS Date for array objects
           })
         }, { merge: true }); // 'merge: true' ensures we don't delete other fields
@@ -2299,6 +2356,32 @@ useEffect(() => {
       setIsBlockLoading(false);
     } finally {
       setIsBlockLoading(false);
+    }
+  };
+
+  const handleGetEmail = async (): Promise<string | null> => {
+    
+    try {
+      const response = await fetch('https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/get-user-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ "userName": blockUserId }),
+      });
+
+      const data: EmailResponse = await response.json();
+      
+      if (response.ok && data.status === "success") {
+        if (data.email === null) {
+          return '';
+        } else {
+          return data.email; // Return the actual string
+        }
+        
+      } 
+      return null;
+    } catch (err) {
+      console.error('❌ Email response error:', err);
+      return null;
     }
   };
 
@@ -5379,6 +5462,7 @@ useEffect(() => {
         {/* BLOCK USER MODAL */}
         <CustomModal
           visible={isBlockModalVisible}
+          loading={isBlockLoading}
           type="warning"
           title="Block User"
           message="You will no longer see their posts. This user will also be reported to our moderation team for review."
@@ -5398,10 +5482,18 @@ useEffect(() => {
             {
               text: "Block",
               style: "destructive",
-              onPress: () => {
-                if (!isBlocklLoading) {
-                  blockUser();
-                  setIsBlockLoading(true);
+              onPress: async() => {
+                if (!isBlockLoading) {
+                  setIsBlockLoading(true); 
+                  try {
+                    await blockUser(); 
+                    // Usually, you close the modal here after success
+                    setIsBlockModalVisible(false);
+                  } catch (error) {
+                    console.error("Block failed", error);
+                  } finally {
+                    setIsBlockLoading(false);
+                  }
                 }
               }
             }
