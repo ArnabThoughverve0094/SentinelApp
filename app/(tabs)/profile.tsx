@@ -1850,6 +1850,10 @@ const loadProfileData = async () => {
         setIsDeleting(false); // Stop loading
       }
     };
+    const handleBlockedUsers = () => {
+        router.push('/blocked-users'); // adjust route as per your Expo Router structure
+    };
+
 
     const handleDeleteLogout = async () => {
       try {
@@ -4467,6 +4471,19 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
                   <Text className="flex-1 text-gray-900 font-medium">F A Q</Text>
                   <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
                 </TouchableOpacity>
+                {/* Blocked Users Option */}
+                  <TouchableOpacity 
+                    onPress={handleBlockedUsers}
+                    className="flex-row items-center p-4 rounded-xl active:bg-gray-50"
+                  >
+                    <View className="w-10 h-10 bg-orange-100 rounded-full items-center justify-center mr-4">
+                      <Ionicons name="ban-outline" size={20} color="#F97316" />
+                    </View>
+                    <Text className="flex-1 text-gray-900 font-medium">Blocked Users</Text>
+                    <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+                  </TouchableOpacity>
+
+
                 {/* Delete/Deactivate Account Option */}
                 <TouchableOpacity 
                   onPress={handleDeleteAccount}
