@@ -516,20 +516,28 @@ const TabHeader: React.FC<{
 
           {/* Educational Tab */}
           <TouchableOpacity
-            className={`py-4 items-center justify-center ${
-              activeTab === 'educational' ? 'bg-white' : 'bg-gray-50'
-            }`}
+            className="py-3 items-center justify-center bg-gray-50"
             style={{ width: tabWidth }}
             onPress={() => onTabChange('educational')}
             activeOpacity={0.8}
           >
-            <Text
-              className={`text-base font-semibold ${
-                activeTab === 'educational' ? 'text-black' : 'text-gray-500'
-              }`}
+            <View
+              style={{
+                backgroundColor: activeTab === 'educational' ? '#EFFAAB' : 'transparent',
+                borderRadius: activeTab === 'educational' ? 999 : 0,
+                paddingVertical: activeTab === 'educational' ? 6 : 0,
+                paddingHorizontal: activeTab === 'educational' ? 18 : 0,
+                alignSelf: 'center',   // ← KEY: shrinks to fit text width only
+              }}
             >
-              Educational
-            </Text>
+              <Text
+                className={`text-base font-semibold ${
+                  activeTab === 'educational' ? 'text-black' : 'text-gray-500'
+                }`}
+              >
+                Educational
+              </Text>
+            </View>
           </TouchableOpacity>
 
           {/* Following Tab */}
