@@ -992,6 +992,78 @@ const CustomModal: React.FC<CustomModalProps> = ({
     </Modal>
   );
 };
+  function buildInterleavedFeed<T extends { postType: string; ContentDate: string; createdAt?: any }>(
+    sentinelPosts: T[],
+    xPosts: T[],
+    sentinelChunk: number = 20,
+    xChunk: number = 10
+  ): T[] {
+    const toMs = (date: any): number => {
+      if (!date) return 0;
+      if (typeof date === 'object' && date?.toDate) return date.toDate().getTime();
+      if (date instanceof Date) return date.getTime();
+      return new Date(date).getTime();
+    };
+
+    const sentinels = [...sentinelPosts].sort(
+      (a, b) => toMs(b.createdAt ?? b.ContentDate) - toMs(a.createdAt ?? a.ContentDate)
+    );
+    const xData = [...xPosts].sort(
+      (a, b) => toMs(b.createdAt ?? b.ContentDate) - toMs(a.createdAt ?? a.ContentDate)
+    );
+
+    const result: T[] = [];
+    let si = 0;
+    let xi = 0;
+
+    while (si < sentinels.length || xi < xData.length) {
+      for (let i = 0; i < sentinelChunk && si < sentinels.length; i++, si++) {
+        result.push(sentinels[si]);
+      }
+      for (let i = 0; i < xChunk && xi < xData.length; i++, xi++) {
+        result.push(xData[xi]);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Returns the best time window (in ms) that contains at least `minCount` posts.
+   * Automatically scales from 24 hours all the way to "all time".
+   */
+  function getAdaptiveTimeWindow(
+    posts: { createdAt?: any; ContentDate?: any }[],
+    minCount: number = 5
+  ): number {
+    const now = Date.now();
+
+    const WINDOWS_MS = [
+      24, 48, 72, 96, 120, 144,
+      24 * 7,
+      24 * 14,
+      24 * 30,
+      24 * 90,
+      24 * 180,
+      24 * 365,
+      Infinity,
+    ].map(h => h === Infinity ? Infinity : h * 60 * 60 * 1000);
+
+    const toMs = (date: any): number => {
+      if (!date) return 0;
+      if (typeof date === 'object' && date?.toDate) return date.toDate().getTime();
+      if (date instanceof Date) return date.getTime();
+      return new Date(date).getTime();
+    };
+
+    for (const windowMs of WINDOWS_MS) {
+      const cutoff = now - windowMs;
+      const count = posts.filter(p => toMs(p.createdAt ?? p.ContentDate) >= cutoff).length;
+      if (count >= minCount || windowMs === Infinity) return windowMs;
+    }
+
+    return Infinity;
+  }
 
 export default function SentinelFeed(): React.JSX.Element {
   const router = useRouter();
@@ -3985,86 +4057,130 @@ useEffect(() => {
   }, [handleFetchAllData]);
 
   const filteredData = useMemo(() => {
-    // Remove blocked users immediately from the source
-    const sourceData = fetchedData.filter(item => !allBlockedIds?.has(item.AuthorUserID));
-    console.log("allBlockedIds: ", allBlockedIds.size);
-    // Base data - all approved posts for Users, all posts for Admins
-    let baseData = sourceData.filter((item) => {
-      if (userRole === "User") {
-        return item.isApproved && !item.isNew || item.postType.includes("X-Data");
-      }
-      return true;
-    });
+  // Remove blocked users
+  const sourceData = fetchedData.filter(
+    item => !allBlockedIds?.has(item.AuthorUserID)
+  );
 
+  // ONE WEEK window constant for data eligibility
+  const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+  const now = Date.now();
 
-    // Educational data - based on contentType
-    let educationalData = sourceData.filter((item) => {
-      if (userRole === "User") {
-        // ✅ FIX: Check contentType AND isEducational field
-        return (
-          item.isApproved && 
-          !item.isNew && 
-          (item.contentType === "Educational" || item.isEducational === true)
-        );
-      } else {
-        return item.contentType === "Educational" || item.isEducational === true;
-      }
-    });
+  const toMs = (date: any): number => {
+    if (!date) return 0;
+    if (typeof date === 'object' && date?.toDate) return date.toDate().getTime();
+    if (date instanceof Date) return date.getTime();
+    return new Date(date).getTime();
+  };
 
-    // Published Posts - exclude educational content
-    let publishedData = sourceData.filter((item) => {
-      const isXData = item.postType.includes('X-Data');
-      if (userRole === "User") {
-        return (isXData || (item.isApproved && !item.isNew) &&
-          item.contentType !== "Educational" && 
-          !item.isEducational
-        );
-      } else {
-        return item.contentType !== "Educational" && !item.isEducational;
-      }
-    });
-
-    // FOLLOWING TAB
-    if (activeTab === "following") {
-      console.log("🔍 Following Tab Filter");
-      console.log("  Following IDs:", followingUserIds);
-      console.log("  Base data count:", baseData.length);
-
-      const followingData = baseData.filter((item) => {
-        const authorId = item.repostedBy || item.AuthorUserID;
-        const isFromFollowedUser = authorId && followingUserIds.includes(authorId);
-
-        if (isFromFollowedUser) {
-          console.log(`  ✅ Including: ${item.AuthorName} (${authorId})`);
-        }
-
-        return isFromFollowedUser;
-      });
-
-      console.log("  📊 Following result count:", followingData.length);
-
-      if (followingData.length < 4) {
-        handleLoadMore();
-      }
-      
-      return followingData;
+  // Base approved data
+  const baseData = sourceData.filter(item => {
+    if (userRole === 'User') {
+      return (
+        item.postType.includes('X-Data') ||
+        (item.isApproved && !item.isNew)
+      );
     }
+    return true;
+  });
 
-    // EDUCATIONAL TAB
-    if (activeTab === "educational") {
-      console.log("📚 Educational Tab Filter");
-      console.log("  Educational posts count:", educationalData.length);
-      if (educationalData.length < 4) {
-        handleLoadMore();
-      }
-      
-      return educationalData;
+  // Educational data
+  const educationalData = sourceData.filter(item => {
+    if (userRole === 'User') {
+      return (
+        (item.isApproved && !item.isNew) &&
+        item.contentType === 'Educational' &&
+        item.isEducational === true
+      );
     }
+    return item.contentType === 'Educational' && item.isEducational === true;
+  });
 
-    // FOR YOU TAB (default)
-    console.log("📱 For You Tab - showing:", publishedData.length, "posts");
-    return publishedData;
-  }, [fetchedData, userRole, activeTab, followingUserIds, allBlockedIds]);
+  // Published data (excludes educational)
+  const publishedData = sourceData.filter(item => {
+    const isXData = item.postType.includes('X-Data');
+    if (userRole === 'User') {
+      return (
+        (isXData || (item.isApproved && !item.isNew)) &&
+        item.contentType !== 'Educational' &&
+        !item.isEducational
+      );
+    }
+    return item.contentType !== 'Educational' && !item.isEducational;
+  });
+
+  // ── FOLLOWING TAB ──────────────────────────────────────────────────────────
+  if (activeTab === 'following') {
+    const followingData = baseData.filter(item => {
+      const authorId = item.repostedBy || item.AuthorUserID;
+      return authorId && followingUserIds.includes(authorId);
+    });
+    if (followingData.length < 4) handleLoadMore();
+    return followingData;
+  }
+
+  // ── EDUCATIONAL TAB ────────────────────────────────────────────────────────
+  if (activeTab === 'educational') {
+    if (educationalData.length < 4) handleLoadMore();
+    return educationalData;
+  }
+
+  // ── FOR YOU TAB ────────────────────────────────────────────────────────────
+  if (activeTab === 'forYou') {
+    // 1. Separate Sentinel and X-Data posts
+    const allSentinels = publishedData.filter(
+      item => !item.postType.includes('X-Data')
+    );
+    const allXData = publishedData.filter(
+      item => item.postType.includes('X-Data')
+    );
+
+    // 2. BOTH pools limited to last 1 week for relevancy
+    const weekSentinels = allSentinels.filter(
+      p => now - toMs(p.createdAt ?? p.ContentDate) <= ONE_WEEK_MS
+    );
+    const weekXData = allXData.filter(
+      p => now - toMs(p.createdAt ?? p.ContentDate) <= ONE_WEEK_MS
+    );
+
+    // 3. Older posts (beyond 1 week) as fallback pool
+    const olderSentinels = allSentinels.filter(
+      p => now - toMs(p.createdAt ?? p.ContentDate) > ONE_WEEK_MS
+    );
+    const olderXData = allXData.filter(
+      p => now - toMs(p.createdAt ?? p.ContentDate) > ONE_WEEK_MS
+    );
+
+    // 4. Within the 1-week pool, get adaptive window for "fresh" Sentinel boost
+    const windowMs = getAdaptiveTimeWindow(weekSentinels, 5);
+    const freshSentinels = weekSentinels.filter(
+      p => now - toMs(p.createdAt ?? p.ContentDate) <= windowMs
+    );
+    const recentSentinels = weekSentinels.filter(
+      p => now - toMs(p.createdAt ?? p.ContentDate) > windowMs
+    );
+
+    // 5. Build interleaved blocks for the 1-week pool
+    //    Pattern: [recentSentinels 20] [weekXData 10] repeating
+    const interleavedWeek = buildInterleavedFeed(recentSentinels, weekXData, 20, 10);
+
+    // 6. Build interleaved blocks for older posts (beyond 1 week) as tail
+    const interleavedOlder = buildInterleavedFeed(olderSentinels, olderXData, 20, 10);
+
+    console.log(
+      `[Feed] Window: ${windowMs / 3600000}h | Fresh: ${freshSentinels.length} | Week Sentinels: ${weekSentinels.length} | Week X: ${weekXData.length} | Older: ${olderSentinels.length + olderXData.length}`
+    );
+
+    // Final order:
+    // 1. Fresh Sentinels (latest within adaptive window) — always top
+    // 2. Interleaved 1-week posts (20S/10X pattern)
+    // 3. Interleaved older posts as infinite tail
+    return [...freshSentinels, ...interleavedWeek, ...interleavedOlder];
+  }
+
+  return publishedData;
+
+}, [fetchedData, userRole, activeTab, followingUserIds, allBlockedIds]);
 
 
     const handleScroll = useCallback((event: any) => {
