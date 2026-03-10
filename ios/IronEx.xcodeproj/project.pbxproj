@@ -11,10 +11,10 @@
 		06E4920ECCC2380839386A30 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04BAEC71F4076448EEDEF6D9 /* ExpoModulesProvider.swift */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		261B439A50A9221693686282 /* libPods-IronEx.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E626C5E6A05BEB85E987D8C1 /* libPods-IronEx.a */; };
+		265D91D6C0D24D4E950562A5 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 925C932591D343918C4656A0 /* GoogleService-Info.plist */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
-		265D91D6C0D24D4E950562A5 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 925C932591D343918C4656A0 /* GoogleService-Info.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -24,6 +24,7 @@
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = IronEx/Info.plist; sourceTree = "<group>"; };
 		2BE258A3DF2A35851400395E /* Pods-IronEx.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-IronEx.debug.xcconfig"; path = "Target Support Files/Pods-IronEx/Pods-IronEx.debug.xcconfig"; sourceTree = "<group>"; };
 		517FC556745B99CF2D073A8B /* Pods-IronEx.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-IronEx.release.xcconfig"; path = "Target Support Files/Pods-IronEx/Pods-IronEx.release.xcconfig"; sourceTree = "<group>"; };
+		925C932591D343918C4656A0 /* GoogleService-Info.plist */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "IronEx/GoogleService-Info.plist"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = IronEx/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		E626C5E6A05BEB85E987D8C1 /* libPods-IronEx.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-IronEx.a"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -31,7 +32,6 @@
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = IronEx/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* IronEx-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "IronEx-Bridging-Header.h"; path = "IronEx/IronEx-Bridging-Header.h"; sourceTree = "<group>"; };
 		FFAB508ADCD5D6C6AA3AC2D0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = IronEx/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		925C932591D343918C4656A0 /* GoogleService-Info.plist */ = {isa = PBXFileReference; name = "GoogleService-Info.plist"; path = "IronEx/GoogleService-Info.plist"; sourceTree = "<group>"; fileEncoding = 4; lastKnownFileType = text.plist.xml; explicitFileType = undefined; includeInIndex = 0; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -383,7 +383,7 @@
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
 				PRODUCT_BUNDLE_IDENTIFIER = in.thoughtverve.sentinel;
-				PRODUCT_NAME = "IronEx";
+				PRODUCT_NAME = IronEx;
 				SWIFT_OBJC_BRIDGING_HEADER = "IronEx/IronEx-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -417,7 +417,7 @@
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
 				PRODUCT_BUNDLE_IDENTIFIER = in.thoughtverve.sentinel;
-				PRODUCT_NAME = "IronEx";
+				PRODUCT_NAME = IronEx;
 				SWIFT_OBJC_BRIDGING_HEADER = "IronEx/IronEx-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
