@@ -12,6 +12,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "in.thoughtverve.sentinel",
       "icon": "./assets/images/new_logo.png",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "usesAppleSignIn": true
     },
     "android": {
@@ -44,8 +45,7 @@
         "expo-notifications",
         {
           "icon": "./assets/images/new_logo.png",
-          "color": "#ffffff",
-          "sounds": ["./assets/notification-sound.wav"]
+          "color": "#ffffff"
         }
       ],
       "react-native-compressor",
