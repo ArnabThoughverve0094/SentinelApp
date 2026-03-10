@@ -263,9 +263,6 @@ const MediaCarousel: React.FC<MediaCarouselProps> = React.memo(({
   );
 });
 
-
-
-
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 export default function Index(): React.JSX.Element {

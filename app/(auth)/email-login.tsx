@@ -4,10 +4,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ResponseType, TokenResponse, makeRedirectUri, useAuthRequest } from 'expo-auth-session';
 import { Link, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { addDoc, collection, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
+import { doc, writeBatch } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { registerForPushNotificationsAsync } from '../services/notifications';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -100,7 +101,23 @@ export default function EmailLogin(): React.JSX.Element {
     }
   };
 
+  const savePushToken = async () => {
+
+    try {
+      console.log("Firebase New Generated token called ");
+      const token = await registerForPushNotificationsAsync() || '';
+      console.log("Firebase New Generated token: ", token);
+      setExpoPushToken(token);
+    } catch (error) {
+      console.log("Firebase New Generated token Error: ", error);
+    }
+    
+  
+  };
+
   useEffect(() => {
+    savePushToken();
+
     if (response?.type === "success") {
       const { code } = response.params;
       console.log("Social Login Success! Code:", code);
@@ -208,7 +225,7 @@ export default function EmailLogin(): React.JSX.Element {
   }
   if (data.userAttributes.sub) {
     items.push(['userId', data.userAttributes.sub]);
-    fetchUserData(data.userAttributes.sub);
+    fetchUserData(data);
   }
   if (data.userAttributes.role) {
     items.push(['userRole', data.userAttributes.role]);
@@ -329,39 +346,59 @@ export default function EmailLogin(): React.JSX.Element {
     }
   };
 
-  const fetchUserData = useCallback((userId: string) => {
-    if (!userId) return;
+  const fetchUserData = useCallback(async (userData: LoginResponse) => {
+    if (!userData.userAttributes.sub) return;
   
-    const sentinelUsersRef = collection(db, 'SentinelUsers');
-    const q = query(sentinelUsersRef, where('userID', '==', userId));
+    // const sentinelUsersRef = collection(db, 'SentinelUsers');
+    // const q = query(sentinelUsersRef, where('userID', '==', userId));
   
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      if (snapshot.empty) {
-        try {
-          await addDoc(collection(db, 'SentinelUsers'), {
-            userID: userId,
-            deviceToken: expoPushToken || '',
-            createdAt: new Date()
-          });
-          console.log('📱 New user created');
-        } catch (err) {
-          console.error("Error creating user:", err);
-        }
-      } else {
-        const userDoc = snapshot.docs[0];
-        const userData = userDoc.data();
+    // const unsubscribe = onSnapshot(q, async (snapshot) => {
+    //   if (snapshot.empty) {
+    //     try {
+    //       await addDoc(collection(db, 'SentinelUsers'), {
+    //         userID: userId,
+    //         deviceToken: expoPushToken || '',
+    //         createdAt: new Date()
+    //       });
+    //       console.log('📱 New user created');
+    //     } catch (err) {
+    //       console.error("Error creating user:", err);
+    //     }
+    //   } else {
+    //     const userDoc = snapshot.docs[0];
+    //     const userData = userDoc.data();
   
-        if (userData.deviceToken !== expoPushToken) {
-          const userRef = doc(db, "SentinelUsers", userDoc.id);
-          await updateDoc(userRef, { deviceToken: expoPushToken || '' });
-          console.log('✅ Device token synced');
-        }
-      }
-    }, (error) => {
-      console.error('Snapshot error:', error);
-    });
+    //     if (userData.deviceToken !== expoPushToken) {
+    //       const userRef = doc(db, "SentinelUsers", userDoc.id);
+    //       await updateDoc(userRef, { deviceToken: expoPushToken || '' });
+    //       console.log('✅ Device token synced');
+    //     }
+    //   }
+    // }, (error) => {
+    //   console.error('Snapshot error:', error);
+    // });
   
-    return unsubscribe;
+    // return unsubscribe;
+
+    const batch = writeBatch(db);
+    const userDocRef = doc(db, 'IronExUsers', userData.userAttributes.sub);
+    
+    try {
+      batch.set(userDocRef, {
+        userID: userData.userAttributes.sub,
+        userEmail: userData.userAttributes.email || '',
+        userName: userData.userAttributes.name || '',
+        userNickName: userData.userAttributes.nickname || '',
+        profilePicUrl: userData.userAttributes.profilePic || ''
+      }, { merge: true });
+  
+      // Commit both updates at once
+      await batch.commit();
+  
+    } catch (error) {
+      console.error("❌ User Error:", error);
+    }
+
   }, [expoPushToken]);
 
   return (
