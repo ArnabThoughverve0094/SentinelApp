@@ -4057,9 +4057,10 @@ useEffect(() => {
   }, [handleFetchAllData]);
 
   const filteredData = useMemo(() => {
+    const blockedSet = new Set(allBlockedIds ?? []);
   // Remove blocked users
   const sourceData = fetchedData.filter(
-    item => !allBlockedIds?.includes(item.AuthorUserID)
+    item => !blockedSet?.has(item.AuthorUserID)
   );
 
   // ONE WEEK window constant for data eligibility
