@@ -1161,7 +1161,8 @@ export default function SentinelFeed(): React.JSX.Element {
   try {
     console.log('🔧 Starting view count initialization...');
     
-    const collections = ['SentinelPosts', 'X-Data'];
+    // const collections = ['SentinelPosts', 'X-Data']; // single collection for all
+    const collections = ['SentinelPosts'];
     let totalUpdated = 0;
     
     for (const collectionName of collections) {
@@ -1221,7 +1222,8 @@ const trackPostView = useCallback(async (postId: string, postType: string) => {
     if (!userId || !postId) return;
     if (viewedPosts.has(postId)) return;
 
-    const collectionName = postType === 'X-Data' ? 'X-Data' : 'SentinelPosts';
+    // const collectionName = postType === 'X-Data' ? 'X-Data' : 'SentinelPosts'; //single collection for all
+    const collectionName = 'SentinelPosts';
     
     // ✅ FIX: Strip 'x-' prefix if present (uniqueId vs id mismatch)
     const cleanPostId = postId.startsWith('x-') ? postId.replace('x-', '') : postId;
@@ -1259,15 +1261,15 @@ const trackPostView = useCallback(async (postId: string, postType: string) => {
       )
     );
 
-    if (postType === 'X-Data') {
-      setFetchedXData(prev =>
-        prev.map(p =>
-          p.id === postId || p.id === cleanPostId
-            ? { ...p, ContentViewCount: newCount }
-            : p
-        )
-      );
-    }
+    // if (postType === 'X-Data') {
+    //   setFetchedXData(prev =>
+    //     prev.map(p =>
+    //       p.id === postId || p.id === cleanPostId
+    //         ? { ...p, ContentViewCount: newCount }
+    //         : p
+    //     )
+    //   );
+    // }
 
     setViewedPosts(prev => new Set(prev).add(postId));
 
@@ -1289,20 +1291,20 @@ const trackPostView = useCallback(async (postId: string, postType: string) => {
 const debugFirebaseCollections = async () => {
   try {
     // Check X-Data collection
-    const xDataRef = collection(db, 'X-Data');
-    const xDataSnapshot = await getDocs(query(xDataRef, limit(1)));
+    // const xDataRef = collection(db, 'X-Data');
+    // const xDataSnapshot = await getDocs(query(xDataRef, limit(1)));
     
-    if (!xDataSnapshot.empty) {
-      const sampleDoc = xDataSnapshot.docs[0];
-      console.log('✅ X-Data Collection Structure:', {
-        id: sampleDoc.id,
-        data: sampleDoc.data(),
-        hasViewCount: 'ContentViewCount' in sampleDoc.data(),
-        hasViewedBy: 'ViewedBy' in sampleDoc.data()
-      });
-    } else {
-      console.log('❌ X-Data collection is empty');
-    }
+    // if (!xDataSnapshot.empty) {
+    //   const sampleDoc = xDataSnapshot.docs[0];
+    //   console.log('✅ X-Data Collection Structure:', {
+    //     id: sampleDoc.id,
+    //     data: sampleDoc.data(),
+    //     hasViewCount: 'ContentViewCount' in sampleDoc.data(),
+    //     hasViewedBy: 'ViewedBy' in sampleDoc.data()
+    //   });
+    // } else {
+    //   console.log('❌ X-Data collection is empty');
+    // }
 
     // Check SentinelPosts collection
     const sentinelRef = collection(db, 'SentinelPosts');
@@ -4285,8 +4287,8 @@ useEffect(() => {
       const unsubscribers: (() => void)[] = [];
 
       visiblePosts.forEach(post => {
-        const collectionName = post.postType === 'X-Data' ? 'X-Data' : 'SentinelPosts';
-        const postRef = doc(db, collectionName, post.id);
+        // const collectionName = post.postType === 'X-Data' ? 'X-Data' : 'SentinelPosts';  // Single Collection for all
+        const postRef = doc(db, 'SentinelPosts', post.id);
         
         const unsubscribe = onSnapshot(postRef, (snapshot) => {
           if (snapshot.exists()) {
