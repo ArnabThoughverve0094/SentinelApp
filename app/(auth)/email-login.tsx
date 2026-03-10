@@ -389,7 +389,8 @@ export default function EmailLogin(): React.JSX.Element {
         userEmail: userData.userAttributes.email || '',
         userName: userData.userAttributes.name || '',
         userNickName: userData.userAttributes.nickname || '',
-        profilePicUrl: userData.userAttributes.profilePic || ''
+        profilePicUrl: userData.userAttributes.profilePic || '',
+        deviceToken: expoPushToken || ''
       }, { merge: true });
   
       // Commit both updates at once
