@@ -16,6 +16,7 @@ import {
   Animated,
   Dimensions,
   Image,
+  ImageBackground,
   KeyboardAvoidingView,
   Linking,
   Modal,
@@ -25,7 +26,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  ImageBackground,
   View, useWindowDimensions
 } from "react-native";
 import { Dropdown } from 'react-native-element-dropdown';
@@ -4059,7 +4059,7 @@ useEffect(() => {
   const filteredData = useMemo(() => {
   // Remove blocked users
   const sourceData = fetchedData.filter(
-    item => !allBlockedIds?.has(item.AuthorUserID)
+    item => !allBlockedIds?.includes(item.AuthorUserID)
   );
 
   // ONE WEEK window constant for data eligibility
