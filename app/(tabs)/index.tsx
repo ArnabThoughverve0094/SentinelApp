@@ -25,6 +25,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  ImageBackground,
   View, useWindowDimensions
 } from "react-native";
 import { Dropdown } from 'react-native-element-dropdown';
@@ -47,6 +48,7 @@ interface Template {
 }
 
 interface PostItem {
+  [x: string]: any;
   AuthorBio: string;
   id: string;
   uniqueId: string;
@@ -128,6 +130,8 @@ type ShortURLResponse = {
   shortURL: string;
   id: any;
 };
+const ironExBg = require('../../assets/images/ironex-bg.png');
+
 
 const renderStyledPostText = (text) => {
   if (!text) return null;
@@ -516,20 +520,28 @@ const TabHeader: React.FC<{
 
           {/* Educational Tab */}
           <TouchableOpacity
-            className={`py-4 items-center justify-center ${
-              activeTab === 'educational' ? 'bg-white' : 'bg-gray-50'
-            }`}
+            className="py-3 items-center justify-center bg-gray-50"
             style={{ width: tabWidth }}
             onPress={() => onTabChange('educational')}
             activeOpacity={0.8}
           >
-            <Text
-              className={`text-base font-semibold ${
-                activeTab === 'educational' ? 'text-black' : 'text-gray-500'
-              }`}
+            <View
+              style={{
+                backgroundColor: activeTab === 'educational' ? '#EFFAAB' : 'transparent',
+                borderRadius: activeTab === 'educational' ? 999 : 0,
+                paddingVertical: activeTab === 'educational' ? 6 : 0,
+                paddingHorizontal: activeTab === 'educational' ? 18 : 0,
+                alignSelf: 'center',   // ← KEY: shrinks to fit text width only
+              }}
             >
-              Educational
-            </Text>
+              <Text
+                className={`text-base font-semibold ${
+                  activeTab === 'educational' ? 'text-black' : 'text-gray-500'
+                }`}
+              >
+                Educational
+              </Text>
+            </View>
           </TouchableOpacity>
 
           {/* Following Tab */}
@@ -980,6 +992,78 @@ const CustomModal: React.FC<CustomModalProps> = ({
     </Modal>
   );
 };
+  function buildInterleavedFeed<T extends { postType: string; ContentDate: string; createdAt?: any }>(
+    sentinelPosts: T[],
+    xPosts: T[],
+    sentinelChunk: number = 20,
+    xChunk: number = 10
+  ): T[] {
+    const toMs = (date: any): number => {
+      if (!date) return 0;
+      if (typeof date === 'object' && date?.toDate) return date.toDate().getTime();
+      if (date instanceof Date) return date.getTime();
+      return new Date(date).getTime();
+    };
+
+    const sentinels = [...sentinelPosts].sort(
+      (a, b) => toMs(b.createdAt ?? b.ContentDate) - toMs(a.createdAt ?? a.ContentDate)
+    );
+    const xData = [...xPosts].sort(
+      (a, b) => toMs(b.createdAt ?? b.ContentDate) - toMs(a.createdAt ?? a.ContentDate)
+    );
+
+    const result: T[] = [];
+    let si = 0;
+    let xi = 0;
+
+    while (si < sentinels.length || xi < xData.length) {
+      for (let i = 0; i < sentinelChunk && si < sentinels.length; i++, si++) {
+        result.push(sentinels[si]);
+      }
+      for (let i = 0; i < xChunk && xi < xData.length; i++, xi++) {
+        result.push(xData[xi]);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Returns the best time window (in ms) that contains at least `minCount` posts.
+   * Automatically scales from 24 hours all the way to "all time".
+   */
+  function getAdaptiveTimeWindow(
+    posts: { createdAt?: any; ContentDate?: any }[],
+    minCount: number = 5
+  ): number {
+    const now = Date.now();
+
+    const WINDOWS_MS = [
+      24, 48, 72, 96, 120, 144,
+      24 * 7,
+      24 * 14,
+      24 * 30,
+      24 * 90,
+      24 * 180,
+      24 * 365,
+      Infinity,
+    ].map(h => h === Infinity ? Infinity : h * 60 * 60 * 1000);
+
+    const toMs = (date: any): number => {
+      if (!date) return 0;
+      if (typeof date === 'object' && date?.toDate) return date.toDate().getTime();
+      if (date instanceof Date) return date.getTime();
+      return new Date(date).getTime();
+    };
+
+    for (const windowMs of WINDOWS_MS) {
+      const cutoff = now - windowMs;
+      const count = posts.filter(p => toMs(p.createdAt ?? p.ContentDate) >= cutoff).length;
+      if (count >= minCount || windowMs === Infinity) return windowMs;
+    }
+
+    return Infinity;
+  }
 
 export default function SentinelFeed(): React.JSX.Element {
   const router = useRouter();
@@ -3973,86 +4057,130 @@ useEffect(() => {
   }, [handleFetchAllData]);
 
   const filteredData = useMemo(() => {
-    // Remove blocked users immediately from the source
-    const sourceData = fetchedData.filter(item => !allBlockedIds.has(item.AuthorUserID));
-    console.log("allBlockedIds: ", allBlockedIds.size);
-    // Base data - all approved posts for Users, all posts for Admins
-    let baseData = sourceData.filter((item) => {
-      if (userRole === "User") {
-        return item.isApproved && !item.isNew || item.postType.includes("X-Data");
-      }
-      return true;
-    });
+  // Remove blocked users
+  const sourceData = fetchedData.filter(
+    item => !allBlockedIds?.has(item.AuthorUserID)
+  );
 
+  // ONE WEEK window constant for data eligibility
+  const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+  const now = Date.now();
 
-    // Educational data - based on contentType
-    let educationalData = sourceData.filter((item) => {
-      if (userRole === "User") {
-        // ✅ FIX: Check contentType AND isEducational field
-        return (
-          item.isApproved && 
-          !item.isNew && 
-          (item.contentType === "Educational" || item.isEducational === true)
-        );
-      } else {
-        return item.contentType === "Educational" || item.isEducational === true;
-      }
-    });
+  const toMs = (date: any): number => {
+    if (!date) return 0;
+    if (typeof date === 'object' && date?.toDate) return date.toDate().getTime();
+    if (date instanceof Date) return date.getTime();
+    return new Date(date).getTime();
+  };
 
-    // Published Posts - exclude educational content
-    let publishedData = sourceData.filter((item) => {
-      const isXData = item.postType.includes('X-Data');
-      if (userRole === "User") {
-        return (isXData || (item.isApproved && !item.isNew) &&
-          item.contentType !== "Educational" && 
-          !item.isEducational
-        );
-      } else {
-        return item.contentType !== "Educational" && !item.isEducational;
-      }
-    });
-
-    // FOLLOWING TAB
-    if (activeTab === "following") {
-      console.log("🔍 Following Tab Filter");
-      console.log("  Following IDs:", followingUserIds);
-      console.log("  Base data count:", baseData.length);
-
-      const followingData = baseData.filter((item) => {
-        const authorId = item.repostedBy || item.AuthorUserID;
-        const isFromFollowedUser = authorId && followingUserIds.includes(authorId);
-
-        if (isFromFollowedUser) {
-          console.log(`  ✅ Including: ${item.AuthorName} (${authorId})`);
-        }
-
-        return isFromFollowedUser;
-      });
-
-      console.log("  📊 Following result count:", followingData.length);
-
-      if (followingData.length < 4) {
-        handleLoadMore();
-      }
-      
-      return followingData;
+  // Base approved data
+  const baseData = sourceData.filter(item => {
+    if (userRole === 'User') {
+      return (
+        item.postType.includes('X-Data') ||
+        (item.isApproved && !item.isNew)
+      );
     }
+    return true;
+  });
 
-    // EDUCATIONAL TAB
-    if (activeTab === "educational") {
-      console.log("📚 Educational Tab Filter");
-      console.log("  Educational posts count:", educationalData.length);
-      if (educationalData.length < 4) {
-        handleLoadMore();
-      }
-      
-      return educationalData;
+  // Educational data
+  const educationalData = sourceData.filter(item => {
+    if (userRole === 'User') {
+      return (
+        (item.isApproved && !item.isNew) &&
+        item.contentType === 'Educational' &&
+        item.isEducational === true
+      );
     }
+    return item.contentType === 'Educational' && item.isEducational === true;
+  });
 
-    // FOR YOU TAB (default)
-    console.log("📱 For You Tab - showing:", publishedData.length, "posts");
-    return publishedData;
-  }, [fetchedData, userRole, activeTab, followingUserIds, allBlockedIds]);
+  // Published data (excludes educational)
+  const publishedData = sourceData.filter(item => {
+    const isXData = item.postType.includes('X-Data');
+    if (userRole === 'User') {
+      return (
+        (isXData || (item.isApproved && !item.isNew)) &&
+        item.contentType !== 'Educational' &&
+        !item.isEducational
+      );
+    }
+    return item.contentType !== 'Educational' && !item.isEducational;
+  });
+
+  // ── FOLLOWING TAB ──────────────────────────────────────────────────────────
+  if (activeTab === 'following') {
+    const followingData = baseData.filter(item => {
+      const authorId = item.repostedBy || item.AuthorUserID;
+      return authorId && followingUserIds.includes(authorId);
+    });
+    if (followingData.length < 4) handleLoadMore();
+    return followingData;
+  }
+
+  // ── EDUCATIONAL TAB ────────────────────────────────────────────────────────
+  if (activeTab === 'educational') {
+    if (educationalData.length < 4) handleLoadMore();
+    return educationalData;
+  }
+
+  // ── FOR YOU TAB ────────────────────────────────────────────────────────────
+  if (activeTab === 'forYou') {
+    // 1. Separate Sentinel and X-Data posts
+    const allSentinels = publishedData.filter(
+      item => !item.postType.includes('X-Data')
+    );
+    const allXData = publishedData.filter(
+      item => item.postType.includes('X-Data')
+    );
+
+    // 2. BOTH pools limited to last 1 week for relevancy
+    const weekSentinels = allSentinels.filter(
+      p => now - toMs(p.createdAt ?? p.ContentDate) <= ONE_WEEK_MS
+    );
+    const weekXData = allXData.filter(
+      p => now - toMs(p.createdAt ?? p.ContentDate) <= ONE_WEEK_MS
+    );
+
+    // 3. Older posts (beyond 1 week) as fallback pool
+    const olderSentinels = allSentinels.filter(
+      p => now - toMs(p.createdAt ?? p.ContentDate) > ONE_WEEK_MS
+    );
+    const olderXData = allXData.filter(
+      p => now - toMs(p.createdAt ?? p.ContentDate) > ONE_WEEK_MS
+    );
+
+    // 4. Within the 1-week pool, get adaptive window for "fresh" Sentinel boost
+    const windowMs = getAdaptiveTimeWindow(weekSentinels, 5);
+    const freshSentinels = weekSentinels.filter(
+      p => now - toMs(p.createdAt ?? p.ContentDate) <= windowMs
+    );
+    const recentSentinels = weekSentinels.filter(
+      p => now - toMs(p.createdAt ?? p.ContentDate) > windowMs
+    );
+
+    // 5. Build interleaved blocks for the 1-week pool
+    //    Pattern: [recentSentinels 20] [weekXData 10] repeating
+    const interleavedWeek = buildInterleavedFeed(recentSentinels, weekXData, 20, 10);
+
+    // 6. Build interleaved blocks for older posts (beyond 1 week) as tail
+    const interleavedOlder = buildInterleavedFeed(olderSentinels, olderXData, 20, 10);
+
+    console.log(
+      `[Feed] Window: ${windowMs / 3600000}h | Fresh: ${freshSentinels.length} | Week Sentinels: ${weekSentinels.length} | Week X: ${weekXData.length} | Older: ${olderSentinels.length + olderXData.length}`
+    );
+
+    // Final order:
+    // 1. Fresh Sentinels (latest within adaptive window) — always top
+    // 2. Interleaved 1-week posts (20S/10X pattern)
+    // 3. Interleaved older posts as infinite tail
+    return [...freshSentinels, ...interleavedWeek, ...interleavedOlder];
+  }
+
+  return publishedData;
+
+}, [fetchedData, userRole, activeTab, followingUserIds, allBlockedIds]);
 
 
     const handleScroll = useCallback((event: any) => {
@@ -4363,6 +4491,10 @@ useEffect(() => {
       AuthorName = item.AuthorName;
       AuthorImage = item.AuthorImageURL;
     }
+   const isIronExPost = item.AuthorName === 'IronEx';
+    const isIronExEducational = isIronExPost && item.isEducational === true;
+    const isIronExPublished = isIronExPost && !item.isEducational;
+
 
     return (
       <TouchableOpacity 
@@ -4411,134 +4543,166 @@ useEffect(() => {
           )}
 
 
+   <EnhancedCard postId={item.uniqueId}>
 
-        <EnhancedCard postId={item.uniqueId}>
-          <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
-            <View className="flex-row items-center">
-                <View className="relative">
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={() => openUserProfile(item)}
-                  >
-                    <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
-                      <Image
-                        source={{ uri: AuthorImage || dummyAuthorImage }}
-                        className="w-full h-full"
-                        resizeMode="cover"
-                        resizeMethod="resize"
-                      />
-                    </View>
-                  </TouchableOpacity>
+  {isIronExPost ? (
+    <>
+      {/* ===== HEADER ===== */}
+      <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
+        <View className="flex-row items-center">
+          <TouchableOpacity activeOpacity={0.8} onPress={() => openUserProfile(item)}>
+            <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
+              <Image
+                source={{ uri: AuthorImage || dummyAuthorImage }}
+                className="w-full h-full"
+                resizeMode="cover"
+                resizeMethod="resize"
+              />
+            </View>
+          </TouchableOpacity>
+
+          <View className="flex-1">
+            <Text className="font-bold text-gray-900 text-sm">{AuthorName}</Text>
+            <View className="flex-row items-center mt-0.5">
+              {item.postType !== 'X-Data' && (
+                <View className="bg-blue-100 px-1 py-0.5 rounded-full mr-1.5">
+                  <Text className="text-blue-600 text-xs">• {item.contentType}</Text>
                 </View>
-
-
-              <View className="flex-1">
-                <Text className="font-bold text-gray-900 text-sm">{AuthorName}</Text>
-                <View className="flex-row items-center mt-0.5">
-                  {item.postType != 'X-Data' && !item.isEducational && (
-                    <View className="bg-blue-100 px-1 py-0.5 rounded-full mr-1.5">
-                      <Text className="text-blue-600 text-xs font-regular">• {item.contentType}</Text>
-                    </View>
-                  )}
-                  {item.postType === 'X-Data' && (
-                    <View className="bg-blue-100 px-0.5 py-0.5 rounded-full mr-1.5">
-                      <Text className="text-blue-600 text-xs font-semibold">𝕏 POST</Text>
-                    </View>
-                  )}
-                  {userRole !== 'User' && item.postType === 'SentinelPosts' && (
-                  <View className={`px-2 py-1 rounded-full ${getPostStatus(item).bgColor}`}>
-                    <Text className="text-xs font-semibold" style={{ color: getPostStatus(item).color }}>
-                      {getPostStatus(item).text}
-                    </Text>
-                  </View>
-                )}
-
+              )}
+              {item.postType === 'X-Data' && (
+                <View className="bg-blue-100 px-0.5 py-0.5 rounded-full mr-1.5">
+                  <Text className="text-blue-600 text-xs font-semibold">𝕏 POST</Text>
                 </View>
-              </View>
-              
-              <Text className="text-gray-500 text-xs mr-5">{getTimeAgo(item.ContentDate)}</Text>
-              {/* {item.AuthorUserID === userId && ( */}
-                <TouchableOpacity className="p-1.5 rounded-full bg-gray-100"
-                onPress={(event) => handleThreeDotsPress(item, event)}
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                <Ionicons name="ellipsis-horizontal" size={12} color="#64748b" />
-              </TouchableOpacity>
-              {/* )} */}
+              )}
+              {userRole !== 'User' && item.postType === 'SentinelPosts' && (
+                <View className={`px-2 py-1 rounded-full ${getPostStatus(item).bgColor}`}>
+                  <Text className="text-xs font-semibold" style={{ color: getPostStatus(item).color }}>
+                    {getPostStatus(item).text}
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
-  
-          <View className="px-3 py-2.5">
-            <Text className="text-gray-800 text-sm leading-5 mb-2 font-normal"
-              numberOfLines={3}>
-              {renderStyledPostText(item.ContentDesc)}
+
+          <Text className="text-gray-500 text-xs mr-5">{getTimeAgo(item.ContentDate)}</Text>
+          <TouchableOpacity
+            className="p-1.5 rounded-full bg-gray-100"
+            onPress={(event) => handleThreeDotsPress(item, event)}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="ellipsis-horizontal" size={12} color="#64748b" />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* ===== BODY ===== */}
+      <View style={{ paddingBottom: 10 }}>
+
+        {/* ✅ BANNER — full width, no gray gap, beautiful radius */}
+        <ImageBackground
+          source={
+            isIronExEducational
+              ? require('../../assets/images/education-bg.png')
+              : require('../../assets/images/ironex-bg.png')
+          }
+          resizeMode="cover"
+          style={{
+            width: '100%',
+            minHeight: 170,
+            marginBottom: 10,
+            overflow: 'hidden',
+            borderBottomLeftRadius: 14,   // ← only bottom corners rounded
+            borderBottomRightRadius: 14,  // ← top flush with header
+          }}
+          imageStyle={{
+            borderBottomLeftRadius: 14,
+            borderBottomRightRadius: 14,
+          }}
+        >
+          <View
+            style={{
+              flex: 1,
+              paddingTop: 16,
+              paddingBottom: 16,
+              paddingLeft: 25,
+              paddingRight: '35%',
+              justifyContent: 'center',
+              minHeight: 160,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 13,
+                fontWeight: '600',
+                color: isIronExEducational ? '#111827' : '#ffffff',
+                lineHeight: 19,
+              }}
+              numberOfLines={6}
+            >
+              {item.ContentDesc}
+            </Text>
+
+            {item.ContentTagline ? (
+              <Text
+                style={{
+                  fontSize: 11,
+                  color: isIronExEducational ? '#4b5563' : '#d1d5db',
+                  lineHeight: 15,
+                  marginTop: 5,
+                }}
+                numberOfLines={2}
+              >
+                {item.ContentTagline}
               </Text>
-  
-            {renderRepostContent(item)}
-  
-            {/* {(!item.isRepost || item.repostComment) && renderMediaContent(item, index)} */}
-            {item.postType !== "X-Data" && renderMediaContent(item, index)}
-  
-            <View className="flex-row items-center">
-              <View className="flex-1"> 
-                <View className="flex-row items-center mt-1.5">
+            ) : null}
+          </View>
+        </ImageBackground>
 
-                  <TouchableOpacity
-                    className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      toggleLike(item);
-                    }}
-                    activeOpacity={0.7}
-                    disabled={areInteractionsDisabled(item)}
-                  >
-                    <Ionicons
-                      name={item.Liked ? "heart" : "heart-outline"}
-                      size={20}
-                      color={item.Liked ? "#ef4444" : "#64748b"}
-                    />
-                    <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
-                      {item.ContentLikeCount}
-                    </Text>
-                  </TouchableOpacity>
+        {/* ===== Rest of content with padding ===== */}
+        <View className="px-3">
+          {renderRepostContent(item)}
+          {item.postType !== "X-Data" && renderMediaContent(item, index)}
 
-                  <TouchableOpacity
-                    className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      openCommentsModal(item);
-                    }}
-                    activeOpacity={0.7}
-                    disabled={areInteractionsDisabled(item)}
-                  >
-                    <MaterialCommunityIcons
-                      name="thumbs-up-down"
-                      size={20}
-                      color="#000000"
-                    />
-                    <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
-                  </TouchableOpacity>
-  
-                  <TouchableOpacity
-                    className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      handleRepost(item);
-                    }}
-                    activeOpacity={0.7}
-                    disabled={areInteractionsDisabled(item)}
-                  >
-                    <Ionicons 
-                      name="repeat-outline" 
-                      size={20} 
-                      color={item.Reposted ? "#0ea5e9" : "#64748b"} 
-                    />
-                    <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
-                      {item.ContentRepostCount}
-                    </Text>
-                  </TouchableOpacity>
-                {/* GRAPH WITH VIEW COUNT LIKE X/TWITTER */}
+          {/* ===== REACTION ICONS ===== */}
+          <View className="flex-row items-center">
+            <View className="flex-1">
+              <View className="flex-row items-center mt-1.5">
+
+                <TouchableOpacity
+                  className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                  onPress={(e) => { e.stopPropagation(); toggleLike(item); }}
+                  activeOpacity={0.7}
+                  disabled={areInteractionsDisabled(item)}
+                >
+                  <Ionicons name={item.Liked ? "heart" : "heart-outline"} size={20} color={item.Liked ? "#ef4444" : "#64748b"} />
+                  <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
+                    {item.ContentLikeCount}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                  onPress={(e) => { e.stopPropagation(); openCommentsModal(item); }}
+                  activeOpacity={0.7}
+                  disabled={areInteractionsDisabled(item)}
+                >
+                  <MaterialCommunityIcons name="thumbs-up-down" size={20} color="#000000" />
+                  <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                  onPress={(e) => { e.stopPropagation(); handleRepost(item); }}
+                  activeOpacity={0.7}
+                  disabled={areInteractionsDisabled(item)}
+                >
+                  <Ionicons name="repeat-outline" size={20} color={item.Reposted ? "#0ea5e9" : "#64748b"} />
+                  <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
+                    {item.ContentRepostCount}
+                  </Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity
                   className="flex-row items-center mr-4 px-1.5 py-1"
                   style={areInteractionsDisabled(item) ? { opacity: 0.5 } : {}}
@@ -4547,8 +4711,6 @@ useEffect(() => {
                   disabled={areInteractionsDisabled(item)}
                 >
                   <Feather name="bar-chart-2" size={20} color="#64748b" />
-                  
-                  {/* ✅ This now works because X-Data is in fetchedData with ContentViewCount */}
                   {item.ContentViewCount !== undefined && item.ContentViewCount > 0 && (
                     <Text className="text-gray-600 ml-1.5 text-xs font-medium">
                       {formatViewCount(item.ContentViewCount)}
@@ -4556,146 +4718,84 @@ useEffect(() => {
                   )}
                 </TouchableOpacity>
 
-
-                </View>
-          
               </View>
-
-              <View className="flex-row items-center mt-1.5">
-                <TouchableOpacity
-                  className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    handleBookmark(item);
-                  }}
-                  activeOpacity={0.7}
-                  disabled={areInteractionsDisabled(item)}
-                >
-                  <Ionicons 
-                    name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
-                    size={20} 
-                    color={item.Bookmarked ? "#000000" : "#64748b"} 
-                  />
-                </TouchableOpacity>
-  
-                <TouchableOpacity 
-                  className={`mr-2 p-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    handleShare(item);
-                  }}
-                  activeOpacity={0.7}
-                  disabled={areInteractionsDisabled(item)}
-                >
-                  {sharingId != null ? (
-                    <ActivityIndicator size={20} color="#64748b" />
-                    ) : (
-                    <Feather name="share-2" size={20} color="#64748b" />
-                  )}
-                </TouchableOpacity>
-                </View>
-
             </View>
 
-            {userRole !== "User" && (
+            <View className="flex-row items-center mt-1.5">
               <TouchableOpacity
-                onPress={(e) => e.stopPropagation()}
-                activeOpacity={1}
+                className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                onPress={(e) => { e.stopPropagation(); handleBookmark(item); }}
+                activeOpacity={0.7}
+                disabled={areInteractionsDisabled(item)}
               >
-                <View className="mt-3 px-3 py-3 bg-white rounded-lg border border-gray-200">
-                  {/* Header Row */}
-                  <View className="flex-row items-center mb-1">
-                    <Ionicons
-                      name="information-circle-outline"
-                      size={18}
-                      color="#64748b"
-                    />
-                    <Text className="font-semibold text-gray-900 text-sm ml-1.5">
-                      Post Status
+                <Ionicons name={item.Bookmarked ? "bookmark" : "bookmark-outline"} size={20} color={item.Bookmarked ? "#000000" : "#64748b"} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                className={`mr-2 p-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                onPress={(e) => { e.stopPropagation(); handleShare(item); }}
+                activeOpacity={0.7}
+                disabled={areInteractionsDisabled(item)}
+              >
+                {sharingId != null ? (
+                  <ActivityIndicator size={20} color="#64748b" />
+                ) : (
+                  <Feather name="share-2" size={20} color="#64748b" />
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* ===== ADMIN: POST STATUS ===== */}
+          {userRole !== "User" && (
+            <TouchableOpacity onPress={(e) => e.stopPropagation()} activeOpacity={1}>
+              <View className="mt-3 px-3 py-3 bg-white rounded-lg border border-gray-200">
+                <View className="flex-row items-center mb-1">
+                  <Ionicons name="information-circle-outline" size={18} color="#64748b" />
+                  <Text className="font-semibold text-gray-900 text-sm ml-1.5">Post Status</Text>
+                </View>
+                <Text className="text-gray-500 text-xs leading-4 mb-2">
+                  {item.isNew
+                    ? "This post is new and awaiting review"
+                    : item.isApproved
+                    ? "This post is approved and visible to users"
+                    : "This post is rejected and not visible to users"}
+                </Text>
+                {item.isNew && item.moderationData?.violations && item.moderationData.violations.length > 0 && (
+                  <View className="flex-row items-center mb-3 bg-amber-50 px-2 py-1.5 rounded-lg">
+                    <Ionicons name="alert-circle" size={12} color="#f59e0b" />
+                    <Text className="text-xs text-gray-600 ml-1 flex-1">
+                      <Text className="text-amber-700 font-medium">
+                        This post is flagged for: {item.moderationData.violations.join(", ")}
+                      </Text>
                     </Text>
                   </View>
-                  
-                  {/* Status Text */}
-                  <Text className="text-gray-500 text-xs leading-4 mb-2">
-                    {item.isNew
-                      ? "This post is new and awaiting review"
-                      : item.isApproved
-                      ? "This post is approved and visible to users"
-                      : "This post is rejected and not visible to users"}
-                  </Text>
-                  
-                  {/* Violations Display - Full width row */}
-                  {item.isNew && item.moderationData?.violations && item.moderationData.violations.length > 0 && (
-                    <View className="flex-row items-center mb-3 bg-amber-50 px-2 py-1.5 rounded-lg">
-                      <Ionicons name="alert-circle" size={12} color="#f59e0b" />
-                      <Text className="text-xs text-gray-600 ml-1 flex-1">
-                        <Text className="text-amber-700 font-medium">
-                          This post is flagged for: {item.moderationData.violations.join(", ")}
-                        </Text>
-                      </Text>
-                    </View>
-                  )}
-                  
-                  {/* Buttons Row */}
-                  <View className="flex-row items-center gap-2">
-                    <TouchableOpacity
-                      onPress={() => handleApprovalToggle(item.id, true, false, item.AuthorUserID)}
-                      className={`flex-1 flex-row items-center justify-center py-2 rounded-lg ${
-                        item.isApproved && !item.isNew
-                          ? "bg-green-500"
-                          : "bg-white border border-green-500"
-                      }`}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={14}
-                        color={item.isApproved && !item.isNew ? "#fff" : "#22c55e"}
-                      />
-                      <Text
-                        className={`ml-1 text-xs font-semibold ${
-                          item.isApproved && !item.isNew ? "text-white" : "text-green-500"
-                        }`}
-                      >
-                        Approve
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      onPress={() => openRejectionModal(item.id)}
-                      className={`flex-1 flex-row items-center justify-center py-2 rounded-lg ${
-                        !item.isApproved && !item.isNew
-                          ? "bg-red-500"
-                          : "bg-white border border-red-500"
-                      }`}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons
-                        name="close-circle"
-                        size={14}
-                        color={!item.isApproved && !item.isNew ? "#fff" : "#ef4444"}
-                      />
-                      <Text
-                        className={`ml-1 text-xs font-semibold ${
-                          !item.isApproved && !item.isNew ? "text-white" : "text-red-500"
-                        }`}
-                      >
-                        Reject
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                )}
+                <View className="flex-row items-center gap-2">
+                  <TouchableOpacity
+                    onPress={() => handleApprovalToggle(item.id, true, false, item.AuthorUserID)}
+                    className={`flex-1 flex-row items-center justify-center py-2 rounded-lg ${item.isApproved && !item.isNew ? "bg-green-500" : "bg-white border border-green-500"}`}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="checkmark-circle" size={14} color={item.isApproved && !item.isNew ? "#fff" : "#22c55e"} />
+                    <Text className={`ml-1 text-xs font-semibold ${item.isApproved && !item.isNew ? "text-white" : "text-green-500"}`}>Approve</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => openRejectionModal(item.id)}
+                    className={`flex-1 flex-row items-center justify-center py-2 rounded-lg ${!item.isApproved && !item.isNew ? "bg-red-500" : "bg-white border border-red-500"}`}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="close-circle" size={14} color={!item.isApproved && !item.isNew ? "#fff" : "#ef4444"} />
+                    <Text className={`ml-1 text-xs font-semibold ${!item.isApproved && !item.isNew ? "text-white" : "text-red-500"}`}>Reject</Text>
+                  </TouchableOpacity>
                 </View>
+              </View>
+            </TouchableOpacity>
+          )}
 
-              </TouchableOpacity>
-            )}
-            {/* ✅ REPORTED POST BADGE (Show for Admins only) */}
-           {/* ✅ REPORT DETAILS SECTION */}
-          {userRole !== "User" &&
-          item.isReported === true &&
-          item.reportedBy &&
-          item.reportedBy.length > 0 &&
-          !(item.isApproved === true && item.isNew === false) && (
-            <View className="mx-3 mb-3 mt-3 px-3 py-3 bg-red-50 border border-red-200 rounded-lg">
+          {/* ===== ADMIN: REPORTED BADGE ===== */}
+          {userRole !== "User" && item.isReported === true && item.reportedBy && item.reportedBy.length > 0 && !(item.isApproved === true && item.isNew === false) && (
+            <View className="mb-3 mt-3 px-3 py-3 bg-red-50 border border-red-200 rounded-lg">
               <View className="flex-row items-center justify-between mb-2">
                 <View className="flex-row items-center">
                   <Ionicons name="flag" size={16} color="#EF4444" />
@@ -4703,20 +4803,11 @@ useEffect(() => {
                     Reported by {item.reportedBy.length} user(s)
                   </Text>
                 </View>
-
                 {item.reportReasons && item.reportReasons.length > 0 && (
                   <TouchableOpacity
                     onPress={() => {
-                      const reasonsList = item.reportReasons
-                        ?.map((reason: string, idx: number) => `${idx + 1}. ${reason}`)
-                        .join("\n");
-                      Toast.show({
-                        type: "info",
-                        text1: "Report Reasons",
-                        text2: reasonsList,
-                        position: "bottom",
-                        visibilityTime: 1000,
-                      });
+                      const reasonsList = item.reportReasons?.map((reason: string, idx: number) => `${idx + 1}. ${reason}`).join("\n");
+                      Toast.show({ type: "info", text1: "Report Reasons", text2: reasonsList, position: "bottom", visibilityTime: 1000 });
                     }}
                     className="px-3 py-1.5 bg-red-100 rounded-md"
                   >
@@ -4726,105 +4817,307 @@ useEffect(() => {
                   </TouchableOpacity>
                 )}
               </View>
-
               {item.reportedAt && (
-                <Text className="text-red-500 text-xs">
-                  Reported {getTimeAgo(item.reportedAt)}
-                </Text>
+                <Text className="text-red-500 text-xs">Reported {getTimeAgo(item.reportedAt)}</Text>
               )}
             </View>
           )}
 
-            
-
-
-            {userRole !== "User" && (
-              <TouchableOpacity
-                onPress={(e) => e.stopPropagation()}
-                activeOpacity={1}
-              >
-                {/* <View className="mt-2 p-2.5 bg-gray-50 rounded-lg border border-gray-200">
-                  <View style={styles.container}>
-                    <View style={[styles.labelContainer, { maxWidth: width * 0.6 }]}>
-                      <Text style={styles.label}>Vote Option:</Text>
-                    </View>
+          {/* ===== ADMIN: VOTE OPTION DROPDOWN ===== */}
+          {userRole !== "User" && (
+            <TouchableOpacity onPress={(e) => e.stopPropagation()} activeOpacity={1}>
+              <View className="mt-2 px-3 py-2.5 bg-white rounded-lg border border-gray-200">
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-row items-center flex-1">
+                    <Ionicons name="checkbox-outline" size={18} color="#64748b" />
+                    <Text className="font-semibold text-gray-900 text-sm ml-1.5">Vote Option:</Text>
+                  </View>
+                  <View className="flex-1 ml-3">
                     <Dropdown
                       data={fetchedCommentTemplate}
                       labelField="name"
                       valueField="name"
                       value={item.CommentTemplate}
-                      onChange={itemValue => handleDropdownChange(itemValue, item)}
-                      style={styles.dropdown}
+                      onChange={(itemValue) => handleDropdownChange(itemValue, item)}
+                      placeholder="Select template"
+                      placeholderStyle={{ fontSize: 13, color: "#9CA3AF" }}
+                      selectedTextStyle={{ fontSize: 13, color: "#1F2937", fontWeight: "500" }}
+                      style={{ backgroundColor: "#F9FAFB", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: "#E5E7EB" }}
+                      containerStyle={{ borderRadius: 8, marginTop: 4, borderWidth: 1, borderColor: "#E5E7EB" }}
+                      itemTextStyle={{ fontSize: 13, color: "#374151" }}
+                      iconStyle={{ width: 20, height: 20, tintColor: "#6B7280" }}
+                      activeColor="#F3F4F6"
                     />
                   </View>
-                </View> */}
-                <View className="mt-2 px-3 py-2.5 bg-white rounded-lg border border-gray-200">
-                  {/* Header Row */}
-                  <View className="flex-row items-center justify-between">
-                    {/* Left: Label with icon */}
-                    <View className="flex-row items-center flex-1">
-                      <Ionicons
-                        name="checkbox-outline"
-                        size={18}
-                        color="#64748b"
-                      />
-                      <Text className="font-semibold text-gray-900 text-sm ml-1.5">
-                        Vote Option:
-                      </Text>
-                    </View>
-
-                    {/* Right: Dropdown */}
-                    <View className="flex-1 ml-3">
-                      <Dropdown
-                        data={fetchedCommentTemplate}
-                        labelField="name"
-                        valueField="name"
-                        value={item.CommentTemplate}
-                        onChange={(itemValue) =>
-                          handleDropdownChange(itemValue, item)
-                        }
-                        placeholder="Select template"
-                        placeholderStyle={{
-                          fontSize: 13,
-                          color: "#9CA3AF",
-                        }}
-                        selectedTextStyle={{
-                          fontSize: 13,
-                          color: "#1F2937",
-                          fontWeight: "500",
-                        }}
-                        style={{
-                          backgroundColor: "#F9FAFB",
-                          borderRadius: 8,
-                          paddingHorizontal: 12,
-                          paddingVertical: 8,
-                          borderWidth: 1,
-                          borderColor: "#E5E7EB",
-                        }}
-                        containerStyle={{
-                          borderRadius: 8,
-                          marginTop: 4,
-                          borderWidth: 1,
-                          borderColor: "#E5E7EB",
-                        }}
-                        itemTextStyle={{
-                          fontSize: 13,
-                          color: "#374151",
-                        }}
-                        iconStyle={{
-                          width: 20,
-                          height: 20,
-                          tintColor: "#6B7280",
-                        }}
-                        activeColor="#F3F4F6"
-                      />
-                    </View>
-                  </View>
                 </View>
+              </View>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    </>
+
+  ) : (
+
+    // ✅ All other users — original layout unchanged
+    <>
+      {/* ===== HEADER ===== */}
+      <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
+        <View className="flex-row items-center">
+          <View className="relative">
+            <TouchableOpacity activeOpacity={0.8} onPress={() => openUserProfile(item)}>
+              <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
+                <Image
+                  source={{ uri: AuthorImage || dummyAuthorImage }}
+                  className="w-full h-full"
+                  resizeMode="cover"
+                  resizeMethod="resize"
+                />
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          <View className="flex-1">
+            <Text className="font-bold text-gray-900 text-sm">{AuthorName}</Text>
+            <View className="flex-row items-center mt-0.5">
+              {item.postType != 'X-Data' && !item.isEducational && (
+                <View className="bg-blue-100 px-1 py-0.5 rounded-full mr-1.5">
+                  <Text className="text-blue-600 text-xs font-regular">• {item.contentType}</Text>
+                </View>
+              )}
+              {item.postType === 'X-Data' && (
+                <View className="bg-blue-100 px-0.5 py-0.5 rounded-full mr-1.5">
+                  <Text className="text-blue-600 text-xs font-semibold">𝕏 POST</Text>
+                </View>
+              )}
+              {userRole !== 'User' && item.postType === 'SentinelPosts' && (
+                <View className={`px-2 py-1 rounded-full ${getPostStatus(item).bgColor}`}>
+                  <Text className="text-xs font-semibold" style={{ color: getPostStatus(item).color }}>
+                    {getPostStatus(item).text}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+
+          <Text className="text-gray-500 text-xs mr-5">{getTimeAgo(item.ContentDate)}</Text>
+          <TouchableOpacity
+            className="p-1.5 rounded-full bg-gray-100"
+            onPress={(event) => handleThreeDotsPress(item, event)}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="ellipsis-horizontal" size={12} color="#64748b" />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* ===== BODY ===== */}
+      <View className="px-3 py-2.5">
+        <Text className="text-gray-800 text-sm leading-5 mb-2 font-normal" numberOfLines={3}>
+          {renderStyledPostText(item.ContentDesc)}
+        </Text>
+
+        {renderRepostContent(item)}
+        {item.postType !== "X-Data" && renderMediaContent(item, index)}
+
+        <View className="flex-row items-center">
+          <View className="flex-1">
+            <View className="flex-row items-center mt-1.5">
+              <TouchableOpacity
+                className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                onPress={(e) => { e.stopPropagation(); toggleLike(item); }}
+                activeOpacity={0.7}
+                disabled={areInteractionsDisabled(item)}
+              >
+                <Ionicons name={item.Liked ? "heart" : "heart-outline"} size={20} color={item.Liked ? "#ef4444" : "#64748b"} />
+                <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
+                  {item.ContentLikeCount}
+                </Text>
               </TouchableOpacity>
+
+              <TouchableOpacity
+                className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                onPress={(e) => { e.stopPropagation(); openCommentsModal(item); }}
+                activeOpacity={0.7}
+                disabled={areInteractionsDisabled(item)}
+              >
+                <MaterialCommunityIcons name="thumbs-up-down" size={20} color="#000000" />
+                <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                onPress={(e) => { e.stopPropagation(); handleRepost(item); }}
+                activeOpacity={0.7}
+                disabled={areInteractionsDisabled(item)}
+              >
+                <Ionicons name="repeat-outline" size={20} color={item.Reposted ? "#0ea5e9" : "#64748b"} />
+                <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
+                  {item.ContentRepostCount}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                className="flex-row items-center mr-4 px-1.5 py-1"
+                style={areInteractionsDisabled(item) ? { opacity: 0.5 } : {}}
+                onPress={(e) => { e.stopPropagation(); openGraphModal(item); }}
+                activeOpacity={0.7}
+                disabled={areInteractionsDisabled(item)}
+              >
+                <Feather name="bar-chart-2" size={20} color="#64748b" />
+                {item.ContentViewCount !== undefined && item.ContentViewCount > 0 && (
+                  <Text className="text-gray-600 ml-1.5 text-xs font-medium">
+                    {formatViewCount(item.ContentViewCount)}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View className="flex-row items-center mt-1.5">
+            <TouchableOpacity
+              className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+              onPress={(e) => { e.stopPropagation(); handleBookmark(item); }}
+              activeOpacity={0.7}
+              disabled={areInteractionsDisabled(item)}
+            >
+              <Ionicons name={item.Bookmarked ? "bookmark" : "bookmark-outline"} size={20} color={item.Bookmarked ? "#000000" : "#64748b"} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              className={`mr-2 p-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+              onPress={(e) => { e.stopPropagation(); handleShare(item); }}
+              activeOpacity={0.7}
+              disabled={areInteractionsDisabled(item)}
+            >
+              {sharingId != null ? (
+                <ActivityIndicator size={20} color="#64748b" />
+              ) : (
+                <Feather name="share-2" size={20} color="#64748b" />
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ===== ADMIN: POST STATUS ===== */}
+        {userRole !== "User" && (
+          <TouchableOpacity onPress={(e) => e.stopPropagation()} activeOpacity={1}>
+            <View className="mt-3 px-3 py-3 bg-white rounded-lg border border-gray-200">
+              <View className="flex-row items-center mb-1">
+                <Ionicons name="information-circle-outline" size={18} color="#64748b" />
+                <Text className="font-semibold text-gray-900 text-sm ml-1.5">Post Status</Text>
+              </View>
+              <Text className="text-gray-500 text-xs leading-4 mb-2">
+                {item.isNew
+                  ? "This post is new and awaiting review"
+                  : item.isApproved
+                  ? "This post is approved and visible to users"
+                  : "This post is rejected and not visible to users"}
+              </Text>
+              {item.isNew && item.moderationData?.violations && item.moderationData.violations.length > 0 && (
+                <View className="flex-row items-center mb-3 bg-amber-50 px-2 py-1.5 rounded-lg">
+                  <Ionicons name="alert-circle" size={12} color="#f59e0b" />
+                  <Text className="text-xs text-gray-600 ml-1 flex-1">
+                    <Text className="text-amber-700 font-medium">
+                      This post is flagged for: {item.moderationData.violations.join(", ")}
+                    </Text>
+                  </Text>
+                </View>
+              )}
+              <View className="flex-row items-center gap-2">
+                <TouchableOpacity
+                  onPress={() => handleApprovalToggle(item.id, true, false, item.AuthorUserID)}
+                  className={`flex-1 flex-row items-center justify-center py-2 rounded-lg ${item.isApproved && !item.isNew ? "bg-green-500" : "bg-white border border-green-500"}`}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="checkmark-circle" size={14} color={item.isApproved && !item.isNew ? "#fff" : "#22c55e"} />
+                  <Text className={`ml-1 text-xs font-semibold ${item.isApproved && !item.isNew ? "text-white" : "text-green-500"}`}>Approve</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => openRejectionModal(item.id)}
+                  className={`flex-1 flex-row items-center justify-center py-2 rounded-lg ${!item.isApproved && !item.isNew ? "bg-red-500" : "bg-white border border-red-500"}`}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="close-circle" size={14} color={!item.isApproved && !item.isNew ? "#fff" : "#ef4444"} />
+                  <Text className={`ml-1 text-xs font-semibold ${!item.isApproved && !item.isNew ? "text-white" : "text-red-500"}`}>Reject</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {/* ===== ADMIN: REPORTED BADGE ===== */}
+        {userRole !== "User" && item.isReported === true && item.reportedBy && item.reportedBy.length > 0 && !(item.isApproved === true && item.isNew === false) && (
+          <View className="mb-3 mt-3 px-3 py-3 bg-red-50 border border-red-200 rounded-lg">
+            <View className="flex-row items-center justify-between mb-2">
+              <View className="flex-row items-center">
+                <Ionicons name="flag" size={16} color="#EF4444" />
+                <Text className="text-red-600 text-sm font-bold ml-2">
+                  Reported by {item.reportedBy.length} user(s)
+                </Text>
+              </View>
+              {item.reportReasons && item.reportReasons.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => {
+                    const reasonsList = item.reportReasons?.map((reason: string, idx: number) => `${idx + 1}. ${reason}`).join("\n");
+                    Toast.show({ type: "info", text1: "Report Reasons", text2: reasonsList, position: "bottom", visibilityTime: 1000 });
+                  }}
+                  className="px-3 py-1.5 bg-red-100 rounded-md"
+                >
+                  <Text className="text-red-600 text-xs font-semibold">
+                    View Reasons ({item.reportReasons.length})
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            {item.reportedAt && (
+              <Text className="text-red-500 text-xs">Reported {getTimeAgo(item.reportedAt)}</Text>
             )}
           </View>
-        </EnhancedCard>
+        )}
+
+        {/* ===== ADMIN: VOTE OPTION DROPDOWN ===== */}
+        {userRole !== "User" && (
+          <TouchableOpacity onPress={(e) => e.stopPropagation()} activeOpacity={1}>
+            <View className="mt-2 px-3 py-2.5 bg-white rounded-lg border border-gray-200">
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center flex-1">
+                  <Ionicons name="checkbox-outline" size={18} color="#64748b" />
+                  <Text className="font-semibold text-gray-900 text-sm ml-1.5">Vote Option:</Text>
+                </View>
+                <View className="flex-1 ml-3">
+                  <Dropdown
+                    data={fetchedCommentTemplate}
+                    labelField="name"
+                    valueField="name"
+                    value={item.CommentTemplate}
+                    onChange={(itemValue) => handleDropdownChange(itemValue, item)}
+                    placeholder="Select template"
+                    placeholderStyle={{ fontSize: 13, color: "#9CA3AF" }}
+                    selectedTextStyle={{ fontSize: 13, color: "#1F2937", fontWeight: "500" }}
+                    style={{ backgroundColor: "#F9FAFB", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: "#E5E7EB" }}
+                    containerStyle={{ borderRadius: 8, marginTop: 4, borderWidth: 1, borderColor: "#E5E7EB" }}
+                    itemTextStyle={{ fontSize: 13, color: "#374151" }}
+                    iconStyle={{ width: 20, height: 20, tintColor: "#6B7280" }}
+                    activeColor="#F3F4F6"
+                  />
+                </View>
+              </View>
+            </View>
+          </TouchableOpacity>
+        )}
+      </View>
+    </>
+  )}
+
+</EnhancedCard>
+
+
+
+
+
+
       </TouchableOpacity>
     )
   }, [openCommentsModal, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, ApprovalToggle, handleApprovalToggle, dummyAuthorImage, userRole, getPostStatus, areInteractionsDisabled, openGraphModal, renderRepostContent]);
