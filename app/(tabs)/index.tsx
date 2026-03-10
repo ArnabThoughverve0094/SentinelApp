@@ -17,6 +17,8 @@ import {
   Dimensions,
   Easing,
   Image,
+  ImageBackground,
+  InteractionManager,
   KeyboardAvoidingView,
   Linking,
   Modal,
