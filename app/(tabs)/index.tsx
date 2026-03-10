@@ -15,8 +15,8 @@ import {
   ActivityIndicator,
   Animated,
   Dimensions,
+  Easing,
   Image,
-  ImageBackground,
   KeyboardAvoidingView,
   Linking,
   Modal,
@@ -436,47 +436,43 @@ const TabHeader: React.FC<{
 }> = ({ activeTab, onTabChange }) => {
   const slideAnim = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef<ScrollView>(null);
+  const tabWidth = screenWidth * 0.40;
 
-  // Calculate widths: First two tabs take 40% each, third tab full width
-  // This makes Published Posts + Educational = 80% screen, Following peeks at 20%
-  const tabWidth = screenWidth * 0.40; // Each tab is 40% of screen width
+  const tabIndexMap: Record<string, number> = {
+    forYou: 0,
+    educational: 1,
+    following: 2,
+  };
 
-  const saveLastTab = async () => {
+  const saveLastTab = useCallback(async (tab: string) => {
     try {
-      await AsyncStorage.setItem('createType', activeTab);
-      console.log(`Tab **${activeTab}** saved to AsyncStorage.`);
+      await AsyncStorage.setItem('createType', tab);
     } catch (error) {
       console.error('Error saving tab name:', error);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    Animated.spring(slideAnim, {
-      toValue: activeTab === 'forYou' ? 0 : activeTab === 'educational' ? 1 : 2,
-      tension: 100,
-      friction: 8,
-      useNativeDriver: true,
-    }).start();
+    // ✅ Stop any in-progress animation before starting new one — key for rapid tapping
+    slideAnim.stopAnimation(() => {
+      Animated.timing(slideAnim, {
+        toValue: tabIndexMap[activeTab],
+        duration: 60,              // ⚡ Ultra-fast: barely noticeable delay
+        easing: Easing.linear,      // ⚡ No ease-in/out lag, starts instantly
+        useNativeDriver: true,      // ⚡ Off JS thread = no bridge overhead
+      }).start();
+    });
 
-    // Auto-scroll based on active tab
     if (scrollViewRef.current) {
-      let scrollX = 0;
-      
-      if (activeTab === 'forYou') {
-        scrollX = 0; // Show "Published Posts" + "Educational" + peek of "Following"
-      } else if (activeTab === 'educational') {
-        scrollX = 0; // Keep same view - all visible
-      } else if (activeTab === 'following') {
-        scrollX = tabWidth; // Scroll to show "Educational" + "Following"
-      }
-      
-      scrollViewRef.current.scrollTo({
-        x: scrollX,
-        animated: true,
-      });
+      const scrollX = activeTab === 'following' ? tabWidth : 0;
+      scrollViewRef.current.scrollTo({ x: scrollX, animated: true });
     }
-    saveLastTab();
-  }, [activeTab, slideAnim, tabWidth]);
+
+    // ✅ Never blocks the animation — deferred to after interaction settles
+    InteractionManager.runAfterInteractions(() => {
+      saveLastTab(activeTab);
+    });
+  }, [activeTab]);
 
   const indicatorStyle = {
     transform: [
@@ -497,7 +493,6 @@ const TabHeader: React.FC<{
         showsHorizontalScrollIndicator={false}
         scrollEventThrottle={16}
         decelerationRate="fast"
-        // Remove snapToInterval to allow free scrolling
       >
         <View className="flex-row">
           {/* Published Posts Tab */}
@@ -507,23 +502,21 @@ const TabHeader: React.FC<{
             }`}
             style={{ width: tabWidth }}
             onPress={() => onTabChange('forYou')}
-            activeOpacity={0.8}
+            activeOpacity={0.6}
           >
-            <Text
-              className={`text-base font-semibold ${
-                activeTab === 'forYou' ? 'text-black' : 'text-gray-500'
-              }`}
-            >
+            <Text className={`text-base font-semibold ${
+              activeTab === 'forYou' ? 'text-black' : 'text-gray-500'
+            }`}>
               Published Posts
             </Text>
           </TouchableOpacity>
 
-          {/* Educational Tab */}
+          {/* Educational Tab — pill UI unchanged ✅ */}
           <TouchableOpacity
             className="py-3 items-center justify-center bg-gray-50"
             style={{ width: tabWidth }}
             onPress={() => onTabChange('educational')}
-            activeOpacity={0.8}
+            activeOpacity={0.6}
           >
             <View
               style={{
@@ -531,14 +524,12 @@ const TabHeader: React.FC<{
                 borderRadius: activeTab === 'educational' ? 999 : 0,
                 paddingVertical: activeTab === 'educational' ? 6 : 0,
                 paddingHorizontal: activeTab === 'educational' ? 18 : 0,
-                alignSelf: 'center',   // ← KEY: shrinks to fit text width only
+                alignSelf: 'center',
               }}
             >
-              <Text
-                className={`text-base font-semibold ${
-                  activeTab === 'educational' ? 'text-black' : 'text-gray-500'
-                }`}
-              >
+              <Text className={`text-base font-semibold ${
+                activeTab === 'educational' ? 'text-black' : 'text-gray-500'
+              }`}>
                 Educational
               </Text>
             </View>
@@ -551,13 +542,11 @@ const TabHeader: React.FC<{
             }`}
             style={{ width: tabWidth }}
             onPress={() => onTabChange('following')}
-            activeOpacity={0.8}
+            activeOpacity={0.6}
           >
-            <Text
-              className={`text-base font-semibold ${
-                activeTab === 'following' ? 'text-black' : 'text-gray-500'
-              }`}
-            >
+            <Text className={`text-base font-semibold ${
+              activeTab === 'following' ? 'text-black' : 'text-gray-500'
+            }`}>
               Following
             </Text>
           </TouchableOpacity>
@@ -565,23 +554,20 @@ const TabHeader: React.FC<{
       </ScrollView>
 
       {/* Animated Indicator */}
-      <View className="relative" style={{ height: 2 }}>
-        <Animated.View
-          style={[
-            {
-              position: 'absolute',
-              bottom: 0,
-              height: 2,
-              width: tabWidth,
-              backgroundColor: '#000000',
-            },
-            indicatorStyle,
-          ]}
-        />
+      <View style={{ height: 2 }}>
+        <Animated.View style={[{
+          position: 'absolute',
+          bottom: 0,
+          height: 2,
+          width: tabWidth,
+          backgroundColor: '#000000',
+        }, indicatorStyle]} />
       </View>
     </View>
   );
 };
+
+
 
 // Repost Modal Component
 interface RepostModalProps {
@@ -1865,8 +1851,8 @@ useEffect(() => {
             repostedBy: postData.repostedBy || '',
             repostedAt: postData.repostedAt || null,
             isAnonymous: postData.isAnonymous || false,
-            contentType: postData.contentType || 'My Thoughts',
-            isEducational: postData.isEducational || false,
+            contentType: postData.contentType ?? 'My Thoughts',
+            isEducational: postData.isEducational === true || postData.contentType === 'Educational',
             moderationData: postData.moderationData || null,
             isReported: postData.isReported || false,
             reportedAt: postData.reportedAt || null,
@@ -2042,8 +2028,8 @@ useEffect(() => {
             repostedBy: postData.repostedBy || '',
             repostedAt: postData.repostedAt || null,
             isAnonymous: postData.isAnonymous || false,
-            contentType: postData.contentType || 'My Thoughts',
-            isEducational: postData.isEducational || false,
+            contentType: postData.contentType ?? 'My Thoughts',
+            isEducational: postData.isEducational === true || postData.contentType === 'Educational',
             moderationData: postData.moderationData || null,
             isReported: postData.isReported || false,
             reportedAt: postData.reportedAt || null,
@@ -4088,16 +4074,22 @@ useEffect(() => {
   });
 
   // Educational data
+  // Educational data — loose matching to handle missing/inconsistent fields
   const educationalData = sourceData.filter(item => {
+    const isEdu =
+      item.contentType === 'Educational' ||
+      item.isEducational === true ||
+      item.postType?.toLowerCase().includes('educational');
+
     if (userRole === 'User') {
-      return (
-        (item.isApproved && !item.isNew) &&
-        item.contentType === 'Educational' &&
-        item.isEducational === true
-      );
+      // X-Data posts are never educational; Sentinel posts need approval
+      if (item.postType.includes('X-Data')) return false;
+      return (item.isApproved && !item.isNew) && isEdu;
     }
-    return item.contentType === 'Educational' && item.isEducational === true;
+    // Admin/Mod: show all educational posts regardless of approval
+    return isEdu;
   });
+
 
   // Published data (excludes educational)
   const publishedData = sourceData.filter(item => {
