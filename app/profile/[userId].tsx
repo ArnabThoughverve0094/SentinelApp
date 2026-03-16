@@ -1073,7 +1073,7 @@ const fetchFollowerCounts = async () => {
             isAnonymous: postData.isAnonymous || false,
             contentType: postData.contentType ?? 'My Thoughts',
             ContentViewCount: postData.ContentViewCount || 0,
-            ViewedBy: postData.ViewedBy || [],
+            ViewedBy: postData.ViewedBy || []
           });
         }
 
