@@ -1851,7 +1851,9 @@ const loadProfileData = async () => {
       }
     };
     const handleBlockedUsers = () => {
-        router.push('/blocked-users'); // adjust route as per your Expo Router structure
+      setShowAccountModal(false);
+      hideModal();
+      router.push('/blocked-users'); // adjust route as per your Expo Router structure
     };
 
 

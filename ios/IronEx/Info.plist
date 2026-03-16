@@ -36,6 +36,12 @@
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
+          <string>com.googleusercontent.apps.822870332363-15pcn933102s3hhrm5t1j4q9drs0215g</string>
+        </array>
+      </dict>
+      <dict>
+        <key>CFBundleURLSchemes</key>
+        <array>
           <string>exp+frontend</string>
         </array>
       </dict>
@@ -55,12 +61,18 @@
     </dict>
     <key>NSCameraUsageDescription</key>
     <string>This app requires camera access to allow you to take and upload photos for yor profile and to share images in your posts.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Allow $(PRODUCT_NAME) to access your microphone</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>This app requires photo library access to allow you to select and upload photos for yor profile and to share images or videos in your posts.</string>
     <key>NSUserActivityTypes</key>
     <array>
       <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>
     </array>
+    <key>Privacy - Camera Usage Description</key>
+    <string>This app requires camera access to allow you to take and upload photos for yor profile and to share images in your posts.</string>
+    <key>Privacy - Photo Library Usage Description</key>
+    <string>This app requires photo library access to allow you to select and upload photos for yor profile and to share images or videos in your posts.</string>
     <key>RCTNewArchEnabled</key>
     <true/>
     <key>UILaunchStoryboardName</key>
@@ -89,9 +101,5 @@
     <string>Automatic</string>
     <key>UIViewControllerBasedStatusBarAppearance</key>
     <false/>
-    <key>Privacy - Camera Usage Description</key>
-    <string>This app requires camera access to allow you to take and upload photos for yor profile and to share images in your posts.</string>
-    <key>Privacy - Photo Library Usage Description</key>
-    <string>This app requires photo library access to allow you to select and upload photos for yor profile and to share images or videos in your posts.</string>
   </dict>
 </plist>

@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
 import { Link, useRouter } from "expo-router";
 import * as WebBrowser from 'expo-web-browser';
-import { getApps, initializeApp } from 'firebase/app';
 import React from "react";
 import {
   Dimensions,
@@ -17,21 +16,21 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 const { width, height } = Dimensions.get('window');
 
-const firebaseConfig = {
-  // apiKey: "AIzaSyBqIija1Tc4xntwPLuvEqvci5KEQwYd7Y0",
-  apiKey: "AIzaSyAwdi3Iw2Qo5ES1BEmHR8-8adsqOO4Om4E",
-  authDomain: "fanday-6370e.firebaseapp.com",
-  projectId: "fanday-6370e",
-  storageBucket: "fanday-6370e.firebasestorage.app",
-  messagingSenderId: "822870332363",
-  // appId: "1:822870332363:web:354efd0437f90b0d631c4e",
-  measurementId: "G-M9PXN77EHD"
-};
+// const firebaseConfig = {
+//   // apiKey: "AIzaSyBqIija1Tc4xntwPLuvEqvci5KEQwYd7Y0",
+//   apiKey: "AIzaSyAwdi3Iw2Qo5ES1BEmHR8-8adsqOO4Om4E",
+//   authDomain: "fanday-6370e.firebaseapp.com",
+//   projectId: "fanday-6370e",
+//   storageBucket: "fanday-6370e.firebasestorage.app",
+//   messagingSenderId: "822870332363",
+//   // appId: "1:822870332363:web:354efd0437f90b0d631c4e",
+//   measurementId: "G-M9PXN77EHD"
+// };
 
-// Initialize Firebase
-if (getApps().length === 0) {
-  initializeApp(firebaseConfig);
-}
+// // Initialize Firebase
+// if (getApps().length === 0) {
+//   initializeApp(firebaseConfig);
+// }
 
 
 Notifications.setNotificationHandler({

@@ -12,10 +12,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "in.thoughtverve.sentinel",
       "icon": "./assets/images/new_logo.png",
-      "usesAppleSignIn": true,
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
@@ -48,7 +46,6 @@
         {
           "icon": "./assets/images/new_logo.png",
           "color": "#ffffff"
-          
         }
       ],
       "react-native-compressor",
