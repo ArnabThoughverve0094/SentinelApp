@@ -893,7 +893,7 @@ const fetchFollowerCounts = async () => {
               "profilePicUrl",
             ]);
 
-          const usersRef = collection(db, "SentinelUsers");
+          const usersRef = collection(db, "IronExUsers");
           const qSnap = query(usersRef, where("userID", "==", storedUserId));
           
           const unsubscribe = onSnapshot(qSnap, (snapshot) => {
@@ -926,7 +926,7 @@ const fetchFollowerCounts = async () => {
           return () => unsubscribe();
         }
 
-        const usersRef = collection(db, "SentinelUsers");
+        const usersRef = collection(db, "IronExUsers");
         const qSnap = query(usersRef, where("userID", "==", userId as string));
 
         const unsubscribe = onSnapshot(qSnap, (snapshot) => {
@@ -989,6 +989,8 @@ const fetchFollowerCounts = async () => {
         console.log("Error loading user profile", e);
         setUserDoc(null);
         setLoading(false);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -1042,34 +1044,34 @@ const fetchFollowerCounts = async () => {
           postsData.push({
             uniqueId: `sentinel-${postId}`,
             id: postId,
-            AuthorImageURL: postData.AuthorImageURL,
-            AuthorName: postData.AuthorName,
-            AuthorNickName: postData.AuthorNickName,
-            AuthorEmail: postData.AuthorEmail,
-            AuthorUserID: postData.AuthorUserID || postData.repostedBy || "",
-            AuthorBio: postData.AuthorBio || '',
-            ContentDate: postData.ContentDate,
-            ContentDesc: postData.ContentDesc,
-            ContentURL: postData.postType === 'X-Data' ? '' : (postData.ContentURL || ''),
-            ContentURLs: postData.postType === 'X-Data' ? [] : (postData.ContentURLs || []),
+            AuthorImageURL: postData.AuthorImageURL|| '',
+            AuthorName: postData.AuthorName|| '',
+            AuthorNickName: postData.AuthorNickName|| '',
+            AuthorEmail: postData.AuthorEmail|| '',
+            AuthorUserID: postData.AuthorUserID || postData.repostedBy || '123456',
+            AuthorBio: postData.AuthorBio || postData.Bio || '', 
+            ContentDate: postData.ContentDate|| '',
+            ContentDesc: postData.ContentDesc|| '',
+            ContentURL: postData.ContentURL|| '',
+            ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
             ContentLikeCount: postData.ContentLikeCount || 0,
             ContentRepostCount: postData.ContentRepostCount || 0,
             ContentCommentCount: postData.ContentCommentCount || 0,
             isApproved: postData.isApproved || false,
             isNew: postData.isNew !== undefined ? postData.isNew : true,
-            postType: "SentinelPosts",
-            Liked: postData.LikedBy?.includes(loggedUserId) || false,
-            Reposted: postData.RepostedBy?.includes(loggedUserId) || false,
+            postType: postData.postType || "SentinelPosts",
+            Liked: (postData.LikedBy?.includes(loggedUserId) || false),
+            Reposted: (postData.RepostedBy?.includes(loggedUserId) || false),
             Bookmarked: postData.BookmarkedBy?.includes(loggedUserId) || false,
             createdAt: postData.createdAt || postData.ContentDate,
-            CommentTemplate: postData.CommentTemplate || "Sentinel Default Template",
+            CommentTemplate: postData.CommentTemplate || "Standard Template",
             isRepost: postData.isRepost || false,
             originalPost: postData.originalPost || null,
-            repostComment: postData.repostComment || "",
-            repostedBy: postData.repostedBy || "",
+            repostComment: postData.repostComment || '',
+            repostedBy: postData.repostedBy || '',
             repostedAt: postData.repostedAt || null,
             isAnonymous: postData.isAnonymous || false,
-            contentType: postData.contentType || "My Thoughts",
+            contentType: postData.contentType ?? 'My Thoughts',
             ContentViewCount: postData.ContentViewCount || 0,
             ViewedBy: postData.ViewedBy || [],
           });
