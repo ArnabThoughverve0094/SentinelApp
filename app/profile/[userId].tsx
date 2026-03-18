@@ -904,7 +904,11 @@ const fetchFollowerCounts = async () => {
               userNickName: nickname[1] || "",
               userEmail: userEmail[1] || "",
               profilePicUrl: profilePicUrl[1] || (authorImageUrl as string) || "",
-              userBio: bio[1] || "",
+              userBio: snapshot.docs[0]?.data()?.bio
+              || snapshot.docs[0]?.data()?.userBio
+              || snapshot.docs[0]?.data()?.Bio
+              || bio[1]
+              || '',
               Website: undefined,
               website: undefined,
               FollowersCount: 0,
@@ -957,7 +961,10 @@ const fetchFollowerCounts = async () => {
                 data.AuthorImageURL ||
                 (authorImageUrl as string) ||
                 "",
-              userBio: data.bio || data.userBio || data.Bio || "",
+              userBio: snapshot.docs[0]?.data()?.bio 
+              || snapshot.docs[0]?.data()?.userBio 
+              || snapshot.docs[0]?.data()?.Bio 
+              || '',
               Website: data.Website,
               website: data.website,
               FollowersCount: data.FollowersCount || 0,
@@ -1124,6 +1131,26 @@ const fetchFollowerCounts = async () => {
     await fetchUserPosts();
     setRefreshing(false);
   }, [fetchUserPosts]);
+  // ✅ Add inside UserProfileScreen, after existing useEffects
+    useEffect(() => {
+      if (!userId) return;
+
+      const ironExRef = collection(db, 'IronExUsers');
+      const q = query(ironExRef, where('userID', '==', userId as string));
+
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        if (!snapshot.empty) {
+          const data = snapshot.docs[0].data();
+          const freshBio = data.bio || data.userBio || data.Bio || '';
+          if (freshBio) {
+            setUserDoc(prev => prev ? { ...prev, userBio: freshBio } : prev);
+          }
+        }
+      });
+
+      return () => unsubscribe();
+    }, [userId]);
+
 
   const handleFollowPress = useCallback(async () => {
     let fetchuserID = currentUserDocId;
