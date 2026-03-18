@@ -387,37 +387,6 @@ export default function SearchPage() {
         console.warn('⚠️ Error fetching from SentinelPosts:', error);
       }
 
-      // Fetch from X-Data
-      // try {
-      //   const xDataSnapshot = await getDocs(collection(db, 'X-Data'));
-      //   xDataSnapshot.docs.forEach(doc => {
-      //     const data = doc.data();
-      //     const authorId = data.AuthorUserID;
-
-      //     if (authorId) {
-      //       if (!uniqueUsers.has(authorId)) {
-      //         uniqueUsers.set(authorId, {
-      //           docID: "",
-      //           id: authorId,
-      //           name: data.AuthorName || 'Unknown User',
-      //           avatar: data.AuthorImageURL || '',
-      //           postCount: 1,
-      //           isFollowing: false,
-      //         });
-      //       } else {
-      //         const existing = uniqueUsers.get(authorId)!;
-      //         existing.postCount = (existing.postCount || 0) + 1;
-      //         if (!existing.avatar && data.AuthorImageURL) {
-      //           existing.avatar = data.AuthorImageURL;
-      //         }
-      //       }
-      //     }
-      //   });
-      //   console.log(`✅ Total unique users: ${uniqueUsers.size}`);
-      // } catch (error) {
-      //   console.warn('⚠️ Error fetching from X-Data:', error);
-      // }
-
       // Sort alphabetically
       const usersArray = Array.from(uniqueUsers.values()).sort((a, b) =>
         a.name.toLowerCase().localeCompare(b.name.toLowerCase())
