@@ -4115,7 +4115,8 @@ useEffect(() => {
     const isXData = item.postType.includes('X-Data');
     if (userRole === 'User') {
       return (
-        (isXData || (item.isApproved && !item.isNew)) &&
+        // (isXData || (item.isApproved && !item.isNew)) &&
+        (item.isApproved && !item.isNew) &&
         item.contentType !== 'Educational' &&
         !item.isEducational
       );
