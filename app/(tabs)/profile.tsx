@@ -1386,6 +1386,23 @@ const loadProfileData = async () => {
     if (bio[1]){ 
       setUserBio(bio[1]);
       console.log("✅ [Profile] Bio updated:", bio[1]);
+    }else {
+      // ✅ MISSING — Add this Firestore fallback
+      const storedId = await AsyncStorage.getItem('userId');
+      if (storedId) {
+        const ironExRef = collection(db, 'IronExUsers');
+        const q = query(ironExRef, where('userID', '==', storedId));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const data = snap.docs[0].data();
+          const freshBio = data.bio || data.userBio || data.Bio || '';
+          if (freshBio) {
+            setUserBio(freshBio);
+            await AsyncStorage.setItem('userBio', freshBio); // sync back
+            console.log('✅ ProfilePage bio loaded from Firestore fallback:', freshBio);
+          }
+        }
+      }
     }
     if (country[1]) {
       // If you have a country state, update it here
@@ -1958,6 +1975,31 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
   useEffect(() => {
     loadUserData();
   }, []);
+  // ✅ Add this in ProfilePage — live Firestore bio sync
+    useEffect(() => {
+      if (!userId) return;
+
+      const ironExRef = collection(db, 'IronExUsers');
+      const q = query(ironExRef, where('userID', '==', userId));
+
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        if (!snapshot.empty) {
+          const data = snapshot.docs[0].data();
+          // Covers all possible field name variants
+          const firestoreBio = data.bio || data.userBio || data.Bio || '';
+          console.log('🔥 [ProfilePage] Firestore bio synced:', firestoreBio);
+          
+          // Keep AsyncStorage in sync too
+          if (firestoreBio) {
+           setUserBio(firestoreBio);
+            AsyncStorage.setItem('userBio', firestoreBio);
+          }
+        }
+      });
+
+      return () => unsubscribe();
+    }, [userId]);
+
 
   useFocusEffect(
     useCallback(() => {

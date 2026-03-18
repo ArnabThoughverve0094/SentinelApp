@@ -460,33 +460,23 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
     const accessToken = await AsyncStorage.getItem('userToken');
 
     if (!accessToken) {
-      console.error('❌ [EditProfile] No access token found');
       showCustomAlert('error', 'Not Logged In', 'Please login again.', [{ text: 'OK' }], 'log-in-outline');
       return;
     }
 
     if (!fields.name.trim() || !fields.nickname.trim() || !fields.country.trim()) {
-      console.error('❌ [EditProfile] Required fields missing');
       showCustomAlert('error', 'Missing Information', 'Name, nickname, and country are required.', [{ text: 'OK' }], 'alert-circle');
       return;
     }
 
     if (fields.profilePicUrl && fields.profilePicUrl !== DEFAULT_AVATAR && !imageValidated) {
-      showCustomAlert(
-        'warning',
-        'Validation Required',
-        'Please wait for profile picture validation to complete or select a different image.',
-        [{ text: 'OK' }],
-        'warning'
-      );
+      showCustomAlert('warning', 'Validation Required', 'Please wait for profile picture validation to complete.', [{ text: 'OK' }], 'warning');
       return;
     }
 
     if (fields.bio.trim() && !bioValidated) {
       const bioIsValid = await validateBio();
-      if (!bioIsValid) {
-        return;
-      }
+      if (!bioIsValid) return;
     }
 
     setIsLoading(true);
@@ -501,8 +491,6 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
       email: fields.email,
     };
 
-    console.log('📡 [EditProfile] Updating profile with payload:', JSON.stringify(payload, null, 2));
-
     try {
       const res = await fetch(EDIT_PROFILE_API, {
         method: 'PUT',
@@ -510,12 +498,9 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
         body: JSON.stringify(payload),
       });
 
-      console.log('📥 [EditProfile] Update response status:', res.status);
       const data = await res.json();
-      console.log('📥 [EditProfile] Update response data:', data);
 
       if (!res.ok) {
-        console.error('❌ [EditProfile] Update failed:', data.message || 'Server error');
         showCustomAlert('error', 'Update Failed', data.message || 'Server error', [{ text: 'OK' }], 'close-circle');
         setIsLoading(false);
         return;
@@ -523,61 +508,63 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
 
       console.log('✅ [EditProfile] Profile updated to backend successfully');
 
+      // ✅ REPLACE YOUR OLD FIREBASE BLOCK WITH THIS ↓↓↓
       try {
         const userId = await AsyncStorage.getItem('userId');
         console.log('🔥 [EditProfile] Starting Firebase sync for userId:', userId);
 
         if (userId) {
-          const usersRef = collection(db, 'SentinelUsers');
-          const q = query(usersRef, where('userID', '==', userId));
-          const snapshot = await getDocs(q);
+          const bioData = {
+            bio: fields.bio,
+            userBio: fields.bio,
+            Bio: fields.bio,
+            name: fields.name,
+            userName: fields.name,
+            nickName: fields.nickname,
+            userNickName: fields.nickname,
+            country: fields.country,
+            profilePicUrl: fields.profilePicUrl,
+            email: fields.email,
+            updatedAt: new Date(),
+          };
 
-          if (!snapshot.empty) {
-            const userDocRef = doc(db, 'SentinelUsers', snapshot.docs[0].id);
-            console.log('📝 [EditProfile] Updating existing Firebase document:', snapshot.docs[0].id);
-            
-            await updateDoc(userDocRef, {
-              bio: fields.bio,
-              userBio: fields.bio,
-              name: fields.name,
-              userName: fields.name,
-              nickName: fields.nickname,
-              userNickName: fields.nickname,
-              country: fields.country,
-              profilePicUrl: fields.profilePicUrl,
-              email: fields.email,
-            });
-            
-            console.log('✅ [EditProfile] Firebase document updated successfully');
+          // ── 1. Update SentinelUsers ──
+          const sentinelRef = collection(db, 'SentinelUsers');
+          const sentinelQ = query(sentinelRef, where('userID', '==', userId));
+          const sentinelSnap = await getDocs(sentinelQ);
+
+          if (!sentinelSnap.empty) {
+            await updateDoc(doc(db, 'SentinelUsers', sentinelSnap.docs[0].id), bioData);
+            console.log('✅ [EditProfile] SentinelUsers updated');
           } else {
-            console.log('📝 [EditProfile] Creating new Firebase document');
-            
-            const newDocRef = doc(collection(db, 'SentinelUsers'));
-            await setDoc(newDocRef, {
-              userID: userId,
-              bio: fields.bio,
-              userBio: fields.bio,
-              name: fields.name,
-              userName: fields.name,
-              nickName: fields.nickname,
-              userNickName: fields.nickname,
-              country: fields.country,
-              profilePicUrl: fields.profilePicUrl,
-              email: fields.email,
-              Following: [],
-              FollowersCount: 0,
-              PostsCount: 0,
+            await setDoc(doc(collection(db, 'SentinelUsers')), {
+              userID: userId, ...bioData, Following: [], FollowersCount: 0, PostsCount: 0,
             });
-            
-            console.log('✅ [EditProfile] New Firebase document created');
+            console.log('✅ [EditProfile] SentinelUsers created');
           }
+
+          // ── 2. Update IronExUsers ← profile screens READ bio from here ──
+          const ironExRef = collection(db, 'IronExUsers');
+          const ironExQ = query(ironExRef, where('userID', '==', userId));
+          const ironExSnap = await getDocs(ironExQ);
+
+          if (!ironExSnap.empty) {
+            await updateDoc(doc(db, 'IronExUsers', ironExSnap.docs[0].id), bioData);
+            console.log('✅ [EditProfile] IronExUsers updated');
+          } else {
+            await setDoc(doc(collection(db, 'IronExUsers')), {
+              userID: userId, ...bioData, Following: [], FollowersCount: 0, PostsCount: 0,
+            });
+            console.log('✅ [EditProfile] IronExUsers created');
+          }
+
         } else {
           console.warn('⚠️ [EditProfile] No userId found for Firebase sync');
         }
       } catch (firebaseError) {
         console.error('❌ [EditProfile] Firebase sync error:', firebaseError);
-        console.error('Firebase error details:', JSON.stringify(firebaseError, null, 2));
       }
+      // ✅ END OF NEW FIREBASE BLOCK ↑↑↑
 
       await AsyncStorage.multiSet([
         ['userName', fields.name],
@@ -587,17 +574,16 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
         ['userBio', fields.bio],
         ['userEmail', fields.email],
       ]);
-      
+
       console.log('✅ [EditProfile] Saved to AsyncStorage');
 
       if (fields.profilePicUrl && fields.profilePicUrl !== DEFAULT_AVATAR) {
-        console.log('🔄 [EditProfile] Updating all posts with new profile picture...');
         await updateAllUserPosts(fields.profilePicUrl);
       }
-      
+
       setIsLoading(false);
-      
-      // ✅ Send profile update notification — same pattern as Create Post Step 8
+
+      // ✅ Send profile update notification
       try {
         const fetchuserID = await AsyncStorage.getItem('userId');
         const fetchuserName = await AsyncStorage.getItem('userName');
@@ -608,7 +594,7 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
           AuthorName: fields.name || fetchuserName || 'You',
           AuthorUserID: fetchuserID,
           ContentDate: new Date(),
-          Description: `✅ Your profile has been updated successfully! Your name, bio, and profile picture are now live across the app.`,
+          Description: `✅ Your profile has been updated successfully!`,
           NotifyType: 'profile_updated',
           ShowButtons: false,
           Status: 'updated',
@@ -616,31 +602,21 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
         };
 
         if (currentUserDocId) {
-          // User doc already known — update directly
           const userRef = doc(db, 'SentinelUsers', currentUserDocId);
-          await updateDoc(userRef, {
-            Notification: arrayUnion(profileNotifyPayload),
-          });
-          console.log('✅ [EditProfile] Profile update notification sent');
-        } else {
-          // Fallback — resolve doc and send
-          if (fetchuserID) {
-            const sentinelUsersRef = collection(db, 'SentinelUsers');
-            const q = query(sentinelUsersRef, where('userID', '==', fetchuserID));
-            const snapshot = await getDocs(q);
-            if (!snapshot.empty) {
-              const userRef = doc(db, 'SentinelUsers', snapshot.docs[0].id);
-              await updateDoc(userRef, {
-                Notification: arrayUnion(profileNotifyPayload),
-              });
-              console.log('✅ [EditProfile] Profile update notification sent (fallback)');
-            } else {
-              await addDoc(collection(db, 'SentinelUsers'), {
-                userID: fetchuserID,
-                Notification: [profileNotifyPayload],
-              });
-              console.log('✅ [EditProfile] Created new user doc with notification');
-            }
+          await updateDoc(userRef, { Notification: arrayUnion(profileNotifyPayload) });
+        } else if (fetchuserID) {
+          const sentinelUsersRef = collection(db, 'SentinelUsers');
+          const q = query(sentinelUsersRef, where('userID', '==', fetchuserID));
+          const snapshot = await getDocs(q);
+          if (!snapshot.empty) {
+            await updateDoc(doc(db, 'SentinelUsers', snapshot.docs[0].id), {
+              Notification: arrayUnion(profileNotifyPayload),
+            });
+          } else {
+            await addDoc(collection(db, 'SentinelUsers'), {
+              userID: fetchuserID,
+              Notification: [profileNotifyPayload],
+            });
           }
         }
       } catch (notifError) {
@@ -662,7 +638,6 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
         'checkmark-circle'
       );
 
-      
     } catch (error) {
       console.error('❌ [EditProfile] Network error during save:', error);
       setIsLoading(false);
