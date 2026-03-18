@@ -5898,8 +5898,8 @@ useEffect(() => {
                 elevation: 10,
               }}>
                 {/* Report Option - FOR ALL USERS */}
-                {fetchedData.find((post) => post.id === selectedPostId)?.AuthorUserID !==
-                  userId && (
+                {fetchedData.find(post => post.id === selectedPostId)?.AuthorUserID !== userId &&
+                    !fetchedData.find(post => post.id === selectedPostId)?.isNew && (
                     <TouchableOpacity
                       onPress={() => {
                         if (selectedPostId) {
