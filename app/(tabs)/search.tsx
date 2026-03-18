@@ -303,7 +303,6 @@ export default function SearchPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [userId, setUserId] = useState('');
   const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
-  const [currentUserDocId, setCurrentUserDocId] = useState('');
   const [loadingUserId, setLoadingUserId] = useState<string | null>(null);
 
   const searchInputRef = useRef<TextInput>(null);
@@ -590,7 +589,7 @@ export default function SearchPage() {
     } finally {
       setLoadingUserId(null);
     }
-  }, [currentUserDocId, userId]);
+  }, [userId]);
 
   // Clear search
   const clearSearch = () => {
