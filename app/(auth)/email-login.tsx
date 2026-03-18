@@ -243,9 +243,11 @@ export default function EmailLogin(): React.JSX.Element {
 
   // ✅ BIO - Check all possible locations
   const userBio = data.userAttributes.bio || 
-                  data.decodedClaims?.bio ||
-                  data.decodedClaims?.['custom:bio'] || 
-                  '';
+                data.userAttributes['custom:bio'] ||
+                data.decodedClaims?.bio ||
+                data.decodedClaims?.['custom:bio'] ||
+                data.decodedClaims?.['profile'] ||  // some Cognito setups use this
+                '';
   items.push(['userBio', userBio]);
   console.log('✅ Bio stored from login:', userBio || 'Empty');
 
@@ -296,7 +298,27 @@ export default function EmailLogin(): React.JSX.Element {
     console.error('❌ Error during multiSet:', error);
     throw new Error('Failed to save login data');
   }
-};
+  if (!userBio && data.userAttributes.sub) {
+    try {
+      const { getDoc, doc } = await import('firebase/firestore');
+      const userDocRef = doc(db, 'IronExUsers', data.userAttributes.sub);
+      const snap = await getDoc(userDocRef);
+      if (snap.exists()) {
+        const firestoreData = snap.data();
+        const firestoreBio = firestoreData.bio 
+                          || firestoreData.userBio 
+                          || firestoreData.Bio 
+                          || '';
+        if (firestoreBio) {
+          await AsyncStorage.setItem('userBio', firestoreBio);
+          console.log('✅ Bio fetched from Firestore fallback:', firestoreBio);
+        }
+      }
+    } catch (e) {
+      console.error('❌ Firestore bio fallback error:', e);
+    }
+    }
+  };
 
 
   const handleLogin = async () => {
@@ -390,7 +412,10 @@ export default function EmailLogin(): React.JSX.Element {
         userName: userData.userAttributes.name || '',
         userNickName: userData.userAttributes.nickname || '',
         profilePicUrl: userData.userAttributes.profilePic || '',
-        deviceToken: expoPushToken || ''
+        deviceToken: expoPushToken || '',
+        bio: userData.userAttributes.bio || '',
+        userBio: userData.userAttributes.bio || '',
+        Bio: userData.userAttributes.bio || '',
       }, { merge: true });
   
       // Commit both updates at once
