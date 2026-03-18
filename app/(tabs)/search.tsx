@@ -216,9 +216,10 @@ type SearchItemProps = {
   user: SearchUser;
   onFollowPress: (user: SearchUser) => void;
   currentUserId: string;
+  loadingUserId: string | null;
 };
 
-const SearchItem: React.FC<SearchItemProps> = ({ user, onFollowPress, currentUserId }) => {
+const SearchItem: React.FC<SearchItemProps> = ({ user, onFollowPress, currentUserId, loadingUserId }) => {
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const isCurrentUser = user.id === currentUserId;
 
@@ -278,10 +279,15 @@ const SearchItem: React.FC<SearchItemProps> = ({ user, onFollowPress, currentUse
           className={`px-4 py-2 rounded-lg ${user.isFollowing ? 'bg-gray-200' : 'bg-black'}`}
           onPress={() => onFollowPress(user)}
           activeOpacity={0.8}
+          disabled={loadingUserId === user.id} // prevent double click
         >
-          <Text className={`text-sm font-medium ${user.isFollowing ? 'text-gray-700' : 'text-white'}`}>
-            {user.isFollowing ? 'Following' : 'Follow'}
-          </Text>
+          {loadingUserId === user.id ? (
+            <ActivityIndicator size="small" color={user.isFollowing ? '#374151' : '#ffffff'} />
+          ) : (
+            <Text className={`text-sm font-medium ${user.isFollowing ? 'text-gray-700' : 'text-white'}`}>
+              {user.isFollowing ? 'Following' : 'Follow'}
+            </Text>
+          )}
         </TouchableOpacity>
       )}
     </Animated.View>
@@ -298,6 +304,7 @@ export default function SearchPage() {
   const [userId, setUserId] = useState('');
   const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
   const [currentUserDocId, setCurrentUserDocId] = useState('');
+  const [loadingUserId, setLoadingUserId] = useState<string | null>(null);
 
   const searchInputRef = useRef<TextInput>(null);
 
@@ -503,6 +510,8 @@ export default function SearchPage() {
     console.log(`\n🔄 ${user.isFollowing ? 'Unfollowing' : 'Following'} ${user.name}`);
     console.log('User ID:', user.id);
 
+    setLoadingUserId(user.id);
+
     let fetchuserID = userId;
     if (!fetchuserID) {
       fetchuserID = (await AsyncStorage.getItem('userId')) || '';
@@ -578,6 +587,8 @@ export default function SearchPage() {
       console.log('⏳ Waiting for onSnapshot to update UI...\n');
     } catch (error) {
       console.error('❌ Error handling follow/unfollow:', error);
+    } finally {
+      setLoadingUserId(null);
     }
   }, [currentUserDocId, userId]);
 
@@ -704,6 +715,7 @@ export default function SearchPage() {
                 user={item}
                 onFollowPress={handleFollowPress}
                 currentUserId={userId}
+                loadingUserId={loadingUserId}
               />
             )}
             showsVerticalScrollIndicator={false}
