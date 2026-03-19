@@ -961,9 +961,9 @@ const compressAndGetUrl = async (localUri) => {
   }, [userId]);
 
   // **ENHANCED: Post handler with better error management**
-      const handlePostNow = async () => {
-  if (!postText.trim() && selectedMedia.length === 0) {
-    showCustomAlert(
+  const handlePostNow = async () => {
+    if (!postText.trim() && selectedMedia.length === 0) {
+      showCustomAlert(
       'warning',
       'Empty Post',
       'Please add some content or media before posting.',
@@ -971,7 +971,7 @@ const compressAndGetUrl = async (localUri) => {
       'create-outline'
     );
     return;
-  }
+    }
 
   setLoading(true);
 
@@ -1039,7 +1039,7 @@ const compressAndGetUrl = async (localUri) => {
   } finally {
     setLoading(false);
   }
-};
+  };
 
 
 

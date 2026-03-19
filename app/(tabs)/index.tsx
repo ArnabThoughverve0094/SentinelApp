@@ -1060,6 +1060,8 @@ export default function SentinelFeed(): React.JSX.Element {
   const [refreshing, setRefreshing] = useState(false);
   const [userId, setUserId] = useState("");
   const [userName, setUserName] = useState("");
+  const [userNickName, setUserNickName] = useState<string>("");
+  const [userProfilePicURL, setUserProfilePicURL] = useState<string>("");
   const [userEmail, setUserEmail] = useState("");
   const [userRole, setUserRole] = useState("User");
   const [fetchedData, setFetchedData] = useState<PostItem[]>([]);
@@ -1377,12 +1379,22 @@ useEffect(() => {
           return;
         }
 
+        // Data objects for the arrays
+        const reporterData = {
+          userId: userId,
+          userEmail: userEmail || '',
+          userName: userName || '',
+          userNickName: userNickName || '',
+          profilePicUrl: userProfilePicURL || ''
+        };
+
         // Update the post with report flag and details
         await updateDoc(postRef, {
           isReported: true,
           reportedAt: new Date(),
           reportReasons: arrayUnion(...selectedReportReasons),
           reportedBy: arrayUnion(userId),
+          reporterData: arrayUnion(reporterData),
           isNew: true,
           isApproved: false,
           moderationStatus: "pending-review",
@@ -1756,6 +1768,11 @@ useEffect(() => {
       if(fetchuserEmail !== null) {
         setUserEmail(fetchuserEmail);
       }
+      const fetchUserNickName = await AsyncStorage.getItem("userNickName") || '';
+      if (fetchUserNickName !== null) setUserNickName(fetchUserNickName);
+
+      const fetchUserProfilePicURL = await AsyncStorage.getItem("profilePicUrl") || '';
+      if (fetchUserProfilePicURL !== null) setUserProfilePicURL(fetchUserProfilePicURL);
     } catch (error) {
       console.log("Error retrieving userId", error);
     }
@@ -4098,7 +4115,8 @@ useEffect(() => {
     const isXData = item.postType.includes('X-Data');
     if (userRole === 'User') {
       return (
-        (isXData || (item.isApproved && !item.isNew)) &&
+        // (isXData || (item.isApproved && !item.isNew)) &&
+        (item.isApproved && !item.isNew) &&
         item.contentType !== 'Educational' &&
         !item.isEducational
       );
@@ -5880,8 +5898,8 @@ useEffect(() => {
                 elevation: 10,
               }}>
                 {/* Report Option - FOR ALL USERS */}
-                {fetchedData.find((post) => post.id === selectedPostId)?.AuthorUserID !==
-                  userId && (
+                {fetchedData.find(post => post.id === selectedPostId)?.AuthorUserID !== userId &&
+                    !fetchedData.find(post => post.id === selectedPostId)?.isNew && (
                     <TouchableOpacity
                       onPress={() => {
                         if (selectedPostId) {

@@ -290,6 +290,7 @@ export default function UserProfileScreen() {
   }
 
   const [loading, setLoading] = useState(true);
+  const [followLoading, setFollowLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [userDoc, setUserDoc] = useState<UserDoc | null>(null);
   const [userPosts, setUserPosts] = useState<PostItem[]>([]);
@@ -903,7 +904,11 @@ const fetchFollowerCounts = async () => {
               userNickName: nickname[1] || "",
               userEmail: userEmail[1] || "",
               profilePicUrl: profilePicUrl[1] || (authorImageUrl as string) || "",
-              userBio: bio[1] || "",
+              userBio: snapshot.docs[0]?.data()?.bio
+              || snapshot.docs[0]?.data()?.userBio
+              || snapshot.docs[0]?.data()?.Bio
+              || bio[1]
+              || '',
               Website: undefined,
               website: undefined,
               FollowersCount: 0,
@@ -956,7 +961,10 @@ const fetchFollowerCounts = async () => {
                 data.AuthorImageURL ||
                 (authorImageUrl as string) ||
                 "",
-              userBio: data.bio || data.userBio || data.Bio || "",
+              userBio: snapshot.docs[0]?.data()?.bio 
+              || snapshot.docs[0]?.data()?.userBio 
+              || snapshot.docs[0]?.data()?.Bio 
+              || '',
               Website: data.Website,
               website: data.website,
               FollowersCount: data.FollowersCount || 0,
@@ -1123,213 +1131,26 @@ const fetchFollowerCounts = async () => {
     await fetchUserPosts();
     setRefreshing(false);
   }, [fetchUserPosts]);
+  // ✅ Add inside UserProfileScreen, after existing useEffects
+    useEffect(() => {
+      if (!userId) return;
 
-  // const handleFollowPress = useCallback(async () => {
-  //   if (!userId) return;
+      const ironExRef = collection(db, 'IronExUsers');
+      const q = query(ironExRef, where('userID', '==', userId as string));
 
-  //   console.log(`\n🔄 ${isFollowing ? "Unfollowing" : "Following"} user`);
-  //   console.log("User ID:", userId);
-  //   console.log("Profile User Doc ID:", profileUserDocId);
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        if (!snapshot.empty) {
+          const data = snapshot.docs[0].data();
+          const freshBio = data.bio || data.userBio || data.Bio || '';
+          if (freshBio) {
+            setUserDoc(prev => prev ? { ...prev, userBio: freshBio } : prev);
+          }
+        }
+      });
 
-  //   let fetchuserID = currentUserDocId;
-  //   if (fetchuserID === "") {
-  //     fetchuserID = await AsyncStorage.getItem('userId') || "";
-  //   }
+      return () => unsubscribe();
+    }, [userId]);
 
-  //   try {
-  //     if (isFollowing) {
-
-  //       const userUsersDocRef = doc(db, 'IronExUsers', fetchuserID);
-
-  //       try {
-  //         // 1. Fetch the current document
-  //         const docSnap = await getDoc(userUsersDocRef);
-
-  //         if (docSnap.exists()) {
-  //           const userData = docSnap.data();
-  //           const currentFollowing = userData.Following || [];
-
-  //           // 2. Filter out the user you want to remove
-  //           const updatedFollowing = currentFollowing.filter(
-  //             (item) => item.userId !== userId
-  //           );
-
-  //           // 3. Overwrite the array with the filtered version
-  //           await updateDoc(userUsersDocRef, {
-  //             Following: updatedFollowing,
-  //             followingCount: increment(-1)
-  //           });
-
-  //           const targetUserDocRef = doc(db, 'IronExUsers', userId);
-  //           try {
-  //             // 1. Fetch the current document
-  //             const followerDocSnap = await getDoc(targetUserDocRef);
-  //             const userFollowerData = followerDocSnap.data();
-  //             const currentFollower = userFollowerData.Follower || [];
-
-  //             // 2. Filter out the user you want to remove
-  //             const updatedFollower = currentFollower.filter(
-  //               (item) => item.userId !== fetchuserID
-  //           );
-
-  //             // 3. Overwrite the array with the filtered version
-  //             await updateDoc(targetUserDocRef, {
-  //               Follower: updatedFollower,
-  //               followerCount: increment(-1)
-  //             });
-  //           } catch (error) {
-  //             console.error("❌ Error during unfollow follower:", error);
-  //           }
-
-  //           Toast.show({
-  //             type: "info",
-  //             text1: "Unfollowed",
-  //             text2: "User removed from your following list.",
-  //             position: "bottom"
-  //           });
-  //         }
-  //       } catch (error) {
-  //         console.error("❌ Error during unfollow following:", error);
-  //       }
-
-  //     } else {
-        
-  //       // Reference the document specifically for the current user
-  //       const userUsersDocRef = doc(db, 'IronExUsers', fetchuserID);
-
-  //       try {
-  //         await setDoc(userUsersDocRef, {
-  //           userID: fetchuserID,
-  //           userEmail: currentUserEmail || '',
-  //           userName: currentUserName || '',
-  //           userNickName: currentUserNickName || '',
-  //           userProfilePicURL: currentUserProfilePicURL || '',
-  //           // arrayUnion adds the new object to the existing 'blockedList' array
-  //           Following: arrayUnion({
-  //             userId: userId,
-  //             userEmail: userEmail || '',
-  //             userName: authorName || '',
-  //             userNickName: userNickName || '',
-  //             profilePicUrl: authorImageUrl || ''
-  //           }),
-  //           followingCount: increment(1)
-  //         }, { merge: true }); // 'merge: true' ensures we don't delete other fields
-
-  //         const targetUserDocRef = doc(db, 'IronExUsers', userId);
-  //         try {
-  //           await setDoc(targetUserDocRef, {
-  //             userID: userId,
-  //             userEmail: userEmail || '',
-  //             userName: authorName || '',
-  //             userNickName: userNickName || '',
-  //             userProfilePicURL: authorImageUrl || '',
-  //             // arrayUnion adds the new object to the existing 'blockedList' array
-  //             Follower: arrayUnion({
-  //               userId: fetchuserID,
-  //               userEmail: currentUserEmail || '',
-  //               userName: currentUserName || '',
-  //               userNickName: currentUserNickName || '',
-  //               profilePicUrl: currentUserProfilePicURL || ''
-  //             }),
-  //             followerCount: increment(1)
-  //           }, { merge: true });
-  //         } catch (error) {
-  //           console.error("❌ Error during follow follower:", error);
-  //         }
-          
-
-  //         Toast.show({
-  //           type: "success",
-  //           text1: "Following",
-  //           text2: `You are now following ${userDoc?.userName || "this user"}`,
-  //           position: "bottom",
-  //           visibilityTime: 2000,
-  //         });
-
-  //       } catch (error) {
-  //         console.error("❌ Error handling follow:", error);
-  //       }
-
-  //       // if (currentUserDocId) {
-  //       //   const userRef = doc(db, "SentinelUsers", currentUserDocId);
-  //       //   await updateDoc(userRef, {
-  //       //     Following: arrayUnion(userId),
-  //       //   });
-
-  //       //   if (profileUserDocId) {
-  //       //     const profileRef = doc(db, "SentinelUsers", profileUserDocId);
-  //       //     await updateDoc(profileRef, {
-  //       //       FollowersCount: increment(1),
-  //       //     });
-  //       //     console.log("✅ Increased follower count for profile user");
-  //       //   } else {
-  //       //     console.log("📝 Creating new document for profile user...");
-  //       //     const profileRef = doc(db, "SentinelUsers", `user_${userId}`);
-  //       //     await setDoc(profileRef, {
-  //       //       userID: userId,
-  //       //       FollowersCount: 1,
-  //       //       Following: [],
-  //       //       PostsCount: 0,
-  //       //     }, { merge: true });
-  //       //     setProfileUserDocId(`user_${userId}`);
-  //       //     console.log("✅ Created document for profile user with follower count");
-  //       //   }
-
-  //       //   console.log(`✅ Successfully followed user: ${userId}`);
-  //       //   Toast.show({
-  //       //     type: "success",
-  //       //     text1: "Following",
-  //       //     text2: `You are now following ${userDoc?.userName || "this user"}`,
-  //       //     position: "bottom",
-  //       //     visibilityTime: 2000,
-  //       //   });
-  //       // } else {
-  //       //   console.log("📝 Creating new user document...");
-  //       //   const newDocRef = await addDoc(collection(db, "SentinelUsers"), {
-  //       //     userID: currentUserId,
-  //       //     Following: [userId],
-  //       //   });
-  //       //   setCurrentUserDocId(newDocRef.id);
-
-  //       //   if (profileUserDocId) {
-  //       //     const profileRef = doc(db, "SentinelUsers", profileUserDocId);
-  //       //     await updateDoc(profileRef, {
-  //       //       FollowersCount: increment(1),
-  //       //     });
-  //       //   } else {
-  //       //     const profileRef = doc(db, "SentinelUsers", `user_${userId}`);
-  //       //     await setDoc(profileRef, {
-  //       //       userID: userId,
-  //       //       FollowersCount: 1,
-  //       //       Following: [],
-  //       //       PostsCount: 0,
-  //       //     }, { merge: true });
-  //       //     setProfileUserDocId(`user_${userId}`);
-  //       //   }
-
-  //       //   console.log(`✅ Created document and followed user: ${userId}`);
-  //       //   Toast.show({
-  //       //     type: "success",
-  //       //     text1: "Following",
-  //       //     text2: `You are now following ${userDoc?.userName || "this user"}`,
-  //       //     position: "bottom",
-  //       //     visibilityTime: 2000,
-  //       //   });
-  //       // }
-  //     }
-
-  //     console.log("⏳ Waiting for onSnapshot to update UI...\n");
-  //   } catch (error) {
-  //     console.error("❌ Error handling follow/unfollow:", error);
-  //     Toast.show({
-  //       type: "error",
-  //       text1: "Error",
-  //       text2: "Failed to update follow status. Please try again.",
-  //       position: "bottom",
-  //       visibilityTime: 3000,
-  //     });
-  //   }
-  // }, [currentUserDocId, currentUserId, userId, isFollowing, userDoc, profileUserDocId]);
 
   const handleFollowPress = useCallback(async () => {
     let fetchuserID = currentUserDocId;
@@ -1338,6 +1159,8 @@ const fetchFollowerCounts = async () => {
     }
 
     if (!userId) return;
+    
+    setFollowLoading(true);
   
     const batch = writeBatch(db);
     const userUsersDocRef = doc(db, 'IronExUsers', fetchuserID);
@@ -1409,6 +1232,8 @@ const fetchFollowerCounts = async () => {
     } catch (error) {
       console.error("❌ Follow Toggle Error:", error);
       Toast.show({ type: "error", text1: "Action failed" });
+    } finally {
+      setFollowLoading(false);
     }
   }, [currentUserDocId, currentUserId, userId, isFollowing, userDoc, profileUserDocId]);
 
@@ -2235,6 +2060,11 @@ const fetchFollowerCounts = async () => {
               <View className="px-4 py-2 rounded-lg bg-blue-50">
                 <Text className="text-sm font-semibold text-blue-600">You</Text>
               </View>
+            ) : followLoading ?  (
+              <View className="flex-row items-center mt-3">
+                <ActivityIndicator size="small" color="#111827" />
+                {/* <Text className="ml-2 text-sm text-gray-500">Loading profile…</Text> */}
+              </View>
             ) : (
               <TouchableOpacity
                 className={`px-5 py-2 rounded-full ${isFollowing ? "bg-gray-200" : "bg-black"}`}
@@ -2247,7 +2077,7 @@ const fetchFollowerCounts = async () => {
               </TouchableOpacity>
             )}
           </View>
-
+          
           <Text className="text-xl font-bold text-gray-900">{displayName}</Text>
 
           {isAnonymous === 'true' ? (
@@ -2327,7 +2157,7 @@ const fetchFollowerCounts = async () => {
           </View>
 
           {loading ? (
-            <View className="py-12">
+            <View className="flex-row items-center mt-3">
               <ActivityIndicator size="large" color="#111827" />
             </View>
           ) : userPosts.length === 0 ? (
