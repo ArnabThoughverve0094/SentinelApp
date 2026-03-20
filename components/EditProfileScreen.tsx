@@ -255,6 +255,10 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
           imageUrl: imageUrl
         })
       });
+       if (response.status === 429) {
+      console.warn('⚠️ [EditProfile] AI moderation rate limited — auto-approving');
+      return { postStatus: 'approved', flagged: false, violations: [], categories: {} };
+      }
 
       if (!response.ok) {
         throw new Error(`API request failed with status ${response.status}`);
