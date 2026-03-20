@@ -4,7 +4,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Application from 'expo-application';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from "expo-sharing";
+<<<<<<< HEAD
 import { VideoView, useVideoPlayer } from 'expo-video';
+=======
+import { addDoc, arrayRemove, arrayUnion, collection, doc, getDocs, onSnapshot, orderBy, query, updateDoc, where } from 'firebase/firestore';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Share, StyleSheet, useWindowDimensions } from "react-native";
+import { Dropdown } from 'react-native-element-dropdown';
+import Toast from 'react-native-toast-message';
+
+import { ResizeMode, Video } from 'expo-av';
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
 import {
   addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs,
   limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, startAfter,
@@ -56,9 +66,13 @@ interface PostItem {
   uniqueId: string;
   AuthorImageURL: string;
   AuthorName: string;
+<<<<<<< HEAD
   AuthorNickName?: string
   AuthorUserID?: string;
   AuthorEmail?: string;
+=======
+  AuthorUserID?: string;
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
   ContentDate: string;
   ContentDesc: string;
   ContentURL: string;
@@ -111,6 +125,7 @@ isReported?: boolean;
   moderationStatus?: string;
 }
 
+<<<<<<< HEAD
 interface MediaCarouselProps {
   mediaUrls: string[];
   postId: string;
@@ -475,13 +490,35 @@ const TabHeader: React.FC<{
       saveLastTab(activeTab);
     });
   }, [activeTab]);
+=======
+// Tab Header Component
+const TabHeader: React.FC<{
+  activeTab: 'forYou' | 'following';
+  onTabChange: (tab: 'forYou' | 'following') => void;
+}> = ({ activeTab, onTabChange }) => {
+  const slideAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.spring(slideAnim, {
+      toValue: activeTab === 'forYou' ? 0 : 1,
+      tension: 100,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  }, [activeTab, slideAnim]);
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
 
   const indicatorStyle = {
     transform: [
       {
         translateX: slideAnim.interpolate({
+<<<<<<< HEAD
           inputRange: [0, 1, 2],
           outputRange: [0, tabWidth, tabWidth * 2],
+=======
+          inputRange: [0, 1],
+          outputRange: [0, screenWidth / 2],
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
         }),
       },
     ],
@@ -489,6 +526,7 @@ const TabHeader: React.FC<{
 
   return (
     <View className="bg-white border-b border-gray-200">
+<<<<<<< HEAD
       <ScrollView
         ref={scrollViewRef}
         horizontal
@@ -564,13 +602,65 @@ const TabHeader: React.FC<{
           width: tabWidth,
           backgroundColor: '#000000',
         }, indicatorStyle]} />
+=======
+      <View className="flex-row">
+        <TouchableOpacity
+          className={`flex-1 py-4 items-center ${
+            activeTab === 'forYou' ? 'bg-white' : 'bg-gray-50'
+          }`}
+          onPress={() => onTabChange('forYou')}
+          activeOpacity={0.8}
+        >
+          <Text
+            className={`text-base font-semibold ${
+              activeTab === 'forYou' ? 'text-black' : 'text-gray-500'
+            }`}
+          >
+            For you
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          className={`flex-1 py-4 items-center ${
+            activeTab === 'following' ? 'bg-white' : 'bg-gray-50'
+          }`}
+          onPress={() => onTabChange('following')}
+          activeOpacity={0.8}
+        >
+          <Text
+            className={`text-base font-semibold ${
+              activeTab === 'following' ? 'text-black' : 'text-gray-500'
+            }`}
+          >
+            Following
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <View className="relative">
+        <Animated.View
+          style={[
+            {
+              position: 'absolute',
+              bottom: 0,
+              height: 2,
+              width: screenWidth / 2,
+              backgroundColor: '#000000',
+            },
+            indicatorStyle,
+          ]}
+        />
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
       </View>
     </View>
   );
 };
 
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
 // Repost Modal Component
 interface RepostModalProps {
   visible: boolean;
@@ -590,7 +680,10 @@ const RepostModal: React.FC<RepostModalProps> = ({
   const [repostComment, setRepostComment] = useState('');
   const [isQuoteMode, setIsQuoteMode] = useState(false);
   const scaleAnim = useRef(new Animated.Value(0)).current;
+<<<<<<< HEAD
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
+=======
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
 
   useEffect(() => {
     if (visible) {
@@ -621,6 +714,7 @@ const RepostModal: React.FC<RepostModalProps> = ({
 
   if (!visible || !post) return null;
 
+<<<<<<< HEAD
   let AuthorName = "";
   let AuthorImage = "";
   if (post.isAnonymous) {
@@ -631,6 +725,8 @@ const RepostModal: React.FC<RepostModalProps> = ({
     AuthorImage = post.AuthorImageURL;
   }
 
+=======
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
   return (
     <Modal
       visible={visible}
@@ -638,6 +734,7 @@ const RepostModal: React.FC<RepostModalProps> = ({
       animationType="fade"
       onRequestClose={onClose}
     >
+<<<<<<< HEAD
       <KeyboardAvoidingView
         style={{
           flex: 1,
@@ -655,6 +752,18 @@ const RepostModal: React.FC<RepostModalProps> = ({
               <View className="flex-1">
                 <Text className="text-xl font-bold text-gray-900">Share this post</Text>
                 {/* <Text className="text-gray-500 text-sm mt-1">Add your thoughts or share as is</Text> */}
+=======
+      <View className="flex-1 bg-black/50 items-center justify-end px-4 pb-8">
+        <Animated.View 
+          style={[{ transform: [{ scale: scaleAnim }] }]}
+          className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl"
+        >
+          <View className="px-6 py-4 border-b border-gray-100">
+            <View className="flex-row items-center justify-between">
+              <View className="flex-1">
+                <Text className="text-xl font-bold text-gray-900">Share this post</Text>
+                <Text className="text-gray-500 text-sm mt-1">Add your thoughts or share as is</Text>
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
               </View>
               <TouchableOpacity 
                 className="p-2 rounded-full bg-gray-100"
@@ -665,6 +774,7 @@ const RepostModal: React.FC<RepostModalProps> = ({
             </View>
           </View>
 
+<<<<<<< HEAD
           <View className="px-2 py-0">
             <View className="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-200">
               <View className="flex-row items-center mb-2">
@@ -683,6 +793,24 @@ const RepostModal: React.FC<RepostModalProps> = ({
             </View>
 
             {/* <View className="flex-row items-center justify-between mb-4">
+=======
+          <View className="px-6 py-4">
+            <View className="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-200">
+              <View className="flex-row items-center mb-2">
+                <Image
+                  source={{ uri: post.AuthorImageURL }}
+                  className="w-8 h-8 rounded-full mr-2"
+                  resizeMode="cover"
+                />
+                <Text className="font-semibold text-gray-900 text-sm">{post.AuthorName}</Text>
+              </View>
+              <Text className="text-gray-700 text-sm" numberOfLines={3}>
+                {post.ContentDesc}
+              </Text>
+            </View>
+
+            <View className="flex-row items-center justify-between mb-4">
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
               <Text className="text-gray-600 text-sm">Add your thoughts?</Text>
               <TouchableOpacity
                 onPress={() => setIsQuoteMode(!isQuoteMode)}
@@ -696,7 +824,11 @@ const RepostModal: React.FC<RepostModalProps> = ({
                   Quote
                 </Text>
               </TouchableOpacity>
+<<<<<<< HEAD
             </View> */}
+=======
+            </View>
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
 
             {isQuoteMode && (
               <View className="mb-4">
@@ -729,6 +861,7 @@ const RepostModal: React.FC<RepostModalProps> = ({
               </TouchableOpacity>
 
               {isQuoteMode && (
+<<<<<<< HEAD
                 <TouchableOpacity
                   onPress={handleQuoteRepost}
                   className={`flex-1 py-3 rounded-xl items-center ${
@@ -866,6 +999,8 @@ const CustomModal: React.FC<CustomModalProps> = ({
             {title === 'Update Profile Picture' ? (
               <>
                 {/* Camera Button */}
+=======
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
                 <TouchableOpacity
                   className="flex-row items-center justify-center bg-black py-4 px-6 rounded-xl shadow-sm mb-5"
                   onPress={buttons.find(b => b.text === 'Camera')?.onPress}
@@ -1087,6 +1222,7 @@ export default function SentinelFeed(): React.JSX.Element {
   // UPDATED: Removed videoRefs since we'll use useVideoPlayer directly
   const flipCardRef = useRef<any>(null);
 
+<<<<<<< HEAD
   const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational'>('forYou');
   const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
   const [currentUserDocId, setCurrentUserDocId] = useState('');
@@ -1094,6 +1230,11 @@ export default function SentinelFeed(): React.JSX.Element {
   const [postUserDocId, setPostUserDocId] = useState('');
   const [postUserIdNotify, setPostUserIdNotify] = useState('');
   const [postUserDeviceToken, setPostUserDeviceToken] = useState('');
+=======
+  const [activeTab, setActiveTab] = useState<'forYou' | 'following'>('forYou');
+  const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
+  const [currentUserDocId, setCurrentUserDocId] = useState('');
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
 
   const [isCommentModalVisible, setIsCommentModalVisible] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
@@ -1114,6 +1255,7 @@ export default function SentinelFeed(): React.JSX.Element {
   const [isRepostModalVisible, setIsRepostModalVisible] = useState(false);
   const [selectedRepostPost, setSelectedRepostPost] = useState<PostItem | null>(null);
 
+<<<<<<< HEAD
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
 
@@ -1534,6 +1676,8 @@ useEffect(() => {
         player.play();
       });
 
+=======
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
 
   const rejectionReasons = [
@@ -1561,6 +1705,7 @@ useEffect(() => {
   const fetchUserFollowing = useCallback(async () => {
     try {
       let fetchuserID = userId;
+<<<<<<< HEAD
       if (fetchuserID === "") {
         fetchuserID = await AsyncStorage.getItem('userId') || "";
         setUserId(fetchuserID);
@@ -1646,6 +1791,41 @@ useEffect(() => {
 
 
 
+=======
+      if(fetchuserID === "") {
+        fetchuserID = await AsyncStorage.getItem('userId') || "";
+        setUserId(fetchuserID);
+      }
+
+      if (fetchuserID) {
+        console.log('🔄 Fetching following list for user:', fetchuserID);
+        
+        const sentinelUsersRef = collection(db, 'SentinelUsers');
+        const q = query(sentinelUsersRef, where('userID', '==', fetchuserID));
+        
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          if (!snapshot.empty) {
+            const userDoc = snapshot.docs[0];
+            const userData = userDoc.data();
+            setCurrentUserDocId(userDoc.id);
+            const following = userData.Following || [];
+            setFollowingUserIds(following);
+            console.log('✅ Following list updated:', following);
+          } else {
+            console.log('📱 No user document found');
+            setFollowingUserIds([]);
+            setCurrentUserDocId('');
+          }
+        });
+
+        return unsubscribe;
+      }
+    } catch (error) {
+      console.error('Error fetching following list:', error);
+      setFollowingUserIds([]);
+    }
+  }, [userId]);
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
 
   const getTimeAgo = useCallback((dateString: any) => {
     if (!dateString) return 'Just now';
@@ -1837,6 +2017,53 @@ useEffect(() => {
 
     setLoading(true);
     try {
+<<<<<<< HEAD
+=======
+      const postsXData: any = [];
+      
+      const collXDataRefPost = collection(db, 'X-Data');
+      const queryXData = query(
+        collXDataRefPost,
+        orderBy('ContentDate', 'desc')
+      );
+      const unsubscribeXData = onSnapshot(queryXData, async xDataSnapshot => {
+        const xdataDataArr = xDataSnapshot.docs.map(doc => ({
+          id: doc.id,
+          data: doc.data(),
+        }))
+
+        for (const doc of xdataDataArr) {
+          const postData = doc.data;
+          const postId = doc.id;
+
+          postsXData.push({
+            uniqueId: `xdata-${postId}`,
+            id: postId,
+            AuthorImageURL: postData.AuthorImageURL,
+            AuthorName: postData.AuthorName,
+            AuthorUserID: postData.AuthorUserID || '',
+            ContentDate: postData.ContentDate,
+            ContentDesc: postData.ContentDesc,
+            ContentURL: postData.ContentURL,
+            ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+            ContentLikeCount: postData.ContentLikeCount || 0,
+            ContentRepostCount: postData.ContentRepostCount || 0,
+            ContentCommentCount: postData.ContentCommentCount || 0,
+            isApproved: true,
+            isNew: false,
+            postType: "X-Data",
+            Liked: (postData.LikedBy?.includes(fetchuserID) || false),
+            Reposted: (postData.RepostedBy?.includes(fetchuserID) || false),
+            Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
+            createdAt: postData.createdAt || postData.ContentDate,
+            CommentTemplate: postData.CommentTemplate || "Template1",
+          });
+        }
+
+        setFetchedXData(postsXData);
+      });
+
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
       const collSentinelRefPost = collection(db, 'SentinelPosts');
       let querySentinel = query(
         collSentinelRefPost,
@@ -1859,6 +2086,7 @@ useEffect(() => {
           postsData.push({
             uniqueId: `sentinel-${postId}`,
             id: postId,
+<<<<<<< HEAD
             AuthorImageURL: postData.AuthorImageURL|| '',
             AuthorName: postData.AuthorName|| '',
             AuthorNickName: postData.AuthorNickName|| '',
@@ -2042,6 +2270,11 @@ useEffect(() => {
             AuthorEmail: postData.AuthorEmail|| '',
             AuthorBio: postData.AuthorBio || postData.Bio || '',  // ✅ ADD THIS
             AuthorUserID: postData.AuthorUserID || postData.repostedBy || '123456',
+=======
+            AuthorImageURL: postData.AuthorImageURL,
+            AuthorName: postData.AuthorName,
+            AuthorUserID: postData.AuthorUserID || postData.repostedBy || '',
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
             ContentDate: postData.ContentDate,
             ContentDesc: postData.ContentDesc,
             ContentURL: postData.ContentURL,
@@ -2056,7 +2289,11 @@ useEffect(() => {
             Reposted: (postData.RepostedBy?.includes(fetchuserID) || false),
             Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
             createdAt: postData.createdAt || postData.ContentDate,
+<<<<<<< HEAD
             CommentTemplate: postData.CommentTemplate || "Standard Template",
+=======
+            CommentTemplate: postData.CommentTemplate || "Template1",
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
             isRepost: postData.isRepost || false,
             originalPost: postData.originalPost || null,
             repostComment: postData.repostComment || '',
@@ -2091,7 +2328,11 @@ useEffect(() => {
     } finally {
       setIsFetchingMore(false);
     }
+<<<<<<< HEAD
   }, [hasMore, loading, lastVisible, isFetchingMore]);
+=======
+  }, [isInitialized, fetchedData.length, lastFetchTime, userId]);
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
 
   const fetchCommentTemplate = useCallback(async () => {
     try {
@@ -2114,6 +2355,7 @@ useEffect(() => {
 
           const optionsField = postData.options;
 
+<<<<<<< HEAD
             const result: Array<{ index: string; id: string; icon: string; label: string; color: string }> = [];
             
             optionsField.map((nestedOption, index) => {
@@ -2144,6 +2386,23 @@ useEffect(() => {
             //     }
             //   }
             // }
+=======
+            const result: Array<{ key: string; icon: string; title: string }> = [];
+            for (const key in optionsField) {
+              if (Object.prototype.hasOwnProperty.call(optionsField, key)) {
+                const maybeOption = (optionsField as any)[key];
+                if (maybeOption && typeof maybeOption === "object") {
+                  const icon = (maybeOption as any).icon;
+                  const title = (maybeOption as any).title;
+                  result.push({
+                    key,
+                    icon: typeof icon === "string" ? icon : "",
+                    title: typeof title === "string" ? title : "",
+                  });
+                }
+              }
+            }
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
             commentTemmp.push({
               name: postData.name || "",
               options: result,
@@ -2535,6 +2794,7 @@ useEffect(() => {
     }, [isInitialized, fetchSinglePostComments])
   );
 
+<<<<<<< HEAD
   // Custom Alert function
   const showCustomAlert = (
     type: 'success' | 'error' | 'info' | 'warning',
@@ -2687,6 +2947,27 @@ useEffect(() => {
           }
         ]
       );
+=======
+  const handleDropdownChange = async (item: {name: string }, postItem: PostItem) => {
+    setSelectedCommentTemplate(item.name);
+    console.log('Selected option:', item.name);
+    const postRef = doc(db, postItem.postType, postItem.id);
+    await updateDoc(postRef, {
+      CommentTemplate: item.name,
+    });
+  };
+  
+  const openCommentsModal = useCallback((item: PostItem) => {
+    if (areInteractionsDisabled(item)) {
+      Toast.show({
+        type: 'error',
+        text1: 'Post Not Available',
+        text2: 'This post has been rejected and interactions are disabled.',
+        position: 'top',
+        visibilityTime: 3000,
+      });
+      return;
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
     }
   };
 
@@ -2736,6 +3017,7 @@ useEffect(() => {
 
   const openGraphModal = useCallback((item: PostItem) => {
     if (areInteractionsDisabled(item)) {
+<<<<<<< HEAD
     if (item.isNew) {
       Toast.show({
         type: 'warning',
@@ -2745,13 +3027,22 @@ useEffect(() => {
         visibilityTime: 1000,
       });
     } else {
+=======
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
       Toast.show({
         type: 'error',
         text1: 'Post Not Available',
         text2: 'This post has been rejected and interactions are disabled.',
+<<<<<<< HEAD
         position: 'bottom',
         visibilityTime: 1000,
       });
+=======
+        position: 'top',
+        visibilityTime: 3000,
+      });
+      return;
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
     }
     return;
   }
@@ -2805,7 +3096,11 @@ useEffect(() => {
         type: 'error',
         text1: 'Selection Required',
         text2: 'Please select at least one reason for rejection.',
+<<<<<<< HEAD
         position: 'bottom',
+=======
+        position: 'top',
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
         visibilityTime: 3000,
       });
       return;
@@ -2827,6 +3122,7 @@ useEffect(() => {
         type: 'success',
         text1: 'Post Rejected',
         text2: `Post has been rejected successfully with ${selectedRejectionReasons.length} reason(s).`,
+<<<<<<< HEAD
         position: 'bottom',
         visibilityTime: 3000,
       });
@@ -2904,6 +3200,11 @@ useEffect(() => {
       // } catch (error) {
       // console.error(error);
       // }
+=======
+        position: 'top',
+        visibilityTime: 3000,
+      });
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
       
     } catch (error) {
       console.error('Error rejecting post:', error);
@@ -2911,7 +3212,11 @@ useEffect(() => {
         type: 'error',
         text1: 'Rejection Failed',
         text2: 'Failed to reject post. Please try again.',
+<<<<<<< HEAD
         position: 'bottom',
+=======
+        position: 'top',
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
         visibilityTime: 3000,
       });
     }
@@ -2972,6 +3277,7 @@ useEffect(() => {
     }, 800);
   }, [isFlipped, isFlipping]);
 
+<<<<<<< HEAD
   //Post options
     const handleThreeDotsPress = (item: PostItem, event: any) => {
     const { pageX, pageY } = event.nativeEvent;
@@ -2982,6 +3288,11 @@ useEffect(() => {
     setMenuPosition({ x: pageX - 120, y: pageY + 10 });
     setShowMenuModal(true);
   };
+=======
+  // APPROVAL TOGGLE WITH TOAST
+  const handleApprovalToggle = useCallback(async (postId: string, newApprovedStatus: boolean, newIsNew: boolean = false) => {
+    console.log("Toggling post:", postId, "to approved:", newApprovedStatus, "isNew:", newIsNew);
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
 
     const handleDeletePost = async (postId: string) => {
       setPostToDelete(postId);
@@ -3247,6 +3558,7 @@ useEffect(() => {
       }
 
       console.log("Post status updated successfully");
+<<<<<<< HEAD
 
       // Find user doc for notifications
       let postDocID = "";
@@ -3343,6 +3655,34 @@ useEffect(() => {
                 isApproved: !newApprovedStatus,
                 isNew: !newIsNew,
               }
+=======
+      
+      // Show toast for approval
+      if (newApprovedStatus && !newIsNew) {
+        Toast.show({
+          type: 'success',
+          text1: 'Post Approved',
+          text2: 'Post has been approved and is now visible to users!',
+          position: 'top',
+          visibilityTime: 3000,
+        });
+      }
+      
+    } catch (error) {
+      console.error("Error updating post status:", error);
+      Toast.show({
+        type: 'error',
+        text1: 'Update Failed',
+        text2: 'Failed to update post status. Please try again.',
+        position: 'top',
+        visibilityTime: 3000,
+      });
+      
+      setFetchedData(prevData => 
+        prevData.map(item => 
+          item.id === postId 
+            ? { ...item, isApproved: !newApprovedStatus, isNew: !newIsNew }
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
             : item
         )
       );
@@ -3365,6 +3705,7 @@ useEffect(() => {
 
 
   const toggleLike = useCallback(async (postItem: PostItem) => {
+<<<<<<< HEAD
   if (areInteractionsDisabled(postItem)) {
     if (postItem.isNew) {
       Toast.show({
@@ -3373,6 +3714,32 @@ useEffect(() => {
         text2: 'This post is awaiting moderation. Interactions will be enabled once approved.',
         position: 'bottom',
         visibilityTime: 3000,
+=======
+    if (areInteractionsDisabled(postItem)) {
+      Toast.show({
+        type: 'error',
+        text1: 'Action Not Available',
+        text2: 'This post has been rejected and interactions are disabled.',
+        position: 'top',
+        visibilityTime: 3000,
+      });
+      return;
+    }
+
+    let fetchuserID = userId;
+    if(fetchuserID === ""){
+      fetchuserID = await AsyncStorage.getItem('userId') || "";
+      setUserId(fetchuserID);
+    }
+
+    const postRef = doc(db, postItem.postType, postItem.id);
+    if(postItem.Liked) {
+      console.log("itemID: ", postItem.id);
+      console.log("item Liked: ", postItem.Liked);
+      await updateDoc(postRef, {
+        ContentLikeCount: postItem.ContentLikeCount - 1,
+        LikedBy: arrayRemove(fetchuserID),
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
       });
     } else {
       Toast.show({
@@ -3450,6 +3817,7 @@ useEffect(() => {
       }) : null);
     }
 
+<<<<<<< HEAD
   } catch (error) {
     console.error('Error toggling like:', error);
     
@@ -3487,10 +3855,18 @@ useEffect(() => {
         visibilityTime: 3000,
       });
     } else {
+=======
+    await new Promise(r => setTimeout(r, 200));
+  }, [fullScreenCard, areInteractionsDisabled, userId]);
+
+  const openRepostModal = useCallback((postItem: PostItem) => {
+    if (areInteractionsDisabled(postItem)) {
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
       Toast.show({
         type: 'error',
         text1: 'Action Not Available',
         text2: 'This post has been rejected and interactions are disabled.',
+<<<<<<< HEAD
         position: 'bottom',
         visibilityTime: 3000,
       });
@@ -3507,6 +3883,11 @@ useEffect(() => {
         visibilityTime: 2000,
       });
 
+=======
+        position: 'top',
+        visibilityTime: 3000,
+      });
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
       return;
     }
 
@@ -3533,6 +3914,7 @@ useEffect(() => {
     const userInfo = await AsyncStorage.getItem('userName') || 'Anonymous';
     const userImage = await AsyncStorage.getItem('profilePicUrl') || dummyAuthorImage;
 
+<<<<<<< HEAD
     // Check if already reposted - EXIT EARLY
     if (selectedRepostPost.Reposted) {
       Toast.show({
@@ -3564,6 +3946,72 @@ useEffect(() => {
       ContentRepostCount: selectedRepostPost.ContentRepostCount + 1,
       RepostedBy: arrayUnion(fetchuserID),
     });
+=======
+      if (selectedRepostPost.Reposted) {
+        const postRef = doc(db, selectedRepostPost.postType, selectedRepostPost.id);
+        await updateDoc(postRef, {
+          ContentRepostCount: selectedRepostPost.ContentRepostCount - 1,
+          RepostedBy: arrayRemove(fetchuserID),
+        });
+
+        setFetchedData(prevData => 
+          prevData.map(item => 
+            item.uniqueId === selectedRepostPost.uniqueId 
+              ? { 
+                  ...item, 
+                  Reposted: false, 
+                  ContentRepostCount: item.ContentRepostCount - 1
+                } 
+              : item
+          )
+        );
+
+        Toast.show({
+          type: 'success',
+          text1: 'Repost Removed',
+          text2: 'Post has been removed from your reposts.',
+          position: 'top',
+          visibilityTime: 2000,
+        });
+      } else {
+        const postRef = doc(db, selectedRepostPost.postType, selectedRepostPost.id);
+        await updateDoc(postRef, {
+          ContentRepostCount: selectedRepostPost.ContentRepostCount + 1,
+          RepostedBy: arrayUnion(fetchuserID),
+        });
+
+        await addDoc(collection(db, 'SentinelPosts'), {
+          AuthorImageURL: userImage,
+          AuthorName: userInfo,
+          AuthorUserID: fetchuserID,
+          ContentDate: new Date(),
+          ContentDesc: selectedRepostPost.ContentDesc || '',
+          ContentURL: selectedRepostPost.ContentURL || '',
+          ContentURLs: selectedRepostPost.ContentURLs || [],
+          ContentLikeCount: 0,
+          ContentRepostCount: 0,
+          ContentCommentCount: 0,
+          isApproved: true,
+          isNew: false,
+          LikedBy: [],
+          RepostedBy: [],
+          BookmarkedBy: [],
+          createdAt: new Date(),
+          CommentTemplate: selectedRepostPost.CommentTemplate || "Template1",
+          isRepost: true,
+          originalPost: {
+            id: selectedRepostPost.id || '',
+            AuthorName: selectedRepostPost.AuthorName || 'Unknown User',
+            AuthorImageURL: selectedRepostPost.AuthorImageURL || dummyAuthorImage,
+            ContentDesc: selectedRepostPost.ContentDesc || '',
+            ContentDate: selectedRepostPost.ContentDate || new Date(),
+            postType: selectedRepostPost.postType || 'Unknown'
+          },
+          repostComment: '',
+          repostedBy: fetchuserID,
+          repostedAt: new Date(),
+        });
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
 
     // ✅ Create new repost document
     await addDoc(collection(db, 'SentinelPosts'), {
@@ -3603,6 +4051,7 @@ useEffect(() => {
       contentType: 'Found Online'
     });
 
+<<<<<<< HEAD
     // ✅ Update fullscreen card if open
     if (fullScreenCard && fullScreenCard.uniqueId === selectedRepostPost.uniqueId) {
       setFullScreenCard((prev: PostItem | null) => prev ? ({
@@ -3651,6 +4100,38 @@ useEffect(() => {
 }, [selectedRepostPost, userId, fullScreenCard]);
 
 
+=======
+        Toast.show({
+          type: 'success',
+          text1: 'Reposted Successfully',
+          text2: 'Post has been shared to your followers.',
+          position: 'top',
+          visibilityTime: 2000,
+        });
+      }
+
+      if (fullScreenCard && fullScreenCard.uniqueId === selectedRepostPost.uniqueId) {
+        setFullScreenCard((prev: PostItem | null) => prev ? ({
+          ...prev,
+          Reposted: !prev.Reposted,
+          ContentRepostCount: prev.Reposted 
+            ? prev.ContentRepostCount - 1 
+            : prev.ContentRepostCount + 1
+        }) : null);
+      }
+    } catch (error) {
+      console.error('Error handling repost:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Repost Failed',
+        text2: 'Failed to repost. Please try again.',
+        position: 'top',
+        visibilityTime: 3000,
+      });
+    }
+  }, [selectedRepostPost, userId, fullScreenCard]);
+
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
   // QUOTE REPOST WITH TOAST
   const handleQuoteRepost = useCallback(async (comment: string) => {
     if (!selectedRepostPost) return;
@@ -3665,6 +4146,7 @@ useEffect(() => {
       const userInfo = await AsyncStorage.getItem('userName') || 'Anonymous';
       const userImage = await AsyncStorage.getItem('profilePicUrl') || dummyAuthorImage;
 
+<<<<<<< HEAD
       
 
       if (selectedRepostPost.Reposted) {
@@ -3729,6 +4211,66 @@ useEffect(() => {
         visibilityTime: 2000,
       });
 
+=======
+      const postRef = doc(db, selectedRepostPost.postType, selectedRepostPost.id);
+      await updateDoc(postRef, {
+        ContentRepostCount: selectedRepostPost.ContentRepostCount + 1,
+        RepostedBy: arrayUnion(fetchuserID),
+      });
+
+      await addDoc(collection(db, 'SentinelPosts'), {
+        AuthorImageURL: userImage,
+        AuthorName: userInfo,
+        AuthorUserID: fetchuserID,
+        ContentDate: new Date(),
+        ContentDesc: comment || '',
+        ContentURL: selectedRepostPost.ContentURL || '',
+        ContentURLs: selectedRepostPost.ContentURLs || [],
+        ContentLikeCount: 0,
+        ContentRepostCount: 0,
+        ContentCommentCount: 0,
+        isApproved: true,
+        isNew: false,
+        LikedBy: [],
+        RepostedBy: [],
+        BookmarkedBy: [],
+        createdAt: new Date(),
+        CommentTemplate: selectedRepostPost.CommentTemplate || "Template1",
+        isRepost: true,
+        originalPost: {
+          id: selectedRepostPost.id || '',
+          AuthorName: selectedRepostPost.AuthorName || 'Unknown User',
+          AuthorImageURL: selectedRepostPost.AuthorImageURL || dummyAuthorImage,
+          ContentDesc: selectedRepostPost.ContentDesc || '',
+          ContentDate: selectedRepostPost.ContentDate || new Date(),
+          postType: selectedRepostPost.postType || 'Unknown'
+        },
+        repostComment: comment || '',
+        repostedBy: fetchuserID,
+        repostedAt: new Date(),
+      });
+
+      setFetchedData(prevData => 
+        prevData.map(item => 
+          item.uniqueId === selectedRepostPost.uniqueId 
+            ? { 
+                ...item, 
+                Reposted: true, 
+                ContentRepostCount: item.ContentRepostCount + 1
+              } 
+            : item
+        )
+      );
+
+      Toast.show({
+        type: 'success',
+        text1: 'Quote Repost Created',
+        text2: 'Your quote repost has been shared to your followers.',
+        position: 'top',
+        visibilityTime: 2000,
+      });
+
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
       if (fullScreenCard && fullScreenCard.uniqueId === selectedRepostPost.uniqueId) {
         setFullScreenCard((prev: PostItem | null) => prev ? ({
           ...prev,
@@ -3742,7 +4284,11 @@ useEffect(() => {
         type: 'error',
         text1: 'Quote Repost Failed',
         text2: 'Failed to create quote repost. Please try again.',
+<<<<<<< HEAD
         position: 'bottom',
+=======
+        position: 'top',
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
         visibilityTime: 3000,
       });
     }
@@ -3754,6 +4300,7 @@ useEffect(() => {
 
   const handleBookmark = useCallback(async (postItem: PostItem) => {
     if (areInteractionsDisabled(postItem)) {
+<<<<<<< HEAD
     if (postItem.isNew) {
       Toast.show({
         type: 'warning',
@@ -3763,13 +4310,22 @@ useEffect(() => {
         visibilityTime: 3000,
       });
     } else {
+=======
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
       Toast.show({
         type: 'error',
         text1: 'Action Not Available',
         text2: 'This post has been rejected and interactions are disabled.',
+<<<<<<< HEAD
         position: 'bottom',
         visibilityTime: 3000,
       });
+=======
+        position: 'top',
+        visibilityTime: 3000,
+      });
+      return;
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
     }
     return;
   }
@@ -3802,7 +4358,11 @@ useEffect(() => {
         type: 'info',
         text1: 'Bookmark Removed',
         text2: 'Post removed from bookmarks',
+<<<<<<< HEAD
         position: 'bottom',
+=======
+        position: 'top',
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
         visibilityTime: 2000,
       });
     } else {
@@ -3824,7 +4384,11 @@ useEffect(() => {
         type: 'success',
         text1: 'Bookmarked',
         text2: 'Post saved to bookmarks',
+<<<<<<< HEAD
         position: 'bottom',
+=======
+        position: 'top',
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
         visibilityTime: 2000,
       });
     }
@@ -3857,10 +4421,16 @@ useEffect(() => {
         type: 'error',
         text1: 'Sharing Not Available',
         text2: 'Sharing is not available on this device',
+<<<<<<< HEAD
         position: 'bottom',
         visibilityTime: 2000,
       });
       setSharingId(null); // Stop loading
+=======
+        position: 'top',
+        visibilityTime: 2000,
+      });
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
       return;
     }
 
@@ -3908,15 +4478,23 @@ useEffect(() => {
         type: 'error',
         text1: 'Share Failed',
         text2: 'Failed to share post',
+<<<<<<< HEAD
         position: 'bottom',
         visibilityTime: 2000,
       });
       setSharingId(null); // Stop loading
     } 
+=======
+        position: 'top',
+        visibilityTime: 2000,
+      });
+    }
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
 
     await new Promise(r => setTimeout(r, 200));
   }, []);
 
+<<<<<<< HEAD
   const callShortUrl = async (postUrl: string) => {
     try {
       console.log('Call Short Url...');
@@ -3946,6 +4524,13 @@ useEffect(() => {
       } else {
         const data: ShortURLResponse = await response.json();
         console.log('Short URL response:', data);
+=======
+  const renderMediaContent = useCallback((item: PostItem, index?: number) => {
+    const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
+                     (item.ContentURL ? [item.ContentURL] : []);
+    
+    if (!mediaUrls || mediaUrls.length === 0) return null;
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
 
         const shareMessage = `🔗 Tap to view on IronExSafe™: ${data.shortURL}`;
 
@@ -4086,6 +4671,7 @@ useEffect(() => {
     item => !blockedSet?.has(item.AuthorUserID)
   );
 
+<<<<<<< HEAD
   // ONE WEEK window constant for data eligibility
   const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
   const now = Date.now();
@@ -4104,10 +4690,31 @@ useEffect(() => {
         item.postType.includes('X-Data') ||
         (item.isApproved && !item.isNew)
       );
+=======
+    if (activeTab === 'following') {
+      console.log('🔍 Filtering for following tab');
+      console.log('Following user IDs:', followingUserIds);
+      console.log('Base data count:', baseData.length);
+      
+      const followingData = baseData.filter(item => {
+        const authorId = item.AuthorUserID || item.repostedBy;
+        const isFromFollowedUser = authorId && followingUserIds.includes(authorId);
+        
+        if (isFromFollowedUser) {
+          console.log(`✅ Including post from followed user: ${item.AuthorName} (${authorId})`);
+        }
+        
+        return isFromFollowedUser;
+      });
+      
+      console.log('✅ Following filtered data count:', followingData.length);
+      return followingData;
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
     }
     return true;
   });
 
+<<<<<<< HEAD
   // Educational data
   // Educational data — loose matching to handle missing/inconsistent fields
   const educationalData = sourceData.filter(item => {
@@ -4124,6 +4731,16 @@ useEffect(() => {
     // Admin/Mod: show all educational posts regardless of approval
     return isEdu;
   });
+=======
+    return baseData;
+  }, [fetchedData, userRole, activeTab, followingUserIds]);
+
+  const handleScroll = useCallback((event: any) => {
+    const { contentOffset, layoutMeasurement } = event.nativeEvent;
+    const currentScrollY = contentOffset.y;
+    const viewHeight = layoutMeasurement.height;
+    const viewCenter = currentScrollY + viewHeight / 2;
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
 
 
   // Published data (excludes educational)
@@ -4150,6 +4767,7 @@ useEffect(() => {
     return followingData;
   }
 
+<<<<<<< HEAD
   // ── EDUCATIONAL TAB ────────────────────────────────────────────────────────
   if (activeTab === 'educational') {
     if (educationalData.length < 4) handleLoadMore();
@@ -4380,6 +4998,9 @@ useEffect(() => {
 
 
   const ApprovalToggle = useCallback(({ isApproved, isNew, onToggle, postId, postItem, isFullScreen = false }: { 
+=======
+  const ApprovalToggle = useCallback(({ isApproved, isNew, onToggle, postId, isFullScreen = false }: { 
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
     isApproved: boolean; 
     isNew: boolean;
     onToggle: (approved: boolean, isNew: boolean) => void;
@@ -4512,6 +5133,7 @@ useEffect(() => {
     }
   }, []);
 
+<<<<<<< HEAD
   const renderPostContent = useCallback((item: PostItem, index: number) => {
     let AuthorName = "";
     let AuthorImage = "";
@@ -4696,6 +5318,15 @@ useEffect(() => {
           {item.postType !== "X-Data" && renderMediaContent(item, index)}
 
           {/* ===== REACTION ICONS ===== */}
+=======
+  const renderPostContent = useCallback((item: PostItem, index: number) => (
+    <TouchableOpacity 
+      activeOpacity={0.95}
+      onPress={() => openCommentsModal(item)}
+    >
+      <EnhancedCard postId={item.uniqueId}>
+        <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
           <View className="flex-row items-center">
             <View className="flex-1">
               <View className="flex-row items-center mt-1.5">
@@ -5031,6 +5662,7 @@ useEffect(() => {
           </View>
         </View>
 
+<<<<<<< HEAD
         {/* ===== ADMIN: POST STATUS ===== */}
         {userRole !== "User" && (
           <TouchableOpacity onPress={(e) => e.stopPropagation()} activeOpacity={1}>
@@ -5045,6 +5677,32 @@ useEffect(() => {
                   : item.isApproved
                   ? "This post is approved and visible to users"
                   : "This post is rejected and not visible to users"}
+=======
+        <View className="px-3 py-2.5">
+          <Text className="text-gray-800 text-sm leading-5 mb-2 font-normal">{item.ContentDesc}</Text>
+
+          {renderRepostContent(item)}
+
+          {(!item.isRepost || item.repostComment) && renderMediaContent(item, index)}
+
+          <View className="flex-row items-center justify-between pt-1.5">
+            <TouchableOpacity
+              className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+              onPress={(e) => {
+                e.stopPropagation();
+                toggleLike(item);
+              }}
+              activeOpacity={0.7}
+              disabled={areInteractionsDisabled(item)}
+            >
+              <Ionicons
+                name={item.Liked ? "heart" : "heart-outline"}
+                size={14}
+                color={item.Liked ? "#ef4444" : "#64748b"}
+              />
+              <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
+                {item.ContentLikeCount}
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
               </Text>
               {item.isNew && item.moderationData?.violations && item.moderationData.violations.length > 0 && (
                 <View className="flex-row items-center mb-3 bg-amber-50 px-2 py-1.5 rounded-lg">
@@ -5135,6 +5793,32 @@ useEffect(() => {
                   />
                 </View>
               </View>
+<<<<<<< HEAD
+=======
+            </TouchableOpacity>
+          )}
+        </View>
+      </EnhancedCard>
+    </TouchableOpacity>
+  ), [openCommentsModal, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, ApprovalToggle, handleApprovalToggle, dummyAuthorImage, userRole, getPostStatus, areInteractionsDisabled, openGraphModal, renderRepostContent]);
+
+  const renderPostUserContent = useCallback((item: PostItem, index: number) => (
+    <TouchableOpacity 
+      activeOpacity={0.95}
+      onPress={() => openCommentsModal(item)}
+    >
+      <EnhancedCard postId={item.uniqueId}>
+        <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
+          <View className="flex-row items-center">
+            <View className="relative">
+              <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
+                <Image
+                  source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
+                  className="w-full h-full"
+                  resizeMode="cover"
+                />
+              </View>
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
             </View>
           </TouchableOpacity>
         )}
@@ -5142,10 +5826,28 @@ useEffect(() => {
     </>
   )}
 
+<<<<<<< HEAD
 </EnhancedCard>
+=======
+        <View className="px-3 py-2.5">
+          {item.isRepost && (
+            <View className="flex-row items-center mb-2 pb-2 border-b border-gray-100">
+              <Ionicons name="repeat" size={14} color="#64748b" />
+              <Text className="ml-1 text-gray-600 text-xs">
+                {item.repostComment ? 'Quote repost' : 'Reposted'}
+              </Text>
+            </View>
+          )}
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
 
 
+<<<<<<< HEAD
 
+=======
+          {renderRepostContent(item)}
+
+          {(!item.isRepost || item.repostComment) && renderMediaContent(item, index)}
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
 
 
 
@@ -5153,7 +5855,43 @@ useEffect(() => {
     )
   }, [openCommentsModal, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, ApprovalToggle, handleApprovalToggle, dummyAuthorImage, userRole, getPostStatus, areInteractionsDisabled, openGraphModal, renderRepostContent]);
 
+<<<<<<< HEAD
  
+=======
+            <TouchableOpacity
+              className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleBookmark(item);
+              }}
+              activeOpacity={0.7}
+              disabled={areInteractionsDisabled(item)}
+            >
+              <Ionicons 
+                name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
+                size={14} 
+                color={item.Bookmarked ? "#000000" : "#64748b"} 
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              className={`p-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleShare(item);
+              }}
+              activeOpacity={0.7}
+              disabled={areInteractionsDisabled(item)}
+            >
+              <Feather name="share-2" size={12} color="#64748b" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </EnhancedCard>
+    </TouchableOpacity>
+  ), [openCommentsModal, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, dummyAuthorImage, areInteractionsDisabled, openGraphModal, renderRepostContent]);
+
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
   const listItems = useMemo(() => {
     console.log(`🔄 Rendering ${filteredData.length} items for ${activeTab} tab`);
     
@@ -5171,6 +5909,7 @@ useEffect(() => {
       const timestampKey = getTimestamp(item.createdAt) || getTimestamp(item.ContentDate) || index;
       const uniqueKey = `${baseKey}-${contextKey}-${timestampKey}`;
       
+<<<<<<< HEAD
       // if (userRole === "User") {
       //   return (
       //     <React.Fragment key={uniqueKey}>
@@ -5180,11 +5919,23 @@ useEffect(() => {
       // } else {
         return (
           <React.Fragment key={uniqueKey}>
+=======
+      if (userRole === "User") {
+        return (
+          <React.Fragment key={uniqueKey}>
+            {renderPostUserContent(item, index)}
+          </React.Fragment>
+        );
+      } else {
+        return (
+          <React.Fragment key={uniqueKey}>
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
             {renderPostContent(item, index)}
           </React.Fragment>
         );
       // }
     });
+<<<<<<< HEAD
   }, [filteredData, userRole, initializeCardAnimation, renderPostContent, activeTab]);
 
   const renderEmptyState = () => {
@@ -5243,6 +5994,31 @@ useEffect(() => {
 
 };
 
+=======
+  }, [filteredData, userRole, initializeCardAnimation, renderPostUserContent, renderPostContent, activeTab]);
+
+  const renderEmptyFollowingState = () => (
+    <View className="flex-1 justify-center items-center py-20 px-8">
+      <View className="w-20 h-20 bg-gray-100 rounded-full items-center justify-center mb-6">
+        <MaterialCommunityIcons name="account-heart-outline" size={40} color="#9CA3AF" />
+      </View>
+      <Text className="text-xl font-semibold text-gray-900 mb-2 text-center">
+        No Posts from Following
+      </Text>
+      <Text className="text-gray-500 text-center leading-6 mb-4">
+        You're not following anyone yet, or users you follow haven't posted anything.
+      </Text>
+      <TouchableOpacity 
+        className="bg-black px-6 py-3 rounded-xl"
+        onPress={() => {
+          router.push('/search');
+        }}
+      >
+        <Text className="text-white font-semibold">Find People to Follow</Text>
+      </TouchableOpacity>
+    </View>
+  );
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -5302,8 +6078,12 @@ useEffect(() => {
       />
 
       <ScrollView 
+<<<<<<< HEAD
         // key={`feed-${activeTab}-${filteredData.length}`}
         key={`feed-${activeTab}`}
+=======
+        key={`feed-${activeTab}-${filteredData.length}`}
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
         ref={scrollViewRef}
         className="flex-1" 
         showsVerticalScrollIndicator={false}
@@ -5328,10 +6108,17 @@ useEffect(() => {
           <View className="flex-1 justify-center items-center py-20">
             <LoadingComponent visible={true} size="large" />
           </View>
+<<<<<<< HEAD
         ) : (activeTab === 'following' || activeTab === 'educational') && listItems.length === 0 ? (
           renderEmptyState()
+=======
+        ) : activeTab === 'following' && followingUserIds.length === 0 ? (
+          renderEmptyFollowingState()
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
         ) : listItems.length > 0 ? (
           listItems
+        ) : activeTab === 'following' ? (
+          renderEmptyFollowingState()
         ) : (
           <View className="flex-1 justify-center items-center py-20">
             <LoadingComponent visible={true} size="large" />
@@ -5515,6 +6302,7 @@ useEffect(() => {
                   </Text>
                 </View>
 
+<<<<<<< HEAD
                 {/* Reasons List */}
                 <ScrollView className="px-6 py-4" showsVerticalScrollIndicator={false}>
                   {reportReasons.map((reason, index) => (
@@ -5581,6 +6369,8 @@ useEffect(() => {
         )}
 
 
+=======
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
       {/* REJECTION MODAL */}
       <Modal
         visible={isRejectionModalVisible}
@@ -5841,6 +6631,7 @@ useEffect(() => {
         onQuoteRepost={handleQuoteRepost}
       />
 
+<<<<<<< HEAD
 <CommentsModal
   visible={isCommentModalVisible}
   onClose={closeCommentsModal}
@@ -5852,6 +6643,16 @@ useEffect(() => {
   onNavigateToProfile={handleNavigateToProfile}
 />
 
+=======
+      <CommentsModal
+        visible={isCommentModalVisible}
+        onClose={closeCommentsModal}
+        postId={selectedPostId}
+        postType={selectedPostType}
+        postData={fetchedData.find(item => item.id === selectedPostId)}
+        commentTemplate={selectedCommentTemplate}
+      />
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
 
       {/* GRAPH MODAL */}
       <TotalSentiment
@@ -5866,6 +6667,7 @@ useEffect(() => {
         commentTemplate={selectedCommentTemplate}
         />
 
+<<<<<<< HEAD
       {/* Custom Alert Modal */}
       <CustomModal
         visible={modalConfig.visible}
@@ -6032,6 +6834,8 @@ useEffect(() => {
         )}
 
 
+=======
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
      
     </SafeAreaView>
   );

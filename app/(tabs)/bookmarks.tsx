@@ -22,7 +22,11 @@ import {
   View
 } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
+<<<<<<< HEAD
 import { Toast } from 'react-native-toast-message/lib/src/Toast';
+=======
+import { showToast } from '../../utils/toast';
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
 import CommentsModal from '../../components/CommentsModal';
 import { LoadingComponent } from '../../components/LoadingComponent';
 import { showToast } from '../../utils/toast';
@@ -64,6 +68,7 @@ interface PostItem {
   ViewedBy?: string[];
 }
 
+<<<<<<< HEAD
 // Repost Modal Component
 interface RepostModalProps {
   visible: boolean;
@@ -561,6 +566,8 @@ const RepostModal: React.FC<RepostModalProps> = ({
   );
 };
 
+=======
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
 export default function BookmarksPage(): React.JSX.Element {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -588,6 +595,7 @@ export default function BookmarksPage(): React.JSX.Element {
   const [selectedPostType, setSelectedPostType] = useState<string | null>(null);
   const [selectedCommentTemplate, setSelectedCommentTemplate] = useState<string | null>(null);
 
+<<<<<<< HEAD
   // ------- GRAPH MODAL STATE -------
   const [isGraphModalVisible, setIsGraphModalVisible] = useState(false);
   const [selectedGraphPostId, setSelectedGraphPostId] = useState<string | null>(null);
@@ -713,12 +721,15 @@ export default function BookmarksPage(): React.JSX.Element {
 
   
 
+=======
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
   
   const openUserProfile = (item: PostItem) => {
     const authorId = item.AuthorUserID || item.repostedBy; // choose what you consider profile id
     if (!authorId) return;
 
+<<<<<<< HEAD
     router.push({
       pathname: "/profile/[userId]",
       params: {
@@ -730,6 +741,8 @@ export default function BookmarksPage(): React.JSX.Element {
       },
     });
   };
+=======
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
   // IMPROVED TIME AGO FUNCTION
     const getTimeAgo = useCallback((dateString: any) => {
     if (!dateString) return 'Just now';
@@ -997,6 +1010,7 @@ export default function BookmarksPage(): React.JSX.Element {
           }
         );
     
+<<<<<<< HEAD
         if (!response.ok) {
           // Optional: Show success message
           Toast.show({
@@ -1030,6 +1044,30 @@ export default function BookmarksPage(): React.JSX.Element {
         setSharingId(null); // Stop loading
       }
     };
+=======
+    // first check if sharing is available
+    const available = await Sharing.isAvailableAsync();
+    if (!available) {
+      showToast.error("Sharing is not available on this device");
+      return;
+    }
+
+    try {
+      // no image, just share text / link
+      // you might use React Native's Share API
+      
+      await Share.share({
+        message: `SENTINEL POST\n\nShared by ${postItem.AuthorName}\n${postItem.ContentDesc}\n${postItem.ContentURL}\n\nPlease take a look.`,
+    });
+      
+    } catch (error) {
+      console.log("Error sharing ", error);
+      showToast.error("Failed to share post");
+    }
+
+    await new Promise(r => setTimeout(r, 200));
+  }, []);
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
 
   // FIXED: Fetch bookmarked posts without problematic queries
   const handleFetchBookmarkedPosts = useCallback(async (forceRefresh: boolean = false) => {
@@ -1597,6 +1635,7 @@ export default function BookmarksPage(): React.JSX.Element {
       showToast.error('Failed to remove bookmark. Please try again.', 'Error');
     }
   }, []);
+<<<<<<< HEAD
 
   const renderRepostContent = useCallback((item: PostItem) => {
     if (!item.isRepost || !item.originalPost) return null;
@@ -1632,6 +1671,8 @@ export default function BookmarksPage(): React.JSX.Element {
       </View>
     );
   }, [getTimeAgo, dummyAuthorImage]);
+=======
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
 
   // OPTIMIZED MEDIA CONTENT
     // OPTIMIZED MEDIA CONTENT WITH CAROUSEL
@@ -1655,6 +1696,131 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
 }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, VideoPlayer]);
 
 
+<<<<<<< HEAD
+=======
+    if (mediaType === 'image') {
+      return (
+        <View className="mb-2">
+          <TouchableOpacity 
+            onPress={(e) => {
+              e?.stopPropagation?.();
+              openFullScreenImage(primaryMediaUrl);
+            }}
+            activeOpacity={0.95}
+          >
+            <View className="relative rounded-xl overflow-hidden">
+              <Image
+                source={{ uri: primaryMediaUrl }}
+                style={{ width: '100%', height: 200 }}
+                className="bg-gray-100"
+                resizeMode="cover"
+                onError={(error) => {
+                  console.log("Image load error:", error.nativeEvent.error);
+                }}
+              />
+              <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+                <Ionicons name="expand-outline" size={14} color="white" />
+              </View>
+            </View>
+          </TouchableOpacity>
+        </View>
+      );
+    } else if (mediaType === 'video') {
+      return (
+        <View className="mb-2">
+          <TouchableOpacity 
+            onPress={(e) => {
+              e?.stopPropagation?.();
+              openFullScreenVideo(primaryMediaUrl);
+            }}
+            activeOpacity={0.95}
+          >
+            <View className="relative rounded-xl overflow-hidden bg-black">
+              <Video
+                ref={(ref) => {
+                  if (ref && index !== undefined) {
+                    videoRefs.current[`video-${index}`] = ref;
+                  }
+                }}
+                source={{ uri: primaryMediaUrl }}
+                style={{ width: '100%', height: 200 }}
+                resizeMode={ResizeMode.CONTAIN}
+                useNativeControls={false}
+                shouldPlay={currentVideoIndex === index}
+                isMuted={true}
+                isLooping={true}
+              />
+              <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+                <Ionicons name="play-outline" size={14} color="white" />
+              </View>
+              {currentVideoIndex !== index && (
+                <View className="absolute inset-0 bg-black/20 items-center justify-center">
+                  <View className="w-10 h-10 bg-black/60 rounded-full items-center justify-center">
+                    <Ionicons name="play" size={20} color="white" />
+                  </View>
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
+        </View>
+      );
+    } else if (mediaType === 'gif') {
+      return (
+        <View className="mb-2">
+          <TouchableOpacity 
+            onPress={(e) => {
+              e?.stopPropagation?.();
+              openFullScreenImage(primaryMediaUrl);
+            }}
+            activeOpacity={0.95}
+          >
+            <View className="relative rounded-xl overflow-hidden">
+              <Image
+                source={{ uri: primaryMediaUrl }}
+                style={{ width: '100%', height: 200 }}
+                className="bg-gray-100"
+                resizeMode="cover"
+              />
+              <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+                <MaterialIcons name="gif" size={20} color="white" />
+              </View>
+            </View>
+          </TouchableOpacity>
+        </View>
+      );
+    } else if (mediaType === 'doc') {
+      return (
+        <View className="mb-2">
+          <TouchableOpacity 
+            onPress={(e) => {
+              e?.stopPropagation?.();
+              openFullScreenDoc(primaryMediaUrl);
+            }}
+            activeOpacity={0.95}
+          >
+            <View
+              style={{
+                borderRadius: 12,
+                overflow: 'hidden',
+                backgroundColor: '#EEF2F6',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: 80,
+              }}>
+              <Ionicons name="document-text-outline" size={32} color="#000000" />
+              <Text numberOfLines={1} style={{ color: '#333', marginTop: 4, textAlign: 'center', paddingHorizontal: 12, fontSize: 11 }}>
+                {primaryMediaUrl.split('/').pop() || 'Document'}
+              </Text>
+              <Text style={{ color: '#aaa', fontSize: 9, marginTop: 1 }}>Tap to open</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      );
+    } else {
+      return null;
+    }
+  }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, currentVideoIndex]);
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
 
   // OPTIMIZED REFRESH
   const onRefresh = useCallback(async () => {
@@ -2204,6 +2370,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
         postData={bookmarkedPosts.find(item => item.id === selectedPostId) as (PostItem & { AuthorBio: string }) | undefined}
         commentTemplate={selectedCommentTemplate}
       />
+<<<<<<< HEAD
 
       {/* GRAPH MODAL */}
       <TotalSentiment
@@ -2225,6 +2392,8 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
         onEditComment={undefined}
         commentTemplate={selectedCommentTemplate}
         />
+=======
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
     </SafeAreaView>
   );
 }

@@ -7,8 +7,13 @@ import * as DocumentPicker from 'expo-document-picker';
 import { FileSystemUploadType, uploadAsync } from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from "expo-router";
+<<<<<<< HEAD
 import { addDoc, arrayUnion, collection, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+=======
+import { addDoc, collection } from "firebase/firestore";
+import React, { useEffect, useRef, useState } from "react";
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
 import {
   ActivityIndicator,
   Animated,
@@ -27,6 +32,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+<<<<<<< HEAD
 import { getMediaType } from '../../utils/mediaHelpers';
 const MAX_CHARACTERS = 2000;
 
@@ -132,6 +138,8 @@ const MAX_CHARACTERS = 2000;
 
 
 import { Video } from 'react-native-compressor';
+=======
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -441,8 +449,11 @@ export default function CreatePost() {
   const [postText, setPostText] = useState("");
   const [userImage, setUserImage] = useState("");
   const [userName, setUserName] = useState("");
+<<<<<<< HEAD
   const [userEmail, setUserEmail] = useState("");
   const [userNickName, setUserNickName] = useState("");
+=======
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
   const [userId, setUserId] = useState("");
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia[]>([]);
   const [loading, setLoading] = useState(false);
@@ -560,6 +571,7 @@ export default function CreatePost() {
 
   const getItem = async () => {
     try {
+<<<<<<< HEAD
       const fetchuserName = (await AsyncStorage.getItem('userName') || '');
       const fetchUserImage = (await AsyncStorage.getItem('profilePicUrl') || '');
       const fetchuserID = (await AsyncStorage.getItem('userId') || '1234');
@@ -567,6 +579,11 @@ export default function CreatePost() {
       const fetchuseNickrName = (await AsyncStorage.getItem('userNickName') || '');
 
       setUserEmail(await AsyncStorage.getItem('userEmail') || '');
+=======
+      const fetchuserName = await AsyncStorage.getItem('userName');
+      const fetchUserImage = await AsyncStorage.getItem('profilePicUrl');
+      const fetchuserID = await AsyncStorage.getItem('userId');
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
 
       if(fetchuserName !== null) {
         console.log("userName: ", fetchuserName);
@@ -581,6 +598,7 @@ export default function CreatePost() {
       if(fetchuserID !== null) {
         setUserId(fetchuserID);
       }
+<<<<<<< HEAD
 
       if(fetchCreateType !== null) {
         if(fetchCreateType == "educational"){
@@ -596,6 +614,8 @@ export default function CreatePost() {
         console.log("userNickName: ", fetchuseNickrName);
         setUserNickName(fetchuseNickrName);
       }
+=======
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
       
     } catch (error) {
       console.log("Error retrieving item", error);
@@ -1141,8 +1161,11 @@ const compressAndGetUrl = async (localUri) => {
       await addDoc(collection(db, 'SentinelPosts'), {
         AuthorImageURL: userImage || "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg",
         AuthorName: userName,
+<<<<<<< HEAD
         AuthorNickName: userNickName,
         AuthorEmail: userEmail,
+=======
+>>>>>>> c8fb6dcefe440265631c69f78a64e9c408f85650
         AuthorUserID: userId,
         ContentDate: new Date(),
         ContentDesc: postText,
