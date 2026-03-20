@@ -1205,6 +1205,22 @@ useEffect(() => {
   };
   runOnce();
 }, []);
+
+  const handleNavigateToProfile = useCallback(
+    (targetUserId: string, authorName: string, authorImageUrl: string) => {
+      router.push({
+        pathname: '/profile/[userId]',
+        params: {
+          userId: targetUserId,
+          authorName,
+          authorImageUrl,
+          isAnonymous: 'false',
+        },
+      });
+    },
+    [router]
+  );
+
      
     
 const trackPostView = useCallback(async (postId: string, postType: string) => {
@@ -1493,24 +1509,24 @@ useEffect(() => {
 
 
 
-      const openUserProfile = (item: PostItem) => {
-        const authorId = item.AuthorUserID || item.repostedBy; // choose what you consider profile id
-        if (!authorId) return;
+        const openUserProfile = useCallback((item: PostItem) => {
+          const authorId = item.AuthorUserID || item.repostedBy;
+          if (!authorId) return;
 
-        router.push({
-          pathname: "/profile/[userId]",
-          params: {
-            userId: authorId || '12345',                 // item.AuthorUserID
-            userEmail: item.AuthorEmail || '',
-            authorName: item.AuthorName || 'Anonymous',      // from post
-            userNickName: item.AuthorNickName || '',
-            authorImageUrl: item.AuthorImageURL || '', // from post
-            isAnonymous: item.isAnonymous ? 'true' : 'false', // ✅ ADD THIS LINE
-            userBio: item.AuthorBio || '',  // ✅ ADD THIS LINE
+          router.push({
+            pathname: "/profile/[userId]",
+            params: {
+              userId: authorId || '12345',
+              userEmail: item.AuthorEmail || '',
+              authorName: item.AuthorName || 'Anonymous',
+              userNickName: item.AuthorNickName || '',
+              authorImageUrl: item.AuthorImageURL || '',
+              isAnonymous: item.isAnonymous ? 'true' : 'false',
+              userBio: item.AuthorBio || '',
+            },
+          });
+        }, [router]);
 
-          },
-        });
-      }; 
 
       // UPDATED: Create video player for fullscreen modal
       const fullScreenVideoPlayer = useVideoPlayer(fullScreenVideo || '', (player) => {
@@ -5833,17 +5849,7 @@ useEffect(() => {
   commentTemplate={selectedCommentTemplate}
   postData={fetchedData.find(item => item.id === selectedPostId)}
   // ✅ ADD THIS — navigation happens here, outside the modal
-  onNavigateToProfile={(targetUserId, authorName, authorImageUrl) => {
-    router.push({
-      pathname: '/profile/[userId]',
-      params: {
-        userId: targetUserId,
-        authorName: authorName,
-        authorImageUrl: authorImageUrl,
-        isAnonymous: 'false',
-      },
-    });
-  }}
+  onNavigateToProfile={handleNavigateToProfile}
 />
 
 

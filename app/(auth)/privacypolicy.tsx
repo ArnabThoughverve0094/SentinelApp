@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   Linking,
   ScrollView,
@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function PrivacyPolicy(): React.JSX.Element {
   const router = useRouter();
+  const goBack = useCallback(() => router.back(), [router]);
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -25,7 +26,7 @@ export default function PrivacyPolicy(): React.JSX.Element {
             <Text className="text-lg font-semibold text-gray-900">Privacy Policy</Text>
             <TouchableOpacity 
               className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center"
-              onPress={() => router.back()}
+              onPress={goBack}
             >
               <Ionicons name="close" size={24} color="#374151" />
             </TouchableOpacity>

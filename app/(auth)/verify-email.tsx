@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   KeyboardAvoidingView,
@@ -500,6 +500,7 @@ export default function VerifyEmail(): React.JSX.Element {
       setResendLoading(false);
     }
   };
+  const goBack = useCallback(() => router.back(), [router]);
 
   return (
     <SafeAreaView className="flex-1">
@@ -519,7 +520,7 @@ export default function VerifyEmail(): React.JSX.Element {
             {/* Header with back button */}
             <View className="px-6 pt-4 pb-4">
               <TouchableOpacity 
-                onPress={() => router.back()}
+                onPress={goBack}
                 className="w-10 h-10 rounded-full bg-white/95 items-center justify-center shadow-lg border border-white/30"
               >
                 <Ionicons name="arrow-back" size={20} color="#374151" />

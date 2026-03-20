@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Link, useRouter } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   Image,
@@ -608,6 +608,7 @@ const handleCountrySelect = (selectedCountry: string) => {
     setErrors((prev) => ({ ...prev, country: undefined }));
   }
 };
+const goBack = useCallback(() => router.back(), [router]);
 
 
 
@@ -664,7 +665,7 @@ const handleCountrySelect = (selectedCountry: string) => {
 
               {/* Right: Close Button */}
               <TouchableOpacity 
-                onPress={() => router.back()} 
+                onPress={goBack} 
                 style={{ 
                   width: 32, 
                   height: 32, 

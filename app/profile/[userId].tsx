@@ -279,15 +279,6 @@ export default function UserProfileScreen() {
   }>();
   const router = useRouter();
 
-  // ✅ ADD THIS SAFETY CHECK
-  if (!userId) {
-    return (
-      <SafeAreaView className="flex-1 bg-white items-center justify-center">
-        <ActivityIndicator size="large" color="#111827" />
-        <Text className="text-gray-500 mt-4">Loading profile...</Text>
-      </SafeAreaView>
-    );
-  }
 
   const [loading, setLoading] = useState(true);
   const [followLoading, setFollowLoading] = useState(false);
@@ -370,8 +361,8 @@ export default function UserProfileScreen() {
       }
 
       const postData = postDoc.data();
-      const currentViewedBy = postData.ViewedBy || [];
-      const currentViewCount = postData.ContentViewCount || 0;
+      const currentViewedBy = postData.ViewedBy ?? [];
+      const currentViewCount = postData.ContentViewCount ?? 0;
       const hasViewed = currentViewedBy.includes(currentUserId);
       
       // ✅ ALWAYS INCREMENT (like X/Twitter)
@@ -453,7 +444,7 @@ export default function UserProfileScreen() {
         const unsubscribe = onSnapshot(postRef, (snapshot) => {
           if (snapshot.exists()) {
             const data = snapshot.data();
-            const newViewCount = data.ContentViewCount || 0;
+            const newViewCount = data.ContentViewCount ?? 0;
             
             // Only update if count actually changed
             setUserPosts(prev =>
@@ -503,13 +494,13 @@ const fetchCounts = async () => {
       const data = docSnapshot.data();
 
       // 1. Get the Array of following objects
-      const followingList = data.Following || [];
+      const followingList = data.Following ?? []; // Default to empty array if not present
       
       // 2. Get the specific count fields
       // Ensure you are using the 'increment' logic in your follow function
       // for these fields to exist!
-      const followingCount = data.followingCount || followingList.length;
-      const followerCount = data.followerCount || 0;
+      const followingCount = data.followingCount ?? followingList.length;
+      const followerCount = data.followerCount ?? 0; // Default to 0 if not present
 
       // Update your React states
       // setFollowingData(followingList);
@@ -805,7 +796,7 @@ const fetchFollowerCounts = async () => {
 
         const unsubscribe = onSnapshot(userDocRef, (doc) => {
           if (doc.exists()) {
-            const following = doc.data().Following || [];
+            const following = doc.data().Following ?? [];
             const alreadyFollowing = following.some(u => u.userId === userId);
             setIsFollowing(alreadyFollowing);
           }
@@ -1794,12 +1785,16 @@ const fetchFollowerCounts = async () => {
     return getFullImageUrl(userDoc.profilePicUrl) || dummyAuthorImage;
   }, [isAnonymous, userDoc?.profilePicUrl]);
 
-  const displayName = 
-    isAnonymous === 'true' 
+    const displayName =
+    isAnonymous === 'true'
       ? 'Anonymous'
-      : (userDoc?.userName && userDoc.userName.trim()) ||
-        (userDoc?.userNickName && userDoc.userNickName.trim()) ||
-        "Unknown user";
+      : userDoc?.userName?.trim()
+      ? userDoc.userName.trim()
+      : userDoc?.userNickName?.trim()
+      ? userDoc.userNickName.trim()
+      : userDoc?.userEmail?.split('@')[0]  
+      ?? 'Unknown';
+
 
   const handleWebsitePress = () => {
     const url = userDoc?.Website || userDoc?.website;
@@ -2003,6 +1998,29 @@ const fetchFollowerCounts = async () => {
   };
 
   const isOwnProfile = currentUserId === userId;
+    if (!userId) {
+    return (
+      <SafeAreaView className="flex-1 bg-white items-center justify-center">
+        <ActivityIndicator size="large" color="#111827" />
+        <Text className="text-gray-500 mt-4">Loading profile...</Text>
+      </SafeAreaView>
+    );
+  }
+
+      const goToFollowing = useCallback(() => {
+      router.push({
+        pathname: '/followers/[userid]',
+        params: { userid: userId, type: 'following' },
+      });
+    }, [router, userId]);
+
+    const goToFollowers = useCallback(() => {
+      router.push({
+        pathname: '/followers/[userid]',
+        params: { userid: userId, type: 'followers' },
+      });
+    }, [router, userId]);
+ const goBack = useCallback(() => router.back(), [router]);
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -2014,7 +2032,7 @@ const fetchFollowerCounts = async () => {
 
       <View className="absolute top-10 left-3 z-50">
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={goBack}
           className="w-8 h-8 rounded-full bg-black/60 items-center justify-center"
         >
           <Ionicons name="arrow-back" size={20} color="#ffffff" />
@@ -2118,12 +2136,7 @@ const fetchFollowerCounts = async () => {
           {isAnonymous !== "true" && (
           <View className="flex-row mt-3 mb-3">
             <TouchableOpacity
-              onPress={() =>
-                router.push({
-                  pathname: "/followers/[userid]",
-                  params: { userid: userId, type: "following" },
-                })
-              }
+              onPress={goToFollowing}
               activeOpacity={0.7}
             >
               <Text className="mr-4 text-sm text-gray-900">
@@ -2132,12 +2145,7 @@ const fetchFollowerCounts = async () => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() =>
-                router.push({
-                  pathname: "/followers/[userid]",
-                  params: { userid: userId, type: "followers" },
-                })
-              }
+              onPress={goToFollowers}
               activeOpacity={0.7}
             >
               <Text className="text-sm text-gray-900">

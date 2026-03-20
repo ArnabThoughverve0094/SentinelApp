@@ -426,6 +426,7 @@ export default function EmailLogin(): React.JSX.Element {
     }
 
   }, [expoPushToken]);
+  const goBack = useCallback(() => router.back(), [router]);
 
   return (
     <SafeAreaView className="flex-1 bg-[#ECEDEE]">
@@ -438,7 +439,7 @@ export default function EmailLogin(): React.JSX.Element {
         {/* Back Button */}
         <View className="px-6 pt-2 pb-4">
           <TouchableOpacity 
-            onPress={() => router.back()}
+            onPress={goBack}
             className="w-10 h-10 items-center justify-center"
           >
             <Ionicons name="arrow-back" size={24} color="#000" />

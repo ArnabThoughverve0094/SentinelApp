@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Link, router } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, KeyboardAvoidingView, Modal, Platform, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -287,6 +287,7 @@ export default function ForgotPassword(): React.JSX.Element {
       setIsLoading(false);
     }
   };
+  const goBack = useCallback(() => router.back(), [router]);
 
   return (
     <SafeAreaView className="flex-1 bg-[#ECEDEE]">
@@ -299,7 +300,7 @@ export default function ForgotPassword(): React.JSX.Element {
         {/* Back Button */}
         <View className="px-6 pt-2 pb-4">
           <TouchableOpacity 
-            onPress={() => router.back()}
+            onPress={goBack}
             className="w-10 h-10 items-center justify-center"
           >
             <Ionicons name="arrow-back" size={24} color="#000" />
