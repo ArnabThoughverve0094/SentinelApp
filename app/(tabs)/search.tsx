@@ -1,10 +1,9 @@
 import { db } from '@/FirebaseConfig';
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { collection, getDocs } from 'firebase/firestore';
+import { useRouter } from 'expo-router';
+import { arrayRemove, arrayUnion, collection, doc, getDocs, increment, onSnapshot, writeBatch } from 'firebase/firestore';
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
   Animated,
@@ -19,22 +18,24 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width: screenWidth } = Dimensions.get('window');
 
 // User interface for search results
 interface SearchUser {
+  docID: string;
   id: string;
   name: string;
   nickName?: string;
   email?: string;
   avatar: string;
-  followers?: string;
+  followers?: string[];
   postCount?: number;
   isFollowing?: boolean;
 }
 
-// Enhanced Loading Component matching your landing page
+// Enhanced Loading Component
 const LoadingComponent: React.FC<{ visible?: boolean; size?: 'small' | 'medium' | 'large' }> = ({
   visible = true,
   size = 'medium'
@@ -46,7 +47,6 @@ const LoadingComponent: React.FC<{ visible?: boolean; size?: 'small' | 'medium' 
 
   useEffect(() => {
     if (visible) {
-      // Enhanced entrance animation
       Animated.parallel([
         Animated.timing(opacityAnim, {
           toValue: 1,
@@ -61,7 +61,6 @@ const LoadingComponent: React.FC<{ visible?: boolean; size?: 'small' | 'medium' 
         }),
       ]).start();
 
-      // Continuous rotation animation
       const rotateAnimation = Animated.loop(
         Animated.timing(rotateAnim, {
           toValue: 1,
@@ -70,7 +69,6 @@ const LoadingComponent: React.FC<{ visible?: boolean; size?: 'small' | 'medium' 
         })
       );
 
-      // Pulse animation for the logo
       const pulseAnimation = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
@@ -93,37 +91,17 @@ const LoadingComponent: React.FC<{ visible?: boolean; size?: 'small' | 'medium' 
         rotateAnimation.stop();
         pulseAnimation.stop();
       };
-    } else {
-      // Exit animation
-      Animated.parallel([
-        Animated.timing(opacityAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 0.8,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start();
     }
-  }, [visible, rotateAnim, scaleAnim, opacityAnim, pulseAnim]);
+  }, [visible]);
 
   const getSizeStyles = () => {
     switch (size) {
       case 'small':
-        return {
-          logo: { width: 40, height: 40 },
-        };
+        return { logo: { width: 40, height: 40 } };
       case 'medium':
-        return {
-          logo: { width: 50, height: 50 },
-        };
-      default: // large
-        return {
-          logo: { width: 60, height: 60 },
-        };
+        return { logo: { width: 50, height: 50 } };
+      default:
+        return { logo: { width: 60, height: 60 } };
     }
   };
 
@@ -147,13 +125,9 @@ const LoadingComponent: React.FC<{ visible?: boolean; size?: 'small' | 'medium' 
         paddingVertical: 20,
       }}
     >
-      {/* Animated Logo Container */}
       <Animated.View
         style={{
-          transform: [
-            { rotate: rotateInterpolate },
-            { scale: pulseAnim }
-          ],
+          transform: [{ rotate: rotateInterpolate }, { scale: pulseAnim }],
           zIndex: 10,
         }}
       >
@@ -174,11 +148,8 @@ const LoadingComponent: React.FC<{ visible?: boolean; size?: 'small' | 'medium' 
           }}
         >
           <Image
-            source={require('../../assets/images/sentinel_logo.png')}
-            style={{
-              width: '100%',
-              height: '100%',
-            }}
+            source={require('../../assets/images/new_logo.png')}
+            style={{ width: '100%', height: '100%' }}
             resizeMode="cover"
           />
         </View>
@@ -187,7 +158,7 @@ const LoadingComponent: React.FC<{ visible?: boolean; size?: 'small' | 'medium' 
   );
 };
 
-// Skeleton Loading Component for Search Results
+// Skeleton Loading Component
 const SkeletonLoader: React.FC<{ count?: number }> = ({ count = 5 }) => {
   const shimmerAnim = useRef(new Animated.Value(0)).current;
 
@@ -200,7 +171,6 @@ const SkeletonLoader: React.FC<{ count?: number }> = ({ count = 5 }) => {
       })
     );
     shimmerAnimation.start();
-
     return () => shimmerAnimation.stop();
   }, [shimmerAnim]);
 
@@ -214,7 +184,7 @@ const SkeletonLoader: React.FC<{ count?: number }> = ({ count = 5 }) => {
       {Array.from({ length: count }).map((_, index) => (
         <Animated.View
           key={`skeleton-${index}`}
-          style={{ 
+          style={{
             opacity: shimmerOpacity,
             marginBottom: 12,
             backgroundColor: 'white',
@@ -244,12 +214,14 @@ const SkeletonLoader: React.FC<{ count?: number }> = ({ count = 5 }) => {
 // Search Item Component
 type SearchItemProps = {
   user: SearchUser;
-  onFollowPress: (userId: string) => void;
+  onFollowPress: (user: SearchUser) => void;
   currentUserId: string;
+  loadingUserId: string | null;
 };
 
-const SearchItem: React.FC<SearchItemProps> = ({ user, onFollowPress, currentUserId }) => {
+const SearchItem: React.FC<SearchItemProps> = ({ user, onFollowPress, currentUserId, loadingUserId }) => {
   const scaleAnim = useRef(new Animated.Value(0)).current;
+  const isCurrentUser = user.id === currentUserId;
 
   useEffect(() => {
     Animated.spring(scaleAnim, {
@@ -262,13 +234,8 @@ const SearchItem: React.FC<SearchItemProps> = ({ user, onFollowPress, currentUse
 
   const dummyAvatar = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
 
-  // Don't show current user in search results
-  if (user.id === currentUserId) {
-    return null;
-  }
-
   return (
-    <Animated.View 
+    <Animated.View
       style={{ transform: [{ scale: scaleAnim }] }}
       className="flex-row items-center justify-between bg-white rounded-2xl px-4 py-4 mb-3 shadow-sm border border-gray-100 mx-6"
     >
@@ -279,9 +246,7 @@ const SearchItem: React.FC<SearchItemProps> = ({ user, onFollowPress, currentUse
             source={{ uri: user.avatar || dummyAvatar }}
             className="w-full h-full"
             resizeMode="cover"
-            onError={(error) => {
-              console.log("Avatar load error:", error.nativeEvent.error);
-            }}
+            onError={(error) => console.log("Avatar load error:", error.nativeEvent.error)}
           />
         </View>
 
@@ -304,16 +269,27 @@ const SearchItem: React.FC<SearchItemProps> = ({ user, onFollowPress, currentUse
         </View>
       </View>
 
-      {/* Right side - Follow Button */}
-      <TouchableOpacity 
-        className={`px-4 py-2 rounded-lg ${user.isFollowing ? 'bg-gray-200' : 'bg-black'}`}
-        onPress={() => onFollowPress(user.id)}
-        activeOpacity={0.8}
-      >
-        <Text className={`text-sm font-medium ${user.isFollowing ? 'text-gray-700' : 'text-white'}`}>
-          {user.isFollowing ? 'Following' : 'Follow'}
-        </Text>
-      </TouchableOpacity>
+      {/* Right side - "You" Badge or Follow Button */}
+      {isCurrentUser ? (
+        <View className="px-4 py-2 rounded-lg bg-blue-50">
+          <Text className="text-sm font-semibold text-blue-600">You</Text>
+        </View>
+      ) : (
+        <TouchableOpacity
+          className={`px-4 py-2 rounded-lg ${user.isFollowing ? 'bg-gray-200' : 'bg-black'}`}
+          onPress={() => onFollowPress(user)}
+          activeOpacity={0.8}
+          disabled={loadingUserId === user.id} // prevent double click
+        >
+          {loadingUserId === user.id ? (
+            <ActivityIndicator size="small" color={user.isFollowing ? '#374151' : '#ffffff'} />
+          ) : (
+            <Text className={`text-sm font-medium ${user.isFollowing ? 'text-gray-700' : 'text-white'}`}>
+              {user.isFollowing ? 'Following' : 'Follow'}
+            </Text>
+          )}
+        </TouchableOpacity>
+      )}
     </Animated.View>
   );
 };
@@ -321,244 +297,283 @@ const SearchItem: React.FC<SearchItemProps> = ({ user, onFollowPress, currentUse
 export default function SearchPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
+  const [allUsers, setAllUsers] = useState<SearchUser[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<SearchUser[]>([]);
   const [loading, setLoading] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState('');
-  const [hasSearched, setHasSearched] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [userId, setUserId] = useState('');
+  const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
+  const [loadingUserId, setLoadingUserId] = useState<string | null>(null);
 
   const searchInputRef = useRef<TextInput>(null);
 
-  // Load current user ID
-  useEffect(() => {
-    loadCurrentUserId();
-  }, []);
-
-  const loadCurrentUserId = async () => {
+  // EXACT SAME PATTERN AS LANDING PAGE - Fetch user following
+  const fetchUserFollowing = useCallback(async () => {
     try {
-      const userId = await AsyncStorage.getItem('userId');
-      if (userId) {
-        setCurrentUserId(userId);
+      let fetchuserID = userId;
+      if (!fetchuserID) {
+        fetchuserID = (await AsyncStorage.getItem('userId')) || '';
+        setUserId(fetchuserID);
+      }
+
+      if (fetchuserID) {
+        console.log('👤 Fetching following list for user:', fetchuserID);
+
+        const userDocRef = doc(db, 'IronExUsers', fetchuserID);
+
+        const unsubscribeFollowing = onSnapshot(userDocRef, (docSnapshot) => {
+          if (docSnapshot.exists()) {
+            const data = docSnapshot.data();
+
+            // 1. Get the Array of following objects
+            const followingList: any[] = data.Following || [];
+            const idOnlyList: string[] = followingList.map(item => item.userId);
+
+            console.log(`✅ Displaying ${followingList.length} following`);
+            setFollowingUserIds(idOnlyList);
+          }
+        }, (error) => {
+          console.error("❌ Real-time listener failed:", error);
+          setFollowingUserIds([]);
+        });
+
+        return unsubscribeFollowing;
       }
     } catch (error) {
-      console.error('Error loading current user ID:', error);
+      console.error('❌ Error fetching following list:', error);
+      setFollowingUserIds([]);
     }
-  };
+  }, [userId]);
 
-  // Debounced search function
+  // Initialize on mount - SAME AS LANDING PAGE
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (searchQuery.trim().length >= 2) {
-        performSearch(searchQuery.trim());
-      } else if (searchQuery.trim().length === 0) {
-        setSearchResults([]);
-        setHasSearched(false);
-      }
-    }, 300);
+    fetchUserFollowing();
+    fetchAllUsers();
+  }, []);
 
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
-
-  // Enhanced search function
-  const performSearch = async (query: string) => {
-    if (!query || query.length < 2) {
-      setSearchResults([]);
-      setHasSearched(false);
-      return;
-    }
-
-    setLoading(true);
-    setHasSearched(true);
-
+  // Fetch ALL users from database
+  const fetchAllUsers = async () => {
     try {
-      console.log('🔍 Searching for users with query:', query);
-      
-      const searchResults: SearchUser[] = [];
-      const lowerQuery = query.toLowerCase();
+      setInitialLoading(true);
+      console.log('🔄 Fetching all users from database...');
 
-      // Search in SentinelPosts collection for unique authors
+      const uniqueUsers = new Map<string, SearchUser>();
+
+      // Fetch from SentinelPosts
       try {
-        console.log('📊 Searching SentinelPosts collection...');
         const sentinelSnapshot = await getDocs(collection(db, 'SentinelPosts'));
-        
-        const uniqueAuthors = new Map<string, SearchUser>();
-        
         sentinelSnapshot.docs.forEach(doc => {
           const data = doc.data();
-          const authorName = data.AuthorName?.toLowerCase() || '';
-          
-          // Check if author name contains the search query
-          if (authorName.includes(lowerQuery)) {
-            const authorKey = authorName;
-            
-            if (!uniqueAuthors.has(authorKey)) {
-              uniqueAuthors.set(authorKey, {
-                id: `sentinel-${doc.id}-${authorName}`, // Use a composite ID
-                name: data.AuthorName || 'Unknown User',
-                avatar: data.AuthorImageURL || '',
-                postCount: 1,
-                isFollowing: false, // This would be determined by your follow system
-              });
-            } else {
-              // Increment post count
-              const existing = uniqueAuthors.get(authorKey)!;
-              existing.postCount = (existing.postCount || 0) + 1;
-            }
-          }
-        });
+          const authorId = data.AuthorUserID;
 
-        // Add to results
-        uniqueAuthors.forEach(author => {
-          searchResults.push(author);
-        });
-        
-        console.log(`✅ Found ${uniqueAuthors.size} unique authors in SentinelPosts`);
-      } catch (sentinelError) {
-        console.warn('⚠️ Error searching SentinelPosts:', sentinelError);
-      }
-
-      // Search in X-Data collection for unique authors
-      try {
-        console.log('📊 Searching X-Data collection...');
-        const xDataSnapshot = await getDocs(collection(db, 'X-Data'));
-        
-        const uniqueXAuthors = new Map<string, SearchUser>();
-        
-        xDataSnapshot.docs.forEach(doc => {
-          const data = doc.data();
-          const authorName = data.AuthorName?.toLowerCase() || '';
-          
-          // Check if author name contains the search query
-          if (authorName.includes(lowerQuery)) {
-            const authorKey = authorName;
-            
-            if (!uniqueXAuthors.has(authorKey)) {
-              uniqueXAuthors.set(authorKey, {
-                id: `xdata-${doc.id}-${authorName}`, // Use a composite ID
+          if (authorId) {
+            if (!uniqueUsers.has(authorId)) {
+              uniqueUsers.set(authorId, {
+                docID: "",
+                id: authorId,
                 name: data.AuthorName || 'Unknown User',
                 avatar: data.AuthorImageURL || '',
                 postCount: 1,
                 isFollowing: false,
               });
             } else {
-              // Increment post count
-              const existing = uniqueXAuthors.get(authorKey)!;
+              const existing = uniqueUsers.get(authorId)!;
               existing.postCount = (existing.postCount || 0) + 1;
             }
           }
         });
-
-        // Add to results, but avoid duplicates by name
-        uniqueXAuthors.forEach(author => {
-          const existingIndex = searchResults.findIndex(
-            existing => existing.name.toLowerCase() === author.name.toLowerCase()
-          );
-          
-          if (existingIndex >= 0) {
-            // Merge post counts if same author found in both collections
-            searchResults[existingIndex].postCount = 
-              (searchResults[existingIndex].postCount || 0) + (author.postCount || 0);
-            
-            // Use the better avatar if available
-            if (!searchResults[existingIndex].avatar && author.avatar) {
-              searchResults[existingIndex].avatar = author.avatar;
-            }
-          } else {
-            searchResults.push(author);
-          }
-        });
-        
-        console.log(`✅ Found ${uniqueXAuthors.size} unique authors in X-Data`);
-      } catch (xDataError) {
-        console.warn('⚠️ Error searching X-Data:', xDataError);
+        console.log(`✅ Fetched ${uniqueUsers.size} users from SentinelPosts`);
+      } catch (error) {
+        console.warn('⚠️ Error fetching from SentinelPosts:', error);
       }
 
-      // Remove current user from results and sort by relevance
-      const filteredResults = searchResults
-        .filter(user => user.id !== currentUserId)
-        .sort((a, b) => {
-          // Sort by exact match first, then by post count
-          const aExact = a.name.toLowerCase() === lowerQuery ? 1 : 0;
-          const bExact = b.name.toLowerCase() === lowerQuery ? 1 : 0;
-          
-          if (aExact !== bExact) {
-            return bExact - aExact; // Exact matches first
-          }
-          
-          return (b.postCount || 0) - (a.postCount || 0); // Then by post count
-        });
+      // Sort alphabetically
+      const usersArray = Array.from(uniqueUsers.values()).sort((a, b) =>
+        a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+      );
 
-      setSearchResults(filteredResults);
-      console.log(`🎉 Total search results: ${filteredResults.length}`);
-
+      console.log(`🎉 Loaded ${usersArray.length} users alphabetically`);
+      setAllUsers(usersArray);
+      setInitialLoading(false);
     } catch (error) {
-      console.error('❌ Error performing search:', error);
-      setSearchResults([]);
-    } finally {
-      setLoading(false);
+      console.error('❌ Error fetching all users:', error);
+      setInitialLoading(false);
     }
   };
 
-  // Handle follow/unfollow action
-  const handleFollowPress = useCallback((userId: string) => {
-    console.log('Follow/Unfollow pressed for user:', userId);
-    
-    // Update the local state optimistically
-    setSearchResults(prevResults => 
-      prevResults.map(user => 
-        user.id === userId 
-          ? { ...user, isFollowing: !user.isFollowing }
-          : user
-      )
+  // Update following status - TRIGGERED BY followingUserIds changes
+  useEffect(() => {
+    if (allUsers.length > 0) {
+      console.log('\n🔄 Updating following status for all users...');
+      console.log('Current followingUserIds:', followingUserIds);
+
+      const updatedUsers = allUsers.map(user => {
+        const isFollowing = followingUserIds.includes(user.id);
+        if (isFollowing) {
+          console.log(`✅ ${user.name} (${user.id}): Following`);
+        }
+        return {
+          ...user,
+          isFollowing: isFollowing
+        };
+      });
+
+      setAllUsers(updatedUsers);
+
+      // Update filtered users
+      if (searchQuery.trim().length > 0) {
+        const filtered = updatedUsers.filter(user =>
+          user.name.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+        setFilteredUsers(filtered);
+      } else {
+        setFilteredUsers(updatedUsers);
+      }
+
+      console.log('✅ Following status synced\n');
+    }
+  }, [followingUserIds, allUsers.length]); // Trigger when following list changes
+
+  // Search filter
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchQuery.trim().length > 0) {
+        performSearch(searchQuery.trim());
+      } else {
+        setFilteredUsers(allUsers);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  // Perform search
+  const performSearch = (query: string) => {
+    setLoading(true);
+
+    const lowerQuery = query.toLowerCase();
+    const results = allUsers.filter(user =>
+      user.name.toLowerCase().includes(lowerQuery)
     );
 
-    // Here you would implement your actual follow/unfollow API call
-    // Example:
-    // await followUser(userId);
+    // Sort: exact matches first, then alphabetically
+    const sortedResults = results.sort((a, b) => {
+      const aExact = a.name.toLowerCase() === lowerQuery ? 1 : 0;
+      const bExact = b.name.toLowerCase() === lowerQuery ? 1 : 0;
+
+      if (aExact !== bExact) {
+        return bExact - aExact;
+      }
+
+      return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+    });
+
+    setFilteredUsers(sortedResults);
+    setLoading(false);
+    console.log(`🔍 Found ${sortedResults.length} users matching "${query}"`);
+  };
+
+  // Handle follow/unfollow - SAME PATTERN AS LANDING PAGE
+  const handleFollowPress = useCallback(async (user: SearchUser) => {
+    console.log(`\n🔄 ${user.isFollowing ? 'Unfollowing' : 'Following'} ${user.name}`);
+    console.log('User ID:', user.id);
+
+    setLoadingUserId(user.id);
+
+    let fetchuserID = userId;
+    if (!fetchuserID) {
+      fetchuserID = (await AsyncStorage.getItem('userId')) || '';
+      setUserId(fetchuserID);
+    }
+
+    const fetchUserEmail = (await AsyncStorage.getItem("userEmail")) || '';
+    const fetchUserName = (await AsyncStorage.getItem("userName")) || '';
+    const fetchUserNickName = (await AsyncStorage.getItem("userNickName")) || '';
+    const fetchUserProfilePicURL = (await AsyncStorage.getItem("profilePicUrl")) || '';
     
-  }, []);
+    const batch = writeBatch(db);
+    const userUsersDocRef = doc(db, 'IronExUsers', fetchuserID);
+    const targetUserDocRef = doc(db, 'IronExUsers', user.id);
+
+    // Data objects for the arrays
+    const followingData = {
+      userId: user.id,
+      userEmail: user.email || '',
+      userName: user.name || '',
+      userNickName: user.nickName || '',
+      profilePicUrl: user.avatar || ''
+    };
+  
+    const followerData = {
+      userId: fetchuserID,
+      userEmail: fetchUserEmail || '',
+      userName: fetchUserName || '',
+      userNickName: fetchUserNickName || '',
+      profilePicUrl: fetchUserProfilePicURL || ''
+    };
+
+    try {
+      if (user.isFollowing) {
+        // --- UNFOLLOW LOGIC ---
+        batch.update(userUsersDocRef, {
+          Following: arrayRemove(followingData), // Atomic remove
+          followingCount: increment(-1)
+        });
+  
+        batch.update(targetUserDocRef, {
+          Follower: arrayRemove(followerData), // Atomic remove
+          followerCount: increment(-1)
+        });
+
+      } else {
+        // --- FOLLOW LOGIC ---
+        batch.set(userUsersDocRef, {
+          userID: fetchuserID,
+          userEmail: fetchUserEmail || '',
+          userName: fetchUserName || '',
+          userNickName: fetchUserNickName || '',
+          profilePicUrl: fetchUserProfilePicURL || '',
+          Following: arrayUnion(followingData),
+          followingCount: increment(1)
+        }, { merge: true });
+  
+        batch.set(targetUserDocRef, {
+          userID: user.id,
+          userEmail: user.email || '',
+          userName: user.name || '',
+          userNickName: user.nickName || '',
+          profilePicUrl: user.avatar || '',
+          Follower: arrayUnion(followerData),
+          followerCount: increment(1)
+        }, { merge: true });
+      }
+      
+      // Commit both updates at once
+      await batch.commit();
+
+      // onSnapshot will automatically update the UI
+      console.log('⏳ Waiting for onSnapshot to update UI...\n');
+    } catch (error) {
+      console.error('❌ Error handling follow/unfollow:', error);
+    } finally {
+      setLoadingUserId(null);
+    }
+  }, [userId]);
 
   // Clear search
   const clearSearch = () => {
     setSearchQuery('');
-    setSearchResults([]);
-    setHasSearched(false);
+    setFilteredUsers(allUsers);
     Keyboard.dismiss();
   };
 
-  // Focus search input when screen focuses
-  useFocusEffect(
-    useCallback(() => {
-      // Optional: Auto-focus search input when screen loads
-      // setTimeout(() => {
-      //   searchInputRef.current?.focus();
-      // }, 100);
-    }, [])
-  );
-
   // Render empty state
   const renderEmptyState = () => {
-    if (loading) {
-      return <SkeletonLoader count={5} />;
+    if (loading || initialLoading) {
+      return <SkeletonLoader count={8} />;
     }
 
-    if (!hasSearched) {
-      return (
-        <View className="items-center justify-center flex-1 px-8" style={{ marginTop: screenWidth * 0.3 }}>
-          <View className="w-20 h-20 bg-gray-100 rounded-full items-center justify-center mb-6">
-            <MaterialCommunityIcons name="account-search" size={40} color="#9CA3AF" />
-          </View>
-          <Text className="text-xl font-semibold text-gray-900 mb-2">
-            Discover People
-          </Text>
-          <Text className="text-gray-500 text-center leading-6">
-            Search for users by their name to connect with amazing people and discover new content.
-          </Text>
-        </View>
-      );
-    }
-
-    if (hasSearched && searchResults.length === 0 && !loading) {
+    if (searchQuery.trim().length > 0 && filteredUsers.length === 0) {
       return (
         <View className="items-center justify-center flex-1 px-8" style={{ marginTop: screenWidth * 0.2 }}>
           <View className="w-20 h-20 bg-gray-100 rounded-full items-center justify-center mb-6">
@@ -574,8 +589,25 @@ export default function SearchPage() {
       );
     }
 
+    if (allUsers.length === 0 && !initialLoading) {
+      return (
+        <View className="items-center justify-center flex-1 px-8" style={{ marginTop: screenWidth * 0.3 }}>
+          <View className="w-20 h-20 bg-gray-100 rounded-full items-center justify-center mb-6">
+            <MaterialCommunityIcons name="account-search" size={40} color="#9CA3AF" />
+          </View>
+          <Text className="text-xl font-semibold text-gray-900 mb-2">
+            No Users Available
+          </Text>
+          <Text className="text-gray-500 text-center leading-6">
+            There are no users to display at the moment. Check back later!
+          </Text>
+        </View>
+      );
+    }
+
     return null;
   };
+  const goBack = useCallback(() => router.back(), [router]);
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -586,18 +618,18 @@ export default function SearchPage() {
         <View className="px-6 pt-8 pb-4">
           <View className="flex-row items-center justify-between">
             <Text className="text-2xl font-bold text-gray-900">Search</Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               className="p-2 rounded-full bg-gray-100"
-              onPress={() => router.back()}
+              onPress={goBack}
             >
               <Ionicons name="close" size={20} color="#4B5563" />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Enhanced Search Bar */}
+        {/* Search Bar */}
         <View className="px-6 pb-4">
-          <View className="flex-row items-center bg-white rounded-xl px-4 py-3 border-2 border-gray-100 focus:border-blue-500">
+          <View className="flex-row items-center bg-white rounded-xl px-4 py-3 border-2 border-gray-100">
             <Ionicons name="search" size={20} color="#9CA3AF" />
             <TextInput
               ref={searchInputRef}
@@ -610,33 +642,18 @@ export default function SearchPage() {
               autoCapitalize="words"
               autoCorrect={false}
               returnKeyType="search"
-              onSubmitEditing={() => {
-                if (searchQuery.trim()) {
-                  performSearch(searchQuery.trim());
-                }
-              }}
             />
             {searchQuery.length > 0 && (
-              <TouchableOpacity
-                onPress={clearSearch}
-                className="ml-2 p-1"
-              >
+              <TouchableOpacity onPress={clearSearch} className="ml-2 p-1">
                 <Ionicons name="close-circle" size={20} color="#9CA3AF" />
               </TouchableOpacity>
             )}
           </View>
-          
-          {/* Search suggestion */}
-          {searchQuery.length > 0 && searchQuery.length < 2 && (
-            <Text className="text-xs text-gray-400 mt-2 px-1">
-              Type at least 2 characters to search
-            </Text>
-          )}
         </View>
       </View>
 
-      {/* Loading indicator at top */}
-      {loading && searchResults.length > 0 && (
+      {/* Loading indicator */}
+      {loading && filteredUsers.length > 0 && (
         <View className="py-2 px-6">
           <View className="flex-row items-center">
             <ActivityIndicator size="small" color="#3B82F6" />
@@ -646,32 +663,35 @@ export default function SearchPage() {
       )}
 
       {/* Results Count */}
-      {hasSearched && !loading && searchResults.length > 0 && (
+      {filteredUsers.length > 0 && !initialLoading && (
         <View className="px-6 py-2">
           <Text className="text-sm text-gray-600">
-            Found {searchResults.length} user{searchResults.length !== 1 ? 's' : ''} matching "{searchQuery}"
+            {searchQuery.trim().length > 0
+              ? `Found ${filteredUsers.length} user${filteredUsers.length !== 1 ? 's' : ''} matching "${searchQuery}"`
+              : `Showing all ${filteredUsers.length} user${filteredUsers.length !== 1 ? 's' : ''}`}
           </Text>
         </View>
       )}
 
       {/* Results List */}
       <View className="flex-1">
-        {searchResults.length > 0 ? (
+        {filteredUsers.length > 0 ? (
           <FlatList
-            data={searchResults}
-            keyExtractor={(item) => item.id}
+            data={filteredUsers}
+            keyExtractor={(item) => `user-${item.id}`}
             renderItem={({ item }) => (
-              <SearchItem 
-                user={item} 
+              <SearchItem
+                user={item}
                 onFollowPress={handleFollowPress}
-                currentUserId={currentUserId}
+                currentUserId={userId}
+                loadingUserId={loadingUserId}
               />
             )}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingTop: 8, paddingBottom: 32 }}
             ItemSeparatorComponent={() => <View style={{ height: 4 }} />}
             ListFooterComponent={() => {
-              if (loading) {
+              if (loading || initialLoading) {
                 return (
                   <View className="py-4">
                     <LoadingComponent visible={true} size="small" />

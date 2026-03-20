@@ -1,16 +1,25 @@
 import { db } from '@/FirebaseConfig';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ResizeMode, Video } from 'expo-av';
+import { VideoView, useVideoPlayer } from 'expo-video';
+
+import AppInfoModal from '@/components/AppInfoModal'; // Add this line
+import EditProfileScreen from '@/components/EditProfileScreen';
+import HelpScreen from '@/components/HelpScreen';
+import LoadingDeleteOverlay from '@/components/LoadingDeleteOverlaym';
+import PasswordVerificationModal from '@/components/PasswordVerificationModal';
+import { makeRedirectUri } from 'expo-auth-session';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { arrayRemove, arrayUnion, collection, doc, getDocs, updateDoc } from 'firebase/firestore';
+import * as WebBrowser from 'expo-web-browser';
+import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
   Dimensions,
   Image,
+  Linking,
   Modal,
   Platform,
   RefreshControl,
@@ -19,22 +28,28 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View
 } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Toast from 'react-native-toast-message';
 import CommentsModal from '../../components/CommentsModal';
 import SentinelFAQ from '../../components/SentinelFAQ';
 import TotalSentiment from '../../components/TotalSentiment';
+ // Adjust path to your toastConfig file
 
-const { width: screenWidth } = Dimensions.get('window');
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+// const { width: screenWidth } = Dimensions.get('window');
 
 // PostItem interface from landing page
 interface PostItem {
   id: string;
   uniqueId: string;
+  AuthorUserID?: string;
   AuthorImageURL: string;
   AuthorName: string;
+  AuthorBio: string;
   ContentDate: string;
   ContentDesc: string;
   ContentURL: string;
@@ -50,7 +65,335 @@ interface PostItem {
   Bookmarked?: boolean;
   createdAt?: any;
   CommentTemplate: string;
+  isRepost?: boolean;
+  originalPost?: PostItem;
+  repostComment?: string;
+  repostedBy?: string;
+  repostedAt?: any;
+  isAnonymous: boolean;
+  contentType: string;
+  ContentViewCount?: number;
+  ViewedBy?: string[];
+  isReported?: boolean;
+  reportedAt?: any;
+  reportReasons?: string[];
+  reportedBy?: string[];
+  moderationStatus?: string;
 }
+
+interface MediaCarouselProps {
+  mediaUrls: string[];
+  postId: string;
+  onImagePress: (url: string) => void;
+  onVideoPress: (url: string) => void;
+  onDocPress: (url: string) => void;
+  getMediaType: (url: string) => string;
+  VideoPlayer: any;
+  index?: number;
+}
+type ShortURLResponse = {
+  shortURL: string;
+  id: any;
+};
+
+const renderStyledPostText = (text) => {
+  if (!text) return null;
+
+  const urlPattern = /(https?:\/\/[^\s]+)|(www\.[^\s]+)/gi;
+  const hashtagPattern = /(^|\s)(#[a-zA-Z0-9_]+)/g;
+
+  const urlMatches = [];
+  const hashtagMatches = [];
+  let match;
+
+  while ((match = urlPattern.exec(text)) !== null) {
+    urlMatches.push({
+      type: "url",
+      text: match[0],
+      index: match.index,
+      length: match[0].length,
+    });
+  }
+
+  while ((match = hashtagPattern.exec(text)) !== null) {
+    hashtagMatches.push({
+      type: "hashtag",
+      text: match[2],
+      index: match.index + match[1].length,
+      length: match[2].length,
+    });
+  }
+
+  const allMatches = [...urlMatches, ...hashtagMatches].sort((a, b) => a.index - b.index);
+
+  if (allMatches.length === 0) {
+    return <Text style={{ color: "#111827" }}>{text}</Text>;
+  }
+
+  const components = [];
+  let lastIndex = 0;
+
+  allMatches.forEach((match, i) => {
+    if (match.index > lastIndex) {
+      components.push(
+        <Text key={`text-${i}`} style={{ color: "#111827" }}>
+          {text.substring(lastIndex, match.index)}
+        </Text>
+      );
+    }
+
+    if (match.type === "url") {
+      components.push(
+        <Text
+          key={`url-${i}`}
+          style={{ color: "#2563EB", textDecorationLine: "underline", fontWeight: "500" }}
+          onPress={() => {
+            const url = match.text.startsWith("http") ? match.text : `https://${match.text}`;
+            Linking.openURL(url);
+          }}
+        >
+          {match.text}
+        </Text>
+      );
+    } else if (match.type === "hashtag") {
+      components.push(
+        <TouchableOpacity
+          key={`hashtag-${i}`}
+          onPress={() => {
+            alert("Hashtag tapped: " + match.text);
+            // Or custom navigation/filter
+          }}
+        >
+          <Text
+            style={{
+              color: "#E6161A",
+              fontWeight: "bold",
+              backgroundColor: "#FEE2E2",
+              paddingHorizontal: 2,
+              borderRadius: 2,
+            }}
+          >
+            {match.text}
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+    lastIndex = match.index + match.length;
+  });
+
+  if (lastIndex < text.length) {
+    components.push(
+      <Text key="end" style={{ color: "#111827" }}>
+        {text.substring(lastIndex)}
+      </Text>
+    );
+  }
+
+  return components;
+};
+
+const MediaCarousel: React.FC<MediaCarouselProps> = React.memo(({ 
+  mediaUrls,
+  postId,
+  onImagePress,
+  onVideoPress,
+  onDocPress,
+  getMediaType,
+  VideoPlayer,
+  index
+}) => {
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const scrollViewRef = useRef<ScrollView>(null);
+  
+  // ✅ CRITICAL: Calculate exact width for perfect snapping
+  const CARD_PADDING = 12; // Total horizontal padding (6px each side)
+  const ITEM_WIDTH = screenWidth - (CARD_PADDING * 2);
+
+  if (!mediaUrls || mediaUrls.length === 0) return null;
+
+  const handleScroll = (event: any) => {
+    const offset = event.nativeEvent.contentOffset.x;
+    const activeSlide = Math.round(offset / ITEM_WIDTH);
+    setCurrentSlide(activeSlide);
+  };
+
+  return (
+    <View className="mb-2 relative">
+      {/* ✅ Gesture handling wrapper */}
+      <View 
+        onStartShouldSetResponder={() => true}
+        onMoveShouldSetResponder={() => false}
+        onMoveShouldSetResponderCapture={(evt) => {
+          return Math.abs(evt.nativeEvent.pageX - evt.nativeEvent.locationX) > 10;
+        }}
+        onResponderTerminationRequest={() => false}
+      >
+        <ScrollView
+          ref={scrollViewRef}
+          horizontal
+          pagingEnabled={false} // ✅ Changed to false, using snapToInterval instead
+          showsHorizontalScrollIndicator={false}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          // ✅ CRITICAL SNAP PROPS
+          snapToInterval={ITEM_WIDTH}
+          snapToAlignment="start"
+          decelerationRate="fast"
+          disableIntervalMomentum={true}
+          // Other props
+          nestedScrollEnabled={true}
+          scrollEnabled={true}
+          removeClippedSubviews={false}
+          contentContainerStyle={{ paddingRight: CARD_PADDING }}
+        >
+          {mediaUrls.map((mediaUrl, mediaIndex) => {
+            const mediaType = getMediaType(mediaUrl);
+
+            return (
+              <View 
+                key={`${postId}-media-${mediaIndex}`}
+                style={{ 
+                  width: ITEM_WIDTH,
+                  marginRight: mediaIndex < mediaUrls.length - 1 ? 0 : 0 
+                }}
+              >
+                {mediaType === 'image' && (
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e?.stopPropagation?.();
+                      onImagePress(mediaUrl);
+                    }}
+                    activeOpacity={0.95}
+                  >
+                    <View className="relative rounded-xl overflow-hidden bg-gray-100">
+                      <Image
+                        source={{ uri: mediaUrl }}
+                        style={{ width: '100%', aspectRatio: 16 / 9 }}
+                        resizeMode="cover"
+                        resizeMethod="resize"
+                        progressiveRenderingEnabled={true}
+                        fadeDuration={300}
+                      />
+                      <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+                        <Ionicons name="expand-outline" size={14} color="white" />
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+                {mediaType === 'video' && (
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e?.stopPropagation?.();
+                      onVideoPress(mediaUrl);
+                    }}
+                    activeOpacity={0.95}
+                  >
+                    <VideoPlayer videoUrl={mediaUrl} index={index} />
+                  </TouchableOpacity>
+                )}
+
+                {mediaType === 'gif' && (
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e?.stopPropagation?.();
+                      onImagePress(mediaUrl);
+                    }}
+                    activeOpacity={0.95}
+                  >
+                    <View className="relative rounded-xl overflow-hidden">
+                      <Image
+                        source={{ uri: mediaUrl }}
+                        style={{ width: '100%', aspectRatio: 16 / 9 }}
+                        resizeMode="cover"
+                        progressiveRenderingEnabled={true}
+                      />
+                      <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+                        <MaterialIcons name="gif" size={20} color="white" />
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+                {mediaType === 'doc' && (
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e?.stopPropagation?.();
+                      onDocPress(mediaUrl);
+                    }}
+                    activeOpacity={0.95}
+                  >
+                    <View
+                      style={{
+                        borderRadius: 12,
+                        backgroundColor: '#8B5CF6',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        aspectRatio: 16 / 9,
+                        width: '100%',
+                      }}
+                    >
+                      <Ionicons name="document-text-outline" size={32} color="#FFFFFF" />
+                      <Text 
+                        numberOfLines={1}
+                        style={{
+                          color: '#FFF',
+                          marginTop: 4,
+                          textAlign: 'center',
+                          paddingHorizontal: 12,
+                          fontSize: 11,
+                        }}
+                      >
+                        {mediaUrl.split('/').pop()}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* Instagram-Style Pagination Dots */}
+      {mediaUrls.length > 1 && (
+        <View className="flex-row justify-center items-center mt-2" style={{ gap: 6 }}>
+          {mediaUrls.map((_, dotIndex) => (
+            <TouchableOpacity
+              key={`dot-${dotIndex}`}
+              onPress={() => {
+                scrollViewRef.current?.scrollTo({
+                  x: dotIndex * ITEM_WIDTH,
+                  animated: true,
+                });
+              }}
+              activeOpacity={0.7}
+            >
+              <View
+                style={{
+                  width: currentSlide === dotIndex ? 8 : 6,
+                  height: currentSlide === dotIndex ? 8 : 6,
+                  borderRadius: currentSlide === dotIndex ? 4 : 3,
+                  backgroundColor: currentSlide === dotIndex ? '#3b82f6' : '#d1d5db',
+                }}
+              />
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {/* Media Counter Badge (1/5) */}
+      {mediaUrls.length > 1 && (
+        <View className="absolute top-2 right-2 px-2.5 py-1 rounded-full bg-black/70">
+          <Text className="text-white text-xs font-semibold">
+            {currentSlide + 1}/{mediaUrls.length}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+});
+
 
 // Your Custom LoadingComponent with Sentinel Logo (Smaller Size)
 const LoadingComponent: React.FC<{ visible?: boolean; size?: 'small' | 'medium' | 'large' }> = ({
@@ -192,12 +535,13 @@ const LoadingComponent: React.FC<{ visible?: boolean; size?: 'small' | 'medium' 
           }}
         >
           <Image
-            source={require('../../assets/images/sentinel_logo.png')}
+            source={require('../../assets/images/new_logo.png')}
             style={{
               width: '100%',
               height: '100%',
             }}
             resizeMode="cover"
+            resizeMethod="resize"
           />
         </View>
       </Animated.View>
@@ -314,7 +658,7 @@ interface ToastProps {
   onHide: () => void;
 }
 
-const Toast: React.FC<ToastProps> = ({ visible, message, type, onHide }) => {
+const AppToast: React.FC<ToastProps> = ({ visible, message, type, onHide }) => {
   const translateY = useRef(new Animated.Value(100)).current;
 
   useEffect(() => {
@@ -366,6 +710,187 @@ const Toast: React.FC<ToastProps> = ({ visible, message, type, onHide }) => {
         {message}
       </Text>
     </Animated.View>
+  );
+};
+
+// Repost Modal Component
+interface RepostModalProps {
+  visible: boolean;
+  onClose: () => void;
+  post: PostItem | null;
+  onSimpleRepost: () => void;
+  onQuoteRepost: (comment: string) => void;
+}
+
+const RepostModal: React.FC<RepostModalProps> = ({
+  visible,
+  onClose,
+  post,
+  onSimpleRepost,
+  onQuoteRepost
+}) => {
+  const [repostComment, setRepostComment] = useState('');
+  const [isQuoteMode, setIsQuoteMode] = useState(false);
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+  const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
+
+  useEffect(() => {
+    if (visible) {
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      scaleAnim.setValue(0);
+      setRepostComment('');
+      setIsQuoteMode(false);
+    }
+  }, [visible, scaleAnim]);
+
+  const handleQuoteRepost = () => {
+    if (repostComment.trim()) {
+      onQuoteRepost(repostComment.trim());
+    }
+    onClose();
+  };
+
+  const handleSimpleRepost = () => {
+    onSimpleRepost();
+    onClose();
+  };
+
+  if (!visible || !post) return null;
+
+  let AuthorName = "";
+  let AuthorImage = "";
+  if (post.isAnonymous) {
+    AuthorName = "Anonymous";
+    AuthorImage = dummyAuthorImage;
+  } else {
+    AuthorName = post.AuthorName;
+    AuthorImage = post.AuthorImageURL;
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View className="flex-1 bg-black/50 items-center justify-end px-4 pb-8">
+        <Animated.View 
+          style={[{ transform: [{ scale: scaleAnim }] }]}
+          className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl"
+        >
+          <View className="px-6 pt-4 border-b border-gray-100">
+            <View className="flex-row items-center justify-between">
+              <View className="flex-1">
+                <Text className="text-xl font-bold text-gray-900">Share this post</Text>
+                {/* <Text className="text-gray-500 text-sm mt-1">Add your thoughts or share as is</Text> */}
+              </View>
+              <TouchableOpacity 
+                className="p-2 rounded-full bg-gray-100"
+                onPress={onClose}
+              >
+                <Ionicons name="close" size={20} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View className="px-2 py-0">
+            <View className="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-200">
+              <View className="flex-row items-center mb-2">
+                <Image
+                  // source={{ uri: post.AuthorImageURL }}
+                  source={{uri: AuthorImage || dummyAuthorImage}}
+                  className="w-8 h-8 rounded-full mr-2"
+                  resizeMode="cover"
+                  resizeMethod="resize"
+                />
+                <Text className="font-semibold text-gray-900 text-sm">{AuthorName}</Text>
+              </View>
+              <Text className="text-gray-700 text-sm" numberOfLines={3}>
+                {renderStyledPostText(post.ContentDesc)}
+              </Text>
+            </View>
+
+            {/* <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-gray-600 text-sm">Add your thoughts?</Text>
+              <TouchableOpacity
+                onPress={() => setIsQuoteMode(!isQuoteMode)}
+                className={`px-3 py-1 rounded-full border ${
+                  isQuoteMode ? 'bg-black border-black' : 'bg-gray-100 border-gray-300'
+                }`}
+              >
+                <Text className={`text-xs font-medium ${
+                  isQuoteMode ? 'text-white' : 'text-gray-600'
+                }`}>
+                  Quote
+                </Text>
+              </TouchableOpacity>
+            </View> */}
+
+            {isQuoteMode && (
+              <View className="mb-4">
+                <TextInput
+                  className="border border-gray-300 rounded-xl p-3 text-gray-900 min-h-[80px]"
+                  placeholder="Add your comment..."
+                  placeholderTextColor="#9CA3AF"
+                  multiline
+                  textAlignVertical="top"
+                  value={repostComment}
+                  onChangeText={setRepostComment}
+                  maxLength={280}
+                />
+                <Text className="text-xs text-gray-500 mt-1 text-right">
+                  {repostComment.length}/280
+                </Text>
+              </View>
+            )}
+
+            <View className="flex-row space-x-3">
+              <TouchableOpacity
+                onPress={handleSimpleRepost}
+                className="flex-1 bg-gray-100 py-3 rounded-xl items-center"
+                activeOpacity={0.8}
+              >
+                <View className="flex-row items-center">
+                  <Ionicons name="repeat" size={18} color="#64748b" />
+                  <Text className="ml-2 text-gray-700 font-semibold">Repost</Text>
+                </View>
+              </TouchableOpacity>
+
+              {isQuoteMode && (
+                <TouchableOpacity
+                  onPress={handleQuoteRepost}
+                  className={`flex-1 py-3 rounded-xl items-center ${
+                    repostComment.trim() ? 'bg-black' : 'bg-gray-300'
+                  }`}
+                  activeOpacity={0.8}
+                  disabled={!repostComment.trim()}
+                >
+                  <View className="flex-row items-center">
+                    <MaterialCommunityIcons 
+                      name="comment-quote" 
+                      size={18} 
+                      color={repostComment.trim() ? "white" : "#9CA3AF"} 
+                    />
+                    <Text className={`ml-2 font-semibold ${
+                      repostComment.trim() ? 'text-white' : 'text-gray-500'
+                    }`}>
+                      Quote
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </Animated.View>
+      </View>
+    </Modal>
   );
 };
 
@@ -556,6 +1081,86 @@ const CustomModal: React.FC<CustomModalProps> = ({
   );
 };
 
+// **ENHANCED: File size limits and helpers**
+const FILE_SIZE_LIMIT_BYTES = 5 * 1024 * 1024; // 5MB
+const FILE_SIZE_LIMIT_MB = 5; // For display purposes
+
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+// **ENHANCED: Comprehensive error message handler**
+const getErrorDetails = (error: any, fileName: string = ''): { title: string; message: string; icon: string } => {
+  const errorString = String(error).toLowerCase();
+  const fileNameDisplay = fileName ? `"${fileName}"` : 'your file';
+  
+  // File size errors (HTTP 413)
+  if (errorString.includes('413') || errorString.includes('content length exceeded')) {
+    const sizeLimit = formatFileSize(FILE_SIZE_LIMIT_BYTES);
+    return {
+      title: 'File Too Large ⚠️',
+      message: `${fileNameDisplay} is too large. Please choose a file smaller than ${sizeLimit}.\n\nTip: Try compressing your video or image before uploading.`,
+      icon: 'warning'
+    };
+  }
+  
+  // Network timeout errors
+  if (errorString.includes('timeout') || errorString.includes('network request timed out')) {
+    return {
+      title: 'Upload Timeout',
+      message: `Upload of ${fileNameDisplay} timed out. This usually happens with large files or slow connections.\n\nTry:\n• Using a smaller file\n• Checking your internet connection\n• Trying again later`,
+      icon: 'time-outline'
+    };
+  }
+  
+  // Network connection errors
+  if (errorString.includes('network') || errorString.includes('fetch') || errorString.includes('connection')) {
+    return {
+      title: 'Connection Error',
+      message: `Unable to connect to the server while uploading ${fileNameDisplay}.\n\nPlease:\n• Check your internet connection\n• Try again in a few moments`,
+      icon: 'wifi-outline'
+    };
+  }
+  
+  // File format/corruption errors
+  if (errorString.includes('format') || errorString.includes('corrupt') || errorString.includes('invalid')) {
+    return {
+      title: 'Invalid File',
+      message: `${fileNameDisplay} appears to be corrupted or in an unsupported format.\n\nTry:\n• Choosing a different file\n• Converting to a common format (JPG, PNG, MP4)`,
+      icon: 'document-text-outline'
+    };
+  }
+  
+  // Server errors (5xx)
+  if (errorString.includes('500') || errorString.includes('502') || errorString.includes('503') || errorString.includes('server error')) {
+    return {
+      title: 'Server Temporarily Unavailable',
+      message: `Our servers are experiencing issues processing ${fileNameDisplay}.\n\nPlease try uploading again in a few minutes.`,
+      icon: 'server-outline'
+    };
+  }
+  
+  // Permission/authorization errors
+  if (errorString.includes('401') || errorString.includes('403') || errorString.includes('unauthorized')) {
+    return {
+      title: 'Upload Permission Error',
+      message: `You don't have permission to upload ${fileNameDisplay}.\n\nTry logging out and back in, then try again.`,
+      icon: 'lock-closed-outline'
+    };
+  }
+  
+  // Generic upload error
+  return {
+    title: 'Upload Failed',
+    message: `Failed to upload ${fileNameDisplay}. This could be due to:\n\n• File size too large\n• Network connectivity issues\n• Temporary server problems\n\nPlease try again with a smaller file.`,
+    icon: 'cloud-upload-outline'
+  };
+};
+
 export default function ProfilePage(): React.JSX.Element {
   const router = useRouter();
   const [showAccountModal, setShowAccountModal] = useState<boolean>(false);
@@ -566,13 +1171,19 @@ export default function ProfilePage(): React.JSX.Element {
   const [userNickName, setUserNickName] = useState("");
   const [profilePicUrl, setProfilePicUrl] = useState<string>("");
   const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [fullScreenVideo, setFullScreenVideo] = useState<string | null>(null);
+    const [isVideoModalVisible, setIsVideoModalVisible] = useState(false);
+    const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+    const [isImageModalVisible, setIsImageModalVisible] = useState(false);
+    const [userBio, setUserBio] = useState("");
+  
 
   // Posts related states
   const [userPosts, setUserPosts] = useState<PostItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(-1);
-  const videoRefs = useRef<{ [key: string]: any }>({});
+  // const videoRefs = useRef<{ [key: string]: any }>({});
 
   // Loading states for pagination
   const [loadingMore, setLoadingMore] = useState(false);
@@ -588,6 +1199,737 @@ export default function ProfilePage(): React.JSX.Element {
   const [isGraphModalVisible, setIsGraphModalVisible] = useState(false);
   const [selectedGraphPostId, setSelectedGraphPostId] = useState<string | null>(null);
   const [selectedGraphPostType, setSelectedGraphPostType] = useState<string | null>(null);
+
+  //Repost modal
+  const [isRepostModalVisible, setIsRepostModalVisible] = useState(false);
+  const [selectedRepostPost, setSelectedRepostPost] = useState<PostItem | null>(null);
+
+  //Post menu options
+  const [showMenuModal, setShowMenuModal] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [editPostData, setEditPostData] = useState<PostItem | null>(null);
+  const [editPostContent, setEditPostContent] = useState("");
+  const [fetchedData, setFetchedData] = useState<PostItem[]>([]);
+  const currentPost = userPosts.find(item => item.id === selectedPostId);
+  const [fullScreenDoc, setFullScreenDoc] = useState<string | null>(null);
+  const [isDocModalVisible, setIsDocModalVisible] = useState(false);
+  const [showAppInfo, setShowAppInfo] = useState(false);
+  const [isAppInfoModalVisible, setIsAppInfoModalVisible] = useState(false);
+  const [showPasswordVerify, setShowPasswordVerify] = useState<boolean>(false);
+  const [showHelpScreen, setShowHelpScreen] = useState(false);
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [postToDelete, setPostToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [viewedPosts, setViewedPosts] = useState<Set<string>>(new Set());
+  const viewTrackingTimeout = useRef<NodeJS.Timeout | number | null>(null);
+  const lastTrackedPost = useRef<string | null>(null);
+  const [sharingId, setSharingId] = useState(null);
+  const [selectedPostUserId, setSelectedPostUserId] = useState<string | null>(null);
+  const [isDeleteUserModalVisible, setIsDeleteUserModalVisible] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<string | null>(null);
+      
+
+    // ✅ FORMAT VIEW COUNT LIKE X/TWITTER
+    const formatViewCount = useCallback((count: number): string => {
+      if (!count || count === 0) return '0';
+      
+      if (count < 1000) {
+        return count.toString();
+      } else if (count < 10000) {
+        return (count / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+      } else if (count < 1000000) {
+        return Math.floor(count / 1000) + 'K';
+      } else if (count < 10000000) {
+        return (count / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+      } else if (count < 1000000000) {
+        return Math.floor(count / 1000000) + 'M';
+      } else {
+        return (count / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
+      }
+    }, []);
+
+    
+          const trackPostView = useCallback(async (postId: string, postType: string) => {
+      try {
+        if (!userId || !postId) {
+          return;
+        }
+
+        // Check if already tracked in this session
+        if (viewedPosts.has(postId)) {
+          return;
+        }
+
+        const collectionName = postType === 'X-Data' ? 'X-Data' : 'SentinelPosts';
+        const postRef = doc(db, collectionName, postId);
+        
+        const postDoc = await getDoc(postRef);
+        
+        if (!postDoc.exists()) {
+          console.warn(`Post ${postId} not found in ${collectionName}`);
+          return;
+        }
+
+        const postData = postDoc.data();
+        const currentViewedBy = postData.ViewedBy || [];
+        const currentViewCount = postData.ContentViewCount || 0;
+        const hasViewed = currentViewedBy.includes(userId);
+        
+        // ✅ ALWAYS INCREMENT (like X/Twitter)
+        const newCount = currentViewCount + 1;
+        
+        // Update Firebase
+        await updateDoc(postRef, {
+          ContentViewCount: newCount,
+          ViewedBy: hasViewed ? currentViewedBy : arrayUnion(userId),
+          lastViewUpdate: new Date()
+        });
+        
+        console.log(`✅ View tracked: ${collectionName}/${postId} → ${newCount} views`);
+        
+        // Optimistic UI update
+        setUserPosts(prev =>
+          prev.map(p =>
+            p.id === postId
+              ? { 
+                  ...p, 
+                  ContentViewCount: newCount,
+                  ViewedBy: hasViewed ? p.ViewedBy : [...(p.ViewedBy || []), userId]
+                }
+              : p
+          )
+        );
+        
+        // Mark as viewed
+        setViewedPosts(prev => new Set(prev).add(postId));
+        
+      } catch (error) {
+        console.error('Error tracking view:', error);
+      }
+    }, [userId, viewedPosts]);
+    // ✅ SETUP REAL-TIME VIEW COUNT LISTENERS
+    const setupViewCountListeners = useCallback(() => {
+      // Only setup listeners for first 10 posts to save resources
+      const visiblePosts = userPosts.slice(0, 10);
+      const unsubscribers: (() => void)[] = [];
+
+      visiblePosts.forEach(post => {
+        const collectionName = post.postType === 'X-Data' ? 'X-Data' : 'SentinelPosts';
+        const postRef = doc(db, collectionName, post.id);
+        
+        const unsubscribe = onSnapshot(postRef, (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.data();
+            const newViewCount = data.ContentViewCount || 0;
+            
+            // Only update if count actually changed
+            setUserPosts(prev =>
+              prev.map(p =>
+                p.id === post.id && p.ContentViewCount !== newViewCount
+                  ? { ...p, ContentViewCount: newViewCount }
+                  : p
+              )
+            );
+          }
+        }, (error) => {
+          console.error(`Error listening to post ${post.id}:`, error);
+        });
+        
+        unsubscribers.push(unsubscribe);
+      });
+
+      return () => {
+        unsubscribers.forEach(unsub => unsub());
+      };
+    }, [userPosts]);
+
+// Add to useEffect
+useEffect(() => {
+  if (userPosts.length > 0) {
+    const cleanup = setupViewCountListeners();
+    return cleanup;
+  }
+}, [userPosts.length]);
+
+
+  // Add this function in your ProfilePage component
+const loadProfileData = async () => {
+  try {
+    console.log("🔄 [Profile] Reloading profile data from AsyncStorage...");
+    const [name, nickname, email, country, bio, profilePic] = await AsyncStorage.multiGet([
+      'userName',
+      'userNickName',
+      'userEmail',
+      'userCountry',
+      'userBio',
+      'profilePicUrl',
+    ]);
+    
+    if (name[1]) {
+      setUserName(name[1]);
+      console.log("✅ [Profile] Name updated:", name[1]);
+    }
+    if (nickname[1]) {
+      setUserNickName(nickname[1]);
+      console.log("✅ [Profile] Nickname updated:", nickname[1]);
+    }
+    if (email[1]) {
+      setUserEmail(email[1]);
+      console.log("✅ [Profile] Email updated:", email[1]);
+    }
+    if (profilePic[1]) {
+      setProfilePicUrl(profilePic[1]);
+      console.log("✅ [Profile] Profile pic updated:", profilePic[1]);
+    }
+    if (bio[1]){ 
+      setUserBio(bio[1]);
+      console.log("✅ [Profile] Bio updated:", bio[1]);
+    }else {
+      // ✅ MISSING — Add this Firestore fallback
+      const storedId = await AsyncStorage.getItem('userId');
+      if (storedId) {
+        const ironExRef = collection(db, 'IronExUsers');
+        const q = query(ironExRef, where('userID', '==', storedId));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const data = snap.docs[0].data();
+          const freshBio = data.bio || data.userBio || data.Bio || '';
+          if (freshBio) {
+            setUserBio(freshBio);
+            await AsyncStorage.setItem('userBio', freshBio); // sync back
+            console.log('✅ ProfilePage bio loaded from Firestore fallback:', freshBio);
+          }
+        }
+      }
+    }
+    if (country[1]) {
+      // If you have a country state, update it here
+      // setUserCountry(country[1]);
+      console.log("✅ [Profile] Country updated:", country[1]);
+    }
+    
+    console.log("✅ [Profile] All profile data reloaded successfully");
+  } catch (error) {
+    console.error("❌ [Profile] Error reloading profile data:", error);
+  }
+};
+
+
+  const [editVisible, setEditVisible] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const fetchUserProfile = async () => {
+    // Replace with your actual endpoint/token logic
+    const res = await fetch("https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/get-profile"); 
+    const data = await res.json();
+    setUserData(data); // Should include name, email, nickname, country, bio, ageConfirmed, profilePicUrl etc.
+  };
+  useEffect(() => { fetchUserProfile(); }, []);
+  
+  const handleCancelEdit = () => {
+    setIsEditModalVisible(false);
+    setEditPostData(null);
+    setEditPostContent("");
+  };
+
+  const handleEditPost = (postId: string) => {
+  const post = userPosts.find(item => item.id === postId);
+  
+  if (!post) {
+    Toast.show({
+      type: 'error',
+      text1: 'Post Not Found',
+      text2: 'Unable to find the post to edit.',
+      position: 'bottom',
+      visibilityTime: 1000,
+    });
+    return;
+  }
+  if (post.isReported) {
+    Toast.show({ type: 'warning', text1: 'Cannot Edit Reported Post', text2: 'This post is under review and cannot be edited.', position: 'bottom', visibilityTime: 1000 });
+    return;
+  }
+
+  // Check if post is in "new" status
+  if (!post.isNew) {
+    Toast.show({
+      type: 'warning',
+      text1: 'Cannot Edit Post',
+      text2: 'You can only edit posts with "New" status.',
+      position: 'bottom',
+      visibilityTime: 1000,
+    });
+    return;
+  }
+
+  // Open edit modal with current post data
+  setEditPostData(post);
+  setEditPostContent(post.ContentDesc);
+  setIsEditModalVisible(true);
+  setShowMenuModal(false);
+  setSelectedPostId(null);
+};
+
+
+
+  const handleSaveEditPost = async () => {
+  if (!editPostData) return;
+
+  if (!editPostContent.trim()) {
+    Toast.show({
+      type: 'error',
+      text1: 'Empty Content',
+      text2: 'Post content cannot be empty.',
+      position: 'bottom',
+      visibilityTime: 1000,
+    });
+    return;
+  }
+
+  try {
+    // ── STEP 1: AI Content Moderation ──────────────────────────────────────
+    console.log('✅ Validating edited post description with AI...');
+    const moderationResult = await checkPostContent(editPostContent.trim(), null);
+    console.log('🤖 AI Moderation Result:', moderationResult);
+
+    const isContentApproved = moderationResult.postStatus === 'approved';
+
+    // ── STEP 2: Block if content is flagged ────────────────────────────────
+    if (!isContentApproved || moderationResult.flagged) {
+      console.warn('🚫 Post description does not meet content guidelines');
+
+      let rejectionReason = 'Your post description does not meet our community guidelines.';
+      if (moderationResult.violations && moderationResult.violations.length > 0) {
+        rejectionReason = moderationResult.violations.join(', ');
+      }
+
+      showCustomAlert(
+        'error',
+        'Post Content Not Acceptable',
+        `${rejectionReason}\n\nPlease revise your post description and try again.`,
+        [
+          { text: 'Edit Again', onPress: hideModal }, // Keep edit modal open
+          {
+            text: 'Cancel',
+            style: 'cancel',
+            onPress: () => {
+              hideModal();
+              setIsEditModalVisible(false);
+              setEditPostData(null);
+              setEditPostContent('');
+            },
+          },
+        ]
+      );
+      try {
+        const fetchuserID = await AsyncStorage.getItem('userId');
+        const userDocSnap = await getDocs(query(collection(db, 'SentinelUsers'), where('userID', '==', fetchuserID)));
+        const notifyPayload = {
+          id: `post_edit_flagged_${editPostData.id}_${Date.now()}`,
+          AuthorImageURL: profilePicUrl || await AsyncStorage.getItem('profilePicUrl') || dummyAuthorImage,
+          AuthorName: userName || await AsyncStorage.getItem('userName') || 'You',
+          AuthorUserID: fetchuserID,
+          ContentDate: new Date(),
+          Description: `❌ Your edited post was flagged by our AI content moderator and could not be published.\n\nReason: ${rejectionReason}\n\nPlease revise your post and try again.`,
+          NotifyType: 'postrejected',
+          ShowButtons: false,
+          Status: 'rejected',
+          isRead: false,
+        };
+        if (!userDocSnap.empty) {
+          await updateDoc(doc(db, 'SentinelUsers', userDocSnap.docs[0].id), { Notification: arrayUnion(notifyPayload) });
+        } else {
+          await addDoc(collection(db, 'SentinelUsers'), { userID: fetchuserID, Notification: [notifyPayload] });
+        }
+      } catch (notifErr) {
+        console.error('Notification error (non-critical):', notifErr);
+      }
+      return; // Stop execution
+    }
+
+    // ── STEP 3: Content approved → Check Relevance with opinion-generator-ai ──
+    console.log('✅ Content approved. Checking relevance with opinion-generator-ai...');
+
+    let isPostRelevant = true;
+    let generatedTemplateName = editPostData.CommentTemplate || 'Standard Template';
+
+    try {
+      const relevanceResponse = await fetch(
+        'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/opinion-generator-ai',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            postText: editPostContent.trim(),
+            uploadedUrls: editPostData.ContentURLs || (editPostData.ContentURL ? [editPostData.ContentURL] : []),
+          }),
+        }
+      );
+
+      const templateResponse = await relevanceResponse.json();
+      console.log('🧠 Relevance Check Result:', templateResponse);
+
+      if (templateResponse?.success) {
+        // Post is relevant ✅ — use generated template name
+        generatedTemplateName = templateResponse.templateName || 'Standard Template';
+        isPostRelevant = true;
+      } else {
+        // Post is NOT relevant ❌ — block approval
+        isPostRelevant = false;
+        console.warn('⚠️ Post flagged as irrelevant by opinion-generator-ai');
+      }
+    } catch (relevanceError) {
+      console.error('❌ Error calling opinion-generator-ai:', relevanceError);
+      // On API error, treat as irrelevant for safety
+      isPostRelevant = false;
+    }
+
+    // ── STEP 4: If NOT relevant → save as pending, show error message ──────
+    if (!isPostRelevant) {
+      const postRef = doc(db, editPostData.postType, editPostData.id);
+      await updateDoc(postRef, {
+        ContentDesc: editPostContent.trim(),
+        isApproved: false,        // NOT approved
+        isNew: true,              // Back to pending review
+        updatedAt: new Date(),
+        moderationData: {
+          flagged: true,
+          violations: ['Irrelevant content or media detected'],
+          categories: { irrelevant_content: true },
+          checkedAt: new Date(),
+          validatedBy: 'opinion-generator-ai',
+        },
+      });
+
+      // Update local state to reflect pending status
+      setUserPosts((prevData) =>
+        prevData.map((item) =>
+          item.id === editPostData.id
+            ? { ...item, ContentDesc: editPostContent.trim(), isApproved: false, isNew: true }
+            : item
+        )
+      );
+
+      // Close modal first
+      setIsEditModalVisible(false);
+      setEditPostData(null);
+      setEditPostContent('');
+
+      // Show "not relevant" alert — matching your createPost style
+      showCustomAlert(
+        'warning',
+        'Post Not Relevant',
+        '⚠️ Your post was updated but our AI flagged it as potentially irrelevant to the community.\n\nReason: Irrelevant content or media detected.\n\nAn admin will review it shortly.',
+        [{ text: 'OK', onPress: hideModal }]
+            );showCustomAlert('warning', 'Post Not Relevant',
+        `Your post was updated but our AI flagged it as potentially irrelevant to the community. Irrelevant content or media detected. admin will review it shortly.`,
+        [{ text: 'OK', onPress: hideModal }]
+      );
+
+      // ✅ NOTIFICATION — irrelevant post after edit
+      try {
+        const fetchuserID = await AsyncStorage.getItem('userId');
+        const userDocSnap = await getDocs(query(collection(db, 'SentinelUsers'), where('userID', '==', fetchuserID)));
+        const notifyPayload = {
+          id: `post_edit_irrelevant_${editPostData.id}_${Date.now()}`,
+          AuthorImageURL: profilePicUrl || await AsyncStorage.getItem('profilePicUrl') || dummyAuthorImage,
+          AuthorName: userName || await AsyncStorage.getItem('userName') || 'You',
+          AuthorUserID: fetchuserID,
+          ContentDate: new Date(),
+          Description: `⚠️ Your edited post was submitted but our AI flagged it as potentially irrelevant to the community. An admin will manually review it shortly.\n\nReason: Irrelevant content or media detected.`,
+          NotifyType: 'postsubmitted',
+          ShowButtons: false,
+          Status: 'pending',
+          isRead: false,
+        };
+        if (!userDocSnap.empty) {
+          await updateDoc(doc(db, 'SentinelUsers', userDocSnap.docs[0].id), { Notification: arrayUnion(notifyPayload) });
+        } else {
+          await addDoc(collection(db, 'SentinelUsers'), { userID: fetchuserID, Notification: [notifyPayload] });
+        }
+      } catch (notifErr) {
+        console.error('Notification error (non-critical):', notifErr);
+      }
+      return;
+    }
+
+    // ── STEP 5: Content approved + relevant → Save and Approve ────────────
+    console.log('🎉 Post is approved and relevant! Saving...');
+
+    const postRef = doc(db, editPostData.postType, editPostData.id);
+    await updateDoc(postRef, {
+      ContentDesc: editPostContent.trim(),
+      isApproved: true,
+      isNew: false,
+      CommentTemplate: generatedTemplateName,
+      updatedAt: new Date(),
+      moderationData: {
+        flagged: false,
+        violations: [],
+        categories: moderationResult.categories,
+        checkedAt: new Date(),
+        validatedBy: 'AI + opinion-generator-ai',
+      },
+    });
+
+    // Update local state
+    setUserPosts((prevData) =>
+      prevData.map((item) =>
+        item.id === editPostData.id
+          ? {
+              ...item,
+              ContentDesc: editPostContent.trim(),
+              isApproved: true,
+              isNew: false,
+              CommentTemplate: generatedTemplateName,
+            }
+          : item
+      )
+    );
+
+        Toast.show({
+      type: 'success',
+      text1: 'Post Updated & Approved!',
+      text2: 'Your post has been updated and approved by AI.',
+      position: 'bottom',
+      visibilityTime: 2000,
+    });
+
+    // ✅ NOTIFICATION — approved post after edit
+    try {
+      const fetchuserID = await AsyncStorage.getItem('userId');
+      const userDocSnap = await getDocs(query(collection(db, 'SentinelUsers'), where('userID', '==', fetchuserID)));
+      const notifyPayload = {
+        id: `post_edit_approved_${editPostData.id}_${Date.now()}`,
+        AuthorImageURL: profilePicUrl || await AsyncStorage.getItem('profilePicUrl') || dummyAuthorImage,
+        AuthorName: userName || await AsyncStorage.getItem('userName') || 'You',
+        AuthorUserID: fetchuserID,
+        ContentDate: new Date(),
+        Description: `✅ Great news! Your edited post has been reviewed by our AI moderator and published successfully. Your community can now see the updated version!`,
+        NotifyType: 'postapproved',
+        ShowButtons: false,
+        Status: 'approved',
+        isRead: false,
+      };
+      if (!userDocSnap.empty) {
+        await updateDoc(doc(db, 'SentinelUsers', userDocSnap.docs[0].id), { Notification: arrayUnion(notifyPayload) });
+      } else {
+        await addDoc(collection(db, 'SentinelUsers'), { userID: fetchuserID, Notification: [notifyPayload] });
+      }
+    } catch (notifErr) {
+      console.error('Notification error (non-critical):', notifErr);
+    }
+
+    // Close modal
+    setIsEditModalVisible(false);
+    setEditPostData(null);
+    setEditPostContent('');
+
+  } catch (error) {
+    console.error('❌ Error updating post:', error);
+    Toast.show({
+      type: 'error',
+      text1: 'Update Failed',
+      text2: 'Failed to update post. Please try again.',
+      position: 'bottom',
+      visibilityTime: 1000,
+    });
+  }
+};
+
+  // Helper function to call the AI moderation API
+  const checkPostContent = async (postText: string, imageUrl: string | null) => {
+    try {
+      console.log('🔍 Checking content with AI moderation...');
+      console.log('📝 Text:', postText ? 'Present' : 'Empty');
+      console.log('🖼️ Image URL:', imageUrl ? 'Present' : 'None');
+      
+      const response = await fetch(
+        'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/ai-based-post-analysis',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            postText: postText,
+            imageUrl: imageUrl // Will be null for edit post (only checking text)
+          })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      console.log('✅ Moderation check complete:', data);
+      
+      return {
+        postStatus: data.postStatus, // "approved" or "inappropriate"
+        flagged: data.flagged,
+        violations: data.violations || [],
+        categories: data.categories || {}
+      };
+    } catch (error) {
+      console.error('❌ Error checking post content:', error);
+      // Fallback: if API fails, flag for manual review for safety
+      return {
+        postStatus: 'inappropriate',
+        flagged: true,
+        violations: ['api_error'],
+        categories: {}
+      };
+    }
+  };
+    const handleDeleteAccount = async () => {
+      setShowAccountModal(false);
+      
+      showCustomAlertLoad(
+        'warning',
+        'Delete Account',
+        'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed.',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+            onPress: () => {
+              hideModal();
+            }
+          },
+          {
+            text: 'Continue',
+            style: 'destructive',
+            // Pass the loading state if your showCustomAlert supports it
+            isLoading: false, 
+            onPress: async () => {
+              setIsDeleting(true); // Start loading
+              try {
+                console.log('✅ userId:', userId);
+                await callDeleteAccount(); // Ensure this is awaited
+                hideModal();
+              } catch (error) {
+                console.error('Error:', error);
+              }
+        
+            }
+          }
+        ]
+      );
+    };
+
+    const callDeleteAccount = async () => {
+      try {
+        console.log('Call Delete Account...');
+        
+        const response = await fetch(
+          'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/delete-self-data',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              "userName" : userId
+            })
+          }
+        );
+    
+        if (!response.ok) {
+          setIsDeleting(false);
+          hideModal();
+          showCustomAlert(
+            'error',
+            'Account Deleted Failed',
+            'Failed to delete account. Please try again.',
+            [
+              {
+                text: 'OK',
+                onPress: hideModal
+              }
+            ]
+          );
+        } else {
+          setIsDeleting(false);
+          hideModal();
+          handleDeleteLogout();
+        }
+    
+        const data = await response.json();
+        
+        console.log('✅ Delete Account Complete:', data);
+        
+      } catch (error) {
+        console.error('❌ Error Delete Account:', error);
+      } finally {
+        setIsDeleting(false); // Stop loading
+      }
+    };
+    const handleBlockedUsers = () => {
+      setShowAccountModal(false);
+      hideModal();
+      router.push('/blocked-users'); // adjust route as per your Expo Router structure
+    };
+
+
+    const handleDeleteLogout = async () => {
+      try {
+        console.log('🔄 Logging out user...');
+        
+        await AsyncStorage.multiRemove([
+          'userToken',
+          'accessToken',
+          'userRefreshToken', 
+          'refreshToken',
+          'userIdToken',
+          'idToken',
+          'userEmail',
+          'userName',
+          'userNickName',
+          'userId',
+          'userRole',
+          'tokenExpiry',
+          'userData',
+          'profilePicUrl',
+        ]);
+        console.log('✅ User data cleared');
+        setShowAccountModal(false);
+        // socialSignOut();
+        
+        showCustomAlert(
+          'success',
+          'Account Deleted Successfully',
+          'Your account has been deleted successfully.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                hideModal();
+                router.replace('/(auth)');
+              }
+            }
+          ]
+        );
+        
+      } catch (error) {
+        console.error('❌ Error during Account Deleted:', error);
+        showCustomAlert(
+          'error',
+          'Account Deleted Failed',
+          'Failed to delete account. Please try again.',
+          [
+            {
+              text: 'OK',
+              onPress: hideModal
+            }
+          ]
+        );
+      }
+    };
+
+
 
   // Toast state
   const [toast, setToast] = useState<{
@@ -622,15 +1964,42 @@ export default function ProfilePage(): React.JSX.Element {
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
 
   // Helper function to check if interactions should be disabled
-  const areInteractionsDisabled = useCallback((item: PostItem) => {
-    // Disable interactions for rejected posts (not approved and not new)
-    return !item.isApproved && !item.isNew;
-  }, []);
+const areInteractionsDisabled = useCallback((item: PostItem) => {
+  // Disable interactions for rejected posts (not approved and not new)
+  // AND disable interactions for new posts (waiting for approval)
+  return (!item.isApproved && !item.isNew) || item.isNew;
+}, []);
+
 
   // Load user data from stored tokens
   useEffect(() => {
     loadUserData();
   }, []);
+  // ✅ Add this in ProfilePage — live Firestore bio sync
+    useEffect(() => {
+      if (!userId) return;
+
+      const ironExRef = collection(db, 'IronExUsers');
+      const q = query(ironExRef, where('userID', '==', userId));
+
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        if (!snapshot.empty) {
+          const data = snapshot.docs[0].data();
+          // Covers all possible field name variants
+          const firestoreBio = data.bio || data.userBio || data.Bio || '';
+          console.log('🔥 [ProfilePage] Firestore bio synced:', firestoreBio);
+          
+          // Keep AsyncStorage in sync too
+          if (firestoreBio) {
+           setUserBio(firestoreBio);
+            AsyncStorage.setItem('userBio', firestoreBio);
+          }
+        }
+      });
+
+      return () => unsubscribe();
+    }, [userId]);
+
 
   useFocusEffect(
     useCallback(() => {
@@ -641,7 +2010,7 @@ export default function ProfilePage(): React.JSX.Element {
   );
 
   // IMPROVED TIME AGO FUNCTION
-  const getTimeAgo = useCallback((dateString: any) => {
+    const getTimeAgo = useCallback((dateString: any) => {
     if (!dateString) return 'Just now';
     
     try {
@@ -673,6 +2042,7 @@ export default function ProfilePage(): React.JSX.Element {
       const diffInMonths = Math.floor(diffInDays / 30);
       const diffInYears = Math.floor(diffInDays / 365);
 
+      // Return relative time for recent posts
       if (diffInSeconds < 60) {
         return diffInSeconds <= 0 ? 'Just now' : `${diffInSeconds}s ago`;
       } else if (diffInMinutes < 60) {
@@ -681,18 +2051,31 @@ export default function ProfilePage(): React.JSX.Element {
         return `${diffInHours}h ago`;
       } else if (diffInDays < 7) {
         return `${diffInDays}d ago`;
-      } else if (diffInWeeks < 4) {
-        return `${diffInWeeks}w ago`;
-      } else if (diffInMonths < 12) {
-        return `${diffInMonths}mo ago`;
       } else {
-        return `${diffInYears}y ago`;
+        // For older posts (beyond normal relative time), show formatted date
+        const dateObj = new Date(postDate.getTime());
+
+        // 1. Month names array
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+        // 2. Extract components
+        const month   = monthNames[dateObj.getMonth()];
+        const day     = String(dateObj.getDate()).padStart(2, '0');
+        const year    = dateObj.getFullYear();
+        const hours   = String(dateObj.getHours()).padStart(2, '0');
+        const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+
+        // 3. Format string: "Feb 02, 2026 21:30"
+        const formatted = `${month} ${day}, ${year} ${hours}:${minutes}`;
+
+        return formatted;
       }
     } catch (error) {
       console.error('Error parsing date:', error);
       return 'Just now';
     }
   }, []);
+
 
   const getMediaType = useCallback((url: string) => {
     if (!url) return 'unknown';
@@ -723,143 +2106,114 @@ export default function ProfilePage(): React.JSX.Element {
     return urlPath.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt)$/) ? 'doc' : 'image';
   }, []);
 
-  // FIXED: Fetch ONLY the current user's posts WITHOUT complex Firebase queries
-  const fetchUserPosts = useCallback(async (loadMore = false) => {
-    if (!userName && !userNickName) {
-      console.log('No user name available for filtering posts');
-      return;
+  const fetchUserPosts = useCallback(async (forceRefresh: boolean = false) => {
+    let fetchuserID = userId;
+    if(fetchuserID === ""){
+      fetchuserID = await AsyncStorage.getItem('userId') || "";
+      setUserId(fetchuserID);
     }
 
-    // Set loading states
-    if (loadMore) {
-      setLoadingMore(true);
-    } else {
-      setLoading(true);
-    }
-
+    setLoading(true);
     try {
-      console.log('🔍 Fetching posts for current user:', userName || userNickName);
-      
-      const allUserPosts: PostItem[] = [];
+      const collSentinelRefPost = collection(db, 'SentinelPosts');
+      const querySentinel = query(
+        collSentinelRefPost,
+        where('AuthorUserID', '==', fetchuserID),
+        // orderBy('ContentDate', 'desc')
+      );
 
-      // FIXED: Use simple getDocs without complex queries to avoid Firebase index requirements
-      try {
-        const sentinelSnapshot = await getDocs(collection(db, 'SentinelPosts'));
-        const sentinelPosts = sentinelSnapshot.docs
-          .map(doc => {
-            const postData = doc.data();
-            return {
-              uniqueId: `sentinel-${doc.id}`,
-              id: doc.id,
-              AuthorImageURL: postData.AuthorImageURL || profilePicUrl,
-              AuthorName: postData.AuthorName,
-              ContentDate: postData.ContentDate,
-              ContentDesc: postData.ContentDesc,
-              ContentURL: postData.ContentURL,
-              ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
-              ContentLikeCount: postData.ContentLikeCount || 0,
-              ContentRepostCount: postData.ContentRepostCount || 0,
-              ContentCommentCount: postData.ContentCommentCount || 0,
-              isApproved: postData.isApproved || false,
-              isNew: postData.isNew !== undefined ? postData.isNew : true,
-              postType: "SentinelPosts",
-              Liked: (postData.LikedBy?.includes(userId) || false),
-              Reposted: false,
-              Bookmarked: (postData.BookmarkedBy?.includes(userId) || false),
-              createdAt: postData.createdAt || postData.ContentDate,
-              CommentTemplate: postData.CommentTemplate || "Template1",
-            } as PostItem;
-          })
-          .filter(post => {
-            // Client-side filtering to avoid Firebase index requirements
-            const isCurrentUser = post.AuthorName === userName || post.AuthorName === userNickName;
-            return isCurrentUser;
-          })
-          .sort((a, b) => {
-            // Client-side sorting by date
-            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
-            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
-            return dateB.getTime() - dateA.getTime();
+      console.log("Sentinel OnSnapshot");
+      const unsubscribeSentinel = onSnapshot(querySentinel, async sentinelSnapshot => {
+        const sentineldataArr = sentinelSnapshot.docs.map(doc => ({
+          id: doc.id,
+          data: doc.data(),
+        }))
+
+        const postsData = [];
+        for (const doc of sentineldataArr) {
+          const postData = doc.data;
+          const postId = doc.id;
+
+          postsData.push({
+            uniqueId: `sentinel-${postId}`,
+            id: postId,
+            AuthorImageURL: postData.AuthorImageURL,
+            AuthorName: postData.AuthorName,
+            AuthorUserID: postData.AuthorUserID || postData.repostedBy || '',
+            ContentDate: postData.ContentDate,
+            ContentDesc: postData.ContentDesc,
+            ContentURL: postData.ContentURL,
+            ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+            ContentLikeCount: postData.ContentLikeCount || 0,
+            ContentRepostCount: postData.ContentRepostCount || 0,
+            ContentCommentCount: postData.ContentCommentCount || 0,
+            isApproved: postData.isApproved || false,
+            isNew: postData.isNew !== undefined ? postData.isNew : true,
+            postType: "SentinelPosts",
+            Liked: (postData.LikedBy?.includes(fetchuserID) || false),
+            Reposted: (postData.RepostedBy?.includes(fetchuserID) || false),
+            Bookmarked: (postData.BookmarkedBy?.includes(fetchuserID) || false),
+            createdAt: postData.createdAt || postData.ContentDate,
+            CommentTemplate: postData.CommentTemplate || "Standard Template",
+            isRepost: postData.isRepost || false,
+            originalPost: postData.originalPost || null,
+            repostComment: postData.repostComment || '',
+            repostedBy: postData.repostedBy || '',
+            repostedAt: postData.repostedAt || null,
+            isAnonymous: postData.isAnonymous || false,
+            contentType: postData.contentType || 'My Thoughts',
+            ContentViewCount: postData.ContentViewCount || 0,
+            ViewedBy: postData.ViewedBy || [],
+            isReported: postData.isReported || false,
+            reportedAt: postData.reportedAt || null,
+            reportReasons: postData.reportReasons || [],
+            reportedBy: postData.reportedBy || [],
+            moderationStatus: postData.moderationStatus || '',
           });
+        }
 
-        allUserPosts.push(...sentinelPosts);
-        console.log(`✅ Found ${sentinelPosts.length} SentinelPosts for current user`);
-      } catch (sentinelError) {
-        console.warn('⚠️ Error fetching SentinelPosts:', sentinelError);
-      }
-
-      // Fetch from X-Data
-      try {
-        const xDataSnapshot = await getDocs(collection(db, 'X-Data'));
-        const xDataPosts = xDataSnapshot.docs
-          .map(doc => {
-            const postData = doc.data();
-            return {
-              uniqueId: `xdata-${doc.id}`,
-              id: doc.id,
-              AuthorImageURL: postData.AuthorImageURL || profilePicUrl,
-              AuthorName: postData.AuthorName,
-              ContentDate: postData.ContentDate,
-              ContentDesc: postData.ContentDesc,
-              ContentURL: postData.ContentURL,
-              ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
-              ContentLikeCount: postData.ContentLikeCount || 0,
-              ContentRepostCount: postData.ContentRepostCount || 0,
-              ContentCommentCount: postData.ContentCommentCount || 0,
-              isApproved: true,
-              isNew: false,
-              postType: "X-Data",
-              Liked: (postData.LikedBy?.includes(userId) || false),
-              Reposted: false,
-              Bookmarked: (postData.BookmarkedBy?.includes(userId) || false),
-              createdAt: postData.createdAt || postData.ContentDate,
-              CommentTemplate: postData.CommentTemplate || "Template1",
-            } as PostItem;
-          })
-          .filter(post => {
-            // Client-side filtering to avoid Firebase index requirements
-            const isCurrentUser = post.AuthorName === userName || post.AuthorName === userNickName;
-            return isCurrentUser;
-          })
-          .sort((a, b) => {
-            // Client-side sorting by date
-            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
-            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
-            return dateB.getTime() - dateA.getTime();
-          });
-
-        allUserPosts.push(...xDataPosts);
-        console.log(`✅ Found ${xDataPosts.length} X-Data posts for current user`);
-      } catch (xDataError) {
-        console.warn('⚠️ Error fetching X-Data:', xDataError);
-      }
-
-      // Final sort of all combined posts
-      const sortedPosts = allUserPosts.sort((a, b) => {
+        // Final sort of all combined posts
+      const sortedPosts = postsData.sort((a, b) => {
         const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
         const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
         return dateB.getTime() - dateA.getTime();
       });
 
-      if (loadMore) {
-        setUserPosts(prev => [...prev, ...sortedPosts]);
-      } else {
         setUserPosts(sortedPosts);
-      }
+        console.log('OnSnapshot Fetched and Sorted', `Total: ${postsData.length} documents`);
+
+        // ✅ IMPROVED VERSION with error handling
+        postsData.forEach(post => {
+          onSnapshot(
+            collection(doc(db, post.postType, post.id), 'Comments'),
+            (commentsSnap) => {
+              const totalComments = commentsSnap.size;
+              
+              setUserPosts(prev =>
+                prev.map(p =>
+                  p.id === post.id
+                    ? { ...p, ContentCommentCount: totalComments }
+                    : p
+                )
+              );
+            },
+            (error) => {
+              console.error(`Error listening to comments for post ${post.id}:`, error);
+            }
+          );
+        });
+      });
+
+      return () => {
+        unsubscribeSentinel();
+      };
       
-      console.log(`🎉 Total posts found for "${userName || userNickName}": ${sortedPosts.length}`);
-
-      // Check if there are more posts (simplified logic)
-      setHasMorePosts(sortedPosts.length > 0);
-
     } catch (error) {
-      console.error('❌ Error fetching user posts:', error);
-      showToast('Failed to load posts', 'error');
+      console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
-      setLoadingMore(false);
     }
-  }, [userId, userName, userNickName, profilePicUrl]);
+  }, [userPosts.length, userId]);
 
   // Load more posts when scrolling
   const handleLoadMore = useCallback(() => {
@@ -868,6 +2222,51 @@ export default function ProfilePage(): React.JSX.Element {
       console.log('Load more requested');
     }
   }, [loadingMore, hasMorePosts, userPosts.length]);
+  // ✅ HANDLE SCROLL WITH VIEW TRACKING
+const handleScroll = useCallback((event: any) => {
+  const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+  const currentScrollY = contentOffset.y;
+  const viewHeight = layoutMeasurement.height;
+
+  // Clear previous timeout
+  if (viewTrackingTimeout.current) {
+    clearTimeout(viewTrackingTimeout.current);
+  }
+
+  // Debounced view tracking
+  viewTrackingTimeout.current = setTimeout(() => {
+    userPosts.forEach((item, index) => {
+      const itemY = index * 450; // Adjust based on your post card height
+      const itemHeight = 450;
+      const itemTop = itemY;
+      const itemBottom = itemY + itemHeight;
+      
+      // Calculate visibility
+      const visibleTop = Math.max(itemTop, currentScrollY);
+      const visibleBottom = Math.min(itemBottom, currentScrollY + viewHeight);
+      const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+      const visibilityPercentage = (visibleHeight / itemHeight) * 100;
+      
+      const isVisible = visibilityPercentage >= 50; // 50% threshold
+      
+      // Track view if visible and not already tracked
+      if (isVisible && !viewedPosts.has(item.id)) {
+        trackPostView(item.id, item.postType);
+      }
+    });
+  }, 800);
+
+  // Existing pagination logic
+  const layoutMeasurement2 = event.nativeEvent.layoutMeasurement;
+  const contentOffset2 = event.nativeEvent.contentOffset;
+  const contentSize2 = event.nativeEvent.contentSize;
+  const paddingToBottom = 20;
+  
+  if (layoutMeasurement2.height + contentOffset2.y >= contentSize2.height - paddingToBottom) {
+    handleLoadMore();
+  }
+}, [userPosts, viewedPosts, trackPostView, handleLoadMore]);
+
 
   // Helper: Convert path to full URL for display
   const getFullImageUrl = (profilePath: string): string => {
@@ -916,9 +2315,35 @@ export default function ProfilePage(): React.JSX.Element {
     });
   };
 
+  // Custom Alert function
+  const showCustomAlertLoad = (
+    type: 'success' | 'error' | 'info' | 'warning',
+    title: string,
+    message: string,
+    buttons: Array<{
+      text: string;
+      onPress: () => void;
+      style?: 'default' | 'cancel' | 'destructive';
+      isLoading?: boolean; // Add this
+    }>
+  ) => {
+    setModalConfig({
+      visible: true,
+      type,
+      title,
+      message,
+      buttons
+    });
+  };
+
   const hideModal = () => {
     setModalConfig(prev => ({ ...prev, visible: false }));
   };
+
+  const openFullScreenDoc = useCallback((docUrl: string) => {
+      setFullScreenDoc(docUrl);
+      setIsDocModalVisible(true);
+    }, []);
 
   // Load user data function
   const loadUserData = async () => {
@@ -931,6 +2356,7 @@ export default function ProfilePage(): React.JSX.Element {
         fetchuserName,
         fetchuserNickName,
         fetchProfilePic,
+        fetchUserBio,
         fetchAccessToken
       ] = await AsyncStorage.multiGet([
         'userId',
@@ -938,6 +2364,7 @@ export default function ProfilePage(): React.JSX.Element {
         'userName',
         'userNickName',
         'profilePicUrl',
+        'userBio',
         'userToken'
       ]);
       
@@ -960,6 +2387,10 @@ export default function ProfilePage(): React.JSX.Element {
       if (fetchProfilePic[1]) {
         setProfilePicUrl(fetchProfilePic[1]);
         console.log("✅ profilePicUrl loaded and set:", fetchProfilePic[1]);
+      }
+      if (fetchUserBio[1]) {
+        setUserBio(fetchUserBio[1]);
+        console.log("✅ userBio loaded and set:", fetchUserBio[1]);
       }
 
     } catch (error) {
@@ -1050,6 +2481,35 @@ export default function ProfilePage(): React.JSX.Element {
       }
 
       console.log('✅ Access token found');
+      
+      // Step 1: Check profile picture with AI moderation
+      console.log('🤖 Validating profile picture with AI...');
+      const moderationResult = await checkProfilePicture(imageUrl);
+      console.log('🤖 AI Moderation Result:', moderationResult);
+      
+      // Step 2: If image doesn't satisfy parameters, show error and use dummy image
+      if (moderationResult.postStatus !== 'approved' || moderationResult.flagged) {
+        console.warn('⚠️ Profile picture does not meet requirements');
+        
+        showCustomAlert(
+          'error',
+          'Profile Picture Not Acceptable',
+          'The selected image does not meet our community guidelines. Please choose another image that:\n\n• Shows a clear profile picture\n• Contains no offensive content\n• Meets quality standards\n\nPlease select a different image.',
+          [{ text: 'OK', onPress: hideModal }]
+        );
+        
+        // Set dummy/placeholder image
+        const dummyImageUrl = "https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg";
+        setProfilePicUrl(dummyImageUrl);
+        await AsyncStorage.setItem('profilePicUrl', dummyImageUrl);
+        
+        return; // Exit without updating to backend
+      }
+      
+      // Step 3: If validation passes, show green checkmark and proceed
+      console.log('✅ Profile picture validation passed!');
+      showToast('Image validation successful! ✓', 'success');
+      
       console.log('🔄 Original image URL:', imageUrl);
       console.log('🔄 Original URL length:', imageUrl.length, 'characters');
       
@@ -1073,6 +2533,7 @@ export default function ProfilePage(): React.JSX.Element {
         console.log('🔄 Final length:', profilePath.length, 'characters');
       }
       
+      // Step 4: Update profile on backend
       const response = await fetch(
         'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/update-profile',
         {
@@ -1107,7 +2568,13 @@ export default function ProfilePage(): React.JSX.Element {
       setProfilePicUrl(imageUrl);
       await AsyncStorage.setItem('profilePicUrl', imageUrl);
       
-      showToast('Profile picture updated successfully!', 'success');
+      // Show success with green checkmark
+        showCustomAlert(
+        'success',
+        'Profile Picture Updated! ✓',
+        'Your profile picture has been updated successfully and meets all our community guidelines.',
+        [{ text: 'Done', onPress: hideModal }]
+      );
       
     } catch (error) {
       console.error('❌ Error updating profile:', error);
@@ -1123,6 +2590,53 @@ export default function ProfilePage(): React.JSX.Element {
       throw error;
     }
   };
+
+// Helper function to check profile picture with AI moderation
+const checkProfilePicture = async (imageUrl: string) => {
+  try {
+    console.log('🔍 Checking profile picture with AI moderation...');
+    console.log('🖼️ Image URL:', imageUrl);
+    
+    const response = await fetch(
+      'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/ai-based-post-analysis',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          postText: null, // Always null for profile pictures
+          imageUrl: imageUrl
+        })
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`API request failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    console.log('✅ Profile picture moderation check complete:', data);
+    
+    return {
+      postStatus: data.postStatus, // "approved" or "inappropriate"
+      flagged: data.flagged,
+      violations: data.violations || [],
+      categories: data.categories || {}
+    };
+  } catch (error) {
+    console.error('❌ Error checking profile picture:', error);
+    // Fallback: if API fails, flag for safety
+    return {
+      postStatus: 'inappropriate',
+      flagged: true,
+      violations: ['api_error'],
+      categories: {}
+    };
+  }
+};
+
 
   // Handle profile picture selection and upload
   const handleProfilePictureUpload = async () => {
@@ -1246,20 +2760,47 @@ export default function ProfilePage(): React.JSX.Element {
 
   // Open image picker
   const openImagePicker = async () => {
+    // try {
+    //   const result = await ImagePicker.launchImageLibraryAsync({
+    //     mediaTypes: ['images'],
+    //     allowsEditing: true,
+    //     aspect: [1, 1],
+    //     quality: 0.8,
+    //   });
+
+    //   if (!result.canceled && result.assets[0]) {
+    //     await processSelectedImage(result.assets[0].uri);
+    //   }
+    // } catch (error) {
+    //   console.error('❌ Error opening image picker:', error);
+    //   showToast('Failed to open gallery', 'error');
+    // }
     try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        showCustomAlert(
+          'warning',
+          'Permission Required',
+          'Please grant camera roll permissions to select images.',
+          [{ text: 'OK', onPress: hideModal }]
+        );
+        return;
+      }
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
+        allowsMultipleSelection: true,
         quality: 0.8,
       });
 
-      if (!result.canceled && result.assets[0]) {
+      if (!result.canceled && result.assets) {
         await processSelectedImage(result.assets[0].uri);
       }
     } catch (error) {
-      console.error('❌ Error opening image picker:', error);
-      showToast('Failed to open gallery', 'error');
+      const errorDetails = getErrorDetails(error, 'images');
+      showCustomAlert('error', errorDetails.title, errorDetails.message, [
+        { text: 'OK', onPress: hideModal }
+      ]);
     }
   };
 
@@ -1298,29 +2839,120 @@ export default function ProfilePage(): React.JSX.Element {
     }
   };
 
-  // TO OPEN COMMENTS MODAL
-  const openCommentsModal = useCallback((item: PostItem) => {
-    // Check if interactions are disabled for rejected posts
-    if (areInteractionsDisabled(item)) {
-      showCustomAlert(
-        'warning',
-        'Post Not Available',
-        'This post has been rejected and interactions are disabled.',
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
-      );
+  const fullScreenVideoPlayer = useVideoPlayer(fullScreenVideo || '', (player) => {
+    player.loop = false;
+    player.play();
+  });
+
+    const VideoPlayer = useCallback(({ videoUrl, index }: { videoUrl: string; index?: number }) => {
+    const player = useVideoPlayer(videoUrl, (player) => {
+      player.loop = true;
+      player.muted = true;
+      if (currentVideoIndex === index) {
+        player.play();
+      } else {
+        player.pause();
+      }
+    });
+
+    // Update play/pause when currentVideoIndex changes
+    useEffect(() => {
+      if (currentVideoIndex === index) {
+        player.play();
+      } else {
+        player.pause();
+      }
+    }, [currentVideoIndex, index, player]);
+
+    return (
+      <View className="relative rounded-xl overflow-hidden bg-black">
+        <VideoView
+          player={player}
+          style={{ 
+            width: '100%', 
+            aspectRatio: 16 / 9  // Changed from fixed height to responsive aspectRatio
+          }}
+          contentFit="cover"  // Changed from "contain" to "cover"
+          nativeControls={false}
+        />
+        <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+          <Ionicons name="play-outline" size={14} color="white" />
+        </View>
+        {currentVideoIndex !== index && (
+          <View className="absolute inset-0 bg-black/20 items-center justify-center">
+            <View className="w-10 h-10 bg-black/60 rounded-full items-center justify-center">
+              <Ionicons name="play" size={20} color="white" />
+            </View>
+          </View>
+        )}
+      </View>
+    );
+  }, [currentVideoIndex]);
+
+  const openRepostModal = useCallback((postItem: PostItem) => {
+    if (areInteractionsDisabled(postItem)) {
+      Toast.show({
+        type: 'error',
+        text1: 'Action Not Available',
+        text2: 'This post has been rejected and interactions are disabled.',
+        position: 'bottom',
+        visibilityTime: 1000,
+      });
       return;
     }
 
-    setSelectedPostId(item.id);
-    setSelectedPostType(item.postType);
-    setSelectedCommentTemplate(item.CommentTemplate);
-    setIsCommentModalVisible(true);
+    if (postItem.Reposted) {
+      Toast.show({
+        type: 'success',
+        text1: 'Already Reposted',
+        text2: 'You have already reposted this Post.',
+        position: 'bottom',
+        visibilityTime: 1000,
+      });
+
+      return;
+    }
+
+    setSelectedRepostPost(postItem);
+    setIsRepostModalVisible(true);
   }, [areInteractionsDisabled]);
+
+  const closeRepostModal = useCallback(() => {
+    setIsRepostModalVisible(false);
+    setSelectedRepostPost(null);
+  }, []);
+
+  // TO OPEN COMMENTS MODAL
+  const openCommentsModal = useCallback((item: PostItem) => {
+  // Check if post is new (waiting for approval)
+  if (item.isNew) {
+    Toast.show({
+      type: 'warning',
+      text1: 'Pending Approval',
+      text2: 'This post is waiting for admin approval. You can perform actions after approval.',
+      position: 'bottom',
+      visibilityTime: 1000,
+    });
+    return;
+  }
+
+  // Check if interactions are disabled for rejected posts
+  if (areInteractionsDisabled(item)) {
+    Toast.show({
+      type: 'warning',
+      text1: 'Post Not Available',
+      text2: 'This post has been rejected and interactions are disabled.',
+      position: 'bottom',
+      visibilityTime: 1000,
+    });
+    return;
+  }
+
+  setSelectedPostId(item.id);
+  setSelectedPostType(item.postType);
+  setSelectedCommentTemplate(item.CommentTemplate);
+  setIsCommentModalVisible(true);
+}, [areInteractionsDisabled]);
 
   // TO CLOSE COMMENTS MODAL
   const closeCommentsModal = useCallback(() => {
@@ -1329,36 +2961,44 @@ export default function ProfilePage(): React.JSX.Element {
     setSelectedPostType(null);
     setSelectedCommentTemplate(null);
     // Refresh posts to get updated comment counts
-    fetchUserPosts();
-  }, [fetchUserPosts]);
+    // fetchUserPosts();
+  }, []);
 
   // TO OPEN GRAPH MODAL
   const openGraphModal = useCallback((item: PostItem) => {
-    // Check if interactions are disabled for rejected posts
-    if (areInteractionsDisabled(item)) {
-      showCustomAlert(
-        'warning',
-        'Post Not Available',
-        'This post has been rejected and interactions are disabled.',
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
-      );
-      return;
-    }
+  // Check if post is new (waiting for approval)
+  if (item.isNew) {
+    Toast.show({
+      type: 'warning',
+      text1: 'Pending Approval',
+      text2: 'This post is waiting for admin approval. You can perform actions after approval.',
+      position: 'bottom',
+      visibilityTime: 1000,
+    });
+    return;
+  }
 
-    console.log("Graph ID: ", item.id);
-    setSelectedGraphPostId(item.id);
-    setSelectedGraphPostType(item.postType);
-    setIsGraphModalVisible(true);
-    setSelectedPostId(item.id);
-    setSelectedPostType(item.postType);
-    setSelectedCommentTemplate(item.CommentTemplate);
-    setIsCommentModalVisible(false);
-  }, [areInteractionsDisabled]);
+  // Check if interactions are disabled for rejected posts
+  if (areInteractionsDisabled(item)) {
+    Toast.show({
+      type: 'warning',
+      text1: 'Post Not Available',
+      text2: 'This post has been rejected and interactions are disabled.',
+      position: 'bottom',
+      visibilityTime: 1000,
+    });
+    return;
+  }
+
+  console.log('Graph ID ', item.id);
+  setSelectedGraphPostId(item.id);
+  setSelectedGraphPostType(item.postType);
+  setIsGraphModalVisible(true);
+  setSelectedPostId(item.id);
+  setSelectedPostType(item.postType);
+  setSelectedCommentTemplate(item.CommentTemplate);
+  setIsCommentModalVisible(false);
+}, [areInteractionsDisabled]);
 
   // TO CLOSE GRAPH MODAL
   const closeGraphModal = useCallback(() => {
@@ -1372,300 +3012,697 @@ export default function ProfilePage(): React.JSX.Element {
     setIsCommentModalVisible(true);
   }, []);
 
-  const toggleLike = useCallback(async (postItem: PostItem) => {
-    // Check if interactions are disabled for rejected posts
+  const openFullScreenImage = useCallback((imageUrl: string) => {
+    setFullScreenImage(imageUrl);
+    setIsImageModalVisible(true);
+  }, []);
+
+  const closeFullScreenImage = useCallback(() => {
+    setIsImageModalVisible(false);
+    setFullScreenImage(null);
+  }, []);
+
+  const openFullScreenVideo = useCallback((videoUrl: string) => {
+    setFullScreenVideo(videoUrl);
+    setIsVideoModalVisible(true);
+  }, []);
+
+  const closeFullScreenVideo = useCallback(() => {
+    setIsVideoModalVisible(false);
+    setFullScreenVideo(null);
+  }, []);
+
+    const toggleLike = useCallback(async (postItem: PostItem) => {
+    // Check if post is pending approval
+    if (postItem.isNew) {
+      Toast.show({
+        type: 'warning',
+        text1: 'Pending Approval',
+        text2: 'This post is waiting for admin approval. You can perform actions after approval.',
+        position: 'bottom',
+        visibilityTime: 1000,
+      });
+      return;
+    }
+
+    // Check if interactions are disabled
     if (areInteractionsDisabled(postItem)) {
-      showCustomAlert(
-        'warning',
-        'Action Not Available',
-        'This post has been rejected and interactions are disabled.',
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
-      );
+      Toast.show({
+        type: 'warning',
+        text1: 'Action Not Available',
+        text2: 'This post has been rejected and interactions are disabled.',
+        position: 'bottom',
+        visibilityTime: 1000,
+      });
       return;
     }
 
     try {
       let fetchuserID = userId;
-      if(fetchuserID == ""){
-        fetchuserID = await AsyncStorage.getItem('userId') || "";
+      if (!fetchuserID) {
+        fetchuserID = await AsyncStorage.getItem('userId') || '';
         setUserId(fetchuserID);
       }
 
       const postRef = doc(db, postItem.postType, postItem.id);
-      if(postItem.Liked) {
-        console.log("Unliking post:", postItem.id);
+
+      if (postItem.Liked) {
+        // ✅ UNLIKE: Update state FIRST
+        setUserPosts(prevPosts =>
+          prevPosts.map(post =>
+            post.uniqueId === postItem.uniqueId
+              ? {
+                  ...post,
+                  Liked: false,
+                  ContentLikeCount: Math.max(0, post.ContentLikeCount - 1)
+                }
+              : post
+          )
+        );
+
+        // Then update Firebase
         await updateDoc(postRef, {
           ContentLikeCount: Math.max(0, postItem.ContentLikeCount - 1),
           LikedBy: arrayRemove(fetchuserID),
         });
       } else {
-        console.log("Liking post:", postItem.id);
+        // ✅ LIKE: Update state FIRST
+        setUserPosts(prevPosts =>
+          prevPosts.map(post =>
+            post.uniqueId === postItem.uniqueId
+              ? {
+                  ...post,
+                  Liked: true,
+                  ContentLikeCount: post.ContentLikeCount + 1
+                }
+              : post
+          )
+        );
+
+        // Then update Firebase
         await updateDoc(postRef, {
           ContentLikeCount: postItem.ContentLikeCount + 1,
           LikedBy: arrayUnion(fetchuserID),
         });
       }
-
-      // Update local state immediately for better UX
-      setUserPosts(prevPosts => prevPosts.map(post => 
-        post.uniqueId === postItem.uniqueId 
-          ? { 
-              ...post, 
-              Liked: !post.Liked,
-              ContentLikeCount: post.Liked 
-                ? Math.max(0, post.ContentLikeCount - 1)
-                : post.ContentLikeCount + 1
-            }
-          : post
-      ));
-
-      await new Promise(r => setTimeout(r, 200));
     } catch (error) {
       console.error('Error toggling like:', error);
-      showToast('Failed to update like', 'error');
+      
+      // ✅ Revert state on error
+      setUserPosts(prevPosts =>
+        prevPosts.map(post =>
+          post.uniqueId === postItem.uniqueId
+            ? {
+                ...post,
+                Liked: postItem.Liked,
+                ContentLikeCount: postItem.ContentLikeCount
+              }
+            : post
+        )
+      );
+      
+      Toast.show({
+        type: 'error',
+        text1: 'Action Failed',
+        text2: 'Failed to update like. Please try again.',
+        position: 'bottom',
+        visibilityTime: 1000,
+      });
     }
   }, [userId, areInteractionsDisabled]);
 
-  const handleRepost = useCallback(async (postItem: PostItem) => {
-    // Check if interactions are disabled for rejected posts
-    if (areInteractionsDisabled(postItem)) {
-      showCustomAlert(
-        'warning',
-        'Action Not Available',
-        'This post has been rejected and interactions are disabled.',
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
-      );
-      return;
+  // SIMPLE REPOST WITH TOAST
+  const handleSimpleRepost = useCallback(async () => {
+  if (!selectedRepostPost) return;
+
+  try {
+    let fetchuserID = userId;
+    if (!fetchuserID) {
+      fetchuserID = await AsyncStorage.getItem('userId') || '';
+      setUserId(fetchuserID);
     }
 
-    console.log("Repost pressed:", postItem.id);
-    
-    setUserPosts(prevData => 
-      prevData.map(item => 
-        item.uniqueId === postItem.uniqueId 
-          ? { 
-              ...item, 
-              Reposted: !item.Reposted, 
-              ContentRepostCount: item.Reposted 
-                ? Math.max(0, item.ContentRepostCount - 1)
-                : item.ContentRepostCount + 1
-            } 
-          : item
+    const userInfo = await AsyncStorage.getItem('userName') || 'Anonymous';
+    const userImage = await AsyncStorage.getItem('profilePicUrl') || dummyAuthorImage;
+
+    // ✅ Early return check
+    if (selectedRepostPost.Reposted) {
+      Toast.show({
+        type: 'success',
+        text1: 'Already Reposted',
+        text2: 'You have already reposted this Post.',
+        position: 'bottom',
+        visibilityTime: 1000,
+      });
+      return; // ✅ Exit early
+    }
+
+    // ✅ Update state FIRST (optimistic update)
+    setUserPosts(prevPosts =>
+      prevPosts.map(post =>
+        post.uniqueId === selectedRepostPost.uniqueId
+          ? {
+              ...post,
+              Reposted: true,
+              ContentRepostCount: post.ContentRepostCount + 1
+            }
+          : post
       )
     );
 
-    await new Promise(r => setTimeout(r, 200));
+    // Update Firebase
+    const postRef = doc(db, selectedRepostPost.postType, selectedRepostPost.id);
+    await updateDoc(postRef, {
+      ContentRepostCount: selectedRepostPost.ContentRepostCount + 1,
+      RepostedBy: arrayUnion(fetchuserID),
+    });
+
+    // Create repost document
+    await addDoc(collection(db, 'SentinelPosts'), {
+      AuthorImageURL: userImage,
+      AuthorName: userInfo,
+      AuthorUserID: fetchuserID,
+      ContentDate: new Date(),
+      ContentDesc: renderStyledPostText(selectedRepostPost.ContentDesc) || '',
+      ContentURL: selectedRepostPost.ContentURL || '',
+      ContentURLs: selectedRepostPost.ContentURLs || [],
+      ContentLikeCount: 0,
+      ContentRepostCount: 0,
+      ContentCommentCount: 0,
+      isApproved: true,
+      isNew: false,
+      LikedBy: [],
+      RepostedBy: [],
+      BookmarkedBy: [],
+      createdAt: new Date(),
+      CommentTemplate: selectedRepostPost.CommentTemplate || 'Standard Template',
+      isRepost: true,
+      originalPost: {
+        id: selectedRepostPost.id || '',
+        AuthorUserID: selectedRepostPost.AuthorUserID || '',
+        AuthorName: selectedRepostPost.AuthorName || 'Anonymous',
+        AuthorImageURL: selectedRepostPost.AuthorImageURL || dummyAuthorImage,
+        ContentDesc: renderStyledPostText(selectedRepostPost.ContentDesc) || '',
+        ContentDate: selectedRepostPost.ContentDate || new Date(),
+        postType: selectedRepostPost.postType || 'Unknown',
+        isAnonymous: selectedRepostPost.isAnonymous || false,
+        contentType: selectedRepostPost.contentType || 'My Thoughts'
+      },
+      repostComment: '',
+      repostedBy: fetchuserID,
+      repostedAt: new Date(),
+      isAnonymous: false,
+      contentType: 'Found Online'
+    });
+
+    Toast.show({
+      type: 'success',
+      text1: 'Reposted Successfully',
+      text2: 'Post has been shared to your followers.',
+      position: 'bottom',
+      visibilityTime: 1000,
+    });
+
+  } catch (error) {
+    console.error('Error handling repost:', error);
+    
+    // ✅ Revert state on error
+    if (selectedRepostPost) {
+      setUserPosts(prevPosts =>
+        prevPosts.map(post =>
+          post.uniqueId === selectedRepostPost.uniqueId
+            ? {
+                ...post,
+                Reposted: selectedRepostPost.Reposted,
+                ContentRepostCount: selectedRepostPost.ContentRepostCount
+              }
+            : post
+        )
+      );
+    }
+    
+    Toast.show({
+      type: 'error',
+      text1: 'Repost Failed',
+      text2: 'Failed to repost. Please try again.',
+      position: 'bottom',
+      visibilityTime: 1000,
+    });
+  }
+}, [selectedRepostPost, userId]);
+
+
+  // QUOTE REPOST WITH TOAST
+  const handleQuoteRepost = useCallback(async (comment: string) => {
+  if (!selectedRepostPost) return;
+
+  try {
+    let fetchuserID = userId;
+    if (!fetchuserID) {
+      fetchuserID = await AsyncStorage.getItem('userId') || '';
+      setUserId(fetchuserID);
+    }
+
+    const userInfo = await AsyncStorage.getItem('userName') || 'Anonymous';
+    const userImage = await AsyncStorage.getItem('profilePicUrl') || dummyAuthorImage;
+
+    // ✅ Early return check
+    if (selectedRepostPost.Reposted) {
+      Toast.show({
+        type: 'success',
+        text1: 'Already Reposted',
+        text2: 'You have already reposted this Post.',
+        position: 'bottom',
+        visibilityTime: 1000,
+      });
+      return; // ✅ Exit early
+    }
+
+    // ✅ Update state FIRST (optimistic update)
+    setUserPosts(prevPosts =>
+      prevPosts.map(post =>
+        post.uniqueId === selectedRepostPost.uniqueId
+          ? {
+              ...post,
+              Reposted: true,
+              ContentRepostCount: post.ContentRepostCount + 1
+            }
+          : post
+      )
+    );
+
+    // Update Firebase
+    const postRef = doc(db, selectedRepostPost.postType, selectedRepostPost.id);
+    await updateDoc(postRef, {
+      ContentRepostCount: selectedRepostPost.ContentRepostCount + 1,
+      RepostedBy: arrayUnion(fetchuserID),
+    });
+
+    // Create quote repost document
+    await addDoc(collection(db, 'SentinelPosts'), {
+      AuthorImageURL: userImage,
+      AuthorName: userInfo,
+      AuthorUserID: fetchuserID,
+      ContentDate: new Date(),
+      ContentDesc: comment || '',
+      ContentURL: selectedRepostPost.ContentURL || '',
+      ContentURLs: selectedRepostPost.ContentURLs || [],
+      ContentLikeCount: 0,
+      ContentRepostCount: 0,
+      ContentCommentCount: 0,
+      isApproved: true,
+      isNew: false,
+      LikedBy: [],
+      RepostedBy: [],
+      BookmarkedBy: [],
+      createdAt: new Date(),
+      CommentTemplate: selectedRepostPost.CommentTemplate || 'Standard Template',
+      isRepost: true,
+      originalPost: {
+        id: selectedRepostPost.id || '',
+        AuthorUserID: selectedRepostPost.AuthorUserID || '',
+        AuthorName: selectedRepostPost.AuthorName || 'Anonymous',
+        AuthorImageURL: selectedRepostPost.AuthorImageURL || dummyAuthorImage,
+        ContentDesc: renderStyledPostText(selectedRepostPost.ContentDesc) || '',
+        ContentDate: selectedRepostPost.ContentDate || new Date(),
+        postType: selectedRepostPost.postType || 'Unknown',
+        isAnonymous: selectedRepostPost.isAnonymous || false,
+        contentType: selectedRepostPost.contentType || 'My Thoughts'
+      },
+      repostComment: comment || '',
+      repostedBy: fetchuserID,
+      repostedAt: new Date(),
+      isAnonymous: false,
+      contentType: 'Found Online'
+    });
+
+    Toast.show({
+      type: 'success',
+      text1: 'Quote Repost Created',
+      text2: 'Your quote repost has been shared to your followers.',
+      position: 'bottom',
+      visibilityTime: 1000,
+    });
+
+  } catch (error) {
+    console.error('Error creating quote repost:', error);
+    
+    // ✅ Revert state on error
+    if (selectedRepostPost) {
+      setUserPosts(prevPosts =>
+        prevPosts.map(post =>
+          post.uniqueId === selectedRepostPost.uniqueId
+            ? {
+                ...post,
+                Reposted: selectedRepostPost.Reposted,
+                ContentRepostCount: selectedRepostPost.ContentRepostCount
+              }
+            : post
+        )
+      );
+    }
+    
+    Toast.show({
+      type: 'error',
+      text1: 'Quote Repost Failed',
+      text2: 'Failed to create quote repost. Please try again.',
+      position: 'bottom',
+      visibilityTime: 1000,
+    });
+  }
+}, [selectedRepostPost, userId]);
+
+
+const handleRepost = useCallback(async (postItem: PostItem) => {
+  // Check if post is new (waiting for approval)
+  if (postItem.isNew) {
+    Toast.show({
+      type: 'warning',
+      text1: 'Pending Approval',
+      text2: 'This post is waiting for admin approval. You can perform actions after approval.',
+      position: 'bottom',
+      visibilityTime: 1000,
+    });
+    return;
+  }
+
+  // Check if interactions are disabled for rejected posts
+  if (areInteractionsDisabled(postItem)) {
+    Toast.show({
+      type: 'warning',
+      text1: 'Action Not Available',
+      text2: 'This post has been rejected and interactions are disabled.',
+      position: 'bottom',
+      visibilityTime: 1000,
+    });
+    return;
+  }
+
+  console.log('Repost pressed', postItem.id);
+  openRepostModal(postItem);
   }, [areInteractionsDisabled]);
 
   const handleBookmark = useCallback(async (postItem: PostItem) => {
-    // Check if interactions are disabled for rejected posts
-    if (areInteractionsDisabled(postItem)) {
-      showCustomAlert(
-        'warning',
-        'Action Not Available',
-        'This post has been rejected and interactions are disabled.',
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
-      );
-      return;
+  // Check if post is new (waiting for approval)
+  if (postItem.isNew) {
+    Toast.show({
+      type: 'warning',
+      text1: 'Pending Approval',
+      text2: 'This post is waiting for admin approval. You can perform actions after approval.',
+      position: 'bottom',
+      visibilityTime: 1000,
+    });
+    return;
+  }
+
+  // Check if interactions are disabled for rejected posts
+  if (areInteractionsDisabled(postItem)) {
+    Toast.show({
+      type: 'warning',
+      text1: 'Action Not Available',
+      text2: 'This post has been rejected and interactions are disabled.',
+      position: 'bottom',
+      visibilityTime: 1000,
+    });
+    return;
+  }
+
+  try {
+    console.log('Bookmark pressed', postItem.id);
+    let fetchuserID = userId;
+    if(!fetchuserID){
+      fetchuserID = await AsyncStorage.getItem('userId');
+      setUserId(fetchuserID);
     }
 
-    try {
-      console.log("Bookmark pressed:", postItem.id);
-      
-      let fetchuserID = userId;
-      if(fetchuserID == ""){
-        fetchuserID = await AsyncStorage.getItem('userId') || "";
-        setUserId(fetchuserID);
-      }
+    const postRef = doc(db, postItem.postType, postItem.id);
+    
+    if(postItem.Bookmarked) {
+      console.log('Removing bookmark', postItem.id);
+      await updateDoc(postRef, {
+        BookmarkedBy: arrayRemove(fetchuserID),
+      });
+    } else {
+      console.log('Adding bookmark', postItem.id);
+      await updateDoc(postRef, {
+        BookmarkedBy: arrayUnion(fetchuserID),
+      });
+    }
 
-      const postRef = doc(db, postItem.postType, postItem.id);
-      if(postItem.Bookmarked) {
-        console.log("Removing bookmark:", postItem.id);
-        await updateDoc(postRef, {
-          BookmarkedBy: arrayRemove(fetchuserID),
-        });
-      } else {
-        console.log("Adding bookmark:", postItem.id);
-        await updateDoc(postRef, {
-          BookmarkedBy: arrayUnion(fetchuserID),
-        });
-      }
-
-      // Update local state immediately for better UX
-      setUserPosts(prevPosts => prevPosts.map(post => 
-        post.uniqueId === postItem.uniqueId 
+    setUserPosts((prevPosts) =>
+      prevPosts.map((post) =>
+        post.uniqueId === postItem.uniqueId
           ? { ...post, Bookmarked: !post.Bookmarked }
           : post
-      ));
+      )
+    );
 
-      await new Promise(r => setTimeout(r, 200));
-    } catch (error) {
-      console.error('Error toggling bookmark:', error);
-      showToast('Failed to update bookmark', 'error');
-    }
+    await new Promise((r) => setTimeout(r, 200));
+  } catch (error) {
+    console.error('Error toggling bookmark:', error);
+    Toast.show({
+      type: 'error',
+      text1: 'Action Failed',
+      text2: 'Failed to update bookmark. Please try again.',
+      position: 'bottom',
+      visibilityTime: 1000,
+    });
+  }
   }, [userId, areInteractionsDisabled]);
 
-  // NEW: Handle Share Post
   const handleSharePost = useCallback(async (postItem: PostItem) => {
-    // Check if interactions are disabled for rejected posts
-    if (areInteractionsDisabled(postItem)) {
-      showCustomAlert(
-        'warning',
-        'Action Not Available',
-        'This post has been rejected and interactions are disabled.',
-        [
-          {
-            text: 'OK',
-            onPress: hideModal
-          }
-        ]
-      );
-      return;
-    }
+     setSharingId(postItem.id);
+  // Check if post is new (waiting for approval)
+  if (postItem.isNew) {
+    Toast.show({
+      type: 'warning',
+      text1: 'Pending Approval',
+      text2: 'This post is waiting for admin approval. You can perform actions after approval.',
+      position: 'bottom',
+      visibilityTime: 1000,
+    });
+    setSharingId(null);
+    return;
+  }
 
-    try {
-      const shareContent = {
-        title: `Post by ${postItem.AuthorName}`,
-        message: `Check out this post: "${postItem.ContentDesc.substring(0, 100)}${postItem.ContentDesc.length > 100 ? '...' : ''}"`,
-        url: postItem.ContentURL || undefined,
-      };
+  // Check if interactions are disabled for rejected posts
+  if (areInteractionsDisabled(postItem)) {
+    Toast.show({
+      type: 'warning',
+      text1: 'Action Not Available',
+      text2: 'This post has been rejected and interactions are disabled.',
+      position: 'bottom',
+      visibilityTime: 1000,
+    });
+    setSharingId(null);
+    return;
+  }
 
-      await Share.share(shareContent);
-      showToast('Post shared successfully!', 'success');
-    } catch (error) {
-      console.error('Error sharing post:', error);
-      showToast('Failed to share post', 'error');
-    }
-  }, [areInteractionsDisabled]);
+  try {
+          const postUrl = `https://ironex.app/post/${postItem?.id}`;
+          
+          // const shareMessage = postItem.isAnonymous
+          //   ? `✨ SENTINEL POST ✨
+    
+          // 👤 Shared by Anonymous
+    
+          // 💭 ${postItem.ContentDesc}
+    
+          // 🔗 Tap to view this amazing post:
+          // ${postUrl}
+    
+          // ━━━━━━━━━━━━━━━
+          // 📱 Join the conversation on Sentinel and discover more!`
+          //   : `✨ SENTINEL POST ✨
+    
+          // 🌟 Shared by ${postItem.AuthorName}
+    
+          // 💭 ${postItem.ContentDesc}
+    
+          // 🔗 Tap to view this amazing post:
+          // ${postUrl}
+    
+          // ━━━━━━━━━━━━━━━
+          // 📱 Join the conversation on Sentinel and discover more!`;
+    
+          // const shareMessage = `🔗 Tap to view on IronExSafe™:
+          // ${postUrl}`;
+    
+          // await Share.share({
+          //   message: `${shareMessage}\n${postUrl}`,
+          //   url: postUrl,
+          //   title: '✨ Check out this IronExSafe™ post',
+          // });
+    
+          callShortUrl(postUrl);
+          
+        } catch (error) {
+          console.log("Error sharing ", error);
+          Toast.show({
+            type: 'error',
+            text1: 'Share Failed',
+            text2: 'Failed to share post',
+            position: 'bottom',
+            visibilityTime: 2000,
+          });
+          setSharingId(null); // Stop loading
+        } 
+    
+        await new Promise(r => setTimeout(r, 200));
+      }, [areInteractionsDisabled]);
+      const callShortUrl = async (postUrl: string) => {
+            try {
+              console.log('Call Short Url...');
+              
+              const response = await fetch(
+                'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/shorten-url',
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    "originalURL" : postUrl
+                  })
+                }
+              );
+          
+              if (!response.ok) {
+                // Optional: Show success message
+                Toast.show({
+                  type: 'error',
+                  text1: 'Share Failed',
+                  text2: 'Failed to share post',
+                  position: 'bottom',
+                  visibilityTime: 2000,
+                });
+              } else {
+                const data: ShortURLResponse = await response.json();
+                console.log('Short URL response:', data);
+        
+                const shareMessage = `🔗 Tap to view on IronExSafe™: ${data.shortURL}`;
+        
+                await Share.share({
+                  message: `${shareMessage}`,
+                  title: '✨ Check out this IronExSafe™ post',
+                });
+              }
+              
+            } catch (error) {
+              console.error('❌ Error Short URL:', error);
+        
+              setIsDeleteUserModalVisible(false);
+              setShowMenuModal(false);
+              setSelectedPostUserId(null);
+              setUserToDelete(null);
+        
+            } finally {
+              setSharingId(null); // Stop loading
+            }
+          };
+
+
+  //Post options
+  const handleThreeDotsPress = (item: PostItem, event: any) => {
+    const { pageX, pageY } = event.nativeEvent;
+    setSelectedPostId(item.id);
+    setMenuPosition({ x: pageX - 120, y: pageY + 10 });
+    setShowMenuModal(true);
+  };
+
+  const handleDeletePost = async (postId: string) => {
+  setPostToDelete(postId);
+  setIsDeleteModalVisible(true);
+};
+
+const confirmDeletePost = async () => {
+  if (!postToDelete) return;
+  
+  try {
+    const postRef = doc(db, "SentinelPosts", postToDelete);
+    await deleteDoc(postRef);
+    console.log('Post deleted successfully');
+    
+    setIsDeleteModalVisible(false);
+    setShowMenuModal(false);
+    setSelectedPostId(null);
+    setPostToDelete(null);
+    
+    // Optional: Show success message
+    Toast.show({
+      type: 'success',
+      text1: 'Success',
+      text2: 'Post deleted successfully',
+      position: 'top',
+      visibilityTime: 1000,
+    });
+  } catch (error) {
+    console.error('Error deleting post:', error);
+    setIsDeleteModalVisible(false);
+     setShowMenuModal(false);
+    
+    // Show error with CustomModal
+    setIsDeleteModalVisible(true);
+  }
+};
+
+ const renderRepostContent = useCallback((item: PostItem) => {
+  if (!item.isRepost || !item.originalPost) return null;
+
+  let AuthorName = "";
+  let AuthorImage = "";
+  if (item.originalPost.isAnonymous) {
+    AuthorName = "Anonymous";
+    AuthorImage = dummyAuthorImage;
+  } else {
+    AuthorName = item.originalPost.AuthorName;
+    AuthorImage = item.originalPost.AuthorImageURL;
+  }
+
+  return (
+    <View className="border border-gray-200 rounded-xl p-3 mt-2 bg-gray-50">
+      <View className="flex-row items-center mb-2">
+        <Image
+          // source={{ uri: item.originalPost.AuthorImageURL || dummyAuthorImage }}
+          source={{ uri: AuthorImage || dummyAuthorImage }}
+          className="w-6 h-6 rounded-full mr-2"
+          resizeMode="cover"
+          resizeMethod="resize"
+        />
+        <Text className="font-semibold text-gray-900 text-sm">{AuthorName}</Text>
+        <Text className="text-gray-500 text-xs ml-2">
+          {getTimeAgo(item.originalPost.ContentDate)}
+        </Text>
+      </View>
+      <Text className="text-gray-700 text-sm" numberOfLines={3}>
+        {renderStyledPostText(item.originalPost.ContentDesc)}
+      </Text>
+    </View>
+  );
+}, [getTimeAgo, dummyAuthorImage]);
 
   // OPTIMIZED MEDIA CONTENT - REDUCED SIZES
-  const renderMediaContent = useCallback((item: PostItem, index?: number) => {
-    const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
-                     (item.ContentURL ? [item.ContentURL] : []);
-    
-    if (!mediaUrls || mediaUrls.length === 0) return null;
+  // OPTIMIZED MEDIA CONTENT WITH INSTAGRAM CAROUSEL
+const renderMediaContent = useCallback((item: PostItem, index?: number) => {
+  const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 
+    ? item.ContentURLs 
+    : (item.ContentURL ? [item.ContentURL] : []);
 
-    const primaryMediaUrl = mediaUrls[0];
-    const mediaType = getMediaType(primaryMediaUrl);
+  return (
+    <MediaCarousel
+      mediaUrls={mediaUrls}
+      postId={item.id}
+      onImagePress={openFullScreenImage}
+      onVideoPress={openFullScreenVideo}
+      onDocPress={openFullScreenDoc}
+      getMediaType={getMediaType}
+      VideoPlayer={VideoPlayer}
+      index={index}
+    />
+  );
+}, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, VideoPlayer]);
 
-    if (mediaType === 'image') {
-      return (
-        <View className="mb-2">
-          <TouchableOpacity 
-            activeOpacity={0.95}
-          >
-            <View className="relative rounded-xl overflow-hidden">
-              <Image
-                source={{ uri: primaryMediaUrl }}
-                style={{ width: '100%', height: 200 }}
-                className="bg-gray-100"
-                resizeMode="cover"
-                onError={(error) => {
-                  console.log("Image load error:", error.nativeEvent.error);
-                }}
-              />
-            </View>
-          </TouchableOpacity>
-        </View>
-      );
-    } else if (mediaType === 'video') {
-      return (
-        <View className="mb-2">
-          <TouchableOpacity 
-            activeOpacity={0.95}
-          >
-            <View className="relative rounded-xl overflow-hidden bg-black">
-              <Video
-                ref={(ref) => {
-                  if (ref && index !== undefined) {
-                    videoRefs.current[`video-${index}`] = ref;
-                  }
-                }}
-                source={{ uri: primaryMediaUrl }}
-                style={{ width: '100%', height: 200 }}
-                resizeMode={ResizeMode.CONTAIN}
-                useNativeControls={false}
-                shouldPlay={currentVideoIndex === index}
-                isMuted={true}
-                isLooping={true}
-              />
-              <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
-                <Ionicons name="play-outline" size={14} color="white" />
-              </View>
-              {currentVideoIndex !== index && (
-                <View className="absolute inset-0 bg-black/20 items-center justify-center">
-                  <View className="w-10 h-10 bg-black/60 rounded-full items-center justify-center">
-                    <Ionicons name="play" size={20} color="white" />
-                  </View>
-                </View>
-              )}
-            </View>
-          </TouchableOpacity>
-        </View>
-      );
-    } else if (mediaType === 'gif') {
-      return (
-        <View className="mb-2">
-          <TouchableOpacity 
-            activeOpacity={0.95}
-          >
-            <View className="relative rounded-xl overflow-hidden">
-              <Image
-                source={{ uri: primaryMediaUrl }}
-                style={{ width: '100%', height: 200 }}
-                className="bg-gray-100"
-                resizeMode="cover"
-              />
-              <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
-                 <MaterialIcons name="gif" size={20} color="white" />
-              </View>
-            </View>
-          </TouchableOpacity>
-        </View>
-      );
-    } else if (mediaType === 'doc') {
-      return (
-        <View className="mb-2">
-          <TouchableOpacity 
-            activeOpacity={0.95}
-          >
-            <View
-              style={{
-                borderRadius: 12,
-                overflow: 'hidden',
-                backgroundColor: '#EEF2F6',
-                alignItems: 'center',
-                justifyContent: 'center',
-                height: 80,
-              }}>
-              <Ionicons name="document-text-outline" size={32} color="#8B5CF6" />
-              <Text numberOfLines={1} style={{ color: '#333', marginTop: 4, textAlign: 'center', paddingHorizontal: 12, fontSize: 11 }}>
-                {primaryMediaUrl.split('/').pop() || 'Document'}
-              </Text>
-              <Text style={{ color: '#aaa', fontSize: 9, marginTop: 1 }}>Tap to open</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      );
-    } else {
-      return null;
-    }
-  }, [getMediaType, currentVideoIndex]);
+
 
   // UPDATED: Get post status for display - FIXED to show REJECTED instead of PENDING
   const getPostStatus = (item: PostItem) => {
@@ -1675,6 +3712,10 @@ export default function ProfilePage(): React.JSX.Element {
         color: '#1DA1F2',
         bgColor: 'bg-blue-100'
       };
+    }
+    // ✅ ADD THIS BLOCK — check reported first
+    if (item.isReported && item.moderationStatus === 'pending-review') {
+      return { text: 'REPORTED', color: '#EF4444', bgColor: 'bg-red-100' };
     }
     
     if (item.isNew) {
@@ -1715,15 +3756,20 @@ export default function ProfilePage(): React.JSX.Element {
                 source={{ uri: item?.AuthorImageURL || profilePicUrl || dummyAuthorImage }}
                 className="w-full h-full"
                 resizeMode="cover"
+                resizeMethod="resize"
               />
             </View>
           </View>
           <View className="flex-1">
             <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text>
             <View className="flex-row items-center mt-0.5">
-              <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
+              {item.postType !== 'X-Data' && (
+                <View className="bg-blue-100 px-1 py-0.5 rounded-full mr-1.5">
+                  <Text className="text-blue-600 text-xs font-regular">• {item.contentType}</Text>
+                </View>
+              )}
               {item.postType === 'X-Data' && (
-                <View className="bg-blue-100 px-1.5 py-0.5 rounded-full mr-1.5">
+                <View className="bg-blue-100 px-0.5 py-0.5 rounded-full mr-1.5">
                   <Text className="text-blue-600 text-xs font-semibold">𝕏 POST</Text>
                 </View>
               )}
@@ -1736,123 +3782,177 @@ export default function ProfilePage(): React.JSX.Element {
               )}
             </View>
           </View>
-          <TouchableOpacity className="p-1.5 rounded-full bg-gray-100">
+              
+          <Text className="text-gray-500 text-xs mr-5">{getTimeAgo(item.ContentDate)}</Text>
+          <TouchableOpacity className="p-1.5 rounded-full bg-gray-100"
+            onPress={(event) => handleThreeDotsPress(item, event)}>
             <Ionicons name="ellipsis-horizontal" size={12} color="#64748b" />
           </TouchableOpacity>
         </View>
+
       </View>
 
       <View className="px-3 py-2.5">
-        <Text className="text-gray-800 text-sm leading-5 mb-2 font-normal">{item.ContentDesc}</Text>
+        <Text className="text-gray-800 text-sm leading-5 mb-2 font-normal">{renderStyledPostText(item.ContentDesc)}</Text>
+
+        {renderRepostContent(item)}
 
         {renderMediaContent(item, index)}
+        {/* ✅ ADD THIS — Reported Banner shown under post card */}
+        {item.isReported && item.moderationStatus === 'pending-review' && (
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#FEF2F2',
+            borderColor: '#FECACA',
+            borderWidth: 1,
+            borderRadius: 8,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            marginHorizontal: 12,
+            marginBottom: 10,
+            marginTop: 4,
+          }}>
+            <Ionicons name="flag" size={14} color="#EF4444" />
+            <View style={{ flex: 1, marginLeft: 8 }}>
+              <Text style={{ color: '#DC2626', fontSize: 12, fontWeight: '700' }}>
+                This post has been reported and is under review
+              </Text>
+              {item.reportReasons && item.reportReasons.length > 0 && (
+                <Text style={{ color: '#EF4444', fontSize: 11, marginTop: 2 }}>
+                  Reason: {item.reportReasons.join(', ')}
+                </Text>
+              )}
+            </View>
+            <View style={{
+              backgroundColor: '#EF4444',
+              borderRadius: 10,
+              paddingHorizontal: 6,
+              paddingVertical: 2,
+            }}>
+              <Text style={{ color: 'white', fontSize: 10, fontWeight: '700' }}>
+                {item.reportedBy?.length || 1} report{(item.reportedBy?.length || 1) > 1 ? 's' : ''}
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* UPDATED: Post Actions with DISABLED STATE for rejected posts */}
-        <View className="flex-row items-center justify-between pt-1.5">
-          {/* Like Button */}
-          <TouchableOpacity
-            className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-            onPress={(e) => {
-              e.stopPropagation();
-              toggleLike(item);
-            }}
-            activeOpacity={0.7}
-            disabled={areInteractionsDisabled(item)}
-          >
-            <Ionicons
-              name={item.Liked ? "heart" : "heart-outline"}
-              size={14}
-              color={item.Liked ? "#ef4444" : "#64748b"}
-            />
-            <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
-              {item.ContentLikeCount || 0}
-            </Text>
-          </TouchableOpacity>
+        <View className="flex-row items-center">
+              <View className="flex-1"> 
+                <View className="flex-row items-center mt-1.5">
 
-          {/* Comment Button */}
-          <TouchableOpacity
-            className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-            onPress={(e) => {
-              e.stopPropagation();
-              openCommentsModal(item);
-            }}
-            activeOpacity={0.7}
-            disabled={areInteractionsDisabled(item)}
-          >
-            <MaterialCommunityIcons
-              name="thumbs-up-down"
-              size={14}
-              color="#000000"
-            />
-            <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount || 0}</Text>
-          </TouchableOpacity>
+                  <TouchableOpacity
+                    className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      toggleLike(item);
+                    }}
+                    activeOpacity={0.7}
+                    disabled={areInteractionsDisabled(item)}
+                  >
+                    <Ionicons
+                      name={item.Liked ? "heart" : "heart-outline"}
+                      size={20}
+                      color={item.Liked ? "#ef4444" : "#64748b"}
+                    />
+                    <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
+                      {item.ContentLikeCount}
+                    </Text>
+                  </TouchableOpacity>
 
-          {/* Repost Button */}
-          <TouchableOpacity
-            className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-            onPress={(e) => {
-              e.stopPropagation();
-              handleRepost(item);
-            }}
-            activeOpacity={0.7}
-            disabled={areInteractionsDisabled(item)}
-          >
-            <Ionicons 
-              name="repeat-outline" 
-              size={14} 
-              color={item.Reposted ? "#0ea5e9" : "#64748b"} 
-            />
-            <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
-              {item.ContentRepostCount || 0}
-            </Text>
-          </TouchableOpacity>
+                  <TouchableOpacity
+                    className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      openCommentsModal(item);
+                    }}
+                    activeOpacity={0.7}
+                    disabled={areInteractionsDisabled(item)}
+                  >
+                    <MaterialCommunityIcons
+                      name="thumbs-up-down"
+                      size={20}
+                      color="#000000"
+                    />
+                    <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
+                  </TouchableOpacity>
+  
+                  <TouchableOpacity
+                    className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleRepost(item);
+                    }}
+                    activeOpacity={0.7}
+                    disabled={areInteractionsDisabled(item)}
+                  >
+                    <Ionicons 
+                      name="repeat-outline" 
+                      size={20} 
+                      color={item.Reposted ? "#0ea5e9" : "#64748b"} 
+                    />
+                    <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
+                      {item.ContentRepostCount}
+                    </Text>
+                  </TouchableOpacity>
 
-          {/* Analytics/Graph Button */}
-          <TouchableOpacity 
-            className={`p-1.5 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-            onPress={(e) => {
-              e.stopPropagation();
-              openGraphModal(item);
-            }}
-            activeOpacity={0.7}
-            disabled={areInteractionsDisabled(item)}
-          >
-            <Feather name="bar-chart-2" size={14} color="#64748b" />
-          </TouchableOpacity>
+                  {/* Graph/Sentiment with View Count - LIKE X/TWITTER */}
+                  {/* GRAPH WITH VIEW COUNT LIKE X/TWITTER */}
+                  <TouchableOpacity
+                    className="flex-row items-center mr-4 px-1.5 py-1"
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      openGraphModal(item);
+                    }}
+                    activeOpacity={0.7}
+                    disabled={areInteractionsDisabled(item)}
+                  >
+                    <Feather name="bar-chart-2" size={20} color="#64748b" />
+                    {item.ContentViewCount !== undefined && item.ContentViewCount > 0 && (
+                      <Text className="text-gray-600 ml-1.5 text-xs font-medium">
+                        {formatViewCount(item.ContentViewCount)}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+          
+              </View>
 
-          {/* Bookmark Button */}
-          <TouchableOpacity
-            className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-            onPress={(e) => {
-              e.stopPropagation();
-              handleBookmark(item);
-            }}
-            activeOpacity={0.7}
-            disabled={areInteractionsDisabled(item)}
-          >
-            <Ionicons 
-              name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
-              size={14} 
-              color={item.Bookmarked ? "#000000" : "#64748b"} 
-            />
-          </TouchableOpacity>
+              <View className="flex-row items-center mt-1.5">
+                <TouchableOpacity
+                  className={`flex-row items-center mr-5 px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleBookmark(item);
+                  }}
+                  activeOpacity={0.7}
+                  disabled={areInteractionsDisabled(item)}
+                >
+                  <Ionicons 
+                    name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
+                    size={20} 
+                    color={item.Bookmarked ? "#000000" : "#64748b"} 
+                  />
+                </TouchableOpacity>
+  
+                <TouchableOpacity 
+                  className={`mr-2 p-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleSharePost(item);
+                  }}
+                  activeOpacity={0.7}
+                  disabled={areInteractionsDisabled(item)}
+                >
+                  <Feather name="share-2" size={20} color="#64748b" />
+                </TouchableOpacity>
+                </View>
 
-          {/* Share Button */}
-          <TouchableOpacity
-            className={`flex-row items-center px-1.5 py-1 ${areInteractionsDisabled(item) ? 'opacity-50' : ''}`}
-            onPress={(e) => {
-              e.stopPropagation();
-              handleSharePost(item);
-            }}
-            activeOpacity={0.7}
-            disabled={areInteractionsDisabled(item)}
-          >
-            <Feather name="share-2" size={16} color="#64748b" />
-          </TouchableOpacity>
-        </View>
+            </View>
       </View>
     </TouchableOpacity>
-  ), [openCommentsModal, toggleLike, handleRepost, handleBookmark, handleSharePost, openGraphModal, renderMediaContent, getTimeAgo, getPostStatus, profilePicUrl, dummyAuthorImage, areInteractionsDisabled]);
+  ), [openCommentsModal, toggleLike, handleRepost, handleBookmark, handleSharePost, openGraphModal, renderMediaContent, getTimeAgo, getPostStatus, profilePicUrl, dummyAuthorImage, areInteractionsDisabled, renderRepostContent]);
 
   // Refresh function
   const onRefresh = useCallback(async () => {
@@ -1883,6 +3983,7 @@ export default function ProfilePage(): React.JSX.Element {
       ]);
       console.log('✅ User data cleared');
       setShowAccountModal(false);
+      // socialSignOut();
       
       showCustomAlert(
         'success',
@@ -1955,69 +4056,74 @@ export default function ProfilePage(): React.JSX.Element {
   };
 
   const handleAppSettings = () => {
-    setShowAccountModal(false);
-    showCustomAlert(
-      'info',
-      'Coming Soon',
-      'App settings feature is under development and will be available soon.',
-      [
-        {
-          text: 'OK',
-          onPress: hideModal
-        }
-      ]
-    );
-  };
-
+  setShowAccountModal(false);
+  hideModal();
+  setShowAppInfo(true); // Open App Info Modal
+};
   const handleHelpSupport = () => {
     setShowAccountModal(false);
-    showCustomAlert(
-      'info',
-      'Help & Support',
-      'Need help? Please contact our support team at support@sentinel.com or visit our FAQ section.',
-      [
-        {
-          text: 'Contact Support',
-          onPress: () => {
-            hideModal();
-            console.log('Contact support');
-          }
-        },
-        {
-          text: 'View FAQ',
-          onPress: () => {
-            hideModal();
-            handleFAQ();
-          }
-        }
-      ]
-    );
+    hideModal();
+    setShowHelpScreen(true); // open App Guide
   };
+
+
+  // const handleHelpSupport = () => {
+  // setShowAccountModal(false);
+  // showCustomAlert(
+  //   'info',
+  //   'Help & Support',
+  //   'Need help? Please contact our support team at IronExSafe@gmail.com or visit our FAQ section.',
+  //   [
+  //     {
+  //       text: 'Contact Support',
+  //       onPress: () => {
+  //         hideModal();
+  //         // Show the contact support alert
+  //         showCustomAlert(
+  //           'info',
+  //           'Contact Support',
+  //           'You can reach our support team at IronExSafe@gmail.com',
+  //           [
+  //             {
+  //               text: 'OK',
+  //               onPress: hideModal
+  //             }
+  //           ]
+  //         );
+  //       }
+  //     },
+  //     {
+  //       text: 'View FAQ',
+  //       onPress: () => {
+  //         hideModal();
+  //         handleFAQ();
+  //       }
+  //     }
+  //   ]
+  // );
+  // };
+
 
   const handleFAQ = () => {
     setShowAccountModal(false);
     setShowFAQModal(true);
   };
 
+  const handlePasswordVerified = () => {
+  console.log('✅ [Profile] Password verified, opening edit profile...');
+  setEditVisible(true); // Now open the edit profile modal
+  };
+
   const handleEditProfile = () => {
-    showCustomAlert(
-      'info',
-      'Edit Profile',
-      'Profile editing feature is coming soon! You will be able to update your profile picture, bio, and other details.',
-      [
-        {
-          text: 'OK',
-          onPress: hideModal
-        }
-      ]
-    );
+  console.log('📝 [Profile] Opening password verification...');
+  setShowPasswordVerify(true); // Show password verification first
   };
 
   const handleShareProfile = () => {
     showCustomAlert(
-      'success',
+      'info',
       'Share Profile',
-      'Your profile link has been copied to clipboard! You can now share it with others.',
+      'Sharing feature is coming soon! You will be able to share your profile with others via social media and messaging apps.',
       [
         {
           text: 'OK',
@@ -2050,6 +4156,32 @@ export default function ProfilePage(): React.JSX.Element {
     return userPosts.find(post => post.id === selectedGraphPostId && post.postType === selectedGraphPostType);
   }, [userPosts, selectedGraphPostId, selectedGraphPostType]);
 
+  const socialSignOut = async () => {
+    const clientId = "u2868f22cqiddetr6db89237d";
+    const cognitoDomain = "https://us-east-27yy7pjbe8.auth.us-east-2.amazoncognito.com";
+    
+    // 1. Define the logout redirect (Must match AWS Console)
+    const logoutUri = makeRedirectUri({
+      scheme: "frontend", 
+    });
+  
+    // 2. Construct the Logout URL
+    const logoutUrl = `${cognitoDomain}/logout?client_id=${clientId}&logout_uri=${encodeURIComponent(logoutUri)}`;
+  
+    try {
+      // 3. Open the browser to clear the Cognito session
+      // This will prompt "App wants to use amazon-auth... to Sign In" 
+      // (This is normal for iOS/Android OIDC logout flows)
+      await WebBrowser.openAuthSessionAsync(logoutUrl, logoutUri, {preferEphemeralSession: true});
+      
+      // 4. Clear your local state
+      // setTokens(null); 
+      console.log("Logged out successfully");
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
@@ -2078,65 +4210,114 @@ export default function ProfilePage(): React.JSX.Element {
             tintColor="#8B5CF6"
           />
         }
-        onScroll={({ nativeEvent }) => {
-          const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
-          const paddingToBottom = 20;
-          if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
-            handleLoadMore();
-          }
-        }}
-        scrollEventThrottle={400}
+        onScroll={handleScroll}  // ✅ ADD THIS
+        scrollEventThrottle={16}  // ✅ ADD THIS
+        // onScroll={({ nativeEvent }) => {
+        //   const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+        //   const paddingToBottom = 20;
+        //   if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
+        //     handleLoadMore();
+        //   }
+        // }}
+        // scrollEventThrottle={400}
       >
-        {/* Profile Section - NEW HORIZONTAL LAYOUT */}
-        <View className="bg-white mx-4 mt-4 rounded-2xl shadow-sm border border-gray-100">
-          <View className="px-6 py-8">
-            {/* Profile Header - Horizontal Layout with Image on Left */}
-            <View className="flex-row items-center mb-6">
-              {/* Profile Picture - Left Side */}
-              <TouchableOpacity
-                onPress={handleProfilePictureUpload}
-                disabled={isUploading}
-                className="relative mr-4"
-              >
-                <View className="w-20 h-20 rounded-full overflow-hidden bg-black items-center justify-center shadow-lg">
-                  {profilePicUrl ? (
-                    <Image 
-                      source={{ uri: getFullImageUrl(profilePicUrl) }}
-                      className="w-full h-full"
-                      style={{ resizeMode: 'cover' }}
-                    />
-                  ) : (
-                    <Ionicons name="person" size={32} color="white" />
-                  )}
+        <View style={{ flex: 1 }}>
+        {/* Your normal screen content */}
+          <View>
+            {/* Profile Section - NEW HORIZONTAL LAYOUT */}
+            <View className="bg-white mx-4 mt-4 rounded-2xl shadow-sm border border-gray-100">
+              <View className="px-6 py-8">
+              {/* Profile Header - Horizontal Layout with Image on Left */}
+                <View className="flex-row items-center mb-6">
+                {/* Profile Picture - Left Side */}
+                  <TouchableOpacity
+                    onPress={handleProfilePictureUpload}
+                    disabled={isUploading}
+                    className="relative mr-4"
+                  >
+                    <View className="w-20 h-20 rounded-full overflow-hidden bg-black items-center justify-center shadow-lg">
+                      {profilePicUrl ? (
+                        <Image 
+                          source={{ uri: getFullImageUrl(profilePicUrl) }}
+                          className="w-full h-full"
+                          style={{ resizeMode: 'cover' }}
+                          resizeMethod="resize"
+                        />
+                      ) : (
+                        <Ionicons name="person" size={32} color="white" />
+                      )}
                   
-                  {/* Loading overlay */}
-                  {isUploading && (
-                    <View className="absolute inset-0 bg-black/50 items-center justify-center">
-                      <ActivityIndicator size="small" color="white" />
+                      {/* Loading overlay */}
+                      {isUploading && (
+                        <View className="absolute inset-0 bg-black/50 items-center justify-center">
+                          <ActivityIndicator size="small" color="white" />
+                        </View>
+                      )}
                     </View>
-                  )}
-                </View>
                 
-                {/* Edit icon - smaller for horizontal layout */}
-                <View className="absolute -bottom-1 -right-1 w-7 h-7 bg-black rounded-full items-center justify-center border-2 border-white shadow-md">
-                  {isUploading ? (
-                    <ActivityIndicator size={14} color="white" />
-                  ) : (
-                    <Ionicons name="pencil" size={14} color="white" />
-                  )}
-                </View>
-              </TouchableOpacity>
+                    {/* Edit icon - smaller for horizontal layout */}
+                    <View className="absolute -bottom-1 -right-1 w-7 h-7 bg-black rounded-full items-center justify-center border-2 border-white shadow-md">
+                      {isUploading ? (
+                        <ActivityIndicator size={14} color="white" />
+                      ) : (
+                        <Ionicons name="pencil" size={14} color="white" />
+                      )}
+                    </View>
+                  </TouchableOpacity>
 
-              {/* Name and Username - Next to Image */}
-              <View className="flex-1">
-                <Text className="text-xl font-bold text-gray-900 mb-1">
-                  {userName || userNickName || 'User'}
-                </Text>
-                <Text className="text-gray-500 text-base">
-                  @{userNickName || userName || 'username'}
-                </Text>
-              </View>
-            </View>
+                  {/* Name and Username - Next to Image */}
+                  <View className="flex-1 mr-2">
+                    <Text className="text-xl font-bold text-gray-900 mb-1">
+                      {userName || userNickName || 'User'}
+                    </Text>
+                    <Text className="text-gray-500 text-base">
+                      @{userNickName || userName || 'username'}
+                    </Text>
+                  </View>
+
+                  {/* Action Buttons */}
+                  <View className="flex-row space-x-2">
+                    <View className="flex-row space-x-2">
+                      <View>
+                        <TouchableOpacity 
+                          className="flex-1 bg-gray-900 py-2 px-3 rounded-xl"
+                          onPress={handleEditProfile}  // ✅ Correct - Opens password modal first
+                        >
+                          <Text className="text-white font-semibold text-center text-base">
+                            Edit Profile
+                          </Text>
+                        </TouchableOpacity>
+
+                        {/* Password Verification Modal */}
+                        <PasswordVerificationModal
+                          visible={showPasswordVerify}
+                          onClose={() => setShowPasswordVerify(false)}
+                          onSuccess={handlePasswordVerified}
+                        />
+
+                        {/* Edit Profile Screen - Opens after password verification */}
+                        {userData && (
+                          <EditProfileScreen
+                            visible={editVisible}
+                            onClose={() => setEditVisible(false)}
+                            onSuccess={(data) => {
+                              console.log('Profile updated, refreshing display...');
+                              loadProfileData();
+                              Toast.show({
+                                type: 'success',
+                                text1: 'Profile Updated',
+                                text2: 'Your profile has been updated successfully.',
+                                position: 'bottom',
+                                visibilityTime: 1000,
+                              });
+                            }}
+                          />
+                        )}
+                      </View>
+                      
+                    </View>
+                  </View>
+                </View>
 
             {/* Stats Section - Below Profile Header */}
             {/* <View className="flex-row justify-around py-4 border-t border-b border-gray-100 mb-6">
@@ -2155,27 +4336,10 @@ export default function ProfilePage(): React.JSX.Element {
             </View> */}
 
             {/* Bio Section - Below Stats */}
-            <View className="mb-6">
+            <View className="mb-1">
               <Text className="text-gray-700 leading-6 text-justify">
-                Welcome to my profile! I love sharing moments and connecting with amazing people. 
-                Let's create something beautiful together! ✨
+                {userBio || "Welcome to my profile! I love sharing moments and connecting with amazing people. Let's create something beautiful together! ✨"}
               </Text>
-            </View>
-
-            {/* Action Buttons - Below Bio */}
-            <View className="flex-row space-x-4 mb-4">
-              <TouchableOpacity 
-                className="flex-1 bg-gray-900 py-4 px-6 rounded-xl mr-4"
-                onPress={handleEditProfile}
-              >
-                <Text className="text-white font-semibold text-center text-base">Edit Profile</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                className="flex-1 border-2 border-gray-200 py-4 px-6 rounded-xl bg-white"
-                onPress={handleShareProfile}
-              >
-                <Text className="text-gray-900 font-semibold text-center text-base">Share Profile</Text>
-              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -2220,7 +4384,19 @@ export default function ProfilePage(): React.JSX.Element {
 
         {/* Bottom spacing */}
         <View style={{ height: 80 }} />
+          </View>
+        <LoadingDeleteOverlay visible={isDeleting} message="Deleting Account..." />
+        </View>
+        
       </ScrollView>
+
+      <RepostModal
+        visible={isRepostModalVisible}
+        onClose={closeRepostModal}
+        post={selectedRepostPost}
+        onSimpleRepost={handleSimpleRepost}
+        onQuoteRepost={handleQuoteRepost}
+      />
 
       {/* Comments Modal */}
       {selectedPostId && selectedPostType && selectedPostData && (
@@ -2281,6 +4457,7 @@ export default function ProfilePage(): React.JSX.Element {
                       source={{ uri: getFullImageUrl(profilePicUrl) }}
                       className="w-full h-full"
                       style={{ resizeMode: 'cover' }}
+                      resizeMethod="resize"
                     />
                   ) : (
                     <Ionicons name="person" size={24} color="white" />
@@ -2294,7 +4471,7 @@ export default function ProfilePage(): React.JSX.Element {
 
               {/* Menu Options */}
               <View className="space-y-2">
-                <TouchableOpacity 
+                {/* <TouchableOpacity 
                   onPress={handleProfileSettings}
                   className="flex-row items-center p-4 rounded-xl active:bg-gray-50"
                 >
@@ -2303,7 +4480,7 @@ export default function ProfilePage(): React.JSX.Element {
                   </View>
                   <Text className="flex-1 text-gray-900 font-medium">Profile Settings</Text>
                   <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
-                </TouchableOpacity>
+                </TouchableOpacity> */}
                 <TouchableOpacity 
                   onPress={handleAppSettings}
                   className="flex-row items-center p-4 rounded-xl active:bg-gray-50"
@@ -2311,20 +4488,23 @@ export default function ProfilePage(): React.JSX.Element {
                   <View className="w-10 h-10 bg-green-100 rounded-full items-center justify-center mr-4">
                     <Ionicons name="settings-outline" size={20} color="#10B981" />
                   </View>
-                  <Text className="flex-1 text-gray-900 font-medium">App Settings</Text>
+                  <Text className="flex-1 text-gray-900 font-medium">App Info</Text>
                   <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
                 </TouchableOpacity>
-                <TouchableOpacity 
+                <TouchableOpacity
                   onPress={handleHelpSupport}
                   className="flex-row items-center p-4 rounded-xl active:bg-gray-50"
                 >
                   <View className="w-10 h-10 bg-orange-100 rounded-full items-center justify-center mr-4">
                     <Ionicons name="help-circle-outline" size={20} color="#F59E0B" />
                   </View>
-                  <Text className="flex-1 text-gray-900 font-medium">Help & Support</Text>
+                  <Text className="flex-1 text-gray-900 font-medium">
+                    App Guide
+                  </Text>
                   <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
                 </TouchableOpacity>
-                {/* FAQ Option */}
+
+                { /* FAQ Option */ }
                 <TouchableOpacity 
                   onPress={handleFAQ}
                   className="flex-row items-center p-4 rounded-xl active:bg-gray-50"
@@ -2335,6 +4515,31 @@ export default function ProfilePage(): React.JSX.Element {
                   <Text className="flex-1 text-gray-900 font-medium">F A Q</Text>
                   <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
                 </TouchableOpacity>
+                {/* Blocked Users Option */}
+                  <TouchableOpacity 
+                    onPress={handleBlockedUsers}
+                    className="flex-row items-center p-4 rounded-xl active:bg-gray-50"
+                  >
+                    <View className="w-10 h-10 bg-orange-100 rounded-full items-center justify-center mr-4">
+                      <Ionicons name="ban-outline" size={20} color="#F97316" />
+                    </View>
+                    <Text className="flex-1 text-gray-900 font-medium">Blocked Users</Text>
+                    <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+                  </TouchableOpacity>
+
+
+                {/* Delete/Deactivate Account Option */}
+                <TouchableOpacity 
+                  onPress={handleDeleteAccount}
+                  className="flex-row items-center p-4 rounded-xl active:bg-gray-50"
+                >
+                  <View className="w-10 h-10 bg-red-100 rounded-full items-center justify-center mr-4">
+                    <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                  </View>
+                  <Text className="flex-1 text-gray-900 font-medium">Delete Account</Text>
+                  <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+                </TouchableOpacity>
+
                 {/* Divider */}
                 <View className="h-px bg-gray-200 my-2" />
                 {/* Logout Button */}
@@ -2358,13 +4563,13 @@ export default function ProfilePage(): React.JSX.Element {
       <Modal
         visible={showFAQModal}
         animationType="slide"
-        presentationStyle="fullScreen"
+        // presentationStyle="fullScreen"
         onRequestClose={() => setShowFAQModal(false)}
       >
         <SafeAreaView className="flex-1 bg-white">
           <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
           {/* FAQ Header with close icon and FAQ title */}
-          <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
+          <View className="flex-row items-center justify-between px-5 pt-20 border-b border-gray-100">
             <Text className="text-2xl font-bold text-black">F A Q</Text>
             <TouchableOpacity 
               onPress={() => setShowFAQModal(false)}
@@ -2388,10 +4593,11 @@ export default function ProfilePage(): React.JSX.Element {
               <TouchableOpacity 
                 className="bg-black py-3 px-6 rounded-lg items-center mb-8"
                 onPress={() => {
+                  setShowFAQModal(false);
                   showCustomAlert(
                     'info',
                     'Contact Support',
-                    'You can reach our support team at support@sentinel.com or through our in-app chat feature.',
+                    'You can reach our support team at IronExSafe@gmail.com',
                     [
                       {
                         text: 'OK',
@@ -2418,14 +4624,349 @@ export default function ProfilePage(): React.JSX.Element {
         buttons={modalConfig.buttons}
         onClose={hideModal}
       />
+      <Modal
+        visible={showHelpScreen}
+        animationType="slide"
+        // presentationStyle="fullScreen"
+        onRequestClose={() => setShowHelpScreen(false)}
+      >
+        <SafeAreaView className="flex-1 bg-white">
+         <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+         <HelpScreen onClose={() => setShowHelpScreen(false)} />
+        </SafeAreaView>
+        
+      </Modal>
+      <PasswordVerificationModal
+        visible={showPasswordVerify}
+        onClose={() => setShowPasswordVerify(false)}
+        onSuccess={handlePasswordVerified}
+      />
 
       {/* Toast Notification */}
-      <Toast
+      <AppToast
         visible={toast.visible}
         message={toast.message}
         type={toast.type}
         onHide={hideToast}
       />
+
+      {/* Three Dots Menu Modal */}
+      {/* Three Dots Menu Modal */}
+      {/* Three Dots Menu Modal */}
+      {showMenuModal && (
+        <Modal
+          visible={showMenuModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowMenuModal(false)}
+        >
+          <TouchableOpacity
+            style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+            activeOpacity={1}
+            onPress={() => setShowMenuModal(false)}
+          >
+            <View
+              style={{
+                position: 'absolute',
+                top: menuPosition.y,
+                left: menuPosition.x,
+                backgroundColor: '#fff',
+                borderRadius: 12,
+                paddingVertical: 8,
+                minWidth: 160,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 12,
+                elevation: 8,
+              }}
+            >
+              {/* Edit Button - Only show if post is "new" */}
+              {(() => {
+                const currentPost = userPosts.find(item => item.id === selectedPostId);
+                if (currentPost?.isNew && !currentPost?.isReported) {
+                  return (
+                    <>
+                      <TouchableOpacity
+                        onPress={() => {
+                          if (selectedPostId) {
+                            handleEditPost(selectedPostId);
+                          }
+                        }}
+                        style={{
+                          paddingHorizontal: 16,
+                          paddingVertical: 12,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Ionicons name="pencil" size={16} color="#007AFF" />
+                        <Text style={{ marginLeft: 10, fontSize: 14, color: '#007AFF' }}>
+                          Edit
+                        </Text>
+                      </TouchableOpacity>
+                      <View style={{ height: 0.5, backgroundColor: '#e5e5e5', marginHorizontal: 8 }} />
+                    </>
+                  );
+                }
+                return null;
+              })()}
+
+              {/* Delete Button */}
+              <TouchableOpacity
+                onPress={() => {
+                  if (selectedPostId) {
+                    handleDeletePost(selectedPostId);
+                  }
+                }}
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                }}
+              >
+                <Ionicons name="trash" size={16} color="#FF3B30" />
+                <Text style={{ marginLeft: 10, fontSize: 14, color: '#FF3B30' }}>
+                  Delete
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      )}
+      {/* DELETE POST MODAL */}
+        <CustomModal
+          visible={isDeleteModalVisible}
+          type="warning"
+          title="Delete Post"
+          message="Are you sure you want to delete this post? This action cannot be undone."
+          buttons={[
+            {
+              text: "Cancel",
+              style: "cancel",
+              onPress: () => {
+                setIsDeleteModalVisible(false);
+                setPostToDelete(null);
+                 setShowMenuModal(false);
+              }
+            },
+            {
+              text: "Delete",
+              style: "destructive",
+              onPress: confirmDeletePost
+            }
+          ]}
+          onClose={() => {
+            setIsDeleteModalVisible(false);
+            setPostToDelete(null);
+             setShowMenuModal(false);
+          }}
+        />
+
+
+      {/* IMAGE MODAL */}
+      <Modal
+        visible={isImageModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeFullScreenImage}
+        statusBarTranslucent
+      >
+        <View className="flex-1 bg-black">
+          <TouchableOpacity 
+            className="absolute top-12 right-6 z-10 p-3 rounded-full bg-black/60 backdrop-blur-sm"
+            onPress={closeFullScreenImage}
+          >
+            <Ionicons name="close" size={24} color="white" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            className="flex-1 justify-center items-center"
+            activeOpacity={1}
+            onPress={closeFullScreenImage}
+          >
+            {fullScreenImage && (
+              <Image
+                source={{ uri: fullScreenImage }}
+                style={{
+                  width: '100%',
+                  height: '100%', // Fills the parent View
+                }}
+                // No className here, as the background image is now handled by the other Image
+                resizeMode="contain" // Ensures the full foreground image is visible
+                resizeMethod="resize"
+                onError={(error) => {
+                  console.log("Image load error:", error.nativeEvent.error);
+                }}
+              />
+            )}
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* VIDEO MODAL - UPDATED */}
+      <Modal
+        visible={isVideoModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeFullScreenVideo}
+        statusBarTranslucent
+      >
+        <View className="flex-1 bg-black">
+          <TouchableOpacity 
+            className="absolute top-12 right-6 z-10 p-3 rounded-full bg-black/60 backdrop-blur-sm"
+            onPress={closeFullScreenVideo}
+          >
+            <Ionicons name="close" size={24} color="white" />
+          </TouchableOpacity>
+          
+          <View className="flex-1 justify-center items-center">
+            {fullScreenVideo && (
+              <VideoView
+                player={fullScreenVideoPlayer}
+                style={{ width: screenWidth, height: screenHeight - 100 }}
+                contentFit="contain"
+                nativeControls={true}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Post Modal */}
+        <Modal
+          visible={isEditModalVisible}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={handleCancelEdit}
+          statusBarTranslucent
+        >
+          <View className="flex-1 bg-black/50 justify-end">
+            <View className="bg-white rounded-t-3xl" style={{ maxHeight: screenHeight * 0.85 }}>
+              {/* Header */}
+              <View className="px-6 py-4 border-b border-gray-200 flex-row items-center justify-between">
+                <TouchableOpacity
+                  onPress={handleCancelEdit}
+                  className="p-2"
+                >
+                  <Text className="text-blue-500 font-semibold text-base">Cancel</Text>
+                </TouchableOpacity>
+                
+                <Text className="text-lg font-bold text-gray-900">Edit Post</Text>
+                
+                <TouchableOpacity
+                  onPress={handleSaveEditPost}
+                  className="p-2"
+                >
+                  <Text className="text-blue-500 font-semibold text-base">Save</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Edit Status Badge */}
+              <View className="px-6 py-3 bg-yellow-50 border-b border-yellow-100">
+                <View className="flex-row items-center">
+                  <Ionicons name="information-circle" size={18} color="#F59E0B" />
+                  <Text className="ml-2 text-yellow-700 text-sm font-medium">
+                    Editing "New" Status Post
+                  </Text>
+                </View>
+                <Text className="text-yellow-600 text-xs mt-1 ml-7">
+                  Once approved, this post cannot be edited
+                </Text>
+              </View>
+
+              {/* Content Editor */}
+              <ScrollView className="px-6 py-4" showsVerticalScrollIndicator={false}>
+                <Text className="text-gray-700 font-semibold mb-2">Post Content</Text>
+                <TextInput
+                  className="border border-gray-300 rounded-xl p-4 text-gray-900 min-h-[200px]"
+                  placeholder="Write your post content..."
+                  placeholderTextColor="#9CA3AF"
+                  multiline
+                  textAlignVertical="top"
+                  value={editPostContent}
+                  onChangeText={setEditPostContent}
+                  maxLength={2000}
+                  autoFocus
+                />
+                <View className="flex-row justify-between mt-2">
+                  <Text className="text-xs text-gray-500">
+                    {editPostContent.length}/2000 characters
+                  </Text>
+                  {editPostData && editPostContent !== editPostData.ContentDesc && (
+                    <Text className="text-xs text-blue-500 font-medium">
+                      * Modified
+                    </Text>
+                  )}
+                </View>
+
+                {/* Original Media Preview (Read-only) */}
+                {editPostData && (editPostData.ContentURL || editPostData.ContentURLs) && (
+                  <View className="mt-4">
+                    <Text className="text-gray-700 font-semibold mb-2">Attached Media</Text>
+                    <View className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                      <View className="flex-row items-center">
+                        <Ionicons name="image-outline" size={20} color="#64748B" />
+                        <Text className="ml-2 text-gray-600 text-sm">
+                          Media cannot be edited
+                        </Text>
+                      </View>
+                      {renderMediaContent(editPostData)}
+                    </View>
+                  </View>
+                )}
+              </ScrollView>
+
+              {/* Bottom Action Buttons */}
+              <View className="px-6 py-4 border-t border-gray-200">
+                <View className="flex-row" style={{ gap: 12 }}>
+                  <TouchableOpacity
+                    className="flex-1 py-4 px-6 rounded-xl bg-gray-200"
+                    onPress={handleCancelEdit}
+                    activeOpacity={0.8}
+                  >
+                    <Text className="text-gray-700 font-semibold text-center text-base">
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    className={`flex-1 py-4 px-6 rounded-xl ${
+                      editPostContent.trim() === "" ? "bg-gray-300" : "bg-black"
+                    }`}
+                    onPress={handleSaveEditPost}
+                    activeOpacity={0.8}
+                    disabled={editPostContent.trim() === ""}
+                    style={{
+                      shadowColor: editPostContent.trim() !== "" ? "#000" : "transparent",
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.3,
+                      shadowRadius: 8,
+                      elevation: editPostContent.trim() !== "" ? 6 : 0,
+                    }}
+                  >
+                    <Text
+                      className={`font-semibold text-center text-base ${
+                        editPostContent.trim() === "" ? "text-gray-500" : "text-white"
+                      }`}
+                    >
+                      Save Changes
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </View>
+        </Modal>
+        <AppInfoModal 
+        visible={showAppInfo} 
+        onClose={() => setShowAppInfo(false)} 
+      />
+
+    {/* <Toast config={toastConfig} /> */}
+    
+
     </SafeAreaView>
   );
 }
@@ -2436,3 +4977,7 @@ const styles = StyleSheet.create({
     width: '100%' 
   },
 });
+
+function setUserCountry(arg0: string) {
+  throw new Error('Function not implemented.');
+}

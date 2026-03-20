@@ -1,24 +1,29 @@
 {
   "expo": {
-    "name": "Sentinel",
+    "name": "IronEx",
     "slug": "frontend",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
-    "icon": "./assets/images/sentinel_logo.png",
+    "icon": "./assets/images/new_logo.png",
     "scheme": "frontend",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.frontend"
+      "bundleIdentifier": "in.thoughtverve.sentinel",
+      "icon": "./assets/images/new_logo.png",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/sentinel_logo.png",
+        "foregroundImage": "./assets/images/new_logo.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.frontend"
+      "package": "in.thoughtverve.sentinel",
+      "icon": "./assets/images/new_logo.png",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "bundler": "metro",
@@ -30,15 +35,23 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/sentinel_logo.png",
+          "image": "./assets/images/new_logo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
       ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/new_logo.png",
+          "color": "#ffffff"
+        }
+      ],
       "react-native-compressor",
       "expo-font",
-      "expo-video"
+      "expo-video",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
@@ -46,7 +59,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "7929b56b-fdaf-4894-9b78-3e25f380baee"
+        "projectId": "f2c0d22d-ee3d-4ebe-8cc8-fabfb1bb3c8f"
       }
     }
   }

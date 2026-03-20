@@ -1,7 +1,8 @@
 import { db } from '@/FirebaseConfig';
 import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ResizeMode, Video } from 'expo-av';
+import { router, useRouter } from 'expo-router';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import {
   addDoc,
   collection,
@@ -19,7 +20,9 @@ import { useCallback, useEffect, useReducer, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   Image,
+  Linking,
   Modal,
   Platform,
   ScrollView,
@@ -29,7 +32,10 @@ import {
   View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { InstagramMediaCarousel } from './MediaCarousel';
 import TotalSentiment from './TotalSentiment';
+
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 interface Comment {
   id: string;
@@ -63,6 +69,8 @@ interface PostData {
   AuthorImageURL: string;
   AuthorName: string;
   AuthorUsername?: string;
+  AuthorUserID?: string;
+  AuthorBio: string;
   ContentDate: string;
   ContentDesc: string;
   ContentURL: string;
@@ -74,6 +82,8 @@ interface PostData {
   Liked: boolean;
   Reposted: boolean;
   CommentTemplate: string,
+  isAnonymous: boolean,
+  contentType: string;
 }
 
 interface CommentScreenProps {
@@ -83,15 +93,252 @@ interface CommentScreenProps {
   postType: string | null;
   postData: PostData | undefined;
   commentTemplate: string | null;
+  onNavigateToProfile?: (userId: string, authorName: string, authorImageUrl: string) => void;
 }
 
-// Response options matching the image design
-let RESPONSE_OPTIONS = [
-  // { id: 'agree', label: 'Agree', icon: '👍', color: '#34C759' },
-  // { id: 'disagree', label: 'Disagree', icon: '🚫', color: '#FF3B30' },
-  // { id: 'support', label: 'I Support This', icon: '⭐', color: '#FF9500' },
-  // { id: 'hate', label: 'Hate Speech', icon: '😡', color: '#FF3B30' }
-];
+interface TemplateResponseType
+ {
+  success: boolean;
+  message: string;
+  templateName?: string;
+}
+
+let RESPONSE_OPTIONS: any[] = [];
+
+const renderStyledPostText = (text) => {
+  if (!text) return null;
+
+  const urlPattern = /(https?:\/\/[^\s]+)|(www\.[^\s]+)/gi;
+  const hashtagPattern = /(^|\s)(#[a-zA-Z0-9_]+)/g;
+
+  const urlMatches = [];
+  const hashtagMatches = [];
+  let match;
+
+  while ((match = urlPattern.exec(text)) !== null) {
+    urlMatches.push({
+      type: "url",
+      text: match[0],
+      index: match.index,
+      length: match[0].length,
+    });
+  }
+
+  while ((match = hashtagPattern.exec(text)) !== null) {
+    hashtagMatches.push({
+      type: "hashtag",
+      text: match[2],
+      index: match.index + match[1].length,
+      length: match[2].length,
+    });
+  }
+
+  const allMatches = [...urlMatches, ...hashtagMatches].sort((a, b) => a.index - b.index);
+
+  if (allMatches.length === 0) {
+    return <Text style={{ color: "#111827" }}>{text}</Text>;
+  }
+
+  const components = [];
+  let lastIndex = 0;
+
+  allMatches.forEach((match, i) => {
+    if (match.index > lastIndex) {
+      components.push(
+        <Text key={`text-${i}`} style={{ color: "#111827" }}>
+          {text.substring(lastIndex, match.index)}
+        </Text>
+      );
+    }
+
+    if (match.type === "url") {
+      components.push(
+        <Text
+          key={`url-${i}`}
+          style={{ color: "#2563EB", textDecorationLine: "underline", fontWeight: "500" }}
+          onPress={() => {
+            const url = match.text.startsWith("http") ? match.text : `https://${match.text}`;
+            Linking.openURL(url);
+          }}
+        >
+          {match.text}
+        </Text>
+      );
+    } else if (match.type === "hashtag") {
+      components.push(
+        <TouchableOpacity
+          key={`hashtag-${i}`}
+          onPress={() => {
+            alert("Hashtag tapped: " + match.text);
+          }}
+        >
+          <Text
+            style={{
+              color: "#E6161A",
+              fontWeight: "bold",
+              backgroundColor: "#FEE2E2",
+              paddingHorizontal: 2,
+              borderRadius: 2,
+            }}
+          >
+            {match.text}
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+    lastIndex = match.index + match.length;
+  });
+
+  if (lastIndex < text.length) {
+    components.push(
+      <Text key="end" style={{ color: "#111827" }}>
+        {text.substring(lastIndex)}
+      </Text>
+    );
+  }
+
+  return components;
+};
+// Add this CustomModal component
+interface CustomModalProps {
+  visible: boolean;
+  type: 'success' | 'error' | 'info' | 'warning';
+  title: string;
+  message: string;
+  buttons: Array<{
+    text: string;
+    onPress: () => void;
+    style?: 'default' | 'cancel' | 'destructive';
+  }>;
+  onClose?: () => void;
+}
+
+const CustomModal: React.FC<CustomModalProps> = ({ 
+  visible, 
+  type, 
+  title, 
+  message, 
+  buttons, 
+  onClose 
+}) => {
+  const getModalStyle = () => {
+    switch (type) {
+      case 'success':
+        return { iconName: 'checkmark-circle' as const, iconColor: '#22C55E', iconBg: '#dcfce7' };
+      case 'error':
+        return { iconName: 'close-circle' as const, iconColor: '#EF4444', iconBg: '#fee2e2' };
+      case 'warning':
+        return { iconName: 'warning' as const, iconColor: '#F59E0B', iconBg: '#fef3c7' };
+      default:
+        return { iconName: 'information-circle' as const, iconColor: '#3B82F6', iconBg: '#dbeafe' };
+    }
+  };
+
+  const modalStyle = getModalStyle();
+
+  if (!visible) return null;
+
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
+        <View style={{ 
+          backgroundColor: '#fff', 
+          borderRadius: 20, 
+          padding: 20, 
+          alignItems: 'center', 
+          width: '100%', 
+          maxWidth: 340,
+          shadowColor: '#000', 
+          shadowOffset: { width: 0, height: 4 }, 
+          shadowOpacity: 0.3, 
+          shadowRadius: 12, 
+          elevation: 8 
+        }}>
+          {/* Icon - Smaller */}
+          <View style={{ 
+            width: 56, 
+            height: 56, 
+            backgroundColor: modalStyle.iconBg, 
+            borderRadius: 28, 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            marginBottom: 12 
+          }}>
+            <Ionicons name={modalStyle.iconName} size={28} color={modalStyle.iconColor} />
+          </View>
+
+          {/* Title - Smaller */}
+          <Text style={{ 
+            fontSize: 18, 
+            fontWeight: 'bold', 
+            color: '#000', 
+            textAlign: 'center', 
+            marginBottom: 6 
+          }}>
+            {title}
+          </Text>
+
+          {/* Message - Smaller */}
+          <Text style={{ 
+            fontSize: 13, 
+            color: '#666', 
+            textAlign: 'center', 
+            marginBottom: 20, 
+            lineHeight: 18,
+            paddingHorizontal: 4
+          }}>
+            {message}
+          </Text>
+
+          {/* Buttons - Horizontal Layout */}
+          <View style={{ 
+            flexDirection: 'row', 
+            width: '100%', 
+            gap: 10 
+          }}>
+            {buttons.map((button, index) => (
+              <TouchableOpacity
+                key={index}
+                onPress={button.onPress}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  borderRadius: 10,
+                  alignItems: 'center',
+                  backgroundColor: 
+                    button.style === 'cancel' ? '#f3f4f6' : 
+                    button.style === 'destructive' ? '#EF4444' : '#000',
+                  shadowColor: button.style === 'destructive' ? '#EF4444' : '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 3,
+                  elevation: 2
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={{ 
+                  fontSize: 15, 
+                  fontWeight: '600',
+                  color: button.style === 'cancel' ? '#374151' : '#fff'
+                }}>
+                  {button.text}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+
 
 export default function CommentScreen({ 
   visible, 
@@ -99,51 +346,152 @@ export default function CommentScreen({
   postId, 
   postType, 
   postData,
+  onNavigateToProfile,
   commentTemplate
 }: CommentScreenProps) {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [, forceRerender] = useReducer(x => x + 1, 0);
   const [userId, setUserId] = useState("1");
+  const [userImage, setUserImage] = useState("");
   const [userName, setUserName] = useState("");
   const [comments, setComments] = useState<Comment[]>([]);
   const [postDataState, setPostDataState] = useState<PostData | null>(null);
   const [loading, setLoading] = useState(false);
   const [postLoading, setPostLoading] = useState(false);
+  const [addRespLoading, setaddRespLoading] = useState(false);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [showResponseModal, setShowResponseModal] = useState(false);
   const [showSentimentPage, setShowSentimentPage] = useState(false);
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(-1);
   
-  // New states for user comment management
+  const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+  const [isImageModalVisible, setIsImageModalVisible] = useState(false);
+  const [fullScreenVideo, setFullScreenVideo] = useState<string | null>(null);
+  const [isVideoModalVisible, setIsVideoModalVisible] = useState(false);
+
   const [userExistingComment, setUserExistingComment] = useState<Comment | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+
+  const [changedAuthorImage, setChangedAuthorImage] = useState<string | null>(null);
+  const [changedAuthorName, setChangedAuthorName] = useState<string | null>(null);
+
+  const [isDeleteCommentModalVisible, setIsDeleteCommentModalVisible] = useState(false);
+  const [commentToDelete, setCommentToDelete] = useState<string | null>(null);
+  const [isDeletingComment, setIsDeletingComment] = useState(false);
+  // let templateName = '';
+
   
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
 
-  // Time calculation utility function
-  const getTimeAgo = (timestamp: any): string => {
-    if (!timestamp) return '2h';
-    
-    const now = Date.now();
-    const commentTime = timestamp.toDate ? timestamp.toDate().getTime() : new Date(timestamp).getTime();
-    const diff = now - commentTime;
-    
-    const seconds = Math.floor(diff / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-    
-    if (seconds < 60) return 'now';
-    if (minutes < 60) return `${minutes}m`;
-    if (hours < 24) return `${hours}h`;
-    return `${days}d`;
+  const fullScreenVideoPlayer = useVideoPlayer(fullScreenVideo || '', (player) => {
+    player.loop = false;
+    player.play();
+  });
+    const handleProfileNavigation = (
+    targetUserId: string,
+    authorName: string,
+    authorImageUrl: string
+  ) => {
+    if (!targetUserId) return;
+    onClose();  // close modal first
+    setTimeout(() => {
+      onNavigateToProfile?.(targetUserId, authorName, authorImageUrl);
+    }, 10);
   };
 
-  // Media type detection
+  const openFullScreenImage = useCallback((imageUrl: string) => {
+    setFullScreenImage(imageUrl);
+    setIsImageModalVisible(true);
+  }, []);
+
+  const closeFullScreenImage = useCallback(() => {
+    setIsImageModalVisible(false);
+    setFullScreenImage(null);
+  }, []);
+
+  const openFullScreenVideo = useCallback((videoUrl: string) => {
+    setFullScreenVideo(videoUrl);
+    setIsVideoModalVisible(true);
+  }, []);
+
+  const closeFullScreenVideo = useCallback(() => {
+    setIsVideoModalVisible(false);
+    setFullScreenVideo(null);
+  }, []);
+
+  // ✅ UPDATED: Time ago function with "1 day ago", "1 week ago", "1 month ago" format
+  const getTimeAgo = useCallback((dateString: any) => {
+    if (!dateString) return 'Just now';
+    
+    try {
+      let postDate: Date;
+      
+      if (dateString && typeof dateString === 'object' && dateString.toDate) {
+        postDate = dateString.toDate();
+      }
+      else if (typeof dateString === 'string') {
+        postDate = new Date(dateString);
+      }
+      else if (dateString instanceof Date) {
+        postDate = dateString;
+      }
+      else if (typeof dateString === 'number') {
+        postDate = new Date(dateString);
+      }
+      else {
+        return 'Just now';
+      }
+
+      const now = new Date();
+      const diffInMs = now.getTime() - postDate.getTime();
+      const diffInSeconds = Math.floor(diffInMs / 1000);
+      const diffInMinutes = Math.floor(diffInSeconds / 60);
+      const diffInHours = Math.floor(diffInMinutes / 60);
+      const diffInDays = Math.floor(diffInHours / 24);
+      const diffInWeeks = Math.floor(diffInDays / 7);
+      const diffInMonths = Math.floor(diffInDays / 30);
+      const diffInYears = Math.floor(diffInDays / 365);
+
+      // Less than 1 minute
+      if (diffInSeconds < 60) {
+        return diffInSeconds <= 0 ? 'Just now' : `${diffInSeconds}s ago`;
+      } 
+      // Less than 1 hour
+      else if (diffInMinutes < 60) {
+        return diffInMinutes === 1 ? '1 minute ago' : `${diffInMinutes} minutes ago`;
+      } 
+      // Less than 1 day
+      else if (diffInHours < 24) {
+        return diffInHours === 1 ? '1 hour ago' : `${diffInHours} hours ago`;
+      } 
+      // Less than 1 week
+      else if (diffInDays < 7) {
+        return diffInDays === 1 ? '1 day ago' : `${diffInDays} days ago`;
+      } 
+      // Less than 1 month
+      else if (diffInWeeks < 4) {
+        return diffInWeeks === 1 ? '1 week ago' : `${diffInWeeks} weeks ago`;
+      } 
+      // Less than 1 year
+      else if (diffInMonths < 12) {
+        return diffInMonths === 1 ? '1 month ago' : `${diffInMonths} months ago`;
+      } 
+      // 1 year or more
+      else {
+        return diffInYears === 1 ? '1 year ago' : `${diffInYears} years ago`;
+      }
+    } catch (error) {
+      console.error('Error parsing date:', error);
+      return 'Just now';
+    }
+  }, []);
+
   const getMediaType = (url: string) => {
     if (!url) return 'unknown';
     
@@ -165,10 +513,9 @@ export default function CommentScreen({
     return urlPath.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt)$/) ? 'doc' : 'image';
   };
 
-  // Check if user already has a comment on this post
   const checkUserExistingComment = async (itemId: string, itemType: string, currentUserId: string) => {
     try {
-      const commentsRef = collection(db, itemType, itemId, 'Comments');
+      const commentsRef = collection(db, "SentinelPosts", itemId, 'Comments');
       const userCommentQuery = query(
         commentsRef,
         where('userId', '==', currentUserId)
@@ -205,18 +552,69 @@ export default function CommentScreen({
     }
   };
 
-  // Fetch post data (only used as fallback if postData is not provided)
+  const VideoPlayer = useCallback(({ videoUrl, index }: { videoUrl: string; index?: number }) => {
+    const player = useVideoPlayer(videoUrl, (player) => {
+      player.loop = true;
+      player.muted = true;
+      if (currentVideoIndex === index) {
+        player.play();
+      } else {
+        player.pause();
+      }
+    });
+
+    useEffect(() => {
+      if (currentVideoIndex === index) {
+        player.play();
+      } else {
+        player.pause();
+      }
+    }, [currentVideoIndex, index, player]);
+
+    return (
+      <TouchableOpacity 
+        onPress={() => openFullScreenVideo(videoUrl)}
+        activeOpacity={0.95}
+      >
+        <View style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', backgroundColor: '#000' }}>
+          <VideoView
+            player={player}
+            style={{ 
+              width: '100%', 
+              aspectRatio: 16 / 9
+            }}
+            contentFit="cover"
+            nativeControls={false}
+          />
+          <View style={{ position: 'absolute', top: 8, right: 8, padding: 6, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.5)' }}>
+            <Ionicons name="play-outline" size={14} color="white" />
+          </View>
+          {currentVideoIndex !== index && (
+            <View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 40, height: 40, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="play" size={20} color="white" />
+              </View>
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  }, [currentVideoIndex, openFullScreenVideo]);
+
   const fetchPostData = async (itemId: string, itemType: string) => {
     setPostLoading(true);
     try {
-      const postDoc = await getDoc(doc(db, itemType, itemId));
+      const postDoc = await getDoc(doc(db, "SentinelPosts", itemId));
       if (postDoc.exists()) {
         const data = postDoc.data();
+        commentTemplate = data.CommentTemplate || 'Standard Template';
         setPostDataState({
           id: itemId,
           AuthorImageURL: data.AuthorImageURL || '',
           AuthorName: data.AuthorName || '',
           AuthorUsername: data.AuthorUsername || '@' + (data.AuthorName || '').toLowerCase().replace(/\s+/g, ''),
+          AuthorBio: postData.AuthorBio || '',  // ✅ ADD THIS
+          AuthorUserID: postData.AuthorUserID || '123456',
           ContentDate: data.ContentDate || '',
           ContentDesc: data.ContentDesc || '',
           ContentURL: data.ContentURL || '',
@@ -227,9 +625,24 @@ export default function CommentScreen({
           postType: itemType,
           Liked: false,
           Reposted: false,
-          CommentTemplate: data.CommentTemplate || 'Template1',
+          CommentTemplate: commentTemplate,
+          isAnonymous: data.isAnonymous || false,
+          contentType: data.contentType || 'My Thoughts'
         });
-        fetchCommentTemplate(data.CommentTemplate || 'Template1');
+        
+        if (commentTemplate == 'Standard Template') {
+          createTemplate([], data.ContentDesc);
+        } else {
+          fetchCommentTemplate(commentTemplate || 'Standard Template');
+        }
+
+        if (data.isAnonymous || false) {
+          setChangedAuthorImage(dummyAuthorImage);
+          setChangedAuthorName("Anonymous");
+        } else {
+          setChangedAuthorImage(data.AuthorImageURL || dummyAuthorImage);
+          setChangedAuthorName(data.AuthorName || "Anonymous");
+        }
       }
     } catch (error) {
       console.error('Error fetching post data:', error);
@@ -238,13 +651,15 @@ export default function CommentScreen({
     }
   };
 
-  // Convert passed postData to local state format
   const convertPostData = (passedPostData: PostData) => {
+    commentTemplate = passedPostData.CommentTemplate || 'Standard Template';
     setPostDataState({
       id: passedPostData.id,
       AuthorImageURL: passedPostData.AuthorImageURL || '',
       AuthorName: passedPostData.AuthorName || '',
       AuthorUsername: passedPostData.AuthorUsername || '@' + (passedPostData.AuthorName || '').toLowerCase().replace(/\s+/g, ''),
+      AuthorBio: postData.AuthorBio || '',  // ✅ ADD THIS
+      AuthorUserID: postData.AuthorUserID || '123456',
       ContentDate: passedPostData.ContentDate || '',
       ContentDesc: passedPostData.ContentDesc || '',
       ContentURL: passedPostData.ContentURL || '',
@@ -255,21 +670,43 @@ export default function CommentScreen({
       postType: postType || '',
       Liked: passedPostData.Liked || false,
       Reposted: passedPostData.Reposted || false,
-      CommentTemplate: passedPostData.CommentTemplate || 'Template1'
+      CommentTemplate: commentTemplate,
+      isAnonymous: passedPostData.isAnonymous || false,
+      contentType: passedPostData.contentType || 'My Thoughts'
+
     });
-    fetchCommentTemplate(passedPostData.CommentTemplate || 'Template1');
+    if (commentTemplate == 'Standard Template' || commentTemplate == 'Sentinel Default Template') {
+      createTemplate([], passedPostData.ContentDesc);
+    } else {
+      fetchCommentTemplate(commentTemplate || 'Standard Template');
+    }
+
+    if (passedPostData.isAnonymous || false) {
+      setChangedAuthorImage(dummyAuthorImage);
+      setChangedAuthorName("Anonymous");
+    } else {
+      setChangedAuthorImage(passedPostData.AuthorImageURL || dummyAuthorImage);
+      setChangedAuthorName(passedPostData.AuthorName || "Anonymous");
+    }
+
   };
 
   const getItem = async () => {
     try {
       const fetchuserID = await AsyncStorage.getItem('userId');
       const fetchuserName = await AsyncStorage.getItem('userName');
+      const fetchUserImage = await AsyncStorage.getItem('profilePicUrl');
       
       if(fetchuserID !== null && fetchuserName !== null) {
         console.log("userID: ", fetchuserID);
         console.log("userName: ", fetchuserName);
         setUserId(fetchuserID);
         setUserName(fetchuserName);
+      }
+
+      if(fetchUserImage !== null) {
+        console.log("userImage: ", fetchUserImage);
+        setUserImage(fetchUserImage);
       }
       
       if(postId && postType) {
@@ -282,7 +719,6 @@ export default function CommentScreen({
           await fetchPostData(postId, postType);
         }
         
-        // Check if user already has a comment
         if (fetchuserID) {
           await checkUserExistingComment(postId, postType, fetchuserID);
         }
@@ -292,14 +728,60 @@ export default function CommentScreen({
     } catch (error) {
       console.log("Error retrieving item", error);
     }
-  }
+  };
+
+  // **NEW: Template creation**
+  const createTemplate = async (uploadedUrls: string[], postText: string) => {
+    setaddRespLoading(true);
+    try {
+      // Call API to generate comment template (skip for flagged/video posts)
+      try {
+        const response = await fetch(
+          'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/opinion-generator-ai',
+          {
+            method: 'POST',
+            headers: {  
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              postText,
+              uploadedUrls
+            })
+          }
+        );
+        const templateResponse: TemplateResponseType = await response.json();
+        if (templateResponse?.success) {
+          commentTemplate = templateResponse.templateName || "Standard Template";
+        }
+
+        // Save post to Firestore
+        const commentRef = doc(db, "SentinelPosts", postId);
+        await updateDoc(commentRef, {
+          CommentTemplate: commentTemplate,
+        });
+    
+        console.log("📝 Using comment template:", commentTemplate);
+
+        fetchCommentTemplate(commentTemplate || 'Standard Template');
+
+      } catch (error) {
+        console.error("❌ Error generating comment template:", error);
+      }
+      
+    } catch (e) {
+      console.error("❌ Error creating comment template:", e);
+    } finally {
+      setaddRespLoading(false);
+    }
+  };
 
   const fetchCommentTemplate = useCallback(async (passedCommentTemplate: any) => {
     try {
-      const collCommentTempPost = collection(db, 'SentimentTemplates');
+      const collCommentTempPost = collection(db, 'templates');
       console.log("Comment Template Called");
+      const querycollCommentTempPost = query(collCommentTempPost, where("name", "==", passedCommentTemplate));
 
-      const unsubscribeCommentTemp = onSnapshot(collCommentTempPost, commentTempSnapshot => {
+      const unsubscribeCommentTemp = onSnapshot(querycollCommentTempPost, commentTempSnapshot => {
         const commentTempdataArr = commentTempSnapshot.docs.map(doc => ({
           id: doc.id,
           data: doc.data(),
@@ -310,30 +792,26 @@ export default function CommentScreen({
           const postData = doc.data;
           const postId = doc.id;
           console.log("Comment Template Passed: ", passedCommentTemplate);
+          console.log("Comment Template Fetched: ", postData);
 
-          if(passedCommentTemplate == postId){
+          if(passedCommentTemplate == postData.name) {
             const optionsField = postData.options;
 
-            // Convert map to array:
-            for (const key in optionsField) {
-              if (Object.prototype.hasOwnProperty.call(optionsField, key)) {
-                const maybeOption = (optionsField as any)[key];
-                if (maybeOption && typeof maybeOption === "object") {
-                  const icon = (maybeOption as any).icon;
-                  const title = (maybeOption as any).title;
-                  RESPONSE_OPTIONS.push({
-                    id: typeof title === "string" ? title : "",
-                    label: typeof title === "string" ? title : "",
-                    icon: typeof icon === "string" ? icon : "",
-                    color: '#34C759'
-                  })
-                }
-              }
-            }    
+            optionsField.map((nestedOption, index) => {
+              const optionKey = Object.keys(nestedOption)[0];
+              const optionDetails = nestedOption[optionKey];
+
+              RESPONSE_OPTIONS.push({
+                index: index,
+                id: typeof optionDetails.title === "string" ? optionDetails.title : "",
+                icon: typeof optionDetails.icon === "string" ? optionDetails.icon : "",
+                label: typeof optionDetails.title === "string" ? optionDetails.title : "",
+                color: '#34C759'
+              })
+            }) 
           }
           
         }
-
       })
 
       return () => {
@@ -350,14 +828,15 @@ export default function CommentScreen({
   const fetchCommentFirestore = async (item: any, type: any) => {
     setLoading(true);
     try {
-      const collCommentRefPost = collection(db, type, item, 'Comments');
+      const collCommentRefPost = collection(db, "SentinelPosts", item, 'Comments');
+      const postRef = doc(db, "SentinelPosts", item);
       const queryComment = query(
         collCommentRefPost,
         orderBy('CommentDate', 'desc')
       );
       console.log("Comment OnSnapshot");
       
-      const unsubscribeComment = onSnapshot(queryComment, commentSnapshot => {
+      const unsubscribeComment = onSnapshot(queryComment, async commentSnapshot => {
         const commentdataArr = commentSnapshot.docs.map(doc => ({
           id: doc.id,
           data: doc.data(),
@@ -384,51 +863,10 @@ export default function CommentScreen({
 
         setComments(commentData);
 
-        // Set up listeners for replies per comment
-        // commentData.forEach((comment) => {
-        //   const collReplyRefPost = collection(db, type, item, 'Comments', comment.id, 'Replies');
-        //   const queryReply = query(
-        //     collReplyRefPost,
-        //     orderBy('CommentDate', 'desc')
-        //   );
-        //   console.log("Replies OnSnapshot");
-          
-        //   onSnapshot(queryReply, replySnapshot => {
-        //     const replydataArr = replySnapshot.docs.map(doc => ({
-        //       id: doc.id,
-        //       data: doc.data(),
-        //     }));
-    
-        //     const replyData: Reply[] = [];
-        //     for (const doc of replydataArr) {
-        //       const postData = doc.data;
-        //       const postId = doc.id;
-        //       replyData.push({
-        //         id: postId,
-        //         AuthorName: postData.AuthorName ?? "",
-        //         AuthorImageURL: postData.AuthorImageURL ?? "",
-        //         Comment: postData.Comment ?? "",
-        //         CommentDate: postData.CommentDate ?? new Date(),
-        //         likes: 0,
-        //         isLiked: false,
-        //         selectedOptions: postData.selectedOptions || [],
-        //         commentType: postData.commentType || 'text',
-        //         userId: postData.userId
-        //       });
-        //     }
+        await updateDoc(postRef, {
+          ContentCommentCount: commentData.length,
+        });
 
-        //     setComments(prevComments =>
-        //       prevComments.map(c =>
-        //         c.id === comment.id
-        //           ? {
-        //               ...c,
-        //               replies: replyData,
-        //             }
-        //           : c
-        //       )
-        //     );
-        //   })
-        // })
       })
 
       return () => {
@@ -441,68 +879,53 @@ export default function CommentScreen({
     }
   }
 
-  // Handle option selection
   const handleOptionSelect = (optionId: string) => {
     setSelectedOption(selectedOption === optionId ? null : optionId);
+    handleSubmitResponse(optionId);
   };
 
-  // Handle structured comment submission (new or edit)
-  const handleSubmitResponse = async () => {
-    if (!selectedOption || !postId || !postType) return;
-
+  const handleSubmitResponse = async (optionId: string) => {
     setIsSubmitting(true);
     
     try {
-      const selectedOptionData = RESPONSE_OPTIONS.find(opt => opt.id === selectedOption);
+      const selectedOptionData = RESPONSE_OPTIONS.find(opt => opt.id === optionId);
       const commentText = selectedOptionData?.label || '';
       
       if (isEditMode && userExistingComment) {
-        // Edit existing comment
-        const commentRef = doc(db, postType, postId, 'Comments', userExistingComment.id);
+        const commentRef = doc(db, "SentinelPosts", postId, 'Comments', userExistingComment.id);
         await updateDoc(commentRef, {
           Comment: commentText,
-          selectedOptions: [selectedOption],
+          selectedOptions: [optionId],
           commentType: 'structured'
         });
         console.log('Comment updated successfully');
         setIsEditMode(false);
-      } else if (replyingTo) {
-        // Add reply
-        const repliesRef = collection(db, postType, postId, 'Comments', replyingTo, 'Replies');
-        const postDocRef = await addDoc(repliesRef, {
-          AuthorImageURL: "",
-          AuthorName: userName,
-          CommentDate: new Date(),
-          Comment: commentText,
-          selectedOptions: [selectedOption],
-          commentType: 'structured',
-          userId: userId
-        });
-        console.log('Structured Reply Post ID: ', postDocRef.id);
       } else {
-        // Add new comment
-        const commentRef = collection(db, postType, postId, 'Comments');
+        const commentRef = collection(db, "SentinelPosts", postId, 'Comments');
         const postDocRef = await addDoc(commentRef, {
-          AuthorImageURL: "",
+          AuthorImageURL: userImage || dummyAuthorImage,
           AuthorName: userName,
           CommentDate: new Date(),
           Comment: commentText,
-          selectedOptions: [selectedOption],
+          selectedOptions: [optionId],
           commentType: 'structured',
           userId: userId
         });
         console.log('Response submitted with ID: ', postDocRef.id);
       }
       
-      // Reset and close
-      setSelectedOption(null);
-      setShowResponseModal(false);
-      setReplyingTo(null);
-      
-      // Refresh user existing comment check
+      // setSelectedOption(null);
+      // setShowResponseModal(false);
+      // setReplyingTo(null);
+
       if (postId && postType) {
         await checkUserExistingComment(postId, postType, userId);
       }
+
+      setTimeout(() => {
+        onClose(); 
+      }, 100);
+      
     } catch (error) {
       console.error('Error submitting response:', error);
     } finally {
@@ -510,54 +933,56 @@ export default function CommentScreen({
     }
   };
 
-  // Handle delete comment
-  const handleDeleteComment = async (commentId: string) => {
-    if (!postId || !postType) return;
-
-    Alert.alert(
-      "Delete Response",
-      "Are you sure you want to delete your response? This action cannot be undone.",
-      [
-        {
-          text: "Cancel",
-          style: "cancel"
-        },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              const commentRef = doc(db, postType, postId, 'Comments', commentId);
-              await deleteDoc(commentRef);
-              console.log('Comment deleted successfully');
-              
-              // Reset user existing comment
-              setUserExistingComment(null);
-              setShowMenuModal(false);
-              setSelectedCommentId(null);
-            } catch (error) {
-              console.error('Error deleting comment:', error);
-              Alert.alert("Error", "Failed to delete response. Please try again.");
-            }
-          }
-        }
-      ]
-    );
+const handleDeleteComment = async (commentId: string) => {
+  if (!postId || !postType) return;
+  
+  setCommentToDelete(commentId);
+  setShowMenuModal(false);
+  setIsDeleteCommentModalVisible(true);
   };
 
-  // Handle edit comment
+const confirmDeleteComment = async () => {
+  if (!commentToDelete || !postId || !postType) return;
+  
+  setIsDeletingComment(true);
+  
+  try {
+    const commentRef = doc(db, "SentinelPosts", postId, 'Comments', commentToDelete);
+    await deleteDoc(commentRef);
+    console.log('Comment deleted successfully');
+    
+    setIsDeleteCommentModalVisible(false);
+    setUserExistingComment(null);
+    setShowMenuModal(false); // ✅ This should already be here
+    setSelectedCommentId(null);
+    setCommentToDelete(null);
+  } catch (error) {
+    console.error('Error deleting comment:', error);
+    setIsDeleteCommentModalVisible(false);
+    setShowMenuModal(false); // ✅ ADD THIS LINE - Close menu on error too
+    
+    setTimeout(() => {
+      Alert.alert("Error", "Failed to delete response. Please try again.");
+    }, 300);
+  } finally {
+    setIsDeletingComment(false);
+  }
+};
+
   const handleEditComment = (comment: Comment) => {
-    setSelectedOption(comment.selectedOptions?.[0] || null);
-    setIsEditMode(true);
     setShowMenuModal(false);
-    setShowResponseModal(true);
+    setTimeout(() => {
+      setShowSentimentPage(false);
+      setSelectedOption(comment.selectedOptions?.[0] || null);
+      setIsEditMode(true);
+      setShowResponseModal(true);
+    }, 100);
   };
 
-  // Handle three dots menu press with position
   const handleThreeDotsPress = (commentId: string, event: any) => {
     const { pageX, pageY } = event.nativeEvent;
     setSelectedCommentId(commentId);
-    setMenuPosition({ x: pageX - 120, y: pageY + 10 }); // Adjust position
+    setMenuPosition({ x: pageX - 120, y: pageY + 10 });
     setShowMenuModal(true);
   };
 
@@ -603,12 +1028,12 @@ export default function CommentScreen({
 
   const handleSentimentClose = () => {
     setShowSentimentPage(false);
+    onClose();
   };
 
   const handleAddResponseFromSentiment = () => {
     setShowSentimentPage(false);
     
-    // Check if user already has a comment
     if (userExistingComment) {
       Alert.alert(
         "Edit Your Response",
@@ -626,63 +1051,54 @@ export default function CommentScreen({
     }
   };
 
-  // Render media content for the post
   const renderMediaContent = (post: PostData) => {
     const mediaUrls = post.ContentURLs && post.ContentURLs.length > 0 ? post.ContentURLs : 
-                     (post.ContentURL ? [post.ContentURL] : []);
+                    (post.ContentURL ? [post.ContentURL] : []);
     
     if (!mediaUrls || mediaUrls.length === 0) return null;
 
     const primaryMediaUrl = mediaUrls[0];
     const mediaType = getMediaType(primaryMediaUrl);
 
-    if (mediaType === 'image') {
+    if (mediaType === 'image' || mediaType === 'gif') {
       return (
         <View style={{ marginTop: 12, marginBottom: 16 }}>
-          <Image
-            source={{ uri: primaryMediaUrl }}
-            style={{ 
-              width: '100%', 
-              height: 240, 
-              borderRadius: 16, 
-              backgroundColor: '#e8e8e8' 
-            }}
-            resizeMode="cover"
-          />
+          <TouchableOpacity 
+            onPress={() => openFullScreenImage(primaryMediaUrl)}
+            activeOpacity={0.95}
+          >
+            <View style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', backgroundColor: '#f5f5f5' }}>
+              <Image
+                source={{ uri: primaryMediaUrl }}
+                style={{
+                  width: '100%',
+                  aspectRatio: 16 / 9,
+                }}
+                resizeMode="cover"
+                resizeMethod="resize"
+                onError={(error) => {
+                  console.log("Image load error:", error.nativeEvent.error);
+                }}
+              />
+              
+              <View style={{ 
+                position: 'absolute', 
+                top: 8, 
+                right: 8, 
+                padding: 6, 
+                borderRadius: 20, 
+                backgroundColor: 'rgba(0,0,0,0.5)' 
+              }}>
+                <Ionicons name="expand-outline" size={14} color="white" />
+              </View>
+            </View>
+          </TouchableOpacity>
         </View>
       );
     } else if (mediaType === 'video') {
       return (
         <View style={{ marginTop: 12, marginBottom: 16 }}>
-          <Video
-            source={{ uri: primaryMediaUrl }}
-            style={{ 
-              width: '100%', 
-              height: 240, 
-              borderRadius: 16, 
-              backgroundColor: '#000' 
-            }}
-            resizeMode={ResizeMode.CONTAIN}
-            useNativeControls={false}
-            shouldPlay={false}
-            isMuted={true}
-            isLooping={false}
-          />
-        </View>
-      );
-    } else if (mediaType === 'gif') {
-      return (
-        <View style={{ marginTop: 12, marginBottom: 16 }}>
-          <Image
-            source={{ uri: primaryMediaUrl }}
-            style={{ 
-              width: '100%', 
-              height: 240, 
-              borderRadius: 16, 
-              backgroundColor: '#e8e8e8' 
-            }}
-            resizeMode="cover"
-          />
+          <VideoPlayer videoUrl={primaryMediaUrl} />
         </View>
       );
     }
@@ -690,39 +1106,45 @@ export default function CommentScreen({
     return null;
   };
 
-  // Render structured comment content
   const renderStructuredComment = (comment: Comment | Reply) => {
     if (comment.commentType === 'structured' && comment.selectedOptions && comment.selectedOptions.length > 0) {
       return (
-        <View style={{ marginTop: 4 }}>
+        <View style={{ marginTop: 6 }}>
           {comment.selectedOptions.map((option, index) => {
             const optionData = RESPONSE_OPTIONS.find(opt => opt.id === option);
             return (
               <View 
                 key={index}
                 style={{
-                  backgroundColor: '#f0f8ff',
+                  backgroundColor: '#f8f8f8',
                   borderRadius: 8,
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
+                  paddingHorizontal: 10,
+                  paddingVertical: 8,
                   marginBottom: 4,
-                  borderLeftWidth: 3,
-                  borderLeftColor: '#007aff',
                   flexDirection: 'row',
                   alignItems: 'center'
                 }}
               >
-                {/* <Text style={{ fontSize: 16, marginRight: 8 }}>
-                  {optionData?.icon || '✓'}
-                </Text> */}
-                <Image
-                    source={{ uri: optionData?.icon}}
-                    className="w-16 h-10"
+                {optionData?.icon && optionData.icon !== "" && (
+                  <Image
+                    source={{ uri: optionData.icon }}
+                    style={{ width: 28, height: 28, marginRight: 8 }}
                     resizeMode="contain"
+                    resizeMethod="resize"
                   />
-                <Text style={{ fontSize: 13, color: '#007aff', fontWeight: '500' }}>
-                  {optionData?.label || option}
-                </Text>
+                )}
+                <View style={{ flex: 1 }}> 
+                  <Text 
+                    style={{ 
+                      fontSize: 14, 
+                      color: '#000', 
+                      fontWeight: '400',
+                      flexWrap: 'wrap', 
+                  }}
+                  >
+                    {optionData?.label || option}
+                  </Text>
+                </View>
               </View>
             );
           })}
@@ -731,11 +1153,33 @@ export default function CommentScreen({
     }
     
     return (
-      <Text style={{ fontSize: 14, color: '#000', lineHeight: 18, marginBottom: 8 }}>
+      <Text style={{ fontSize: 14, color: '#000', lineHeight: 18, marginTop: 4 }}>
         {comment.Comment}
       </Text>
     );
   };
+
+  const openUserProfile = (item: PostData) => {
+    const authorId = item.AuthorUserID; // choose what you consider profile id
+    if (authorId) {
+      onClose();
+
+      setTimeout(() => {
+        router.push({
+          pathname: "/profile/[userId]",
+          params: {
+            userId: authorId,                 // item.AuthorUserID
+            authorName: item.AuthorName,      // from post
+            authorImageUrl: item.AuthorImageURL, // from post
+            isAnonymous: item.isAnonymous ? 'true' : 'false', // ✅ ADD THIS LINE
+            userBio: item.AuthorBio || '',  // ✅ ADD THIS LINE
+    
+          },
+        });
+      }, 10);
+    }
+    
+  }; 
 
   useEffect(() => {
     if (visible && postId && postType) {
@@ -753,8 +1197,10 @@ export default function CommentScreen({
       setIsEditMode(false);
       setShowMenuModal(false);
       setSelectedCommentId(null);
+      closeFullScreenImage();
+      closeFullScreenVideo();
     }
-  }, [visible, postId, postType, postData]);
+  }, [visible, postId, postType, postData, commentTemplate]);
 
   return (
     <>
@@ -769,23 +1215,23 @@ export default function CommentScreen({
         <View style={{ flex: 1, backgroundColor: '#fff' }}>
           <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
-          {/* Header with close button */}
+          {/* Header */}
           <View 
             style={{
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'space-between',
               paddingHorizontal: 16,
-              paddingTop: Platform.OS === 'ios' ? insets.top + 12 : insets.top + 20,
-              paddingBottom: 16,
+              paddingTop: Platform.OS === 'ios' ? insets.top + 8 : insets.top + 16,
+              paddingBottom: 12,
               borderBottomWidth: 0.5,
               borderBottomColor: '#e5e5e5'
             }}
           >
-            <TouchableOpacity onPress={onClose} style={{ padding: 8 }}>
+            <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
               <Ionicons name="close" size={24} color="#000" />
             </TouchableOpacity>
-            <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#000' }}>
+            <Text style={{ fontSize: 17, fontWeight: '600', color: '#000' }}>
               Comments
             </Text>
             <TouchableOpacity 
@@ -793,14 +1239,14 @@ export default function CommentScreen({
               onPress={handleGraphPress}
               activeOpacity={0.7}
             >
-              <Feather name="bar-chart-2" size={21} color="#000" />
+              <Feather name="bar-chart-2" size={20} color="#000" />
             </TouchableOpacity>
           </View>
 
           <ScrollView 
             style={{ flex: 1 }}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 100 }}
+            contentContainerStyle={{ paddingBottom: userExistingComment ? 20 : 100 }}
           >
             {/* POST CONTENT SECTION */}
             {postLoading ? (
@@ -808,29 +1254,43 @@ export default function CommentScreen({
                 <ActivityIndicator size="large" color="#0ea5e9" />
               </View>
             ) : postDataState ? (
-              <View style={{ backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 20 }}>
+              <View style={{ backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 16 }}>
                 {/* Post Header */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => openUserProfile(postDataState)}
+                  > 
                   <Image
-                    source={{ uri: postDataState.AuthorImageURL || dummyAuthorImage }}
+                    source={{ uri: changedAuthorImage || dummyAuthorImage }}
                     style={{ 
-                      width: 48, 
-                      height: 48, 
-                      borderRadius: 24, 
-                      marginRight: 12,
+                      width: 32, 
+                      height: 32, 
+                      borderRadius: 16, 
+                      marginRight: 10,
                       backgroundColor: '#e8e8e8' 
                     }}
                     resizeMode="cover"
+                    resizeMethod="resize"
                   />
+                  </TouchableOpacity>
+                  
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontWeight: 'bold', fontSize: 16, color: '#000' }}>
-                      {postDataState.AuthorName}
+                    <Text style={{ fontWeight: '600', fontSize: 15, color: '#000' }}>
+                      {changedAuthorName}
                     </Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                      <Text style={{ fontSize: 14, color: '#8e8e93' }}>
-                        {postDataState.AuthorUsername}
-                      </Text>
-                      <Text style={{ fontSize: 14, color: '#8e8e93', marginLeft: 8 }}>
+                      {postDataState.postType != 'X-Data' && (
+                        <View style={{ backgroundColor: '#e8f4ff', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, marginRight: 6 }}>
+                          <Text style={{ color: '#0066cc', fontSize: 11, fontWeight: '400' }}>• {postDataState.contentType}</Text>
+                        </View>
+                      )}
+                      {postDataState.postType === 'X-Data' && (
+                        <View style={{ backgroundColor: '#e8f4ff', paddingHorizontal: 4, paddingVertical: 2, borderRadius: 10, marginRight: 6 }}>
+                          <Text style={{ color: '#0066cc', fontSize: 11, fontWeight: '600' }}>𝕏 POST</Text>
+                        </View>
+                      )}
+                      <Text style={{ fontSize: 13, color: '#8e8e93' }}>
                         {getTimeAgo(postDataState.ContentDate)}
                       </Text>
                     </View>
@@ -838,12 +1298,21 @@ export default function CommentScreen({
                 </View>
 
                 {/* Post Content */}
-                <Text style={{ fontSize: 15, color: '#000', lineHeight: 20, marginBottom: 8 }}>
-                  {postDataState.ContentDesc}
-                </Text>
+                <View style={{ paddingVertical: 4 }}>
+                  <Text style={{ fontSize: 14, color: "#000", lineHeight: 18, marginBottom: 8 }}>
+                    {renderStyledPostText(postDataState.ContentDesc)}
+                  </Text>
+                </View>
                 
                 {/* Media Content */}
-                {renderMediaContent(postDataState)}
+                <InstagramMediaCarousel
+                  mediaUrls={postData?.ContentURLs || (postData?.ContentURL ? [postData.ContentURL] : [])}
+                  onPressMedia={(url, type) => {
+                    if (type === "image") openFullScreenImage(url);
+                    else openFullScreenVideo(url);
+                  }}
+                />
+
               </View>
             ) : null}
 
@@ -851,15 +1320,15 @@ export default function CommentScreen({
             {loading ? (
               <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 50 }}>
                 <ActivityIndicator size="large" color="#0ea5e9" />
-                <Text style={{ color: '#8e8e93', fontSize: 16, marginTop: 12 }}>Loading comments...</Text>
+                <Text style={{ color: '#8e8e93', fontSize: 14, marginTop: 12 }}>Loading comments...</Text>
               </View>
             ) : comments.length === 0 ? (
               <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 100 }}>
                 <Ionicons name="chatbubble-outline" size={60} color="#c7c7cc" />
-                <Text style={{ fontSize: 20, color: '#000', fontWeight: 'bold', marginTop: 16 }}>
+                <Text style={{ fontSize: 18, color: '#000', fontWeight: '600', marginTop: 16 }}>
                   No responses yet
                 </Text>
-                <Text style={{ color: '#8e8e93', fontSize: 16, marginTop: 8 }}>
+                <Text style={{ color: '#8e8e93', fontSize: 14, marginTop: 8 }}>
                   Be the first to respond!
                 </Text>
               </View>
@@ -871,74 +1340,67 @@ export default function CommentScreen({
                     <View style={{
                       flexDirection: 'row',
                       paddingHorizontal: 16,
-                      paddingVertical: 12,
+                      paddingVertical: 10,
                       alignItems: 'flex-start'
                     }}>
-                      <Image 
-                        source={{ uri: comment.AuthorImageURL || dummyAuthorImage }} 
-                        style={{ 
-                          width: 32, 
-                          height: 32, 
-                          borderRadius: 16, 
-                          marginRight: 12,
-                          backgroundColor: '#e8e8e8' 
+                      {/* Avatar - 32x32 */}
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={() => {
+                          if (!comment.userId) return;
+                          onClose();
+                          setTimeout(() => {
+                            router.push({
+                              pathname: '/profile/[userId]',
+                              params: {
+                                userId: comment.userId,
+                                authorName: comment.AuthorName,
+                                authorImageUrl: comment.AuthorImageURL || '',
+                                isAnonymous: 'false',
+                              },
+                            });
+                          }, 10);
                         }}
-                        resizeMode="cover"
-                      />
+                      >
+                        <Image
+                          source={{ uri: comment.AuthorImageURL || dummyAuthorImage }}
+                          style={{ width: 32, height: 32, borderRadius: 16, marginRight: 10, backgroundColor: '#e8e8e8' }}
+                          resizeMode="cover"
+                          resizeMethod="resize"
+                        />
+                      </TouchableOpacity>
                       
                       <View style={{ flex: 1 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginBottom: 2 }}>
-                          <Text style={{ fontWeight: 'bold', fontSize: 14, color: '#000', marginRight: 12 }}>
+                        {/* Username Row with 3 dots on RIGHT */}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <Text style={{ fontWeight: '600', fontSize: 14, color: '#000' }}>
                             {comment.AuthorName}
                           </Text>
-                          <Text style={{ fontSize: 12, color: '#8e8e93' }}>
-                            {getTimeAgo(comment.CommentDate)}
-                          </Text>
                           
-                          {/* Three dots menu for user's own comments */}
-                          {comment.userId === userId ? (
+                          {/* Three dots menu */}
+                          {comment.userId === userId && (
                             <TouchableOpacity 
                               onPress={(event) => handleThreeDotsPress(comment.id, event)}
-                              style={{ marginLeft: 'auto', padding: 4 }}
+                              style={{ padding: 4 }}
                             >
-                              <MaterialIcons name="more-vert" size={16} color="#8e8e93" />
-                            </TouchableOpacity>
-                          ) : (
-                            <TouchableOpacity 
-                              // onPress={() => handleLikeComment(comment.id, false)}
-                              style={{ marginLeft: 'auto' }}
-                            >
-                              {/* <Ionicons 
-                                name={comment.isLiked ? "heart" : "heart-outline"} 
-                                size={16} 
-                                color={comment.isLiked ? "#ff3040" : "#8e8e93"} 
-                              /> */}
+                              <MaterialIcons name="more-horiz" size={18} color="#8e8e93" />
                             </TouchableOpacity>
                           )}
                         </View>
+
+                        {/* "added a comment" on NEW LINE below username */}
+                        <Text style={{ fontSize: 12, color: '#999', marginTop: 2, marginBottom: 6 }}>
+                          added a comment · {getTimeAgo(comment.CommentDate)}
+                        </Text>
                         
+                        {/* Comment Content */}
                         {renderStructuredComment(comment)}
-                        
-                        {/* <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          {(comment.likes || 0) > 0 && (
-                            <Text style={{ fontSize: 12, color: '#8e8e93', marginRight: 16 }}>
-                              {comment.likes} likes
-                            </Text>
-                          )}
-                          <TouchableOpacity 
-                            onPress={() => handleReplyToComment(comment.id, comment.AuthorName)}
-                          >
-                            <Text style={{ fontSize: 12, color: '#8e8e93', fontWeight: '500' }}>
-                              Reply
-                            </Text>
-                          </TouchableOpacity>
-                        </View> */}
                       </View>
                     </View>
 
                     {/* Replies */}
                     {comment.replies && comment.replies.length > 0 && (
-                      <View style={{ marginLeft: 60, borderLeftWidth: 1, borderLeftColor: '#f2f2f2' }}>
+                      <View style={{ marginLeft: 58, borderLeftWidth: 1, borderLeftColor: '#f2f2f2' }}>
                         {comment.replies.map((reply) => (
                           <View 
                             key={reply.id}
@@ -959,44 +1421,18 @@ export default function CommentScreen({
                                 backgroundColor: '#e8e8e8' 
                               }}
                               resizeMode="cover" 
+                              resizeMethod="resize"
                             />
                             
                             <View style={{ flex: 1 }}>
-                              <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginBottom: 2 }}>
-                                <Text style={{ fontWeight: 'bold', fontSize: 13, color: '#000', marginRight: 8 }}>
-                                  {reply.AuthorName}
-                                </Text>
-                                <Text style={{ fontSize: 11, color: '#8e8e93' }}>
-                                  {getTimeAgo(reply.CommentDate)}
-                                </Text>
-                                <TouchableOpacity 
-                                  onPress={() => handleLikeComment(reply.id, true, comment.id)}
-                                  style={{ marginLeft: 'auto' }}
-                                >
-                                  <Ionicons 
-                                    name={reply.isLiked ? "heart" : "heart-outline"} 
-                                    size={14} 
-                                    color={reply.isLiked ? "#ff3040" : "#8e8e93"} 
-                                  />
-                                </TouchableOpacity>
-                              </View>
+                              <Text style={{ fontWeight: '600', fontSize: 13, color: '#000' }}>
+                                {reply.AuthorName}
+                              </Text>
+                              <Text style={{ fontSize: 11, color: '#999', marginTop: 2, marginBottom: 4 }}>
+                                added a comment · {getTimeAgo(reply.CommentDate)}
+                              </Text>
                               
                               {renderStructuredComment(reply)}
-                              
-                              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                {(reply.likes || 0) > 0 && (
-                                  <Text style={{ fontSize: 11, color: '#8e8e93', marginRight: 12 }}>
-                                    {reply.likes} likes
-                                  </Text>
-                                )}
-                                <TouchableOpacity 
-                                  onPress={() => handleReplyToComment(comment.id, reply.AuthorName)}
-                                >
-                                  <Text style={{ fontSize: 11, color: '#8e8e93', fontWeight: '500' }}>
-                                    Reply
-                                  </Text>
-                                </TouchableOpacity>
-                              </View>
                             </View>
                           </View>
                         ))}
@@ -1008,63 +1444,56 @@ export default function CommentScreen({
             )}
           </ScrollView>
 
-          {/* Add Response Button Fixed at Bottom */}
-          <View style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            backgroundColor: '#fff',
-            borderTopWidth: 0.5,
-            borderTopColor: '#e5e5e5',
-            paddingHorizontal: 16,
-            paddingVertical: 12,
-            paddingBottom: insets.bottom + 12
-          }}>
-            <TouchableOpacity
-              onPress={() => {
-                if (userExistingComment) {
-                  Alert.alert(
-                    "Edit Your Response",
-                    "You have already responded to this post. Would you like to edit your existing response?",
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      { 
-                        text: "Edit", 
-                        onPress: () => handleEditComment(userExistingComment)
-                      }
-                    ]
-                  );
-                } else {
-                  setShowResponseModal(true);
-                }
-              }}
-              style={{
-                backgroundColor: userExistingComment ? '#000000' : '#FF3B30',
-                borderRadius: 12,
-                paddingVertical: 16,
-                alignItems: 'center',
-                flexDirection: 'row',
-                justifyContent: 'center'
-              }}
-            >
-              <Ionicons 
-                name={userExistingComment ? "pencil" : "add"} 
-                size={20} 
-                color="#fff" 
-                style={{ marginRight: 8 }} 
-              />
-              <Text style={{
-                color: '#fff',
-                fontSize: 18,
-                fontWeight: '600'
-              }}>
-                {userExistingComment ? 'Edit Response' : 'Add Response'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          {/* ✅ UPDATED: Show "Add Response" button ONLY if user has NOT commented yet */}
+          {!userExistingComment && (
+            <View style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              backgroundColor: '#fff',
+              borderTopWidth: 0.5,
+              borderTopColor: '#e5e5e5',
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              paddingBottom: insets.bottom + 12
+            }}>
+              {addRespLoading ? (
+                <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 40 }}>
+                  <ActivityIndicator size="small" color="#0ea5e9" />
+                </View>
+              ) : (
+              <TouchableOpacity
+                onPress={() => setShowResponseModal(true)}
+                style={{
+                  backgroundColor: '#FF3B30',
+                  borderRadius: 12,
+                  paddingVertical: 14,
+                  alignItems: 'center',
+                  flexDirection: 'row',
+                  justifyContent: 'center'
+                }}
+              >
+                <Ionicons 
+                  name="add" 
+                  size={18} 
+                  color="#fff" 
+                  style={{ marginRight: 8 }} 
+                />
+                <Text style={{
+                  color: '#fff',
+                  fontSize: 16,
+                  fontWeight: '600'
+                }}>
+                  Add Response
+                </Text>
+              </TouchableOpacity>
+            )}
+            
+            </View>
+          )}
 
-          {/* Compact Three Dots Menu Modal - positioned on comment */}
+          {/* Three Dots Menu Modal */}
           {showMenuModal && (
             <Modal
               visible={showMenuModal}
@@ -1097,7 +1526,9 @@ export default function CommentScreen({
                   <TouchableOpacity
                     onPress={() => {
                       const comment = comments.find(c => c.id === selectedCommentId);
-                      if (comment) handleEditComment(comment);
+                      if (comment) {
+                        handleEditComment(comment);
+                      }
                     }}
                     style={{
                       paddingHorizontal: 16,
@@ -1126,7 +1557,7 @@ export default function CommentScreen({
                     }}
                   >
                     <Ionicons name="trash" size={16} color="#FF3B30" />
-                    <Text style={{ marginLeft: 10, fontSize: 14, color: '#FF3B30' }}>
+                    <Text style={{ marginLeft: 10, fontSize: 14, color:"#FF3B30" }}>
                       Delete
                     </Text>
                   </TouchableOpacity>
@@ -1134,6 +1565,121 @@ export default function CommentScreen({
               </TouchableOpacity>
             </Modal>
           )}
+
+          {/* DELETE COMMENT MODAL */}
+        <CustomModal
+          visible={isDeleteCommentModalVisible}
+          type="warning"
+          title="Delete Response"
+          message="Are you sure you want to delete your response? This action cannot be undone."
+          buttons={[
+            {
+              text: "Cancel",
+              style: "cancel",
+              onPress: () => {
+                setIsDeleteCommentModalVisible(false);
+                setCommentToDelete(null);
+                setShowMenuModal(false); // ✅ ADD THIS LINE - Close the menu
+              }
+            },
+            {
+              text: isDeletingComment ? "Deleting..." : "Delete",
+              style: "destructive",
+              onPress: confirmDeleteComment
+            }
+          ]}
+          onClose={() => {
+            if (!isDeletingComment) {
+              setIsDeleteCommentModalVisible(false);
+              setCommentToDelete(null);
+              setShowMenuModal(false); // ✅ ADD THIS LINE - Close the menu
+            }
+          }}
+        />
+        </View>
+      </Modal>
+
+      {/* IMAGE MODAL */}
+      <Modal
+        visible={isImageModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeFullScreenImage}
+        statusBarTranslucent
+      >
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+          <TouchableOpacity 
+            style={{ 
+              position: 'absolute', 
+              top: Platform.OS === 'ios' ? 50 : 20, 
+              right: 24, 
+              zIndex: 10, 
+              padding: 12, 
+              borderRadius: 25, 
+              backgroundColor: 'rgba(0,0,0,0.6)' 
+            }}
+            onPress={closeFullScreenImage}
+          >
+            <Ionicons name="close" size={24} color="white" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
+            activeOpacity={1}
+            onPress={closeFullScreenImage}
+          >
+            {fullScreenImage && (
+              <Image
+                source={{ uri: fullScreenImage }}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                }}
+                resizeMode="contain"
+                resizeMethod="resize"
+                onError={(error) => {
+                  console.log("Image load error:", error.nativeEvent.error);
+                }}
+              />
+            )}
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* VIDEO MODAL */}
+      <Modal
+        visible={isVideoModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeFullScreenVideo}
+        statusBarTranslucent
+      >
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+          <TouchableOpacity 
+            style={{ 
+              position: 'absolute', 
+              top: Platform.OS === 'ios' ? 50 : 20, 
+              right: 24, 
+              zIndex: 10, 
+              padding: 12, 
+              borderRadius: 25, 
+              backgroundColor: 'rgba(0,0,0,0.6)' 
+            }}
+            onPress={closeFullScreenVideo}
+          >
+            <Ionicons name="close" size={24} color="white" />
+          </TouchableOpacity>
+          
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            {fullScreenVideo && (
+              <VideoView
+                player={fullScreenVideoPlayer}
+                style={{ width: screenWidth, height: screenHeight - 100 }}
+                contentFit="contain"
+                nativeControls={true}
+              />
+            )}
+          </View>
         </View>
       </Modal>
 
@@ -1179,7 +1725,6 @@ export default function CommentScreen({
                 {isEditMode ? 'Edit Your Response' : (replyingTo ? 'Reply with Response' : 'Select Your Response')}
               </Text>
               
-              {/* Graph Icon */}
               <TouchableOpacity 
                 style={{ padding: 4, marginLeft: 60 }}
                 onPress={() => {
@@ -1191,7 +1736,6 @@ export default function CommentScreen({
                 <Feather name="bar-chart-2" size={21} color="#000" />
               </TouchableOpacity>
               
-              {/* Close Icon */}
               <TouchableOpacity 
                 onPress={() => {
                   setShowResponseModal(false);
@@ -1206,84 +1750,64 @@ export default function CommentScreen({
             </View>
 
             {/* Response Options Grid */}
-            <View style={{
-              flexDirection: 'row',
-              flexWrap: 'wrap',
-              justifyContent: 'space-between',
-              marginBottom: 24
-            }}>
-              {RESPONSE_OPTIONS.map((option) => (
-                <TouchableOpacity
-                  key={option.id}
-                  onPress={() => handleOptionSelect(option.id)}
-                  style={{
-                    width: '48%',
-                    backgroundColor: '#f5f5f5',
-                    borderRadius: 16,
-                    paddingVertical: 24,
-                    paddingHorizontal: 16,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: 12,
-                    borderWidth: selectedOption === option.id ? 3 : 0,
-                    borderColor: selectedOption === option.id ? '#000000' : 'transparent',
-                    shadowColor: selectedOption === option.id ? '#000000' : 'transparent',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: selectedOption === option.id ? 0.1 : 0,
-                    shadowRadius: 4,
-                    elevation: selectedOption === option.id ? 4 : 0,
-                  }}
-                >
-                  {/* <Text style={{ fontSize: 40, marginBottom: 8 }}>
-                    {option.icon}
-                  </Text> */}
-                  <Image
-                    source={{ uri: option.icon}}
-                    className="w-16 h-10"
-                    resizeMode="contain"
-                  />
-                  <Text style={{
-                    fontSize: 16,
-                    fontWeight: '600',
-                    color: '#000',
-                    textAlign: 'center'
-                  }}>
-                    {option.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Submit Button */}
-            <TouchableOpacity
-              onPress={handleSubmitResponse}
-              disabled={isSubmitting || !selectedOption}
-              style={{
-                backgroundColor: selectedOption ? '#FF3B30' : '#E5E5E5',
-                borderRadius: 12,
-                paddingVertical: 16,
-                alignItems: 'center',
-                opacity: (isSubmitting || !selectedOption) ? 0.6 : 1
-              }}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={{
-                  color: selectedOption ? '#fff' : '#999',
-                  fontSize: 18,
-                  fontWeight: '600'
-                }}>
-                  {selectedOption 
-                    ? `${isEditMode ? 'Update' : 'Submit'} "${RESPONSE_OPTIONS.find(opt => opt.id === selectedOption)?.label}"` 
-                    : 'Select Your Response'
-                  }
-                </Text>
-              )}
-            </TouchableOpacity>
+            {isSubmitting ? (
+              <ActivityIndicator size="large" color="#000" />
+            ) : (
+              <View style={{
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                justifyContent: 'space-between',
+                marginBottom: 24
+              }}>
+                {RESPONSE_OPTIONS.map((option) => (
+                  <TouchableOpacity
+                    key={option.index}
+                    onPress={() => handleOptionSelect(option.id)}
+                    style={{
+                      width: '48%',
+                      backgroundColor: '#f5f5f5',
+                      borderRadius: 16,
+                      paddingVertical: 24,
+                      paddingHorizontal: 16,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: 12,
+                      borderWidth: selectedOption === option.id ? 3 : 0,
+                      borderColor: selectedOption === option.id ? '#000000' : 'transparent',
+                      shadowColor: selectedOption === option.id ? '#000000' : 'transparent',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: selectedOption === option.id ? 0.1 : 0,
+                      shadowRadius: 4,
+                      elevation: selectedOption === option.id ? 4 : 0,
+                    }}
+                  >
+                    {option?.icon && option.icon !== "" && (
+                      <Image
+                        source={{ uri: option.icon }}
+                        style={{ width: 64, height: 40 }}
+                        resizeMode="contain"
+                        resizeMethod="resize"
+                      />
+                    )}
+                    <Text style={{
+                      fontSize: 16,
+                      fontWeight: '600',
+                      color: '#000',
+                      textAlign: 'center'
+                    }}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
         </View>
       </Modal>
+      
+      
+
+   
 
       {/* Total Sentiment Page */}
       <TotalSentiment

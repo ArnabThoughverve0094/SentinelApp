@@ -1,12 +1,11 @@
 import { db } from '@/FirebaseConfig';
 import { LoadingComponent } from '@/components/LoadingComponent';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
-import { ResizeMode, Video } from 'expo-av';
-import { router } from 'expo-router';
-import { collection, doc, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { Link, router } from 'expo-router';
+import { VideoView, useVideoPlayer } from 'expo-video';
+import { collection, doc, getDocs, limit, onSnapshot, orderBy, query, startAfter } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Dimensions, Image, Linking, Modal, Platform, RefreshControl, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
-import FlipCard from 'react-native-flip-card';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface PostItem {
@@ -28,7 +27,241 @@ interface PostItem {
   Reposted: boolean;
   Bookmarked?: boolean;
   createdAt?: any;
+  isRepost?: boolean;
+  originalPost?: PostItem;
+  repostComment?: string;
+  repostedBy?: string;
+  repostedAt?: any;
+  isAnonymous: boolean;
+  contentType: string;
 }
+
+// ============================================
+// INSTAGRAM-STYLE MEDIA CAROUSEL FOR LANDING PAGE
+// ============================================
+interface MediaCarouselProps {
+  mediaUrls: string[];
+  postId: string;
+  onImagePress: (url: string) => void;
+  onVideoPress: (url: string) => void;
+  onDocPress: (url: string) => void;
+  getMediaType: (url: string) => string;
+  VideoPlayer: any;
+  index?: number;
+}
+
+interface MediaCarouselProps {
+  mediaUrls: string[];
+  postId: string;
+  onImagePress: (url: string) => void;
+  onVideoPress: (url: string) => void;
+  onDocPress: (url: string) => void;
+  getMediaType: (url: string) => string;
+  VideoPlayer: any;
+  index?: number;
+}
+
+const MediaCarousel: React.FC<MediaCarouselProps> = React.memo(({ 
+  mediaUrls,
+  postId,
+  onImagePress,
+  onVideoPress,
+  onDocPress,
+  getMediaType,
+  VideoPlayer,
+  index
+}) => {
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const scrollViewRef = useRef<ScrollView>(null);
+  
+  // ✅ CRITICAL: Calculate exact width for perfect snapping
+  const CARD_PADDING = 12; // Total horizontal padding (6px each side)
+  const ITEM_WIDTH = screenWidth - (CARD_PADDING * 2);
+
+  if (!mediaUrls || mediaUrls.length === 0) return null;
+
+  const handleScroll = (event: any) => {
+    const offset = event.nativeEvent.contentOffset.x;
+    const activeSlide = Math.round(offset / ITEM_WIDTH);
+    setCurrentSlide(activeSlide);
+  };
+
+  return (
+    <View className="mb-2 relative">
+      {/* ✅ Gesture handling wrapper */}
+      <View 
+        onStartShouldSetResponder={() => true}
+        onMoveShouldSetResponder={() => false}
+        onMoveShouldSetResponderCapture={(evt) => {
+          return Math.abs(evt.nativeEvent.pageX - evt.nativeEvent.locationX) > 10;
+        }}
+        onResponderTerminationRequest={() => false}
+      >
+        <ScrollView
+          ref={scrollViewRef}
+          horizontal
+          pagingEnabled={false} // ✅ Changed to false, using snapToInterval instead
+          showsHorizontalScrollIndicator={false}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          // ✅ CRITICAL SNAP PROPS
+          snapToInterval={ITEM_WIDTH}
+          snapToAlignment="start"
+          decelerationRate="fast"
+          disableIntervalMomentum={true}
+          // Other props
+          nestedScrollEnabled={true}
+          scrollEnabled={true}
+          removeClippedSubviews={false}
+          contentContainerStyle={{ paddingRight: CARD_PADDING }}
+        >
+          {mediaUrls.map((mediaUrl, mediaIndex) => {
+            const mediaType = getMediaType(mediaUrl);
+
+            return (
+              <View 
+                key={`${postId}-media-${mediaIndex}`}
+                style={{ 
+                  width: ITEM_WIDTH,
+                  marginRight: mediaIndex < mediaUrls.length - 1 ? 0 : 0 
+                }}
+              >
+                {mediaType === 'image' && (
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e?.stopPropagation?.();
+                      onImagePress(mediaUrl);
+                    }}
+                    activeOpacity={0.95}
+                  >
+                    <View className="relative rounded-xl overflow-hidden bg-gray-100">
+                      <Image
+                        source={{ uri: mediaUrl }}
+                        style={{ width: '100%', aspectRatio: 16 / 9 }}
+                        resizeMode="cover"
+                        resizeMethod="resize"
+                        progressiveRenderingEnabled={true}
+                        fadeDuration={300}
+                      />
+                      <View className="absolute top-2 right-6 p-1.5 rounded-full bg-black/50">
+                        <Ionicons name="expand-outline" size={14} color="white" />
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+                {mediaType === 'video' && (
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e?.stopPropagation?.();
+                      onVideoPress(mediaUrl);
+                    }}
+                    activeOpacity={0.95}
+                  >
+                    <VideoPlayer videoUrl={mediaUrl} index={index} />
+                  </TouchableOpacity>
+                )}
+
+                {mediaType === 'gif' && (
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e?.stopPropagation?.();
+                      onImagePress(mediaUrl);
+                    }}
+                    activeOpacity={0.95}
+                  >
+                    <View className="relative rounded-xl overflow-hidden">
+                      <Image
+                        source={{ uri: mediaUrl }}
+                        style={{ width: '100%', aspectRatio: 16 / 9 }}
+                        resizeMode="cover"
+                        progressiveRenderingEnabled={true}
+                      />
+                      <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+                        <MaterialIcons name="gif" size={20} color="white" />
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+                {mediaType === 'doc' && (
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e?.stopPropagation?.();
+                      onDocPress(mediaUrl);
+                    }}
+                    activeOpacity={0.95}
+                  >
+                    <View
+                      style={{
+                        borderRadius: 12,
+                        backgroundColor: '#8B5CF6',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        aspectRatio: 16 / 9,
+                        width: '100%',
+                      }}
+                    >
+                      <Ionicons name="document-text-outline" size={32} color="#FFFFFF" />
+                      <Text 
+                        numberOfLines={1}
+                        style={{
+                          color: '#FFF',
+                          marginTop: 4,
+                          textAlign: 'center',
+                          paddingHorizontal: 12,
+                          fontSize: 11,
+                        }}
+                      >
+                        {mediaUrl.split('/').pop()}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* Instagram-Style Pagination Dots */}
+      {mediaUrls.length > 1 && (
+        <View className="flex-row justify-center items-center mt-2" style={{ gap: 6 }}>
+          {mediaUrls.map((_, dotIndex) => (
+            <TouchableOpacity
+              key={`dot-${dotIndex}`}
+              onPress={() => {
+                scrollViewRef.current?.scrollTo({
+                  x: dotIndex * ITEM_WIDTH,
+                  animated: true,
+                });
+              }}
+              activeOpacity={0.7}
+            >
+              <View
+                style={{
+                  width: currentSlide === dotIndex ? 8 : 6,
+                  height: currentSlide === dotIndex ? 8 : 6,
+                  borderRadius: currentSlide === dotIndex ? 4 : 3,
+                  backgroundColor: currentSlide === dotIndex ? '#3b82f6' : '#d1d5db',
+                }}
+              />
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+      {/* Media Counter Badge */}
+        {mediaUrls.length > 1 && (
+          <View className="absolute top-2 left-2 px-2.5 py-1 rounded-full bg-black/70">
+            <Text className="text-white text-xs font-semibold">
+              {currentSlide + 1}/{mediaUrls.length}
+            </Text>
+          </View>
+        )}
+
+    </View>
+  );
+});
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -53,146 +286,269 @@ export default function Index(): React.JSX.Element {
   const [isFlipped, setIsFlipped] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(-1);
+
+  //Repost modal
+  const [isRepostModalVisible, setIsRepostModalVisible] = useState(false);
+  const [selectedRepostPost, setSelectedRepostPost] = useState<PostItem | null>(null);
+  
+  // ✅ NEW: Scroll tracking and auth popup states
+  const [scrollCount, setScrollCount] = useState(0);
+  const [showAuthPopup, setShowAuthPopup] = useState(false);
+  const [lastScrollY, setLastScrollY] = useState(0);
+  const popupAnimation = useRef(new Animated.Value(0)).current;
+  
   const flipCardRef = useRef<any>(null);
   const scrollViewRef = useRef<ScrollView>(null);
-  const videoRefs = useRef<{ [key: string]: any }>({});
+
+  //Lasy loading
+  const [lastVisible, setLastVisible] = useState<any>(null); // Use the correct Snapshot type if possible
+  const [hasMore, setHasMore] = useState(true); // To check if there are more documents to load
+  const BATCH_SIZE = 10; // Define your lazy load batch size
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [unsubscribers, setUnsubscribers] = useState<(() => void)[]>([]);
 
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
 
-  // ✅ MOVE filteredData EARLY - Before any usage
   const filteredData = useMemo(() => {
     return fetchedData.filter(item => {
-      if (userRole === "User") {
-        return item.isApproved;
-      }
-      return true;
+      return (item.isApproved) || item.postType.includes('X-Data');
     });
-  }, [fetchedData, userRole]);
+  }, [fetchedData]);
 
-  // ✅ FIXED: Fetch comments from correct subcollection structure
-  const fetchCommentsCount = useCallback(async (posts: PostItem[]) => {
+  const fullScreenVideoPlayer = useVideoPlayer(fullScreenVideo || '', (player) => {
+    player.loop = false;
+    player.play();
+  });
+
+  const VideoPlayer = useCallback(({ videoUrl, index }: { videoUrl: string; index?: number }) => {
+  const player = useVideoPlayer(videoUrl, (player) => {
+    player.loop = true;
+    player.muted = true;
+    if (currentVideoIndex === index) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  });
+
+  useEffect(() => {
+    if (currentVideoIndex === index) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  }, [currentVideoIndex, index, player]);
+
+  return (
+    <View className="relative rounded-xl overflow-hidden bg-black">
+      <VideoView
+        player={player}
+        style={{ 
+          width: '100%', 
+          aspectRatio: 16 / 9  // Changed from fixed height to aspectRatio
+        }}
+        contentFit="cover"  // Changed from "contain" to "cover"
+        nativeControls={false}
+      />
+      <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
+        <Ionicons name="play-outline" size={14} color="white" />
+      </View>
+      {currentVideoIndex !== index && (
+        <View className="absolute inset-0 bg-black/20 items-center justify-center">
+          <View className="w-10 h-10 bg-black/60 rounded-full items-center justify-center">
+            <Ionicons name="play" size={20} color="white" />
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}, [currentVideoIndex]);
+
+
+  const navigateToAuthScreen = useCallback(() => {
     try {
-      console.log('Starting to fetch comments for', posts.length, 'posts');
-      const commentsCount: { [key: string]: number } = {};
-      
-      // Process each post to count comments and replies
-      const commentPromises = posts.map(async (post) => {
-        try {
-          let totalComments = 0;
-          
-          // ✅ FIXED: Use correct subcollection path
-          const commentsRef = collection(db, post.postType, post.id, 'Comments');
-          const commentsSnapshot = await getDocs(commentsRef);
-          
-          totalComments = commentsSnapshot.size; // Direct comments count
-          
-          // Count replies for each comment
-          const replyPromises = commentsSnapshot.docs.map(async (commentDoc) => {
-            const repliesRef = collection(db, post.postType, post.id, 'Comments', commentDoc.id, 'Replies');
-            const repliesSnapshot = await getDocs(repliesRef);
-            return repliesSnapshot.size;
-          });
-          
-          const replyCounts = await Promise.all(replyPromises);
-          totalComments += replyCounts.reduce((sum, count) => sum + count, 0);
-          
-          return { [post.id]: totalComments };
-        } catch (error) {
-          console.error(`Error fetching comments for post ${post.id}:`, error);
-          return { [post.id]: 0 };
-        }
-      });
-      
-      const results = await Promise.all(commentPromises);
-      results.forEach(result => Object.assign(commentsCount, result));
-      
-      setCommentsData(commentsCount);
-      console.log('✅ Comments count fetched successfully:', commentsCount);
+      router.push("/popup");
     } catch (error) {
-      console.error('Error fetching comments count:', error);
+      console.error("Navigation error:", error);
     }
   }, []);
 
-  // ✅ ADDED: Bookmark function
-  const handleBookmark = useCallback(async (postItem: PostItem) => {
-    console.log("Bookmark pressed:", postItem.id);
-    
-    setFetchedData(prevData => 
-      prevData.map(item => 
-        item.uniqueId === postItem.uniqueId 
-          ? { ...item, Bookmarked: !item.Bookmarked } 
-          : item
-      )
-    );
-
-    if (fullScreenCard && fullScreenCard.uniqueId === postItem.uniqueId) {
-      setFullScreenCard((prev: PostItem | null) => prev ? ({
-        ...prev,
-        Bookmarked: !prev.Bookmarked
-      }) : null);
+  // ✅ NEW: Show popup animation
+  useEffect(() => {
+    if (showAuthPopup) {
+      Animated.spring(popupAnimation, {
+        toValue: 1,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(popupAnimation, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
     }
+    handleFetchAllData();
+  }, [showAuthPopup]);
 
-    await new Promise(r => setTimeout(r, 200));
-  }, [fullScreenCard]);
+  // const handleFetchAllData = useCallback(async (forceRefresh: boolean = false) => {
+  //   const currentTime = Date.now();
+  //   const cacheValidTime = 5 * 60 * 1000;
 
-  // OPTIMIZED DATA FETCHING
+  //   setLoading(true);
+  //   try {
+  //     const postsXData: any = [];
+
+  //     const collXDataRefPost = collection(db, 'X-Data');
+  //     const queryXData = query(
+  //       collXDataRefPost,
+  //       orderBy('ContentDate', 'desc')
+  //     );
+  //     const unsubscribeXData = onSnapshot(queryXData, async xDataSnapshot => {
+  //       const xdataDataArr = xDataSnapshot.docs.map(doc => ({
+  //         id: doc.id,
+  //         data: doc.data(),
+  //       }))
+
+  //       for (const doc of xdataDataArr) {
+  //         const postData = doc.data;
+  //         const postId = doc.id;
+
+  //         postsXData.push({
+  //           uniqueId: `xdata-${postId}`,
+  //           id: postId,
+  //           liked: false,
+  //           AuthorImageURL: postData.AuthorImageURL,
+  //           AuthorName: postData.AuthorName,
+  //           ContentDate: postData.ContentDate,
+  //           ContentDesc: postData.ContentDesc,
+  //           ContentURL: postData.ContentURL,
+  //           ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+  //           ContentLikeCount: postData.ContentLikeCount || 0,
+  //           ContentRepostCount: postData.ContentRepostCount || 0,
+  //           ContentCommentCount: postData.ContentCommentCount || 0,
+  //           isApproved: true,
+  //           postType: "X-Data",
+  //           Liked: false,
+  //           Reposted: false,
+  //           Bookmarked: false,
+  //           createdAt: postData.createdAt || postData.ContentDate,
+  //           isRepost: postData.isRepost || false,
+  //           originalPost: postData.originalPost || null,
+  //           repostComment: postData.repostComment || '',
+  //           repostedBy: postData.repostedBy || '',
+  //           repostedAt: postData.repostedAt || null,
+  //           isAnonymous: false,
+  //           contentType: postData.contentType || 'My Thoughts',
+  //         });
+  //       }
+
+  //       setFetchedXData(postsXData);
+  //     });
+      
+  //     const collSentinelRefPost = collection(db, 'SentinelPosts');
+  //     const querySentinel = query(
+  //       collSentinelRefPost,
+  //       orderBy('ContentDate', 'desc')
+  //     );
+      
+  //     console.log("Sentinel OnSnapshot");
+  //     const unsubscribeSentinel = onSnapshot(querySentinel, async sentinelSnapshot => {
+  //       const sentineldataArr = sentinelSnapshot.docs.map(doc => ({
+  //         id: doc.id,
+  //         data: doc.data(),
+  //       }))
+
+  //       const postsData = [];
+  //       for (const doc of sentineldataArr) {
+  //         const postData = doc.data;
+  //         const postId = doc.id;
+
+  //         postsData.push({
+  //           uniqueId: `sentinel-${postId}`,
+  //           id: postId,
+  //           liked: false,
+  //           AuthorImageURL: postData.AuthorImageURL,
+  //           AuthorName: postData.AuthorName,
+  //           ContentDate: postData.ContentDate,
+  //           ContentDesc: postData.ContentDesc,
+  //           ContentURL: postData.ContentURL,
+  //           ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+  //           ContentLikeCount: postData.ContentLikeCount || 0,
+  //           ContentRepostCount: postData.ContentRepostCount || 0,
+  //           ContentCommentCount: postData.ContentCommentCount || 0,
+  //           isApproved: postData.isApproved || false,
+  //           postType: "SentinelPosts",
+  //           Liked: false,
+  //           Reposted: false,
+  //           Bookmarked: false,
+  //           createdAt: postData.createdAt || postData.ContentDate,
+  //           isRepost: postData.isRepost || false,
+  //           originalPost: postData.originalPost || null,
+  //           repostComment: postData.repostComment || '',
+  //           repostedBy: postData.repostedBy || '',
+  //           repostedAt: postData.repostedAt || null,
+  //           isAnonymous: postData.isAnonymous || false,
+  //           contentType: postData.contentType || 'My Thoughts',
+  //         });
+
+  //       }
+
+  //       const allData = postsData.concat(postsXData);
+  //       setFetchedData(allData);
+  //       console.log('OnSnapshot Fetched and Sorted', `Total: ${allData.length} documents`);
+
+  //       allData.forEach(post =>
+  //         onSnapshot(
+  //           collection(doc(db, post.postType, post.id), 'Comments'),
+  //           commentsSnap => {
+  //             setFetchedData(prev =>
+  //               prev.map(p =>
+  //                 p.id === post.id
+  //                   ? { ...p, ContentCommentCount: commentsSnap.size }
+  //                   : p
+  //               )
+  //             );
+  //           }
+  //         )
+  //       );
+  //     });
+      
+  //     setLastFetchTime(currentTime);
+  //     console.log('All Data Fetched and Sorted', `Total: ${fetchedData.length} documents`);
+      
+  //     setIsInitialized(true);
+
+  //     return () => {
+  //       unsubscribeSentinel();
+  //       unsubscribeXData();
+  //     };
+      
+  //   } catch (error) {
+  //     console.error('Error fetching data:', error);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // }, [isInitialized, fetchedData.length, lastFetchTime]);
+
   const handleFetchAllData = useCallback(async (forceRefresh: boolean = false) => {
     const currentTime = Date.now();
-    const cacheValidTime = 5 * 60 * 1000; // 5 minutes cache
+
+    // if (!forceRefresh && isInitialized && (currentTime - lastFetchTime < 10000)) {
+    //   return;
+    // }
 
     setLoading(true);
     try {
-      const postsXData: any = [];
-
-      // Process X-Data
-      const collXDataRefPost = collection(db, 'X-Data');
-      const queryXData = query(
-        collXDataRefPost,
-        orderBy('ContentDate', 'desc')
-      );
-      const unsubscribeXData = onSnapshot(queryXData, async xDataSnapshot => {
-        const xdataDataArr = xDataSnapshot.docs.map(doc => ({
-          id: doc.id,
-          data: doc.data(),
-        }))
-
-        for (const doc of xdataDataArr) {
-          const postData = doc.data;
-          const postId = doc.id;
-
-          postsXData.push({
-            uniqueId: `xdata-${postId}`,
-            id: postId,
-            liked: false,
-            AuthorImageURL: postData.AuthorImageURL,
-            AuthorName: postData.AuthorName,
-            ContentDate: postData.ContentDate,
-            ContentDesc: postData.ContentDesc,
-            ContentURL: postData.ContentURL,
-            ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
-            ContentLikeCount: postData.ContentLikeCount || 0,
-            ContentRepostCount: postData.ContentRepostCount || 0,
-            ContentCommentCount: postData.ContentCommentCount || 0,
-            isApproved: true,
-            postType: "X-Data",
-            Liked: false,
-            Reposted: false,
-            Bookmarked: false,
-            createdAt: postData.createdAt || postData.ContentDate,
-          });
-        }
-
-        setFetchedXData(postsXData);
-      });
-      
       const collSentinelRefPost = collection(db, 'SentinelPosts');
-      const querySentinel = query(
+      let querySentinel = query(
         collSentinelRefPost,
-        orderBy('ContentDate', 'desc')
-      );
-      
+        orderBy('ContentDate', 'desc'),
+        limit(BATCH_SIZE) // Apply the limit for the initial batch
+    );
+
       console.log("Sentinel OnSnapshot");
-      // Process SentinelPosts
       const unsubscribeSentinel = onSnapshot(querySentinel, async sentinelSnapshot => {
         const sentineldataArr = sentinelSnapshot.docs.map(doc => ({
           id: doc.id,
@@ -207,9 +563,10 @@ export default function Index(): React.JSX.Element {
           postsData.push({
             uniqueId: `sentinel-${postId}`,
             id: postId,
-            liked: false,
             AuthorImageURL: postData.AuthorImageURL,
             AuthorName: postData.AuthorName,
+            AuthorBio: postData.AuthorBio || postData.Bio || '',  // ✅ ADD THIS
+            AuthorUserID: postData.AuthorUserID || postData.repostedBy || '123456',
             ContentDate: postData.ContentDate,
             ContentDesc: postData.ContentDesc,
             ContentURL: postData.ContentURL,
@@ -218,33 +575,38 @@ export default function Index(): React.JSX.Element {
             ContentRepostCount: postData.ContentRepostCount || 0,
             ContentCommentCount: postData.ContentCommentCount || 0,
             isApproved: postData.isApproved || false,
-            postType: "SentinelPosts",
+            isNew: postData.isNew !== undefined ? postData.isNew : true,
+            postType: postData.postType || "SentinelPosts",
             Liked: false,
             Reposted: false,
             Bookmarked: false,
             createdAt: postData.createdAt || postData.ContentDate,
-          });
+            CommentTemplate: postData.CommentTemplate || "Standard Template",
+            isRepost: postData.isRepost || false,
+            originalPost: postData.originalPost || null,
+            repostComment: postData.repostComment || '',
+            repostedBy: postData.repostedBy || '',
+            repostedAt: postData.repostedAt || null,
+            isAnonymous: postData.isAnonymous || false,
+            contentType: postData.contentType || 'My Thoughts',
+            isEducational: postData.isEducational || false,
+            moderationData: postData.moderationData || null,
 
+          });
         }
 
-        const allData = postsData.concat(postsXData);
-        setFetchedData(allData);
-        console.log('OnSnapshot Fetched and Sorted', `Total: ${allData.length} documents`);
+        // 1. Get the last document snapshot
+        const lastDoc = sentinelSnapshot.docs[sentinelSnapshot.docs.length - 1];
+            
+        // 2. Set the last visible state for subsequent fetches
+        // This is crucial for the lazy loading of the next batch
+        setLastVisible(lastDoc); 
 
-        allData.forEach(post =>
-          onSnapshot(
-            collection(doc(db, post.postType, post.id), 'Comments'),
-            commentsSnap => {
-              setFetchedData(prev =>
-                prev.map(p =>
-                  p.id === post.id
-                    ? { ...p, ContentCommentCount: commentsSnap.size }
-                    : p
-                )
-              );
-            }
-          )
-        );
+        // 3. Set the posts data (Initial batch)
+        setFetchedData(postsData);
+        setHasMore(sentinelSnapshot.docs.length === BATCH_SIZE); // Check if more data exists
+        
+        fetchPostComments();
       });
       
       setLastFetchTime(currentTime);
@@ -253,8 +615,8 @@ export default function Index(): React.JSX.Element {
       setIsInitialized(true);
 
       return () => {
+        console.log('unsubscribeSentinel');
         unsubscribeSentinel();
-        unsubscribeXData();
       };
       
     } catch (error) {
@@ -264,34 +626,126 @@ export default function Index(): React.JSX.Element {
     }
   }, [isInitialized, fetchedData.length, lastFetchTime]);
 
-  // ✅ Helper function to get actual comment counts
+  const handleLoadMore = useCallback(async () => {
+    
+    if (!hasMore || loading || isFetchingMore || !lastVisible) return; // Prevent multiple fetches or fetching if no more data
+
+    setIsFetchingMore(true); // Use a separate loading state if needed for 'loading more' indicator
+    try {
+        const collSentinelRefPost = collection(db, 'SentinelPosts');
+        let queryNext = query(
+            collSentinelRefPost,
+            orderBy('ContentDate', 'desc'),
+            startAfter(lastVisible), // Start after the last document fetched
+            limit(BATCH_SIZE)
+        );
+
+        // *** Use getDocs for the lazy load to avoid a new onSnapshot listener ***
+        const nextSnapshot = await getDocs(queryNext);
+
+        if (nextSnapshot.empty) {
+            setHasMore(false);
+            setIsFetchingMore(false);
+            return;
+        }
+        
+        // ... (Map nextSnapshot.docs to postsData and append) ...
+        const nextPostsData = nextSnapshot.docs.map(doc => ({
+          id: doc.id,
+          data: doc.data(),
+        }))
+
+        const postsData = [];
+        for (const doc of nextPostsData) {
+          const postData = doc.data;
+          const postId = doc.id;
+
+          postsData.push({
+            uniqueId: `sentinel-${postId}`,
+            id: postId,
+            AuthorImageURL: postData.AuthorImageURL,
+            AuthorName: postData.AuthorName,
+            AuthorBio: postData.AuthorBio || postData.Bio || '',  // ✅ ADD THIS
+            AuthorUserID: postData.AuthorUserID || postData.repostedBy || '123456',
+            ContentDate: postData.ContentDate,
+            ContentDesc: postData.ContentDesc,
+            ContentURL: postData.ContentURL,
+            ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+            ContentLikeCount: postData.ContentLikeCount || 0,
+            ContentRepostCount: postData.ContentRepostCount || 0,
+            ContentCommentCount: postData.ContentCommentCount || 0,
+            isApproved: postData.isApproved || false,
+            isNew: postData.isNew !== undefined ? postData.isNew : true,
+            postType: postData.postType || "SentinelPosts",
+            Liked: false,
+            Reposted: false,
+            Bookmarked: false,
+            createdAt: postData.createdAt || postData.ContentDate,
+            CommentTemplate: postData.CommentTemplate || "Standard Template",
+            isRepost: postData.isRepost || false,
+            originalPost: postData.originalPost || null,
+            repostComment: postData.repostComment || '',
+            repostedBy: postData.repostedBy || '',
+            repostedAt: postData.repostedAt || null,
+            isAnonymous: postData.isAnonymous || false,
+            contentType: postData.contentType || 'My Thoughts',
+            isEducational: postData.isEducational || false,
+            moderationData: postData.moderationData || null,
+
+          });
+        }
+
+        setFetchedData(prevData => [...prevData, ...postsData]); // Append new data
+
+        fetchPostComments();
+
+
+        const newLastDoc = nextSnapshot.docs[nextSnapshot.docs.length - 1];
+        setLastVisible(newLastDoc);
+        setHasMore(nextSnapshot.docs.length === BATCH_SIZE); // Check if this batch filled the limit
+
+    } catch (error) {
+        console.error('Error loading more data:', error);
+    } finally {
+      setIsFetchingMore(false);
+    }
+  }, [hasMore, loading, lastVisible, isFetchingMore]);
+
+  const fetchPostComments = useCallback(async () => {
+    try {
+      fetchedData.forEach(post => {
+        onSnapshot(
+          collection(doc(db, "SentinelPosts", post.id), 'Comments'),
+          commentsSnap => {
+            let totalComments = 0;
+            totalComments = commentsSnap.size;
+
+            setFetchedData(prev =>
+              prev.map(p =>
+                p.id === post.id
+                ? { ...p, ContentCommentCount: totalComments }
+                : p
+              )
+            );
+          }
+        )
+      });
+
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  },[fetchedData]);
+
   const getCommentsCount = useCallback((postId: string) => {
     return commentsData[postId] || 0;
   }, [commentsData]);
-  
-  // Navigate to comments screen
-  const loginScreen = async () => {
-    try {
-      router.push("/(auth)/email-login");
-    } catch (error) {
-      console.error("error, ", error);
-    }
-  }
 
-  useEffect(() => {
-    handleFetchAllData();
-    // try {
-    //   const fetchuserID = AsyncStorage.getItem('userId');
-    //   if(fetchuserID != null) {
-    //     router.push("/(tabs)");
-    //   }
-      
-    // } catch (error) {
-    //   console.error("error, ", error);
-    // }
-  }, []);
+  // useEffect(() => {
+  //   handleFetchAllData();
+  // }, []);
 
-  // MEDIA MODAL CONTROLS
   const openFullScreenImage = useCallback((imageUrl: string) => {
     setFullScreenImage(imageUrl);
     setIsImageModalVisible(true);
@@ -336,7 +790,6 @@ export default function Index(): React.JSX.Element {
     setIsFlipping(false);
   }, []);
 
-  // OPTIMIZED REFRESH
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     console.log('Manual refresh triggered');
@@ -344,7 +797,6 @@ export default function Index(): React.JSX.Element {
     setRefreshing(false);
   }, [handleFetchAllData]);
   
-  // IMPROVED TIME AGO FUNCTION
   const getTimeAgo = useCallback((dateString: any) => {
     if (!dateString) return 'Just now';
     
@@ -385,12 +837,23 @@ export default function Index(): React.JSX.Element {
         return `${diffInHours}h ago`;
       } else if (diffInDays < 7) {
         return `${diffInDays}d ago`;
-      } else if (diffInWeeks < 4) {
-        return `${diffInWeeks}w ago`;
-      } else if (diffInMonths < 12) {
-        return `${diffInMonths}mo ago`;
       } else {
-        return `${diffInYears}y ago`;
+        const dateObj = new Date(postDate.getTime());
+
+        // 1. Month names array
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+        // 2. Extract components
+        const month   = monthNames[dateObj.getMonth()];
+        const day     = String(dateObj.getDate()).padStart(2, '0');
+        const year    = dateObj.getFullYear();
+        const hours   = String(dateObj.getHours()).padStart(2, '0');
+        const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+
+        // 3. Format string: "Feb 02, 2026 21:30"
+        const formatted = `${month} ${day}, ${year} ${hours}:${minutes}`;
+
+        return formatted;
       }
     } catch (error) {
       console.error('Error parsing date:', error);
@@ -427,169 +890,125 @@ export default function Index(): React.JSX.Element {
     return urlPath.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt)$/) ? 'doc' : 'image';
   }, []);
 
-  // OPTIMIZED MEDIA CONTENT - REDUCED SIZES
-  const renderMediaContent = useCallback((item: PostItem, index?: number) => {
-    const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
-                     (item.ContentURL ? [item.ContentURL] : []);
-    
-    if (!mediaUrls || mediaUrls.length === 0) return null;
+  const renderRepostContent = useCallback((item: PostItem) => {
+    if (!item.isRepost || !item.originalPost) return null;
 
-    const primaryMediaUrl = mediaUrls[0];
-    const mediaType = getMediaType(primaryMediaUrl);
-
-    if (mediaType === 'image') {
-      return (
-        <View className="mb-2">
-          <TouchableOpacity 
-            onPress={(e) => {
-              e?.stopPropagation?.();
-              openFullScreenImage(primaryMediaUrl);
-            }}
-            activeOpacity={0.95}
-          >
-            <View className="relative rounded-xl overflow-hidden">
-              <Image
-                source={{ uri: primaryMediaUrl }}
-                style={{ width: '100%', height: 200 }}
-                className="bg-gray-100"
-                resizeMode="cover"
-                onError={(error) => {
-                  console.log("Image load error:", error.nativeEvent.error);
-                }}
-              />
-              <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
-                <Ionicons name="expand-outline" size={14} color="white" />
-              </View>
-            </View>
-          </TouchableOpacity>
-        </View>
-      );
-    } else if (mediaType === 'video') {
-      return (
-        <View className="mb-2">
-          <TouchableOpacity 
-            onPress={(e) => {
-              e?.stopPropagation?.();
-              openFullScreenVideo(primaryMediaUrl);
-            }}
-            activeOpacity={0.95}
-          >
-            <View className="relative rounded-xl overflow-hidden bg-black">
-              <Video
-                ref={(ref) => {
-                  if (ref && index !== undefined) {
-                    videoRefs.current[`video-${index}`] = ref;
-                  }
-                }}
-                source={{ uri: primaryMediaUrl }}
-                style={{ width: '100%', height: 200 }}
-                resizeMode={ResizeMode.CONTAIN}
-                useNativeControls={false}
-                shouldPlay={currentVideoIndex === index}
-                isMuted={true}
-                isLooping={true}
-              />
-              <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
-                <Ionicons name="play-outline" size={14} color="white" />
-              </View>
-              {currentVideoIndex !== index && (
-                <View className="absolute inset-0 bg-black/20 items-center justify-center">
-                  <View className="w-10 h-10 bg-black/60 rounded-full items-center justify-center">
-                    <Ionicons name="play" size={20} color="white" />
-                  </View>
-                </View>
-              )}
-            </View>
-          </TouchableOpacity>
-        </View>
-      );
-    } else if (mediaType === 'gif') {
-      return (
-        <View className="mb-2">
-          <TouchableOpacity 
-            onPress={(e) => {
-              e?.stopPropagation?.();
-              openFullScreenImage(primaryMediaUrl);
-            }}
-            activeOpacity={0.95}
-          >
-            <View className="relative rounded-xl overflow-hidden">
-              <Image
-                source={{ uri: primaryMediaUrl }}
-                style={{ width: '100%', height: 200 }}
-                className="bg-gray-100"
-                resizeMode="cover"
-              />
-              <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
-                 <MaterialIcons name="gif" size={20} color="white" />
-              </View>
-            </View>
-          </TouchableOpacity>
-        </View>
-      );
-    } else if (mediaType === 'doc') {
-      return (
-        <View className="mb-2">
-          <TouchableOpacity 
-            onPress={(e) => {
-              e?.stopPropagation?.();
-              openFullScreenDoc(primaryMediaUrl);
-            }}
-            activeOpacity={0.95}
-          >
-            <View
-              style={{
-                borderRadius: 12,
-                overflow: 'hidden',
-                backgroundColor: '#EEF2F6',
-                alignItems: 'center',
-                justifyContent: 'center',
-                height: 80,
-              }}>
-              <Ionicons name="document-text-outline" size={32} color="#8B5CF6" />
-              <Text numberOfLines={1} style={{ color: '#333', marginTop: 4, textAlign: 'center', paddingHorizontal: 12, fontSize: 11 }}>
-                {primaryMediaUrl.split('/').pop() || 'Document'}
-              </Text>
-              <Text style={{ color: '#aaa', fontSize: 9, marginTop: 1 }}>Tap to open</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      );
+    let AuthorName = "";
+    let AuthorImage = "";
+    if (item.originalPost.isAnonymous) {
+      AuthorName = "Anonymous";
+      AuthorImage = dummyAuthorImage;
     } else {
-      return null;
+      AuthorName = item.originalPost.AuthorName;
+      AuthorImage = item.originalPost.AuthorImageURL;
     }
-  }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, currentVideoIndex]);
 
-  // ✅ ADDED: Graph/Analytics modal function
-  const openGraphModal = useCallback((item: PostItem) => {
-    console.log("Graph/Analytics pressed:", item.id);
-    // For now, redirect to login. Later you can implement actual graph modal
-    loginScreen();
-  }, [loginScreen]);
+    return (
+      <View className="border border-gray-200 rounded-xl p-3 mt-2 bg-gray-50">
+        <View className="flex-row items-center mb-2">
+          <Image
+            // source={{ uri: item.originalPost.AuthorImageURL || dummyAuthorImage }}
+            source={{ uri: AuthorImage || dummyAuthorImage }}
+            className="w-6 h-6 rounded-full mr-2"
+            resizeMode="cover"
+            resizeMethod="resize"
+          />
+          <Text className="font-semibold text-gray-900 text-sm">{AuthorName}</Text>
+          <Text className="text-gray-500 text-xs ml-2">
+            {getTimeAgo(item.originalPost.ContentDate)}
+          </Text>
+        </View>
+        <Text className="text-gray-700 text-sm" numberOfLines={2}>
+          {item.originalPost.ContentDesc}
+        </Text>
+      </View>
+    );
+  }, [getTimeAgo, dummyAuthorImage]);
+  
+  const renderMediaContent = useCallback((item: PostItem, index?: number) => {
+  const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 
+    ? item.ContentURLs 
+    : (item.ContentURL ? [item.ContentURL] : []);
 
-  // AUTO PLAY VIDEO ON SCROLL - Now filteredData is available
-  const handleScroll = useCallback((event: any) => {
-    const { contentOffset, layoutMeasurement } = event.nativeEvent;
-    const currentScrollY = contentOffset.y;
-    const viewHeight = layoutMeasurement.height;
-    const viewCenter = currentScrollY + viewHeight / 2;
+  return (
+    <MediaCarousel
+      mediaUrls={mediaUrls}
+      postId={item.id}
+      onImagePress={openFullScreenImage}
+      onVideoPress={openFullScreenVideo}
+      onDocPress={openFullScreenDoc}
+      getMediaType={getMediaType}
+      VideoPlayer={VideoPlayer}
+      index={index}
+    />
+  );
+}, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, VideoPlayer]);
 
-    filteredData.forEach((item, index) => {
-      const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 ? item.ContentURLs : 
-                       (item.ContentURL ? [item.ContentURL] : []);
-      
-      if (mediaUrls.length > 0 && getMediaType(mediaUrls[0]) === 'video') {
-        const itemY = index * 340;
-        const itemCenter = itemY + 150;
-        
-        if (Math.abs(viewCenter - itemCenter) < 100) {
-          if (currentVideoIndex !== index) {
-            setCurrentVideoIndex(index);
-          }
+
+
+  // ✅ NEW: Handle scroll with counter for popup trigger
+  const handleScroll = useCallback(
+    (event: any) => {
+      const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+      const currentScrollY = contentOffset.y;
+      const viewHeight = layoutMeasurement.height;
+      const viewCenter = currentScrollY + viewHeight / 2;
+
+      // ✅ NEW: Track scroll progress to show auth popup
+      // Only track downward scrolling
+      if (currentScrollY > lastScrollY + 340) {
+        const newScrollCount = scrollCount + 1;
+        setScrollCount(newScrollCount);
+        setLastScrollY(currentScrollY);
+
+        // Show popup after 2-3 posts (3 posts for better UX)
+        if (newScrollCount >= 3 && !showAuthPopup) {
+          setShowAuthPopup(true);
         }
       }
-    });
-  }, [filteredData, getMediaType, currentVideoIndex]);
+
+      // Check if the user is 90% of the way down the content
+      const isCloseToBottom =
+        contentOffset.y + layoutMeasurement.height >= contentSize.height * 0.9;
+
+      if (isCloseToBottom && hasMore && !loading) {
+        handleLoadMore(); // Call the lazy loading function
+      }
+
+      // Video autoplay logic
+      filteredData.forEach((item, index) => {
+        const mediaUrls =
+          item.ContentURLs && item.ContentURLs.length > 0
+            ? item.ContentURLs
+            : item.ContentURL
+            ? [item.ContentURL]
+            : [];
+
+        if (mediaUrls.length > 0 && getMediaType(mediaUrls[0]) === "video") {
+          const itemY = index * 340;
+          const itemCenter = itemY + 150;
+
+          if (Math.abs(viewCenter - itemCenter) < 100) {
+            if (currentVideoIndex !== index) {
+              setCurrentVideoIndex(index);
+            }
+          }
+        }
+      });
+    },
+    [
+      filteredData,
+      getMediaType,
+      currentVideoIndex,
+      hasMore,
+      loading,
+      handleLoadMore,
+      scrollCount,
+      lastScrollY,
+      showAuthPopup,
+    ]
+  );
+
 
   const EnhancedCard = useCallback(({ children, postId }: { children: React.ReactNode, postId: string }) => {
     const animValue = cardAnimations[postId] || new Animated.Value(0);
@@ -632,57 +1051,178 @@ export default function Index(): React.JSX.Element {
     );
   }, [cardAnimations]);
 
-  const renderPostUserContent = useCallback((item: PostItem, index: number) => (
-    <TouchableOpacity 
-      activeOpacity={0.95}
-      onPress={() => openFullScreenCard(item)}
-    >
-      <EnhancedCard postId={item.uniqueId}>
+  const renderPostUserContent = useCallback((item: PostItem, index: number) => {
+    const AuthorName = item.isAnonymous ? 'Anonymous' : item.AuthorName;
+    const AuthorImage = item.isAnonymous ? dummyAuthorImage : (item.AuthorImageURL || dummyAuthorImage);
+    return (
+      <TouchableOpacity 
+        activeOpacity={0.95}
+        onPress={() => openFullScreenCard(item)}
+      >
+        <EnhancedCard postId={item.uniqueId}>
+        <TouchableOpacity 
+          onPress={(e) => {
+            e.stopPropagation();
+            navigateToAuthScreen();
+          }}
+          activeOpacity={0.7}
+        >
         <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
           <View className="flex-row items-center">
             <View className="relative">
               <View className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
                 <Image
-                  source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
+                  // source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
+                  source={{uri: AuthorImage || dummyAuthorImage }}
                   className="w-full h-full"
                   resizeMode="cover"
+                  resizeMethod="resize"
                 />
               </View>
             </View>
             <View className="flex-1">
-              <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text>
+              <Text className="font-bold text-gray-900 text-sm">{AuthorName}</Text>
               <View className="flex-row items-center mt-0.5">
-                <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
+                {item.postType != 'X-Data' && (
+                  <View className="bg-blue-100 px-1 py-0.5 rounded-full mr-1.5">
+                    <Text className="text-blue-600 text-xs font-regular">• {item.contentType}</Text>
+                  </View>
+                )}
                 {item.postType === 'X-Data' && (
-                  <View className="bg-blue-100 px-1.5 py-0.5 rounded-full">
-                    <Text className="text-blue-600 text-xs font-medium">𝕏 POST</Text>
+                  <View className="bg-blue-100 px-0.5 py-0.5 rounded-full mr-1.5">
+                    <Text className="text-blue-600 text-xs font-semibold">𝕏 POST</Text>
                   </View>
                 )}
               </View>
             </View>
-            <TouchableOpacity className="p-1.5 rounded-full bg-gray-100">
-              <Ionicons name="ellipsis-horizontal" size={12} color="#64748b" />
-            </TouchableOpacity>
+              
+            <Text className="text-gray-500 text-xs mr-5">{getTimeAgo(item.ContentDate)}</Text>
+
           </View>
         </View>
+        </TouchableOpacity>
 
         <View className="px-3 py-2.5">
-          <Text className="text-gray-800 text-sm leading-5 mb-2">{item.ContentDesc}</Text>
+          <Text className="text-gray-800 text-sm leading-5 mb-2"  numberOfLines={2}>{item.ContentDesc}</Text>
 
-          {renderMediaContent(item, index)}
+          {renderRepostContent(item)}
 
-          <View className="flex-row items-center justify-between pt-1.5 ">
+          {item.postType !== "X-Data" && renderMediaContent(item, index)}
+
+          <View className="flex-row items-center">
+              <View className="flex-1"> 
+                <View className="flex-row items-center mt-1.5">
+
+                  <TouchableOpacity
+                    className="flex-row items-center px-1.5 py-1 mr-5"
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      navigateToAuthScreen();
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name={item.Liked ? "heart" : "heart-outline"}
+                      size={20}
+                      color={item.Liked ? "#ef4444" : "#64748b"}
+                    />
+                    <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
+                      {item.ContentLikeCount}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    className="flex-row items-center mr-5 px-1.5 py-1 "
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      navigateToAuthScreen();
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialCommunityIcons
+                      name="thumbs-up-down"
+                      size={20}
+                      color="#64748b"
+                    />
+                    <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    className="flex-row items-center mr-5 px-1.5 py-1 "
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      navigateToAuthScreen();
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons 
+                      name="repeat-outline" 
+                      size={20} 
+                      color={item.Reposted ? "#0ea5e9" : "#64748b"} 
+                    />
+                    <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
+                      {item.ContentRepostCount}
+                    </Text>
+                  </TouchableOpacity>
+            
+                  <TouchableOpacity 
+                    className="mr-5 p-1.5"
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      navigateToAuthScreen();
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Feather name="bar-chart-2" size={20} color="#64748b" />
+                  </TouchableOpacity>
+
+                </View>
+          
+              </View>
+
+              <View className="flex-row items-center mt-1.5">
+                <TouchableOpacity
+                  className="flex-row items-center mr-5 px-1.5 py-1"
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    navigateToAuthScreen();
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons 
+                    name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
+                    size={20} 
+                    color={item.Bookmarked ? "#f59e0b" : "#64748b"} 
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  className="p-1"
+                  onPress={(e) => {
+                   e.stopPropagation();
+                    navigateToAuthScreen();
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Feather name="share-2" size={20} color="#64748b" />
+                </TouchableOpacity>
+              
+              </View>
+
+            </View>
+
+          {/* <View className="flex-row items-center justify-between pt-1.5 ">
             <TouchableOpacity
               className="flex-row items-center px-1.5 py-1 "
               onPress={(e) => {
                 e.stopPropagation();
-                loginScreen();
+                navigateToAuthScreen();
               }}
               activeOpacity={0.7}
             >
               <Ionicons
                 name={item.Liked ? "heart" : "heart-outline"}
-                size={14}
+                size={20}
                 color={item.Liked ? "#ef4444" : "#64748b"}
               />
               <Text className={`ml-1 text-xs font-medium ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
@@ -694,13 +1234,13 @@ export default function Index(): React.JSX.Element {
               className="flex-row items-center px-1.5 py-1 "
               onPress={(e) => {
                 e.stopPropagation();
-                loginScreen();
+                navigateToAuthScreen();
               }}
               activeOpacity={0.7}
             >
               <MaterialCommunityIcons
-                name="comment-outline"
-                size={14}
+                name="thumbs-up-down"
+                size={20}
                 color="#64748b"
               />
               <Text className="text-gray-600 ml-1 text-xs font-medium">{item.ContentCommentCount}</Text>
@@ -710,62 +1250,62 @@ export default function Index(): React.JSX.Element {
               className="flex-row items-center px-1.5 py-1 "
               onPress={(e) => {
                 e.stopPropagation();
-                loginScreen();
+                navigateToAuthScreen();
               }}
               activeOpacity={0.7}
             >
               <Ionicons 
                 name="repeat-outline" 
-                size={14} 
+                size={20} 
                 color={item.Reposted ? "#0ea5e9" : "#64748b"} 
               />
               <Text className={`ml-1 text-xs font-medium ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
                 {item.ContentRepostCount}
               </Text>
             </TouchableOpacity>
+            
             <TouchableOpacity 
               className="p-1.5"
-              onPress={() => {
-                closeFullScreenCard();
-                loginScreen();
+              onPress={(e) => {
+                e.stopPropagation();
+                navigateToAuthScreen();
               }}
               activeOpacity={0.7}
             >
-              <Feather name="bar-chart-2" size={16} color="#64748b" />
+              <Feather name="bar-chart-2" size={20} color="#64748b" />
             </TouchableOpacity>
 
-            {/* ✅ ADDED: Bookmark button */}
             <TouchableOpacity
               className="flex-row items-center px-1.5 py-1"
               onPress={(e) => {
                 e.stopPropagation();
-                loginScreen(); // Redirect to login
+                navigateToAuthScreen();
               }}
               activeOpacity={0.7}
             >
               <Ionicons 
                 name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
-                size={14} 
+                size={20} 
                 color={item.Bookmarked ? "#f59e0b" : "#64748b"} 
               />
             </TouchableOpacity>
 
-            {/* ✅ UPDATED: Share button now redirects to login */}
             <TouchableOpacity 
               className="p-1"
               onPress={(e) => {
                 e.stopPropagation();
-                loginScreen(); // Redirect to login instead of just logging
+                navigateToAuthScreen();
               }}
               activeOpacity={0.7}
             >
-              <Feather name="share-2" size={12} color="#64748b" />
+              <Feather name="share-2" size={20} color="#64748b" />
             </TouchableOpacity>
-          </View>
+          </View> */}
         </View>
       </EnhancedCard>
     </TouchableOpacity>
-  ), [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, dummyAuthorImage, loginScreen]);
+    );
+  }, [openFullScreenCard, EnhancedCard, getTimeAgo, renderMediaContent, dummyAuthorImage, navigateToAuthScreen, renderRepostContent]);
 
   const initializeCardAnimation = useCallback((postId: string) => {
     if (!cardAnimations[postId]) {
@@ -790,404 +1330,74 @@ export default function Index(): React.JSX.Element {
     return filteredData.map((item, index) => {
       initializeCardAnimation(item.uniqueId);
       
-      if (userRole === "User") {
-        return (
-          <React.Fragment key={item.uniqueId}>
-            {renderPostUserContent(item, index)}
-          </React.Fragment>
-        );
-      } else {
-        return (
-          <React.Fragment key={item.uniqueId}>
-            {renderPostUserContent(item, index)}
-          </React.Fragment>
-        );
-      }
+      const baseKey = `${item.postType}-${item.id}`;
+      const contextKey = `feed-${index}`;
+      const getTimestamp = (date: any) => {
+        if (date && typeof date === 'object' && 'seconds' in date) return date.seconds;
+        if (typeof date === 'number') return date;
+        if (typeof date === 'string') return date;
+        return '';
+      };
+      const timestampKey = getTimestamp(item.createdAt) || getTimestamp(item.ContentDate) || index;
+      const uniqueKey = `${baseKey}-${contextKey}-${timestampKey}`;
+
+      return (
+        <React.Fragment key={uniqueKey}>
+          {renderPostUserContent(item, index)}
+        </React.Fragment>
+      );
     });
-  }, [filteredData, userRole, initializeCardAnimation, renderPostUserContent]);
-
-  const handleFlipCard = useCallback(() => {
-    if (isFlipping) return;
-    
-    setIsFlipping(true);
-    setIsFlipped(!isFlipped);
-    
-    setTimeout(() => {
-      setIsFlipping(false);
-    }, 800);
-  }, [isFlipped, isFlipping]);
-
-  const renderFlipCardFront = useCallback((item: PostItem) => (
-    <View style={{ 
-      flex: 1, 
-      backgroundColor: 'white', 
-      borderRadius: 24, 
-      overflow: 'hidden' 
-    }}>
-      <View className="px-4 py-3 bg-gray-50 border-b border-gray-100">
-        <View className="flex-row items-center">
-          <View className="relative">
-            <View className="w-10 h-10 rounded-full mr-2.5 overflow-hidden border-2 border-white shadow-lg">
-              <Image
-                source={{ uri: item?.AuthorImageURL || dummyAuthorImage }}
-                className="w-full h-full"
-                resizeMode="cover"
-              />
-            </View>
-          </View>
-          <View className="flex-1">
-            <Text className="font-bold text-gray-900 text-sm">{item.AuthorName}</Text>
-            <View className="flex-row items-center mt-0.5">
-              <Text className="text-gray-500 text-xs mr-2">{getTimeAgo(item.ContentDate)}</Text>
-              {item.postType === 'X-Data' && (
-                <View className="bg-blue-100 px-2 py-0.5 rounded-full">
-                  <Text className="text-blue-600 text-xs font-semibold">𝕏 POST</Text>
-                </View>
-              )}
-            </View>
-          </View>
-          <View className="flex-col items-center">
-            <TouchableOpacity 
-              className="p-1.5 rounded-full bg-blue-100 mb-1"
-              onPress={handleFlipCard}
-              disabled={isFlipping}
-              style={{ opacity: isFlipping ? 0.6 : 1 }}
-            >
-              <Ionicons name="repeat" size={14} color="#3b82f6" />
-            </TouchableOpacity>
-            <Text className="text-xs text-blue-600 font-medium">Flip</Text>
-          </View>
-        </View>
-      </View>
-
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-        <View className="px-4 py-3">
-          <Text className="text-gray-800 text-sm leading-5 mb-3 font-normal">{item.ContentDesc}</Text>
-          
-          {renderMediaContent(item)}
-
-          <View className="flex-row items-center justify-between pt-3  mb-3">
-            <TouchableOpacity
-              className="flex-row items-center px-2 py-1.5 "
-              onPress={() => loginScreen()}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={item.Liked ? "heart" : "heart-outline"}
-                size={18}
-                color={item.Liked ? "#ef4444" : "#64748b"}
-              />
-              <Text className={`ml-2 text-sm font-semibold ${item.Liked ? 'text-red-500' : 'text-gray-600'}`}>
-                {item.ContentLikeCount}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className="flex-row items-center px-2 py-1.5 "
-              onPress={() => {
-                closeFullScreenCard();
-                loginScreen();
-              }}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name="comment-outline"
-                size={18}
-                color="#64748b"
-              />
-              <Text className="text-gray-600 ml-2 text-sm font-semibold">{item.ContentCommentCount}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className="flex-row items-center px-2 py-1.5 "
-              onPress={() => loginScreen()}
-              activeOpacity={0.7}
-            >
-              <Ionicons 
-                name="repeat-outline" 
-                size={18} 
-                color={item.Reposted ? "#0ea5e9" : "#64748b"} 
-              />
-              <Text className={`ml-2 text-sm font-semibold ${item.Reposted ? 'text-blue-500' : 'text-gray-600'}`}>
-                {item.ContentRepostCount}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              className="p-1.5"
-              onPress={() => {
-                closeFullScreenCard();
-                loginScreen();
-              }}
-              activeOpacity={0.7}
-            >
-              <Feather name="bar-chart-2" size={16} color="#64748b" />
-            </TouchableOpacity>
-
-            {/* ✅ ADDED: Bookmark button in flip card */}
-            <TouchableOpacity
-              className="flex-row items-center px-2 py-1.5"
-              onPress={() => loginScreen()}
-              activeOpacity={0.7}
-            >
-              <Ionicons 
-                name={item.Bookmarked ? "bookmark" : "bookmark-outline"} 
-                size={18} 
-                color={item.Bookmarked ? "#f59e0b" : "#64748b"} 
-              />
-            </TouchableOpacity>
-
-            {/* ✅ UPDATED: Share button redirects to login */}
-            <TouchableOpacity 
-              className="p-1.5"
-              onPress={() => loginScreen()}
-              activeOpacity={0.7}
-            >
-              <Feather name="share-2" size={16} color="#64748b" />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </ScrollView>
-    </View>
-  ), [getTimeAgo, handleFlipCard, isFlipping, renderMediaContent, getCommentsCount, dummyAuthorImage, loginScreen, closeFullScreenCard]);
-
-  const renderFlipCardBack = useCallback((item: PostItem) => (
-    <View style={{ 
-      flex: 1, 
-      backgroundColor: '#667eea', 
-      borderRadius: 24, 
-      overflow: 'hidden'
-    }}>
-      <View style={{ 
-        paddingHorizontal: 16, 
-        paddingVertical: 12, 
-        backgroundColor: 'rgba(0,0,0,0.2)', 
-        borderBottomWidth: 1, 
-        borderBottomColor: 'rgba(255,255,255,0.2)' 
-      }}>
-        <View className="flex-row items-center">
-          <View className="flex-1">
-            <Text className="font-bold text-white text-base">Post Analytics</Text>
-            <Text className="text-white/80 text-sm mt-0.5">Detailed insights</Text>
-          </View>
-          <View className="flex-col items-center">
-            <TouchableOpacity 
-              className="p-1.5 rounded-full mb-1" 
-              style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
-              onPress={handleFlipCard}
-              disabled={isFlipping}
-            >
-              <Ionicons name="repeat" size={14} color="white" />
-            </TouchableOpacity>
-            <Text className="text-xs text-white font-medium">Flip</Text>
-          </View>
-        </View>
-      </View>
-
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-        <View style={{ paddingHorizontal: 16, paddingVertical: 16 }}>
-          <View style={{ gap: 12 }}>
-            <View style={{ 
-              backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-              borderRadius: 14, 
-              padding: 16 
-            }}>
-              <Text className="text-white font-bold text-sm mb-3">Engagement</Text>
-              <View className="flex-row justify-between items-center mb-2">
-                <View className="flex-row items-center">
-                  <Ionicons name="heart" size={16} color="#ff6b6b" />
-                  <Text className="text-white ml-2 text-sm">Likes</Text>
-                </View>
-                <Text className="text-white font-bold text-base">{item.ContentLikeCount}</Text>
-              </View>
-              <View className="flex-row justify-between items-center mb-2">
-                <View className="flex-row items-center">
-                  <Ionicons name="repeat" size={16} color="#4ecdc4" />
-                  <Text className="text-white ml-2 text-sm">Reposts</Text>
-                </View>
-                <Text className="text-white font-bold text-base">{item.ContentRepostCount}</Text>
-              </View>
-              <View className="flex-row justify-between items-center">
-                <View className="flex-row items-center">
-                  <MaterialCommunityIcons name="comment" size={16} color="#45b7d1" />
-                  <Text className="text-white ml-2 text-sm">Comments</Text>
-                </View>
-                <Text className="text-white font-bold text-base">{item.ContentCommentCount}</Text>
-              </View>
-            </View>
-
-            <View style={{ 
-              backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-              borderRadius: 14, 
-              padding: 16 
-            }}>
-              <Text className="text-white font-bold text-sm mb-3">Post Details</Text>
-              <View style={{ gap: 8 }}>
-                <View>
-                  <Text className="text-white/70 text-xs">Post Type</Text>
-                  <Text className="text-white font-semibold text-sm">{item.postType}</Text>
-                </View>
-                <View>
-                  <Text className="text-white/70 text-xs">Status</Text>
-                  <View className="flex-row items-center mt-1">
-                    <View 
-                      style={{ 
-                        width: 6, 
-                        height: 6, 
-                        borderRadius: 3, 
-                        marginRight: 6,
-                        backgroundColor: item.isApproved ? '#4ade80' : '#f87171'
-                      }} 
-                    />
-                    <Text className="text-white font-semibold text-sm">
-                      {item.isApproved ? 'Approved' : 'Pending'}
-                    </Text>
-                  </View>
-                </View>
-                <View>
-                  <Text className="text-white/70 text-xs">Published</Text>
-                  <Text className="text-white font-semibold text-sm">{getTimeAgo(item.ContentDate)}</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={{ 
-              backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-              borderRadius: 14, 
-              padding: 16 
-            }}>
-              <Text className="text-white font-bold text-sm mb-3">Quick Actions</Text>
-              <View className="flex-row justify-between" style={{ gap: 8 }}>
-                <TouchableOpacity 
-                  style={{ 
-                    flex: 1, 
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                    borderRadius: 8, 
-                    paddingVertical: 10, 
-                    alignItems: 'center' 
-                  }}
-                  onPress={() => {
-                    closeFullScreenCard();
-                    loginScreen();
-                  }}
-                >
-                  <MaterialCommunityIcons name="comment-plus" size={18} color="white" />
-                  <Text className="text-white text-xs mt-1 font-medium">Comment</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={{ 
-                    flex: 1, 
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                    borderRadius: 8, 
-                    paddingVertical: 10, 
-                    alignItems: 'center' 
-                  }}
-                  onPress={() => {
-                    closeFullScreenCard();
-                    loginScreen();
-                  }}
-                >
-                  <Ionicons name="create-outline" size={18} color="white" />
-                  <Text className="text-white text-xs mt-1 font-medium">Edit</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={{ 
-                    flex: 1, 
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-                    borderRadius: 8, 
-                    paddingVertical: 10, 
-                    alignItems: 'center' 
-                  }}
-                  onPress={() => {
-                    closeFullScreenCard();
-                    loginScreen();
-                  }}
-                >
-                  <Ionicons name="share-outline" size={18} color="white" />
-                  <Text className="text-white text-xs mt-1 font-medium">Share</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </View>
-      </ScrollView>
-    </View>
-  ), [handleFlipCard, isFlipping, getTimeAgo, userRole, getCommentsCount, closeFullScreenCard, loginScreen]);
-
-  const renderFullScreenFlipCard = useCallback((item: PostItem) => (
-    <View className="flex-1 bg-gray-900">
-      <View style={{ paddingTop: Platform.OS === 'ios' ? 50 : 30 }} className="px-6 py-4 bg-gray-900/95 border-b border-gray-700">
-        <View className="flex-row items-center justify-between">
-          <Text className="text-white font-bold text-xl">Post Details</Text>
-          <TouchableOpacity 
-            className="p-3 rounded-full bg-red-500"
-            onPress={closeFullScreenCard}
-          >
-            <Ionicons name="close" size={24} color="white" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View className="flex-1 justify-center px-4">
-        <FlipCard
-          ref={flipCardRef}
-          style={{ width: screenWidth - 32, height: screenHeight * 0.75 }}
-          friction={6}
-          perspective={1000}
-          flipHorizontal={true}
-          flipVertical={false}
-          flip={isFlipped}
-          clickable={false}
-        >
-          {renderFlipCardFront(item)}
-          {renderFlipCardBack(item)}
-        </FlipCard>
-
-        <View className="mt-6 bg-black/50 rounded-2xl p-4">
-          <Text className="text-white text-center text-sm opacity-80">
-            Use the flip button to see more details
-          </Text>
-        </View>
-      </View>
-    </View>
-  ), [closeFullScreenCard, isFlipped, renderFlipCardFront, renderFlipCardBack]);
+  }, [filteredData, initializeCardAnimation, renderPostUserContent]);
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
       
-      <View className="bg-white border-b border-gray-200 pt-5">
+      <View className="bg-white border-b border-gray-200">
         <View 
-          className="px-4 py-2 flex-row items-center justify-between"
-          style={{ paddingTop: Platform.OS === 'ios' ? 12 : 12 }}
+          className="px-4 py-3 flex-row items-center justify-between"
+          style={{ paddingTop: Platform.OS === 'ios' ? 10 : 10 }}
         >
-          <View>
-            <Image
-              source={require("../../assets/images/sentinel_logo.png")}
-              className="w-16 h-10"
-              resizeMode="contain"
-            />
-          </View>
+          <Link href="/" asChild>
+              <TouchableOpacity className="flex-row items-center">
+                <View className="ml-2">
+                  <View className="flex-row items-center">
+                    <View className="w-8 h-8 mr-0">
+                      <Image
+                        source={require("../../assets/images/new_logo.png")}
+                        style={{ flex: 1, width: undefined, height: undefined }}
+                        resizeMode="contain"
+                      />
+                    </View>
+                    {/* Sentinel Text */}
+                    {/* <Text className="text-3xl font-extrabold text-[#281C20]">entinel</Text> */}
+                    <Text className="text-3xl font-extrabold text-[#281C20]">IronExSafe™</Text>
+                  </View>
+                  {/* Logo Icon */}
+                  <Text className="text-lg text-[#281C20]">
+                  Report. Expose. Educate.
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </Link>
           
-          <TouchableOpacity className="p-2 rounded-full bg-gray-100 shadow-sm"
-          onPress={(e) => {
-            loginScreen();
-          }}>
-            <Image
-              source={require("../../assets/images/Union.png")}
-              className="w-5 h-5"
-              resizeMode="contain"
-            />
+          <TouchableOpacity 
+            className="p-2 rounded-full"
+            onPress={navigateToAuthScreen}
+          >
+            <Ionicons name="search" size={30} color="#000000" />
           </TouchableOpacity>
         </View>
       </View>
 
       <ScrollView 
+        key={`feed`}
         ref={scrollViewRef}
         className="flex-1" 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ 
           paddingTop: 6, 
-          paddingBottom: 16,
+          paddingBottom: 90, // Space for bottom nav + popup
         }}
         onScroll={handleScroll}
         scrollEventThrottle={16}
@@ -1202,18 +1412,164 @@ export default function Index(): React.JSX.Element {
           />
         }
       >
-        {loading ? (
-          <View className="flex-1 justify-center items-center py-20">
-            <LoadingComponent visible={true} size="large" />
-          </View>
+        {loading && !isFetchingMore ? (
+            // Full-screen loader for initial/refresh load
+            <View className="flex-1 justify-center items-center py-20">
+                <LoadingComponent visible={true} size="large" />
+            </View>
         ) : listItems.length > 0 ? (
-          listItems
+            // The list of items
+            listItems
         ) : (
-          <View className="flex-1 justify-center items-center py-20">
-            <LoadingComponent visible={true} size="large" />
-          </View>
+             // Fallback loader if list is empty after initial load (optional)
+            <View className="flex-1 justify-center items-center py-20">
+                <LoadingComponent visible={true} size="large" />
+            </View>
+        )}
+
+        {/* 👇 5. Small Loader for Pagination */}
+        {isFetchingMore && (
+            <View className="py-4 justify-center items-center">
+                <LoadingComponent visible={true} size="small" /> 
+            </View>
+        )}
+
+        {/* 👇 6. "No More Data" Indicator (Optional) */}
+        {!hasMore && listItems.length > BATCH_SIZE && (
+            <View className="py-4 justify-center items-center">
+                <Text className="text-gray-500">You've reached the end of the feed.</Text>
+            </View>
         )}
       </ScrollView>
+      
+      {/* ✅ FIXED BOTTOM NAVIGATION */}
+      <View 
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          backgroundColor: 'white',
+          borderTopWidth: 1,
+          borderTopColor: '#e5e7eb',
+          paddingBottom: Platform.OS === 'ios' ? 20 : 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
+          elevation: 10,
+        }}
+      >
+        <View className="flex-row items-center justify-around px-2 py-2">
+          <TouchableOpacity 
+            className="items-center justify-center"
+            onPress={navigateToAuthScreen}
+            style={{ flex: 1 }}
+          >
+            {/* <Ionicons name="home" size={26} color="#000" /> */}
+            <MaterialIcons
+              name="home"
+              size={28}
+              color="#000000"
+            />
+            <Text className="text-xs text-black mt-1 font-medium">Home</Text>
+                        
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            className="items-center justify-center"
+            onPress={navigateToAuthScreen}
+            style={{ flex: 1 }}
+          >
+            <Ionicons name="bookmark-outline" size={26} color="#64748b" />
+            <Text className="text-xs text-gray-500 mt-1">Bookmark</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            className="items-center justify-center"
+            onPress={navigateToAuthScreen}
+            style={{ flex: 1 }}
+          >
+            <Ionicons name="add-circle-outline" size={26} color="#64748b" />
+            <Text className="text-xs text-gray-500 mt-1">Create</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            className="items-center justify-center"
+            onPress={navigateToAuthScreen}
+            style={{ flex: 1 }}
+          >
+            <Ionicons name="notifications-outline" size={26} color="#64748b" />
+            <Text className="text-xs text-gray-500 mt-1">Notifs</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            className="items-center justify-center"
+            onPress={navigateToAuthScreen}
+            style={{ flex: 1 }}
+          >
+            <Ionicons name="person-circle-outline" size={26} color="#64748b" />
+            <Text className="text-xs text-gray-500 mt-1">Profile</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* ✅ AUTH POPUP - Appears after 2-3 scrolls */}
+      {showAuthPopup && (
+        <Animated.View
+          style={{
+            position: 'absolute',
+            bottom: Platform.OS === 'ios' ? 95 : 85,
+            left: 16,
+            right: 16,
+            transform: [
+              {
+                translateY: popupAnimation.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [200, 0],
+                }),
+              },
+            ],
+            opacity: popupAnimation,
+          }}
+        >
+          <View className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
+            <View className="bg-pink-50 px-5 py-4">
+              <View className="flex-row items-center justify-between mb-2">
+                <Text className="text-base font-bold text-gray-900">Welcome to IronExSafe</Text>
+                <TouchableOpacity onPress={() => setShowAuthPopup(false)}>
+                  <Ionicons name="close" size={22} color="#64748b" />
+                </TouchableOpacity>
+              </View>
+              <Text className="text-sm text-gray-600 leading-5">
+                Login now to stay updated with all the latest information near you
+              </Text>
+            </View>
+            
+            <View className="px-5 py-4 flex-row gap-3">
+              <TouchableOpacity 
+                className="flex-1 bg-black py-3 rounded-xl items-center"
+                onPress={() => {
+                  setShowAuthPopup(false);
+                  router.push("/(auth)/register");
+                }}
+              >
+                <Text className="text-white font-semibold text-sm">Sign Up</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                className="flex-1 bg-red-600 py-3 rounded-xl items-center"
+                onPress={() => {
+                  setShowAuthPopup(false);
+                  router.push("/(auth)/email-login");
+                }}
+              >
+                <Text className="text-white font-semibold text-sm">Login</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Animated.View>
+      )}
       
       {/* IMAGE MODAL */}
       <Modal
@@ -1245,6 +1601,7 @@ export default function Index(): React.JSX.Element {
                   maxHeight: screenHeight - 100 
                 }}
                 resizeMode="contain"
+                resizeMethod="resize"
               />
             )}
           </TouchableOpacity>
@@ -1269,13 +1626,11 @@ export default function Index(): React.JSX.Element {
           
           <View className="flex-1 justify-center items-center">
             {fullScreenVideo && (
-              <Video
-                source={{ uri: fullScreenVideo }}
+              <VideoView
+                player={fullScreenVideoPlayer}
                 style={{ width: screenWidth, height: screenHeight - 100 }}
-                resizeMode={ResizeMode.CONTAIN}
-                useNativeControls
-                shouldPlay
-                isLooping={false}
+                contentFit="contain"
+                nativeControls={true}
               />
             )}
           </View>
@@ -1318,17 +1673,6 @@ export default function Index(): React.JSX.Element {
             )}
           </View>
         </View>
-      </Modal>
-
-      {/* CARD MODAL */}
-      <Modal
-        visible={isCardModalVisible}
-        transparent={false}
-        animationType="slide"
-        onRequestClose={closeFullScreenCard}
-        statusBarTranslucent
-      >
-        {fullScreenCard && renderFullScreenFlipCard(fullScreenCard)}
       </Modal>
     </SafeAreaView>
   );
