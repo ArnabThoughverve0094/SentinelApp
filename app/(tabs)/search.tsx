@@ -607,6 +607,7 @@ export default function SearchPage() {
 
     return null;
   };
+  const goBack = useCallback(() => router.back(), [router]);
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -619,7 +620,7 @@ export default function SearchPage() {
             <Text className="text-2xl font-bold text-gray-900">Search</Text>
             <TouchableOpacity
               className="p-2 rounded-full bg-gray-100"
-              onPress={() => router.back()}
+              onPress={goBack}
             >
               <Ionicons name="close" size={20} color="#4B5563" />
             </TouchableOpacity>

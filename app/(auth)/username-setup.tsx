@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -33,6 +33,7 @@ export default function UserDetails(): React.JSX.Element {
     }
     setLoading(false);
   };
+  const goBack = useCallback(() => router.back(), [router]);
 
   return (
     <SafeAreaView className="flex-1" style={{ backgroundColor: '#F8F9FF' }}>
@@ -45,7 +46,7 @@ export default function UserDetails(): React.JSX.Element {
           {/* Header with back button */}
           <View className="flex-row items-center pt-4 pb-8 px-6">
             <TouchableOpacity 
-              onPress={() => router.back()}
+              onPress={goBack}
               className="p-2"
             >
               <Ionicons name="arrow-back" size={24} color="#000" />
@@ -62,7 +63,7 @@ export default function UserDetails(): React.JSX.Element {
               {/* Title and description */}
               <View className="mb-8">
                 <Text className="text-2xl font-bold text-black mb-4">
-                  Enter you details
+                  Enter your details
                 </Text>
                 <Text className="text-base text-gray-600 leading-6">
                   Input your personal details to get started.

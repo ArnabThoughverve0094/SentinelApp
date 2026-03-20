@@ -7,7 +7,7 @@ import {
   getDoc,
   updateDoc,
 } from "firebase/firestore";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   FlatList,
@@ -332,7 +332,7 @@ export default function BlockedUsersScreen() {
       </TouchableOpacity>
     </View>
   );
-
+  const goBack = useCallback(() => router.back(), [router]);
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
@@ -340,7 +340,7 @@ export default function BlockedUsersScreen() {
       {/* Header */}
       <View className="flex-row items-center px-4 py-4 pt-16 bg-white border-b border-gray-100">
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={goBack}
           className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center mr-3"
         >
           <Ionicons name="arrow-back" size={20} color="#111827" />
