@@ -56,7 +56,7 @@ interface UserDoc {
   Website?: string;
   website?: string;
   FollowersCount?: number;
-  Following?: string[];
+  Following?: FollowingUser[];
   PostsCount?: number;
 }
 
@@ -106,6 +106,14 @@ type ShortURLResponse = {
   shortURL: string;
   id: any;
 };
+type FollowingUser = {
+  userId: string;
+  userEmail?: string;
+  userName?: string;
+  userNickName?: string;
+  profilePicUrl?: string;
+};
+
 const getFullImageUrl = (profilePath?: string): string => {
   const dummy = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
   
@@ -279,15 +287,6 @@ export default function UserProfileScreen() {
   }>();
   const router = useRouter();
 
-  // ✅ ADD THIS SAFETY CHECK
-  if (!userId) {
-    return (
-      <SafeAreaView className="flex-1 bg-white items-center justify-center">
-        <ActivityIndicator size="large" color="#111827" />
-        <Text className="text-gray-500 mt-4">Loading profile...</Text>
-      </SafeAreaView>
-    );
-  }
 
   const [loading, setLoading] = useState(true);
   const [followLoading, setFollowLoading] = useState(false);
@@ -300,7 +299,7 @@ export default function UserProfileScreen() {
   const [currentUserNickName, setCurrentUserNickName] = useState<string>("");
   const [currentUserProfilePicURL, setCurrentUserProfilePicURL] = useState<string>("");
 
-  const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
+  const [followingUsers, setFollowingUsers] = useState<FollowingUser[]>([]);
   const [currentUserDocId, setCurrentUserDocId] = useState("");
   const [profileUserDocId, setProfileUserDocId] = useState("");
   const [isFollowing, setIsFollowing] = useState(false);
@@ -328,6 +327,10 @@ export default function UserProfileScreen() {
   const [isDeleteUserModalVisible, setIsDeleteUserModalVisible] = useState(false);
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
   const [showMenuModal, setShowMenuModal] = useState(false);
+  const asArray = <T,>(value: unknown): T[] => {
+  return Array.isArray(value) ? (value as T[]) : [];
+  };
+
 
   // ✅ FORMAT VIEW COUNT LIKE X/TWITTER
   const formatViewCount = useCallback((count: number): string => {
@@ -370,9 +373,12 @@ export default function UserProfileScreen() {
       }
 
       const postData = postDoc.data();
-      const currentViewedBy = postData.ViewedBy || [];
-      const currentViewCount = postData.ContentViewCount || 0;
+      const currentViewedBy = asArray<string>(postData?.ViewedBy);
+      const currentViewCount = typeof postData?.ContentViewCount === "number"
+        ? postData.ContentViewCount
+        : 0;
       const hasViewed = currentViewedBy.includes(currentUserId);
+
       
       // ✅ ALWAYS INCREMENT (like X/Twitter)
       const newCount = currentViewCount + 1;
@@ -453,7 +459,7 @@ export default function UserProfileScreen() {
         const unsubscribe = onSnapshot(postRef, (snapshot) => {
           if (snapshot.exists()) {
             const data = snapshot.data();
-            const newViewCount = data.ContentViewCount || 0;
+            const newViewCount = data.ContentViewCount ?? 0;
             
             // Only update if count actually changed
             setUserPosts(prev =>
@@ -487,10 +493,40 @@ export default function UserProfileScreen() {
   useEffect(() => {
   if (!userId) return;
 
-  fetchCounts();
-  // fetchFollowingCounts();
-  // fetchFollowerCounts();
+  const userDocRef = doc(db, "IronExUsers", userId);
+
+  const unsubscribe = onSnapshot(
+    userDocRef,
+    (docSnapshot) => {
+      if (docSnapshot.exists()) {
+        const data = docSnapshot.data();
+        const followingList = asArray<FollowingUser>(data?.Following);
+
+        const followingCount =
+          typeof data?.followingCount === "number"
+            ? data.followingCount
+            : followingList.length;
+
+        const followerCount =
+          typeof data?.followerCount === "number"
+            ? data.followerCount
+            : 0;
+
+        setRealFollowingCount(followingCount);
+        setRealFollowersCount(followerCount);
+      } else {
+        setRealFollowingCount(0);
+        setRealFollowersCount(0);
+      }
+    },
+    (error) => {
+      console.error("❌ Real-time listener failed:", error);
+    }
+  );
+
+  return () => unsubscribe();
 }, [userId]);
+
 
 const fetchCounts = async () => {
   console.log("fetchCounts called");
@@ -503,13 +539,13 @@ const fetchCounts = async () => {
       const data = docSnapshot.data();
 
       // 1. Get the Array of following objects
-      const followingList = data.Following || [];
+      const followingList = data.Following ?? []; // Default to empty array if not present
       
       // 2. Get the specific count fields
       // Ensure you are using the 'increment' logic in your follow function
       // for these fields to exist!
-      const followingCount = data.followingCount || followingList.length;
-      const followerCount = data.followerCount || 0;
+      const followingCount = data.followingCount ?? followingList.length;
+      const followerCount = data.followerCount ?? 0; // Default to 0 if not present
 
       // Update your React states
       // setFollowingData(followingList);
@@ -803,13 +839,23 @@ const fetchFollowerCounts = async () => {
 
         const userDocRef = doc(db, 'IronExUsers', fetchuserID);
 
-        const unsubscribe = onSnapshot(userDocRef, (doc) => {
-          if (doc.exists()) {
-            const following = doc.data().Following || [];
-            const alreadyFollowing = following.some(u => u.userId === userId);
+        const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            const following = asArray<FollowingUser>(data?.Following);
+
+            const alreadyFollowing = following.some(
+              (u) => u && typeof u === "object" && u.userId === userId
+            );
+
+            setFollowingUsers(following);
             setIsFollowing(alreadyFollowing);
+          } else {
+            setFollowingUsers([]);
+            setIsFollowing(false);
           }
         });
+
 
         // const sentinelUsersRef = collection(db, "SentinelUsers");
         // const q = query(sentinelUsersRef, where("userID", "==", fetchuserID));
@@ -840,22 +886,36 @@ const fetchFollowerCounts = async () => {
       }
     } catch (error) {
       console.error("❌ Error fetching following list:", error);
-      setFollowingUserIds([]);
+      setFollowingUsers([]);
       setIsFollowing(false);
     }
   }, [currentUserId, userId, isAnonymous]);
 
   useEffect(() => {
-    fetchUserFollowing();
-  }, [fetchUserFollowing]);
+  let unsubscribe: (() => void) | undefined;
 
-  useEffect(() => {
-    if (userId) {
-      const isUserFollowing = followingUserIds.includes(userId);
-      setIsFollowing(isUserFollowing);
-      console.log(`🔄 Updated following status for ${userId}:`, isUserFollowing);
-    }
-  }, [userId, followingUserIds]);
+  const run = async () => {
+    unsubscribe = await fetchUserFollowing();
+  };
+
+  run();
+
+  return () => {
+    if (unsubscribe) unsubscribe();
+  };
+}, [fetchUserFollowing]);
+
+
+    useEffect(() => {
+    if (!userId) return;
+
+    const isUserFollowing = followingUsers.some(
+      (u) => u && u.userId === userId
+    );
+
+    setIsFollowing(isUserFollowing);
+  }, [userId, followingUsers]);
+
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -884,49 +944,73 @@ const fetchFollowerCounts = async () => {
         const storedUserId = await AsyncStorage.getItem("userId");
 
         if (storedUserId && storedUserId === userId) {
-          const [name, nickname, email, country, bio, profilePicUrl] =
-            await AsyncStorage.multiGet([
-              "userName",
-              "userNickName",
-              "userEmail",
-              "userCountry",
-              "userBio",
-              "profilePicUrl",
-            ]);
+          const [
+            storedName,
+            storedNickName,
+            storedEmail,
+            storedCountry,
+            storedBio,
+            storedProfilePic,
+          ] = await AsyncStorage.multiGet([
+            "userName",
+            "userNickName",
+            "userEmail",
+            "userCountry",
+            "userBio",
+            "profilePicUrl",
+          ]);
 
           const usersRef = collection(db, "IronExUsers");
           const qSnap = query(usersRef, where("userID", "==", storedUserId));
           
           const unsubscribe = onSnapshot(qSnap, (snapshot) => {
-            const mapped: UserDoc = {
-              userID: storedUserId,
-              userName: name[1] || authorName || "",
-              userNickName: nickname[1] || "",
-              userEmail: userEmail[1] || "",
-              profilePicUrl: profilePicUrl[1] || (authorImageUrl as string) || "",
-              userBio: snapshot.docs[0]?.data()?.bio
-              || snapshot.docs[0]?.data()?.userBio
-              || snapshot.docs[0]?.data()?.Bio
-              || bio[1]
-              || '',
-              Website: undefined,
-              website: undefined,
-              FollowersCount: 0,
-              Following: [],
-              PostsCount: 0,
-            };
+  // ✅ Define firestoreData as the FIRST line inside the callback
+          const firestoreData = snapshot.docs[0]?.data();
 
-            if (!snapshot.empty) {
-              const data = snapshot.docs[0].data();
-              setProfileUserDocId(snapshot.docs[0].id);
-              mapped.FollowersCount = data.FollowersCount || 0;
-              mapped.Following = data.Following || [];
-              mapped.PostsCount = data.PostsCount || 0;
-            }
+          const mapped: UserDoc = {
+            userID: storedUserId,
+            userName:
+              firestoreData?.name ||
+              firestoreData?.userName ||
+              storedName[1] ||
+              (authorName as string) ||
+              "",
+            userNickName:
+              firestoreData?.nickName ||
+              firestoreData?.userNickName ||
+              storedNickName[1] ||
+              "",
+            userEmail: storedEmail[1] || "",
+            profilePicUrl:
+              firestoreData?.profilePicUrl ||
+              storedProfilePic[1] ||
+              (authorImageUrl as string) ||
+              "",
+            userBio:
+              firestoreData?.bio ||
+              firestoreData?.userBio ||
+              firestoreData?.Bio ||
+              storedBio[1] ||
+              "",
+            Website: undefined,
+            website: undefined,
+            FollowersCount: 0,
+            Following: [],
+            PostsCount: 0,
+          };
 
-            setUserDoc(mapped);
-            setLoading(false);
-          });
+          if (!snapshot.empty) {
+            const data = snapshot.docs[0].data();
+            setProfileUserDocId(snapshot.docs[0].id);
+            mapped.FollowersCount = data.FollowersCount || 0;
+            mapped.Following = asArray<FollowingUser>(data.Following);
+            mapped.PostsCount = data.PostsCount || 0;
+          }
+
+          setUserDoc(mapped);
+          setLoading(false);
+        });
+
 
           return () => unsubscribe();
         }
@@ -1068,9 +1152,9 @@ const fetchFollowerCounts = async () => {
             isApproved: postData.isApproved || false,
             isNew: postData.isNew !== undefined ? postData.isNew : true,
             postType: postData.postType || "SentinelPosts",
-            Liked: (postData.LikedBy?.includes(loggedUserId) || false),
-            Reposted: (postData.RepostedBy?.includes(loggedUserId) || false),
-            Bookmarked: postData.BookmarkedBy?.includes(loggedUserId) || false,
+            Liked: asArray<string>(postData.LikedBy).includes(loggedUserId || ""),
+            Reposted: asArray<string>(postData.RepostedBy).includes(loggedUserId || ""),
+            Bookmarked: asArray<string>(postData.BookmarkedBy).includes(loggedUserId || ""),
             createdAt: postData.createdAt || postData.ContentDate,
             CommentTemplate: postData.CommentTemplate || "Standard Template",
             isRepost: postData.isRepost || false,
@@ -1081,7 +1165,7 @@ const fetchFollowerCounts = async () => {
             isAnonymous: postData.isAnonymous || false,
             contentType: postData.contentType ?? 'My Thoughts',
             ContentViewCount: postData.ContentViewCount || 0,
-            ViewedBy: postData.ViewedBy || []
+            ViewedBy: asArray<string>(postData.ViewedBy)
           });
         }
 
@@ -1794,12 +1878,16 @@ const fetchFollowerCounts = async () => {
     return getFullImageUrl(userDoc.profilePicUrl) || dummyAuthorImage;
   }, [isAnonymous, userDoc?.profilePicUrl]);
 
-  const displayName = 
-    isAnonymous === 'true' 
+    const displayName =
+    isAnonymous === 'true'
       ? 'Anonymous'
-      : (userDoc?.userName && userDoc.userName.trim()) ||
-        (userDoc?.userNickName && userDoc.userNickName.trim()) ||
-        "Unknown user";
+      : userDoc?.userName?.trim()
+      ? userDoc.userName.trim()
+      : userDoc?.userNickName?.trim()
+      ? userDoc.userNickName.trim()
+      : userDoc?.userEmail?.split('@')[0]  
+      ?? 'Unknown';
+
 
   const handleWebsitePress = () => {
     const url = userDoc?.Website || userDoc?.website;
@@ -2003,6 +2091,29 @@ const fetchFollowerCounts = async () => {
   };
 
   const isOwnProfile = currentUserId === userId;
+    if (!userId) {
+    return (
+      <SafeAreaView className="flex-1 bg-white items-center justify-center">
+        <ActivityIndicator size="large" color="#111827" />
+        <Text className="text-gray-500 mt-4">Loading profile...</Text>
+      </SafeAreaView>
+    );
+  }
+
+      const goToFollowing = useCallback(() => {
+      router.push({
+        pathname: '/followers/[userid]',
+        params: { userid: userId, type: 'following' },
+      });
+    }, [router, userId]);
+
+    const goToFollowers = useCallback(() => {
+      router.push({
+        pathname: '/followers/[userid]',
+        params: { userid: userId, type: 'followers' },
+      });
+    }, [router, userId]);
+ const goBack = useCallback(() => router.back(), [router]);
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -2014,7 +2125,7 @@ const fetchFollowerCounts = async () => {
 
       <View className="absolute top-10 left-3 z-50">
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={goBack}
           className="w-8 h-8 rounded-full bg-black/60 items-center justify-center"
         >
           <Ionicons name="arrow-back" size={20} color="#ffffff" />
@@ -2118,12 +2229,7 @@ const fetchFollowerCounts = async () => {
           {isAnonymous !== "true" && (
           <View className="flex-row mt-3 mb-3">
             <TouchableOpacity
-              onPress={() =>
-                router.push({
-                  pathname: "/followers/[userid]",
-                  params: { userid: userId, type: "following" },
-                })
-              }
+              onPress={goToFollowing}
               activeOpacity={0.7}
             >
               <Text className="mr-4 text-sm text-gray-900">
@@ -2132,12 +2238,7 @@ const fetchFollowerCounts = async () => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() =>
-                router.push({
-                  pathname: "/followers/[userid]",
-                  params: { userid: userId, type: "followers" },
-                })
-              }
+              onPress={goToFollowers}
               activeOpacity={0.7}
             >
               <Text className="text-sm text-gray-900">

@@ -1453,6 +1453,7 @@ const checkPostContent = async (postText: string, imageUrl: string | null) => {
   useFocusEffect(() => {
     getItem();
   })
+  const goBack = useCallback(() => router.back(), [router]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "white" }}>
@@ -1506,7 +1507,7 @@ const checkPostContent = async (postText: string, imageUrl: string | null) => {
 
                 {/* The Close Button */}
                 <TouchableOpacity 
-                  onPress={() => router.back()} 
+                  onPress={goBack}
                   style={{
                     width: 32,
                     height: 32,

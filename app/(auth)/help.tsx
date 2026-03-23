@@ -1,7 +1,7 @@
 // app/help.tsx  (or screens/HelpScreen.tsx if you use a custom navigator)
 import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   Platform,
   ScrollView,
@@ -233,7 +233,7 @@ const HelpScreen: React.FC = () => {
   const [activeKey, setActiveKey] = useState<HelpSectionKey>('welcome');
 
   const active = sections.find(s => s.key === activeKey) ?? sections[0];
-
+const goBack = useCallback(() => router.back(), [router]);
   return (
     <SafeAreaView className="flex-1 bg-slate-50">
       <StatusBar
@@ -256,7 +256,7 @@ const HelpScreen: React.FC = () => {
             {/* <Ionicons name="help-circle" size={26} color="#ef4444" /> */}
             {/* Right: Close Button */}
             <TouchableOpacity 
-              onPress={() => router.back()} 
+              onPress={goBack}
               style={{ 
                 width: 32, 
                 height: 32, 

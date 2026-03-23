@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
 import { Link, useRouter } from "expo-router";
 import * as WebBrowser from 'expo-web-browser';
-import React from "react";
+import React, { useCallback } from "react";
 import {
   Dimensions,
   Image,
@@ -466,6 +466,7 @@ type LoginResponse = {
 
 export default function AuthLanding(): React.JSX.Element {
   const router = useRouter();
+  const goBack = useCallback(() => router.back(), [router]);
 
   return (
     <View style={styles.container}>
@@ -481,7 +482,7 @@ export default function AuthLanding(): React.JSX.Element {
         
         {/* Close Button - Positioned on top of pattern */}
         <TouchableOpacity 
-          onPress={() => router.back()} 
+          onPress={goBack}
           style={styles.closeButton}
           activeOpacity={0.7}
         >

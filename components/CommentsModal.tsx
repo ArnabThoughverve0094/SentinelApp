@@ -1,7 +1,7 @@
 import { db } from '@/FirebaseConfig';
 import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router } from 'expo-router';
+import { router, useRouter } from 'expo-router';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import {
   addDoc,
@@ -350,6 +350,7 @@ export default function CommentScreen({
   commentTemplate
 }: CommentScreenProps) {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [, forceRerender] = useReducer(x => x + 1, 0);
   const [userId, setUserId] = useState("1");
   const [userImage, setUserImage] = useState("");
