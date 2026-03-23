@@ -7,31 +7,31 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		010AC1C92645B5C279C1FC2E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = FFAB508ADCD5D6C6AA3AC2D0 /* PrivacyInfo.xcprivacy */; };
-		06E4920ECCC2380839386A30 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04BAEC71F4076448EEDEF6D9 /* ExpoModulesProvider.swift */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		261B439A50A9221693686282 /* libPods-IronEx.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E626C5E6A05BEB85E987D8C1 /* libPods-IronEx.a */; };
-		265D91D6C0D24D4E950562A5 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 925C932591D343918C4656A0 /* GoogleService-Info.plist */; };
+		26A9F6EA42154C63935EFA70 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 74875B37681F4FD1A4FD0442 /* GoogleService-Info.plist */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
+		9E1901B48A93B10CE8CA7A3C /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 0B8EEDB1D85203FA0EE66FC1 /* PrivacyInfo.xcprivacy */; };
+		A79787ADD37D3E5401310063 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCF57DE6BEA2A7B5873A1D47 /* ExpoModulesProvider.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
+		BBE74B5B40ABEB28AE527FC6 /* libPods-IronEx.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AE71906DB1346568ECF02EAA /* libPods-IronEx.a */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		04BAEC71F4076448EEDEF6D9 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-IronEx/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		0B8EEDB1D85203FA0EE66FC1 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = IronEx/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		0C839036B65A411A663CFBE5 /* Pods-IronEx.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-IronEx.debug.xcconfig"; path = "Target Support Files/Pods-IronEx/Pods-IronEx.debug.xcconfig"; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* IronEx.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IronEx.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = IronEx/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = IronEx/Info.plist; sourceTree = "<group>"; };
-		2BE258A3DF2A35851400395E /* Pods-IronEx.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-IronEx.debug.xcconfig"; path = "Target Support Files/Pods-IronEx/Pods-IronEx.debug.xcconfig"; sourceTree = "<group>"; };
-		517FC556745B99CF2D073A8B /* Pods-IronEx.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-IronEx.release.xcconfig"; path = "Target Support Files/Pods-IronEx/Pods-IronEx.release.xcconfig"; sourceTree = "<group>"; };
-		925C932591D343918C4656A0 /* GoogleService-Info.plist */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "IronEx/GoogleService-Info.plist"; sourceTree = "<group>"; };
+		74875B37681F4FD1A4FD0442 /* GoogleService-Info.plist */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "IronEx/GoogleService-Info.plist"; sourceTree = "<group>"; };
+		A998A12CC3D83014349015AD /* Pods-IronEx.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-IronEx.release.xcconfig"; path = "Target Support Files/Pods-IronEx/Pods-IronEx.release.xcconfig"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = IronEx/SplashScreen.storyboard; sourceTree = "<group>"; };
+		AE71906DB1346568ECF02EAA /* libPods-IronEx.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-IronEx.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		E626C5E6A05BEB85E987D8C1 /* libPods-IronEx.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-IronEx.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		BCF57DE6BEA2A7B5873A1D47 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-IronEx/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = IronEx/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* IronEx-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "IronEx-Bridging-Header.h"; path = "IronEx/IronEx-Bridging-Header.h"; sourceTree = "<group>"; };
-		FFAB508ADCD5D6C6AA3AC2D0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = IronEx/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -39,7 +39,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				261B439A50A9221693686282 /* libPods-IronEx.a in Frameworks */,
+				BBE74B5B40ABEB28AE527FC6 /* libPods-IronEx.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -55,37 +55,45 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				FFAB508ADCD5D6C6AA3AC2D0 /* PrivacyInfo.xcprivacy */,
-				925C932591D343918C4656A0 /* GoogleService-Info.plist */,
+				74875B37681F4FD1A4FD0442 /* GoogleService-Info.plist */,
+				0B8EEDB1D85203FA0EE66FC1 /* PrivacyInfo.xcprivacy */,
 			);
 			name = IronEx;
 			sourceTree = "<group>";
 		};
-		146E9DB9F740B01FDC8BD2A8 /* IronEx */ = {
+		2738E2C83A43E1C399BF9E62 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				04BAEC71F4076448EEDEF6D9 /* ExpoModulesProvider.swift */,
+				0C839036B65A411A663CFBE5 /* Pods-IronEx.debug.xcconfig */,
+				A998A12CC3D83014349015AD /* Pods-IronEx.release.xcconfig */,
 			);
-			name = IronEx;
+			name = Pods;
+			path = Pods;
 			sourceTree = "<group>";
 		};
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				E626C5E6A05BEB85E987D8C1 /* libPods-IronEx.a */,
+				AE71906DB1346568ECF02EAA /* libPods-IronEx.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		7A2648A5066AD3A272954C3D /* Pods */ = {
+		56B4A9FB37463C34A34479BB /* IronEx */ = {
 			isa = PBXGroup;
 			children = (
-				2BE258A3DF2A35851400395E /* Pods-IronEx.debug.xcconfig */,
-				517FC556745B99CF2D073A8B /* Pods-IronEx.release.xcconfig */,
+				BCF57DE6BEA2A7B5873A1D47 /* ExpoModulesProvider.swift */,
 			);
-			name = Pods;
-			path = Pods;
+			name = IronEx;
+			sourceTree = "<group>";
+		};
+		7C7352F02D4B27D38C52F5AD /* ExpoModulesProviders */ = {
+			isa = PBXGroup;
+			children = (
+				56B4A9FB37463C34A34479BB /* IronEx */,
+			);
+			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -102,8 +110,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				7A2648A5066AD3A272954C3D /* Pods */,
-				9EFAC5E79026E56A5A6469C4 /* ExpoModulesProviders */,
+				2738E2C83A43E1C399BF9E62 /* Pods */,
+				7C7352F02D4B27D38C52F5AD /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -116,14 +124,6 @@
 				13B07F961A680F5B00A75B9A /* IronEx.app */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		9EFAC5E79026E56A5A6469C4 /* ExpoModulesProviders */ = {
-			isa = PBXGroup;
-			children = (
-				146E9DB9F740B01FDC8BD2A8 /* IronEx */,
-			);
-			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
@@ -143,13 +143,13 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "IronEx" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				288F4C1CAAC0687B4ED80A2C /* [Expo] Configure project */,
+				6D72164791E61118FCA6D54D /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				00E0A1728B82D40A390AC955 /* [CP] Embed Pods Frameworks */,
+				362803C584A811B9A63C14E4 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -169,9 +169,7 @@
 				LastUpgradeCheck = 1130;
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
-						DevelopmentTeam = 34A8G922P2;
 						LastSwiftMigration = 1250;
-						ProvisioningStyle = Automatic;
 					};
 				};
 			};
@@ -201,8 +199,8 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				010AC1C92645B5C279C1FC2E /* PrivacyInfo.xcprivacy in Resources */,
-				265D91D6C0D24D4E950562A5 /* GoogleService-Info.plist in Resources */,
+				26A9F6EA42154C63935EFA70 /* GoogleService-Info.plist in Resources */,
+				9E1901B48A93B10CE8CA7A3C /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -226,28 +224,6 @@
 			shellPath = /bin/sh;
 			shellScript = "if [[ -f \"$PODS_ROOT/../.xcode.env\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env\"\nfi\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n# The project root by default is one level up from the ios directory\nexport PROJECT_ROOT=\"$PROJECT_DIR\"/..\n\nif [[ \"$CONFIGURATION\" = *Debug* ]]; then\n  export SKIP_BUNDLING=1\nfi\nif [[ -z \"$ENTRY_FILE\" ]]; then\n  # Set the entry JS file using the bundler's entry resolution.\n  export ENTRY_FILE=\"$(\"$NODE_BINARY\" -e \"require('expo/scripts/resolveAppEntry')\" \"$PROJECT_ROOT\" ios absolute | tail -n 1)\"\nfi\n\nif [[ -z \"$CLI_PATH\" ]]; then\n  # Use Expo CLI\n  export CLI_PATH=\"$(\"$NODE_BINARY\" --print \"require.resolve('@expo/cli', { paths: [require.resolve('expo/package.json')] })\")\"\nfi\nif [[ -z \"$BUNDLE_COMMAND\" ]]; then\n  # Default Expo CLI command for bundling\n  export BUNDLE_COMMAND=\"export:embed\"\nfi\n\n# Source .xcode.env.updates if it exists to allow\n# SKIP_BUNDLING to be unset if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.updates\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.updates\"\nfi\n# Source local changes to allow overrides\n# if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n`\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('react-native/package.json')) + '/scripts/react-native-xcode.sh'\"`\n\n";
 		};
-		00E0A1728B82D40A390AC955 /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-IronEx/Pods-IronEx-frameworks.sh",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/React.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-IronEx/Pods-IronEx-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
 		08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -270,7 +246,29 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		288F4C1CAAC0687B4ED80A2C /* [Expo] Configure project */ = {
+		362803C584A811B9A63C14E4 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-IronEx/Pods-IronEx-frameworks.sh",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/React.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-IronEx/Pods-IronEx-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		6D72164791E61118FCA6D54D /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -346,7 +344,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				06E4920ECCC2380839386A30 /* ExpoModulesProvider.swift in Sources */,
+				A79787ADD37D3E5401310063 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -355,15 +353,12 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 2BE258A3DF2A35851400395E /* Pods-IronEx.debug.xcconfig */;
+			baseConfigurationReference = 0C839036B65A411A663CFBE5 /* Pods-IronEx.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = IronEx/IronEx.entitlements;
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 34A8G922P2;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
@@ -394,15 +389,12 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 517FC556745B99CF2D073A8B /* Pods-IronEx.release.xcconfig */;
+			baseConfigurationReference = A998A12CC3D83014349015AD /* Pods-IronEx.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = IronEx/IronEx.entitlements;
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 34A8G922P2;
 				INFOPLIST_FILE = IronEx/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
