@@ -6,6 +6,7 @@ import {
   Animated,
   Image,
   ImageBackground,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -608,6 +609,12 @@ const handleCountrySelect = (selectedCountry: string) => {
     setErrors((prev) => ({ ...prev, country: undefined }));
   }
 };
+  const openCountryPicker = () => {
+    Keyboard.dismiss();               
+    setTimeout(() => {
+      setShowCountryDropdown(true);   
+    }, 150);
+  };
 const goBack = useCallback(() => router.back(), [router]);
 
 
@@ -864,7 +871,7 @@ const goBack = useCallback(() => router.back(), [router]);
                   className={`w-full px-4 py-3 bg-white/95 border rounded-xl flex-row items-center justify-between shadow-lg ${
                     errors.country ? "border-red-500" : "border-white/30"
                   } font-sans`}
-                  onPress={() => setShowCountryDropdown(true)}
+                   onPress={openCountryPicker}
                 >
                   <Text
                     className={`text-base ${
@@ -946,51 +953,6 @@ const goBack = useCallback(() => router.back(), [router]);
           </View>
         </ScrollView>
 
-        {/* Country Selection Modal with Search */}
-          <CountryPicker
-            show={showCountryDropdown}
-            pickerButtonOnPress={(item) => {
-              handleCountrySelect(item.name.en);
-            }}
-            onBackdropPress={() => setShowCountryDropdown(false)}
-            style={{
-              modal: {
-                height: 500,
-                backgroundColor: 'white',
-              },
-              textInput: {
-                height: 50,
-                borderRadius: 12,
-                paddingHorizontal: 16,
-                fontSize: 16,
-                backgroundColor: '#F3F4F6',
-                borderWidth: 1,
-                borderColor: '#E5E7EB',
-                marginHorizontal: 16,
-                marginBottom: 16,
-              },
-              countryButtonStyles: {
-                height: 60,
-                paddingHorizontal: 16,
-                borderBottomWidth: 1,
-                borderBottomColor: '#F3F4F6',
-              },
-              dialCode: {
-                display: 'none', // Hide dial codes since you only need country names
-              },
-              countryName: {
-                fontSize: 16,
-                color: '#1F2937',
-              },
-              flag: {
-                fontSize: 24,
-                marginRight: 12,
-              },
-            }}
-            searchMessage="Search for your country..."
-            lang="en"
-          />
-
 
         {/* Custom Modal */}
         <CustomModal
@@ -1003,6 +965,52 @@ const goBack = useCallback(() => router.back(), [router]);
         />
       </KeyboardAvoidingView>
       {/* </ImageBackground> */}
+      <CountryPicker
+        show={showCountryDropdown}
+        pickerButtonOnPress={(item) => {
+          handleCountrySelect(item.name.en);
+        }}
+        onBackdropPress={() => setShowCountryDropdown(false)}
+        style={{
+          modal: {
+            height: 500,
+            backgroundColor: 'white',
+          },
+          textInput: {
+            height: 50,
+            borderRadius: 12,
+            paddingHorizontal: 16,
+            fontSize: 16,
+            backgroundColor: '#F3F4F6',
+            borderWidth: 1,
+            borderColor: '#E5E7EB',
+            marginHorizontal: 16,
+            marginBottom: 16,
+          },
+          countryButtonStyles: {
+            height: 60,
+            paddingHorizontal: 16,
+            borderBottomWidth: 1,
+            borderBottomColor: '#F3F4F6',
+          },
+         dialCode: {
+            maxWidth: 0,
+            maxHeight: 0,
+            overflow: 'hidden',
+            opacity: 0,
+          },
+          countryName: {
+            fontSize: 16,
+            color: '#1F2937',
+          },
+          flag: {
+            fontSize: 24,
+            marginRight: 12,
+          },
+        }}
+        searchMessage="Search for your country..."
+        lang="en"
+      />
     </SafeAreaView>
   );
 }
