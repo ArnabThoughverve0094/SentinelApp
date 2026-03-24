@@ -304,6 +304,11 @@ export default function SearchPage() {
   const [userId, setUserId] = useState('');
   const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
   const [loadingUserId, setLoadingUserId] = useState<string | null>(null);
+  const [deletedUserIds, setDeletedUserIds] = useState<string[]>([]);
+  const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
+
+  const blockedUserIdsRef = useRef<string[]>([]);
+  const deletedUserIdsRef = useRef<string[]>([]);
 
   const searchInputRef = useRef<TextInput>(null);
 
@@ -344,11 +349,62 @@ export default function SearchPage() {
       setFollowingUserIds([]);
     }
   }, [userId]);
+  const fetchDeletedUsers = useCallback(async () => {
+    try {
+      const deletionRef = collection(db, 'UserDeletionAudit');
+      const unsubscribe = onSnapshot(deletionRef, (snapshot) => {
+        const deletedIds = snapshot.docs.map(doc => doc.data().userName).filter(Boolean);
+        deletedUserIdsRef.current = deletedIds; // ✅ Keep ref in sync
+        setDeletedUserIds(deletedIds);
+      });
+      return unsubscribe;
+    } catch (error) {
+      console.error('❌ Error fetching deleted users:', error);
+      setDeletedUserIds([]);
+    }
+  }, []);
 
-  // Initialize on mount - SAME AS LANDING PAGE
+  const fetchBlockedUsers = useCallback(async () => {
+    try {
+      let fetchuserID = userId;
+      if (!fetchuserID) {
+        fetchuserID = (await AsyncStorage.getItem('userId')) || '';
+        setUserId(fetchuserID);
+      }
+      if (!fetchuserID) return;
+
+      const blockedDocRef = doc(db, 'UserBlocked', fetchuserID);
+      const unsubscribe = onSnapshot(blockedDocRef, (docSnapshot) => {
+        if (docSnapshot.exists()) {
+          const data = docSnapshot.data();
+          const blockedIds: string[] = (data.blockedList || [])
+            .map((item: any) => item.postauthoruserid)
+            .filter(Boolean);
+          console.log('🚫 Blocked user IDs:', blockedIds);
+          blockedUserIdsRef.current = blockedIds; // ✅ Keep ref in sync
+          setBlockedUserIds(blockedIds);
+        } else {
+          blockedUserIdsRef.current = [];
+          setBlockedUserIds([]);
+        }
+      });
+      return unsubscribe;
+    } catch (error) {
+      console.error('❌ Error fetching blocked users:', error);
+      setBlockedUserIds([]);
+    }
+  }, [userId]);
+
+  // ✅ FIX: Mount order — fetch blocked/deleted FIRST, then fetch users
   useEffect(() => {
-    fetchUserFollowing();
-    fetchAllUsers();
+    const init = async () => {
+      await fetchUserFollowing();
+      await fetchDeletedUsers();
+      await fetchBlockedUsers();
+      // ✅ Now fetch users AFTER blocked/deleted IDs are loaded into refs
+      fetchAllUsers();
+    };
+    init();
   }, []);
 
   // Fetch ALL users from database
@@ -388,9 +444,12 @@ export default function SearchPage() {
       }
 
       // Sort alphabetically
-      const usersArray = Array.from(uniqueUsers.values()).sort((a, b) =>
-        a.name.toLowerCase().localeCompare(b.name.toLowerCase())
-      );
+      // UPDATED
+       const usersArray = Array.from(uniqueUsers.values())
+        .filter(user => !deletedUserIdsRef.current.includes(user.id))
+        .filter(user => !blockedUserIdsRef.current.includes(user.id))
+        .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+
 
       console.log(`🎉 Loaded ${usersArray.length} users alphabetically`);
       setAllUsers(usersArray);
@@ -433,6 +492,18 @@ export default function SearchPage() {
       console.log('✅ Following status synced\n');
     }
   }, [followingUserIds, allUsers.length]); // Trigger when following list changes
+    useEffect(() => {
+      if (deletedUserIds.length > 0) {
+        setAllUsers(prev => prev.filter(user => !deletedUserIds.includes(user.id)));
+        setFilteredUsers(prev => prev.filter(user => !deletedUserIds.includes(user.id)));
+      }
+    }, [deletedUserIds]);
+    // ✅ Hide/show blocked users in real-time when block status changes
+      useEffect(() => {
+        setAllUsers(prev => prev.filter(user => !blockedUserIds.includes(user.id)));
+        setFilteredUsers(prev => prev.filter(user => !blockedUserIds.includes(user.id)));
+      }, [blockedUserIds]);
+
 
   // Search filter
   useEffect(() => {
