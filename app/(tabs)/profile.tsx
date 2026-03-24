@@ -1222,6 +1222,7 @@ export default function ProfilePage(): React.JSX.Element {
   const [showHelpScreen, setShowHelpScreen] = useState(false);
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [postToDelete, setPostToDelete] = useState<string | null>(null);
+  const postToDeleteRef = useRef<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [viewedPosts, setViewedPosts] = useState<Set<string>>(new Set());
   const viewTrackingTimeout = useRef<NodeJS.Timeout | number | null>(null);
@@ -3612,40 +3613,59 @@ const handleRepost = useCallback(async (postItem: PostItem) => {
   };
 
   const handleDeletePost = async (postId: string) => {
-  setPostToDelete(postId);
-  setIsDeleteModalVisible(true);
-};
-
-const confirmDeletePost = async () => {
-  if (!postToDelete) return;
-  
-  try {
-    const postRef = doc(db, "SentinelPosts", postToDelete);
-    await deleteDoc(postRef);
-    console.log('Post deleted successfully');
-    
-    setIsDeleteModalVisible(false);
-    setShowMenuModal(false);
-    setSelectedPostId(null);
-    setPostToDelete(null);
-    
-    // Optional: Show success message
-    Toast.show({
-      type: 'success',
-      text1: 'Success',
-      text2: 'Post deleted successfully',
-      position: 'top',
-      visibilityTime: 1000,
-    });
-  } catch (error) {
-    console.error('Error deleting post:', error);
-    setIsDeleteModalVisible(false);
-     setShowMenuModal(false);
-    
-    // Show error with CustomModal
+    postToDeleteRef.current = postId;
+    setPostToDelete(postId);
     setIsDeleteModalVisible(true);
-  }
-};
+  };
+
+    const confirmDeletePost = async () => {
+      const idToDelete = postToDeleteRef.current || postToDelete;
+
+      if (!idToDelete) {
+        console.warn('⚠️ confirmDeletePost: No post ID found, aborting');
+        setIsDeleteModalVisible(false);
+        return;
+      }
+
+      try {
+        setIsDeleteModalVisible(false);
+        setShowMenuModal(false);
+        setSelectedPostId(null);
+
+        console.log('🗑️ Deleting post:', idToDelete);
+
+        const postRef = doc(db, 'SentinelPosts', idToDelete);
+        await deleteDoc(postRef);
+
+      
+        setUserPosts(prev => prev.filter(p => p.id !== idToDelete));
+
+        
+        postToDeleteRef.current = null;
+        setPostToDelete(null);
+
+        console.log('✅ Post deleted successfully');
+
+        Toast.show({
+          type: 'success',
+          text1: 'Deleted',
+          text2: 'Post deleted successfully',
+          position: 'top',
+          visibilityTime: 1000,
+        });
+      } catch (error) {
+        console.error('❌ Error deleting post:', error);
+        setIsDeleteModalVisible(true);
+        Toast.show({
+          type: 'error',
+          text1: 'Delete Failed',
+          text2: 'Could not delete post. Please try again.',
+          position: 'top',
+          visibilityTime: 2000,
+        });
+      }
+    };
+
 
  const renderRepostContent = useCallback((item: PostItem) => {
   if (!item.isRepost || !item.originalPost) return null;
@@ -4751,6 +4771,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
                 setIsDeleteModalVisible(false);
                 setPostToDelete(null);
                  setShowMenuModal(false);
+                 postToDeleteRef.current = null;
               }
             },
             {
@@ -4763,6 +4784,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
             setIsDeleteModalVisible(false);
             setPostToDelete(null);
              setShowMenuModal(false);
+             postToDeleteRef.current = null;
           }}
         />
 
