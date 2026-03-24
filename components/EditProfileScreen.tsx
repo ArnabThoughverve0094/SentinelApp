@@ -969,9 +969,10 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
                     borderBottomWidth: 1,
                     borderBottomColor: '#F3F4F6',
                   },
-                  dialCode: {
-                    fontSize: 0,
-                    width: 0,
+                 dialCode: {
+                    maxWidth: 0,
+                    maxHeight: 0,
+                    overflow: 'hidden',
                     opacity: 0,
                   },
                   countryName: {
