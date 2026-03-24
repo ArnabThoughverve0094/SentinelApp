@@ -4126,26 +4126,27 @@ useEffect(() => {
   });
 
 
-  // Published data (excludes educational)
+  
   const publishedData = sourceData.filter(item => {
     const isXData = item.postType.includes('X-Data');
+
     if (userRole === 'User') {
-      return (
-        // (isXData || (item.isApproved && !item.isNew)) &&
-        (item.isApproved && !item.isNew) &&
-        item.contentType !== 'Educational' &&
-        !item.isEducational
-      );
+      // ✅ Explicitly hide reported posts for regular users
+      if (item.isReported && item.moderationStatus === 'pending-review') return false;
+      return isXData
+        ? (item.isApproved && !item.isNew)
+        : (item.isApproved && !item.isNew && item.contentType !== 'Educational' && !item.isEducational);
     }
+    // Admins/Mods see everything (intentional)
     return item.contentType !== 'Educational' && !item.isEducational;
   });
 
   // ── FOLLOWING TAB ──────────────────────────────────────────────────────────
   if (activeTab === 'following') {
-    const followingData = baseData.filter(item => {
-      const authorId = item.repostedBy || item.AuthorUserID;
-      return authorId && followingUserIds.includes(authorId);
-    });
+    const followingData = publishedData.filter(item => {  
+    const authorId = item.repostedBy || item.AuthorUserID;
+    return authorId && followingUserIds.includes(authorId);
+  });
     if (followingData.length < 4) handleLoadMore();
     return followingData;
   }
