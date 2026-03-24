@@ -19,6 +19,7 @@ import {
   Animated,
   Dimensions,
   Image,
+  KeyboardAvoidingView,
   Linking,
   Modal,
   Platform,
@@ -4202,6 +4203,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
       <ScrollView 
         className="flex-1" 
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -4842,6 +4844,10 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
           onRequestClose={handleCancelEdit}
           statusBarTranslucent
         >
+          <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={{ flex: 1 }}
+            >
           <View className="flex-1 bg-black/50 justify-end">
             <View className="bg-white rounded-t-3xl" style={{ maxHeight: screenHeight * 0.85 }}>
               {/* Header */}
@@ -4877,7 +4883,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
               </View>
 
               {/* Content Editor */}
-              <ScrollView className="px-6 py-4" showsVerticalScrollIndicator={false}>
+              <ScrollView className="px-6 py-4" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                 <Text className="text-gray-700 font-semibold mb-2">Post Content</Text>
                 <TextInput
                   className="border border-gray-300 rounded-xl p-4 text-gray-900 min-h-[200px]"
@@ -4958,6 +4964,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
               </View>
             </View>
           </View>
+          </KeyboardAvoidingView>
         </Modal>
         <AppInfoModal 
         visible={showAppInfo} 
