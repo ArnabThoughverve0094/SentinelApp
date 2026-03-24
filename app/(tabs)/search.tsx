@@ -309,6 +309,9 @@ export default function SearchPage() {
 
   const blockedUserIdsRef = useRef<string[]>([]);
   const deletedUserIdsRef = useRef<string[]>([]);
+  const masterUsersRef = useRef<SearchUser[]>([]);
+  const followingUserIdsRef = useRef<string[]>([]);
+
 
   const searchInputRef = useRef<TextInput>(null);
 
@@ -336,6 +339,7 @@ export default function SearchPage() {
 
             console.log(`✅ Displaying ${followingList.length} following`);
             setFollowingUserIds(idOnlyList);
+            followingUserIdsRef.current = idOnlyList; 
           }
         }, (error) => {
           console.error("❌ Real-time listener failed:", error);
@@ -444,16 +448,21 @@ export default function SearchPage() {
       }
 
       // Sort alphabetically
-      // UPDATED
-       const usersArray = Array.from(uniqueUsers.values())
-        .filter(user => !deletedUserIdsRef.current.includes(user.id))
-        .filter(user => !blockedUserIdsRef.current.includes(user.id))
-        .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+      // ✅ Save full list to master ref BEFORE filtering
+        const fullSortedUsers = Array.from(uniqueUsers.values())
+          .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+        masterUsersRef.current = fullSortedUsers;
 
+        // Apply blocked + deleted filters for display
+        const usersArray = fullSortedUsers
+          .filter(user => !deletedUserIdsRef.current.includes(user.id))
+          .filter(user => !blockedUserIdsRef.current.includes(user.id));
 
-      console.log(`🎉 Loaded ${usersArray.length} users alphabetically`);
-      setAllUsers(usersArray);
-      setInitialLoading(false);
+        console.log(`🎉 Loaded ${usersArray.length} users (blocked/deleted excluded)`);
+        setAllUsers(usersArray);
+        setFilteredUsers(usersArray);
+        setInitialLoading(false);
+
     } catch (error) {
       console.error('❌ Error fetching all users:', error);
       setInitialLoading(false);
@@ -492,18 +501,52 @@ export default function SearchPage() {
       console.log('✅ Following status synced\n');
     }
   }, [followingUserIds, allUsers.length]); // Trigger when following list changes
+    // ✅ Rebuild from master so it's always consistent
     useEffect(() => {
-      if (deletedUserIds.length > 0) {
-        setAllUsers(prev => prev.filter(user => !deletedUserIds.includes(user.id)));
-        setFilteredUsers(prev => prev.filter(user => !deletedUserIds.includes(user.id)));
+      if (masterUsersRef.current.length === 0) return;
+
+      const rebuilt = masterUsersRef.current
+        .filter(user => !deletedUserIdsRef.current.includes(user.id))
+        .filter(user => !blockedUserIdsRef.current.includes(user.id))
+        .map(user => ({
+          ...user,
+          isFollowing: followingUserIdsRef.current.includes(user.id)
+        }));
+
+      setAllUsers(rebuilt);
+
+      if (searchQuery.trim().length > 0) {
+        setFilteredUsers(rebuilt.filter(user =>
+          user.name.toLowerCase().includes(searchQuery.toLowerCase())
+        ));
+      } else {
+        setFilteredUsers(rebuilt);
       }
     }, [deletedUserIds]);
-    // ✅ Hide/show blocked users in real-time when block status changes
-      useEffect(() => {
-        setAllUsers(prev => prev.filter(user => !blockedUserIds.includes(user.id)));
-        setFilteredUsers(prev => prev.filter(user => !blockedUserIds.includes(user.id)));
-      }, [blockedUserIds]);
 
+    // ✅ Hide/show blocked users in real-time when block status changes
+      // ✅ Guard: only run after master list is loaded
+    useEffect(() => {
+      if (masterUsersRef.current.length === 0) return;
+
+      const rebuilt = masterUsersRef.current
+        .filter(user => !blockedUserIdsRef.current.includes(user.id))
+        .filter(user => !deletedUserIdsRef.current.includes(user.id))
+        .map(user => ({
+          ...user,
+          isFollowing: followingUserIdsRef.current.includes(user.id)
+        }));
+
+      setAllUsers(rebuilt);
+
+      if (searchQuery.trim().length > 0) {
+        setFilteredUsers(rebuilt.filter(user =>
+          user.name.toLowerCase().includes(searchQuery.toLowerCase())
+        ));
+      } else {
+        setFilteredUsers(rebuilt);
+      }
+    }, [blockedUserIds]);
 
   // Search filter
   useEffect(() => {
