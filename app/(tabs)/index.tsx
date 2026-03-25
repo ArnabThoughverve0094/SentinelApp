@@ -1822,6 +1822,8 @@ useEffect(() => {
     }
   }, []);
 
+  const sentinelUnsubscribeRef = useRef(null);
+
   const handleFetchAllData = useCallback(async (forceRefresh: boolean = false) => {
     const currentTime = Date.now();
     
@@ -1831,18 +1833,32 @@ useEffect(() => {
       setUserId(fetchuserID);
     }
 
-    if (!forceRefresh && isInitialized && (currentTime - lastFetchTime < 10000)) {
-      return;
-    }
+    // if (!forceRefresh && isInitialized && (currentTime - lastFetchTime < 10000)) {
+    //   return;
+    // }
+
+    if (sentinelUnsubscribeRef.current) {
+      sentinelUnsubscribeRef.current();
+  }
 
     setLoading(true);
     try {
       const collSentinelRefPost = collection(db, 'SentinelPosts');
-      let querySentinel = query(
-        collSentinelRefPost,
-        orderBy('ContentDate', 'desc'),
-        limit(BATCH_SIZE) // Apply the limit for the initial batch
-    );
+      let querySentinel;
+      if (activeTab === 'educational') {
+        querySentinel = query(
+          collSentinelRefPost,
+          where('isEducational', '==', true),
+          orderBy('ContentDate', 'desc'),
+          limit(BATCH_SIZE)
+        );
+      } else {
+        querySentinel = query(
+          collSentinelRefPost,
+          orderBy('ContentDate', 'desc'),
+          limit(BATCH_SIZE)
+        );
+      }
 
       console.log("Sentinel OnSnapshot");
       const unsubscribeSentinel = onSnapshot(querySentinel, async sentinelSnapshot => {
@@ -1910,68 +1926,7 @@ useEffect(() => {
         // 3. Set the posts data (Initial batch)
         setSentinelData(postsData);
         setFetchedData(postsData);
-        // Also fetch X-Data and merge
-        // try {
-        //   const xDataRef = collection(db, 'X-Data');
-        //   const xDataQuery = query(xDataRef, orderBy('ContentDate', 'desc'), limit(BATCH_SIZE));
-        //   const xDataSnapshot = await getDocs(xDataQuery);
-
-        //   const xPostsData: PostItem[] = xDataSnapshot.docs.map(docSnap => {
-        //     const xData = docSnap.data();
-        //     return {
-        //       id: docSnap.id,              // ✅ Firestore doc ID → used for getDoc/updateDoc
-        //       uniqueId: `x-${docSnap.id}`, // ✅ React key 
-        //       AuthorImageURL: xData.AuthorImageURL || '',
-        //       AuthorName: xData.AuthorName || 'Unknown',
-        //       AuthorBio: xData.AuthorBio || '',
-        //       AuthorUserID: xData.AuthorUserID || '',
-        //       ContentDate: xData.ContentDate,
-        //       ContentDesc: xData.ContentDesc || '',
-        //       ContentURL: xData.ContentURL || '',
-        //       ContentURLs: xData.ContentURLs || (xData.ContentURL ? [xData.ContentURL] : []),
-        //       ContentLikeCount: xData.ContentLikeCount || 0,
-        //       ContentRepostCount: xData.ContentRepostCount || 0,
-        //       ContentCommentCount: xData.ContentCommentCount || 0,
-        //       isApproved: true,          // ✅ X-Data is always approved
-        //       isNew: false,              // ✅ never pending
-        //       postType: 'X-Data',        // ✅ exact string used in all filters
-        //       Liked: false,
-        //       Reposted: false,
-        //       Bookmarked: false,
-        //       createdAt: xData.createdAt || xData.ContentDate,
-        //       CommentTemplate: xData.CommentTemplate || 'Standard Template',
-        //       isRepost: false,
-        //       originalPost: null,
-        //       repostComment: '',
-        //       repostedBy: '',
-        //       repostedAt: null,
-        //       isAnonymous: false,
-        //       contentType: xData.contentType || 'Found Online',
-        //       isEducational: xData.isEducational || false,
-        //       moderationData: null,
-        //       isReported: false,
-        //       reportedAt: null,
-        //       reportReasons: [],
-        //       reportedBy: [],
-        //       moderationStatus: 'approved',
-        //       ContentViewCount: xData.ContentViewCount || 0,   // ✅ view count
-        //       ViewedBy: xData.ViewedBy || [],
-        //     };
-        //   });
-
-        //   setFetchedXData(xPostsData);
-
-        //   // ✅ Merge both into fetchedData sorted by date
-        //   const merged = [...postsData, ...xPostsData].sort(
-        //     (a, b) => new Date(b.ContentDate).getTime() - new Date(a.ContentDate).getTime()
-        //   );
-        //   setFetchedData(merged);
-
-        // } catch (xError) {
-        //   console.error('Error fetching X-Data:', xError);
-        //   setFetchedData(postsData); // fallback
-        // }
-
+        
         setHasMore(sentinelSnapshot.docs.length === BATCH_SIZE); // Check if more data exists
         
       });
@@ -1981,6 +1936,9 @@ useEffect(() => {
       console.log('All Data Fetched and Sorted', `Total: ${fetchedData.length} documents`);
       
       setIsInitialized(true);
+
+      // Store the unsubscribe function in the ref
+      sentinelUnsubscribeRef.current = unsubscribeSentinel;
 
       return () => {
         console.log('unsubscribeSentinel');
@@ -1992,7 +1950,7 @@ useEffect(() => {
     } finally {
       setLoading(false);
     }
-  }, [isInitialized, fetchedData.length, lastFetchTime, userId]);
+  }, [activeTab, isInitialized, fetchedData.length, lastFetchTime, userId]);
 
   const handleLoadMore = useCallback(async () => {
     let fetchuserID = userId;
@@ -2012,6 +1970,15 @@ useEffect(() => {
             startAfter(lastVisible), // Start after the last document fetched
             limit(BATCH_SIZE)
         );
+        if (activeTab === 'educational') {
+          queryNext = query(
+              collSentinelRefPost,
+              where('contentType', '==', 'Educational'),
+              orderBy('ContentDate', 'desc'),
+              startAfter(lastVisible),
+              limit(BATCH_SIZE)
+          );
+        }
 
         // *** Use getDocs for the lazy load to avoid a new onSnapshot listener ***
         const nextSnapshot = await getDocs(queryNext);
@@ -2493,15 +2460,47 @@ useEffect(() => {
   };
 
   useEffect(() => {
-    getItem();
-    fetchUserFollowing();
-    // fetchAllUsersForNotifications();
-    handleFetchAllData();
-    fetchCommentTemplate();
-    fetchDeletedUser();
-    fetchBlockedUser();
+    // getItem();
+    // fetchUserFollowing();
+    // // fetchAllUsersForNotifications();
+    // handleFetchAllData();
+    // fetchCommentTemplate();
+    // fetchDeletedUser();
+    // fetchBlockedUser();
 
-  }, []);
+  
+  const loadData = async () => {
+    try {
+      setFetchedData([]);     // Clear list
+      setLastVisible(null);   // Reset pagination
+      setHasMore(true);       // Reset more-data flag
+
+      // Group your initial fetches
+      await Promise.all([
+        getItem(),
+        fetchUserFollowing(),
+        // fetchAllUsersForNotifications();
+        // handleFetchAllData(),
+        fetchCommentTemplate(),
+        fetchDeletedUser(),
+        fetchBlockedUser(),
+      ]);
+
+      await handleFetchAllData(true);
+    } catch (error) {
+      console.error("Failed to fetch tab data", error);
+    }
+  };
+
+  loadData();
+
+  return () => {
+    if (sentinelUnsubscribeRef.current) {
+      sentinelUnsubscribeRef.current();
+    }
+  };
+
+  }, [activeTab]);
 
   useEffect(() => {
     fetchPostComments();
@@ -4126,26 +4125,27 @@ useEffect(() => {
   });
 
 
-  // Published data (excludes educational)
+  
   const publishedData = sourceData.filter(item => {
     const isXData = item.postType.includes('X-Data');
+
     if (userRole === 'User') {
-      return (
-        // (isXData || (item.isApproved && !item.isNew)) &&
-        (item.isApproved && !item.isNew) &&
-        item.contentType !== 'Educational' &&
-        !item.isEducational
-      );
+      // ✅ Explicitly hide reported posts for regular users
+      if (item.isReported && item.moderationStatus === 'pending-review') return false;
+      return isXData
+        ? (item.isApproved && !item.isNew)
+        : (item.isApproved && !item.isNew && item.contentType !== 'Educational' && !item.isEducational);
     }
+    // Admins/Mods see everything (intentional)
     return item.contentType !== 'Educational' && !item.isEducational;
   });
 
   // ── FOLLOWING TAB ──────────────────────────────────────────────────────────
   if (activeTab === 'following') {
-    const followingData = baseData.filter(item => {
-      const authorId = item.repostedBy || item.AuthorUserID;
-      return authorId && followingUserIds.includes(authorId);
-    });
+    const followingData = publishedData.filter(item => {  
+    const authorId = item.repostedBy || item.AuthorUserID;
+    return authorId && followingUserIds.includes(authorId);
+  });
     if (followingData.length < 4) handleLoadMore();
     return followingData;
   }

@@ -679,6 +679,7 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
               backgroundColor: 'rgba(0,0,0,0.35)',
             }}
             keyboardShouldPersistTaps="handled"
+            scrollEnabled={!showCountryDropdown}
           >
             <View
               style={{
@@ -814,7 +815,7 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
                 </Text>
               </View>
 
-              <View style={{ marginBottom: 11 }}>
+              <View style={{ marginBottom: 11, zIndex: 999, elevation: 999 }}>
                 <Text>
                   Country <Text style={{ color: 'red' }}>*</Text>
                 </Text>
@@ -940,51 +941,56 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
                 </TouchableOpacity>
               </View>
             </View>
+            
           </ScrollView>
+          <CountryPicker
+                show={showCountryDropdown}
+                pickerButtonOnPress={handleCountrySelect}
+                onBackdropPress={() => setShowCountryDropdown(false)}
+                style={{
+                  modal: {
+                    height: 500,
+                    backgroundColor: 'white',
+                  },
+                  textInput: {
+                    height: 50,
+                    borderRadius: 12,
+                    paddingHorizontal: 16,
+                    fontSize: 16,
+                    backgroundColor: '#F3F4F6',
+                    borderWidth: 1,
+                    borderColor: '#E5E7EB',
+                    marginHorizontal: 16,
+                    marginBottom: 16,
+                  },
+                  countryButtonStyles: {
+                    height: 60,
+                    paddingHorizontal: 16,
+                    borderBottomWidth: 1,
+                    borderBottomColor: '#F3F4F6',
+                  },
+                 dialCode: {
+                    maxWidth: 0,
+                    maxHeight: 0,
+                    overflow: 'hidden',
+                    opacity: 0,
+                  },
+                  countryName: {
+                    fontSize: 16,
+                    color: '#1F2937',
+                  },
+                  flag: {
+                    fontSize: 24,
+                    marginRight: 12,
+                  },
+                }}
+                searchMessage="Search for your country..."
+                lang="en"
+              />
         </KeyboardAvoidingView>
       </Modal>
 
-      <CountryPicker
-        show={showCountryDropdown}
-        pickerButtonOnPress={handleCountrySelect}
-        onBackdropPress={() => setShowCountryDropdown(false)}
-        style={{
-          modal: {
-            height: 500,
-            backgroundColor: 'white',
-          },
-          textInput: {
-            height: 50,
-            borderRadius: 12,
-            paddingHorizontal: 16,
-            fontSize: 16,
-            backgroundColor: '#F3F4F6',
-            borderWidth: 1,
-            borderColor: '#E5E7EB',
-            marginHorizontal: 16,
-            marginBottom: 16,
-          },
-          countryButtonStyles: {
-            height: 60,
-            paddingHorizontal: 16,
-            borderBottomWidth: 1,
-            borderBottomColor: '#F3F4F6',
-          },
-          dialCode: {
-            display: 'none',
-          },
-          countryName: {
-            fontSize: 16,
-            color: '#1F2937',
-          },
-          flag: {
-            fontSize: 24,
-            marginRight: 12,
-          },
-        }}
-        searchMessage="Search for your country..."
-        lang="en"
-      />
+      
 
       <Modal
         visible={customAlertVisible}
