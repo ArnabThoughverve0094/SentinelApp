@@ -3072,7 +3072,7 @@ const checkProfilePicture = async (imageUrl: string) => {
         // ✅ UNLIKE: Update state FIRST
         setUserPosts(prevPosts =>
           prevPosts.map(post =>
-            post.uniqueId === postItem.uniqueId
+            post.id === postItem.id
               ? {
                   ...post,
                   Liked: false,
@@ -3091,7 +3091,7 @@ const checkProfilePicture = async (imageUrl: string) => {
         // ✅ LIKE: Update state FIRST
         setUserPosts(prevPosts =>
           prevPosts.map(post =>
-            post.uniqueId === postItem.uniqueId
+            post.id === postItem.id
               ? {
                   ...post,
                   Liked: true,
@@ -3113,7 +3113,7 @@ const checkProfilePicture = async (imageUrl: string) => {
       // ✅ Revert state on error
       setUserPosts(prevPosts =>
         prevPosts.map(post =>
-          post.uniqueId === postItem.uniqueId
+          post.id === postItem.id
             ? {
                 ...post,
                 Liked: postItem.Liked,
@@ -3404,15 +3404,15 @@ const handleRepost = useCallback(async (postItem: PostItem) => {
   openRepostModal(postItem);
   }, [areInteractionsDisabled]);
 
-  const handleBookmark = useCallback(async (postItem: PostItem) => {
-  // Check if post is new (waiting for approval)
+ const handleBookmark = useCallback(async (postItem: PostItem) => {
+  // Check if post is new waiting for approval
   if (postItem.isNew) {
     Toast.show({
       type: 'warning',
-      text1: 'Pending Approval',
-      text2: 'This post is waiting for admin approval. You can perform actions after approval.',
+      text1: 'Post Under Review',
+      text2: 'Bookmarking is disabled until this post is approved by moderators.',
       position: 'bottom',
-      visibilityTime: 1000,
+      visibilityTime: 3000,
     });
     return;
   }
@@ -3420,11 +3420,11 @@ const handleRepost = useCallback(async (postItem: PostItem) => {
   // Check if interactions are disabled for rejected posts
   if (areInteractionsDisabled(postItem)) {
     Toast.show({
-      type: 'warning',
+      type: 'error',
       text1: 'Action Not Available',
       text2: 'This post has been rejected and interactions are disabled.',
       position: 'bottom',
-      visibilityTime: 1000,
+      visibilityTime: 3000,
     });
     return;
   }
@@ -3432,36 +3432,57 @@ const handleRepost = useCallback(async (postItem: PostItem) => {
   try {
     console.log('Bookmark pressed', postItem.id);
     let fetchuserID = userId;
-    if(!fetchuserID){
+    if (!fetchuserID) {
       fetchuserID = await AsyncStorage.getItem('userId');
       setUserId(fetchuserID);
     }
 
     const postRef = doc(db, postItem.postType, postItem.id);
-    
-    if(postItem.Bookmarked) {
-      console.log('Removing bookmark', postItem.id);
+
+    if (postItem.Bookmarked) {
+      // REMOVE bookmark — update state first (optimistic)
+      setUserPosts(prevPosts =>
+        prevPosts.map(post =>
+          post.id === postItem.id          // ✅ use id not uniqueId
+            ? { ...post, Bookmarked: false }
+            : post
+        )
+      );
       await updateDoc(postRef, {
         BookmarkedBy: arrayRemove(fetchuserID),
       });
+      Toast.show({
+        type: 'info',
+        text1: 'Bookmark Removed',
+        text2: 'Post removed from bookmarks',
+        position: 'bottom',
+        visibilityTime: 2000,
+      });
     } else {
-      console.log('Adding bookmark', postItem.id);
+      // ADD bookmark — update state first (optimistic)
+      setUserPosts(prevPosts =>
+        prevPosts.map(post =>
+          post.id === postItem.id          
+            ? { ...post, Bookmarked: true }
+            : post
+        )
+      );
       await updateDoc(postRef, {
         BookmarkedBy: arrayUnion(fetchuserID),
       });
+      Toast.show({
+        type: 'success',
+        text1: 'Bookmarked',
+        text2: 'Post saved to bookmarks',
+        position: 'bottom',
+        visibilityTime: 2000,
+      });
     }
 
-    setUserPosts((prevPosts) =>
-      prevPosts.map((post) =>
-        post.uniqueId === postItem.uniqueId
-          ? { ...post, Bookmarked: !post.Bookmarked }
-          : post
-      )
-    );
+    await new Promise(r => setTimeout(r, 200)); // ✅ sync delay like landing page
 
-    await new Promise((r) => setTimeout(r, 200));
   } catch (error) {
-    console.error('Error toggling bookmark:', error);
+    console.error('Error toggling bookmark', error);
     Toast.show({
       type: 'error',
       text1: 'Action Failed',
@@ -3470,7 +3491,8 @@ const handleRepost = useCallback(async (postItem: PostItem) => {
       visibilityTime: 1000,
     });
   }
-  }, [userId, areInteractionsDisabled]);
+}, [userId, areInteractionsDisabled]);
+
 
   const handleSharePost = useCallback(async (postItem: PostItem) => {
      setSharingId(postItem.id);
