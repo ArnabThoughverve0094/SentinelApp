@@ -509,7 +509,7 @@ const TabHeader: React.FC<{
             <Text className={`text-base font-semibold ${
               activeTab === 'forYou' ? 'text-black' : 'text-gray-500'
             }`}>
-              Published Posts
+              React
             </Text>
           </TouchableOpacity>
 
@@ -532,7 +532,7 @@ const TabHeader: React.FC<{
               <Text className={`text-base font-semibold ${
                 activeTab === 'educational' ? 'text-black' : 'text-gray-500'
               }`}>
-                Educational
+                Learn
               </Text>
             </View>
           </TouchableOpacity>
