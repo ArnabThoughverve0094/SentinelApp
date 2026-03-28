@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Application from 'expo-application';
+import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Image, Linking, Modal, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
@@ -11,7 +12,8 @@ interface AppInfoModalProps {
 }
 
 const AppInfoModal: React.FC<AppInfoModalProps> = ({ visible, onClose }) => {
-  const APP_VERSION = Application.nativeApplicationVersion || "1.1.0";
+  // const APP_VERSION = Application.nativeApplicationVersion || "1.1.0";
+  const APP_VERSION = Constants.expoConfig?.version || "1.1.0";
   const BUILD_NUMBER = Application.nativeBuildVersion;
   const router = useRouter();
 
