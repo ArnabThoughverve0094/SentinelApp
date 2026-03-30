@@ -68,6 +68,7 @@ export default function PasswordVerificationModal({
   const [isVerifyingPassword, setIsVerifyingPassword] = useState<boolean>(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState<boolean>(false);
   const [isAppleLoading, setIsAppleLoading] = useState<boolean>(false);
+  const [passwordError, setPasswordError] = useState<string>('');
 
   // Disable all buttons if any one flow is active
   const isAnyLoading = isVerifyingPassword || isGoogleLoading || isAppleLoading;
@@ -109,6 +110,7 @@ export default function PasswordVerificationModal({
     if (visible) {
       setPassword('');
       setShowPassword(false);
+      setPasswordError('');
       setIsVerifyingPassword(false);
       setIsGoogleLoading(false);
       setIsAppleLoading(false);
@@ -148,61 +150,79 @@ export default function PasswordVerificationModal({
     return true;
   };
 
-  const handleVerifyPassword = async (): Promise<void> => {
-    if (!password.trim()) {
-      Alert.alert('Error', 'Please enter your password');
+ const handleVerifyPassword = async (): Promise<void> => {
+  if (!password.trim()) {
+    setPasswordError('Please enter your password');
+    return;
+  }
+
+  setPasswordError(''); // clear any previous error
+  setIsVerifyingPassword(true);
+
+  try {
+    const userEmail = await AsyncStorage.getItem('userEmail');
+
+    if (!userEmail) {
+      setPasswordError('Email not found. Please login again.');
+      setIsVerifyingPassword(false);
       return;
     }
 
-    setIsVerifyingPassword(true);
-
+    let res: Response;
     try {
-      const userEmail = await AsyncStorage.getItem('userEmail');
-
-      if (!userEmail) {
-        Alert.alert('Error', 'Email not found. Please login again.');
-        setIsVerifyingPassword(false);
-        return;
-      }
-
-      const res = await fetch(LOGIN_API, {
+      res = await fetch(LOGIN_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: userEmail, password }),
       });
-
-      const data: LoginResponse = await res.json();
-
-      if (!res.ok) {
-        Alert.alert('Error', data.message || 'Invalid password. Please try again.');
-        setIsVerifyingPassword(false);
-        setPassword('');
-        return;
-      }
-
-      const stored = await storeTokens(data);
-
-      if (!stored) {
-        Alert.alert('Error', 'Failed to save session. Please try again.');
-        setIsVerifyingPassword(false);
-        return;
-      }
-
-      setPassword('');
+    } catch (networkErr) {
+      setPasswordError('Network error. Please check your connection.');
       setIsVerifyingPassword(false);
-      hasHandledResponse.current = false;
-      onSuccess();
-      onClose();
-    } catch (error) {
-      console.error('❌ [PasswordVerify] Error:', error);
-      Alert.alert('Error', 'Network error. Please try again.');
-      setIsVerifyingPassword(false);
+      return;
     }
-  };
+
+    let data: LoginResponse;
+    try {
+      data = await res.json();
+    } catch {
+      setPasswordError('Unexpected server response. Please try again.');
+      setIsVerifyingPassword(false);
+      return;
+    }
+
+    if (!res.ok) {
+      // Shows Cognito's actual message e.g. "Incorrect username or password."
+      setPasswordError(data.message || 'Invalid password. Please try again.');
+      setIsVerifyingPassword(false);
+      setPassword('');
+      return;
+    }
+
+    const stored = await storeTokens(data);
+
+    if (!stored) {
+      setPasswordError('Failed to save session. Please try again.');
+      setIsVerifyingPassword(false);
+      return;
+    }
+
+    setPassword('');
+    setPasswordError('');
+    setIsVerifyingPassword(false);
+    hasHandledResponse.current = false;
+    onSuccess();
+    onClose();
+  } catch (error) {
+    console.error('❌ [PasswordVerify] Unexpected error:', error);
+    setPasswordError('Something went wrong. Please try again.');
+    setIsVerifyingPassword(false);
+  }
+};
 
   const handleClose = (): void => {
     setPassword('');
     setShowPassword(false);
+    setPasswordError('');
     setIsVerifyingPassword(false);
     setIsGoogleLoading(false);
     setIsAppleLoading(false);
@@ -298,34 +318,47 @@ export default function PasswordVerificationModal({
             <View className="px-6 pb-6">
               {/* Password input */}
               <View className="mb-3">
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter your password"
-                    placeholderTextColor="#9CA3AF"
-                    secureTextEntry={!showPassword}
-                    value={password}
-                    onChangeText={setPassword}
-                    editable={!isAnyLoading}
-                    autoFocus
-                    returnKeyType="done"
-                    onSubmitEditing={handleVerifyPassword}
-                    autoCapitalize="none"
-                    autoCorrect={false}
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    passwordError ? { borderWidth: 1, borderColor: '#EF4444' } : {},
+                  ]}
+                  placeholder="Enter your password"
+                  placeholderTextColor="#9CA3AF"
+                  secureTextEntry={!showPassword}
+                  value={password}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    if (passwordError) setPasswordError('');
+                  }}
+                  editable={!isAnyLoading}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={handleVerifyPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={() => setShowPassword(!showPassword)}
+                  disabled={isAnyLoading}
+                >
+                  <Ionicons
+                    name={showPassword ? 'eye-off' : 'eye'}
+                    size={20}
+                    color="#666"
                   />
-                  <TouchableOpacity
-                    style={styles.eyeButton}
-                    onPress={() => setShowPassword(!showPassword)}
-                    disabled={isAnyLoading}
-                  >
-                    <Ionicons
-                      name={showPassword ? 'eye-off' : 'eye'}
-                      size={20}
-                      color="#666"
-                    />
-                  </TouchableOpacity>
-                </View>
+                </TouchableOpacity>
               </View>
+
+                {/* ✅ Inline red error — inside the mb-3 View, after inputWrapper closes */}
+                {passwordError ? (
+                  <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 2 }}>
+                    {passwordError}
+                  </Text>
+                ) : null}
+            </View>
 
               {/* Forgot password */}
               <View className="items-end mb-5">
