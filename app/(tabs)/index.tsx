@@ -1,3 +1,4 @@
+//27/03
 import { db } from '@/FirebaseConfig';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -433,19 +434,9 @@ const MediaCarousel: React.FC<MediaCarouselProps> = React.memo(({
 // Tab Header Component
 // Update the type definitions
 const TabHeader: React.FC<{
-  activeTab: 'forYou' | 'following' | 'educational';
-  onTabChange: (tab: 'forYou' | 'following' | 'educational') => void;
+  activeTab: 'forYou' | 'following';
+  onTabChange: (tab: 'forYou' | 'following') => void;
 }> = ({ activeTab, onTabChange }) => {
-  const slideAnim = useRef(new Animated.Value(0)).current;
-  const scrollViewRef = useRef<ScrollView>(null);
-  const tabWidth = screenWidth * 0.40;
-
-  const tabIndexMap: Record<string, number> = {
-    forYou: 0,
-    educational: 1,
-    following: 2,
-  };
-
   const saveLastTab = useCallback(async (tab: string) => {
     try {
       await AsyncStorage.setItem('createType', tab);
@@ -454,117 +445,154 @@ const TabHeader: React.FC<{
     }
   }, []);
 
-  useEffect(() => {
-    // ✅ Stop any in-progress animation before starting new one — key for rapid tapping
-    slideAnim.stopAnimation(() => {
-      Animated.timing(slideAnim, {
-        toValue: tabIndexMap[activeTab],
-        duration: 60,              // ⚡ Ultra-fast: barely noticeable delay
-        easing: Easing.linear,      // ⚡ No ease-in/out lag, starts instantly
-        useNativeDriver: true,      // ⚡ Off JS thread = no bridge overhead
-      }).start();
-    });
-
-    if (scrollViewRef.current) {
-      const scrollX = activeTab === 'following' ? tabWidth : 0;
-      scrollViewRef.current.scrollTo({ x: scrollX, animated: true });
-    }
-
-    // ✅ Never blocks the animation — deferred to after interaction settles
+  const handleTabChange = (tab: 'forYou' | 'following') => {
+    onTabChange(tab);
     InteractionManager.runAfterInteractions(() => {
-      saveLastTab(activeTab);
+      saveLastTab(tab);
     });
-  }, [activeTab]);
-
-  const indicatorStyle = {
-    transform: [
-      {
-        translateX: slideAnim.interpolate({
-          inputRange: [0, 1, 2],
-          outputRange: [0, tabWidth, tabWidth * 2],
-        }),
-      },
-    ],
   };
 
   return (
-    <View className="bg-white border-b border-gray-200">
-      <ScrollView
-        ref={scrollViewRef}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        scrollEventThrottle={16}
-        decelerationRate="fast"
+    <View
+      style={{
+        backgroundColor: '#ffffff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#E5E7EB',
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}
+    >
+      <View
+        style={{
+          flexDirection: 'row',
+          backgroundColor: '#F3F4F6',
+          borderRadius: 999,
+          padding: 4,
+        }}
       >
-        <View className="flex-row">
-          {/* Published Posts Tab */}
-          <TouchableOpacity
-            className={`py-4 items-center justify-center ${
-              activeTab === 'forYou' ? 'bg-white' : 'bg-gray-50'
-            }`}
-            style={{ width: tabWidth }}
-            onPress={() => onTabChange('forYou')}
-            activeOpacity={0.6}
+        {/* For You Pill */}
+        <TouchableOpacity
+          onPress={() => handleTabChange('forYou')}
+          activeOpacity={0.8}
+          style={{
+            paddingHorizontal: 30,
+            paddingVertical: 8,
+            borderRadius: 999,
+            backgroundColor: activeTab === 'forYou' ? '#000000' : 'transparent',
+          }}
+        >
+          <Text
+            style={{
+              fontWeight: '600',
+              fontSize: 14,
+              color: activeTab === 'forYou' ? '#FFFFFF' : '#6B7280',
+            }}
           >
-            <Text className={`text-base font-semibold ${
-              activeTab === 'forYou' ? 'text-black' : 'text-gray-500'
-            }`}>
-              React
-            </Text>
-          </TouchableOpacity>
+            For You
+          </Text>
+        </TouchableOpacity>
 
-          {/* Educational Tab — pill UI unchanged ✅ */}
-          <TouchableOpacity
-            className="py-3 items-center justify-center bg-gray-50"
-            style={{ width: tabWidth }}
-            onPress={() => onTabChange('educational')}
-            activeOpacity={0.6}
+        {/* Following Pill */}
+        <TouchableOpacity
+          onPress={() => handleTabChange('following')}
+          activeOpacity={0.8}
+          style={{
+            paddingHorizontal: 30,
+            paddingVertical: 8,
+            borderRadius: 999,
+            backgroundColor: activeTab === 'following' ? '#000000' : 'transparent',
+          }}
+        >
+          <Text
+            style={{
+              fontWeight: '600',
+              fontSize: 14,
+              color: activeTab === 'following' ? '#FFFFFF' : '#6B7280',
+            }}
           >
-            <View
-              style={{
-                backgroundColor: activeTab === 'educational' ? '#EFFAAB' : 'transparent',
-                borderRadius: activeTab === 'educational' ? 999 : 0,
-                paddingVertical: activeTab === 'educational' ? 6 : 0,
-                paddingHorizontal: activeTab === 'educational' ? 18 : 0,
-                alignSelf: 'center',
-              }}
-            >
-              <Text className={`text-base font-semibold ${
-                activeTab === 'educational' ? 'text-black' : 'text-gray-500'
-              }`}>
-                Learn
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Following Tab */}
-          <TouchableOpacity
-            className={`py-4 items-center justify-center ${
-              activeTab === 'following' ? 'bg-white' : 'bg-gray-50'
-            }`}
-            style={{ width: tabWidth }}
-            onPress={() => onTabChange('following')}
-            activeOpacity={0.6}
-          >
-            <Text className={`text-base font-semibold ${
-              activeTab === 'following' ? 'text-black' : 'text-gray-500'
-            }`}>
-              Following
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-
-      {/* Animated Indicator */}
-      <View style={{ height: 2 }}>
-        <Animated.View style={[{
-          position: 'absolute',
-          bottom: 0,
-          height: 2,
-          width: tabWidth,
-          backgroundColor: '#000000',
-        }, indicatorStyle]} />
+            Following
+          </Text>
+        </TouchableOpacity>
       </View>
+    </View>
+  );
+};
+const ForYouSubTabBar: React.FC<{
+  activeSubTab: 'react' | 'learn';
+  onSubTabChange: (tab: 'react' | 'learn') => void;
+}> = ({ activeSubTab, onSubTabChange }) => {
+  return (
+    <View
+      style={{
+        backgroundColor: '#ffffff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#E5E7EB',
+        flexDirection: 'row',
+      }}
+    >
+      {/* React Sub-Tab */}
+      <TouchableOpacity
+        onPress={() => onSubTabChange('react')}
+        activeOpacity={0.7}
+        style={{
+          flex: 1,
+          paddingVertical: 13,
+          alignItems: 'center',
+          borderBottomWidth: 2,
+          borderBottomColor: activeSubTab === 'react' ? '#000000' : 'transparent',
+          backgroundColor: activeSubTab === 'react' ? '#ffffff' : '#F9FAFB',
+        }}
+      >
+        <Text
+          style={{
+            fontWeight: '600',
+            fontSize: 15,
+            color: activeSubTab === 'react' ? '#000000' : '#6B7280',
+          }}
+        >
+          React
+        </Text>
+      </TouchableOpacity>
+
+      {/* Learn Sub-Tab */}
+      <TouchableOpacity
+        onPress={() => onSubTabChange('learn')}
+        activeOpacity={0.7}
+        style={{
+          flex: 1,
+          paddingVertical: 13,
+          alignItems: 'center',
+          borderBottomWidth: 2,
+          borderBottomColor: activeSubTab === 'learn' ? '#000000' : 'transparent',
+          backgroundColor: activeSubTab === 'learn' ? '#ffffff' : '#F9FAFB',
+        }}
+      >
+        <View
+          style={
+            activeSubTab === 'learn'
+              ? {
+                  backgroundColor: '#EFFAAB',
+                  borderRadius: 999,
+                  paddingVertical: 4,
+                  paddingHorizontal: 18,
+                }
+              : {}
+          }
+        >
+          <Text
+            style={{
+              fontWeight: '600',
+              fontSize: 15,
+              color: activeSubTab === 'learn' ? '#000000' : '#6B7280',
+            }}
+          >
+            Learn
+          </Text>
+        </View>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -1087,8 +1115,10 @@ export default function SentinelFeed(): React.JSX.Element {
   // UPDATED: Removed videoRefs since we'll use useVideoPlayer directly
   const flipCardRef = useRef<any>(null);
 
-  const [activeTab, setActiveTab] = useState<'forYou' | 'following' | 'educational'>('forYou');
+  const [activeTab, setActiveTab] = useState<'forYou' | 'following'>('forYou');
+  const [forYouSubTab, setForYouSubTab] = useState<'react' | 'learn'>('react');
   const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
+  const [followingLoaded, setFollowingLoaded] = useState<boolean>(false);
   const [currentUserDocId, setCurrentUserDocId] = useState('');
   const [notificationDetails, setNotificationDetails] = useState<any[]>([]);
   const [postUserDocId, setPostUserDocId] = useState('');
@@ -1559,41 +1589,41 @@ useEffect(() => {
   }, []);
 
   const fetchUserFollowing = useCallback(async () => {
-    try {
-      let fetchuserID = userId;
-      if (fetchuserID === "") {
-        fetchuserID = await AsyncStorage.getItem('userId') || "";
-        setUserId(fetchuserID);
-      }
-
-      if (fetchuserID) {
-        console.log('👤 Fetching following list for user:', fetchuserID);
-
-        const userDocRef = doc(db, 'IronExUsers', fetchuserID);
-
-        const unsubscribeFollowing = onSnapshot(userDocRef, (docSnapshot) => {
-          if (docSnapshot.exists()) {
-            const data = docSnapshot.data();
-
-            // 1. Get the Array of following objects
-            const followingList: any[] = data.Following || [];
-            const idOnlyList: string[] = followingList.map(item => item.userId);
-
-            console.log(`✅ Displaying ${followingList.length} following`);
-            setFollowingUserIds(idOnlyList);
-          }
-        }, (error) => {
-          console.error("❌ Real-time listener failed:", error);
-          setFollowingUserIds([]);
-        });
-
-        return unsubscribeFollowing;
-      }
-    } catch (error) {
-      console.error('❌ Error fetching following list:', error);
-      setFollowingUserIds([]);
+  try {
+    let fetchuserID = userId;
+    if (!fetchuserID) {
+      fetchuserID = (await AsyncStorage.getItem('userId')) || '';
+      setUserId(fetchuserID);
     }
-  }, [userId]);
+    if (fetchuserID) {
+      const userDocRef = doc(db, 'IronExUsers', fetchuserID);
+      const unsubscribeFollowing = onSnapshot(userDocRef, (docSnapshot) => {
+        if (docSnapshot.exists()) {
+          const data = docSnapshot.data();
+          const followingList: any[] = data.Following || [];
+          const idOnlyList: string[] = followingList.map((item: any) => item.userId).filter(Boolean);
+          console.log('Following loaded', idOnlyList.length, 'users');
+          setFollowingUserIds(idOnlyList);
+        } else {
+          console.log('User doc not found in IronExUsers');
+          setFollowingUserIds([]);
+        }
+        setFollowingLoaded(true); // ✅ ADD THIS LINE — mark as loaded either way
+      }, (error) => {
+        console.error('Following listener error:', error);
+        setFollowingUserIds([]);
+        setFollowingLoaded(true); // ✅ ADD THIS LINE — mark as loaded on error too
+      });
+      return unsubscribeFollowing;
+    } else {
+      setFollowingLoaded(true); // ✅ ADD — no userId case
+    }
+  } catch (error) {
+    console.error('Error fetching following list:', error);
+    setFollowingUserIds([]);
+    setFollowingLoaded(true); // ✅ ADD THIS LINE
+  }
+}, [userId]);
 
     // const fetchAllUsersForNotifications = useCallback(async () => {
     //   try {
@@ -1844,21 +1874,11 @@ useEffect(() => {
     setLoading(true);
     try {
       const collSentinelRefPost = collection(db, 'SentinelPosts');
-      let querySentinel;
-      if (activeTab === 'educational') {
-        querySentinel = query(
-          collSentinelRefPost,
-          where('isEducational', '==', true),
-          orderBy('ContentDate', 'desc'),
-          limit(BATCH_SIZE)
-        );
-      } else {
-        querySentinel = query(
-          collSentinelRefPost,
-          orderBy('ContentDate', 'desc'),
-          limit(BATCH_SIZE)
-        );
-      }
+      const querySentinel = query(
+        collSentinelRefPost,
+        orderBy('ContentDate', 'desc'),
+        limit(BATCH_SIZE)
+      );
 
       console.log("Sentinel OnSnapshot");
       const unsubscribeSentinel = onSnapshot(querySentinel, async sentinelSnapshot => {
@@ -1880,8 +1900,7 @@ useEffect(() => {
             AuthorNickName: postData.AuthorNickName|| '',
             AuthorEmail: postData.AuthorEmail|| '',
             AuthorBio: postData.AuthorBio || postData.Bio || '',  // ✅ ADD THIS
-            AuthorUserID: postData.AuthorUserID || postData.repostedBy || '123456',
-            ContentDate: postData.ContentDate|| '',
+            AuthorUserID: postData.AuthorUserID || '',            ContentDate: postData.ContentDate|| '',
             ContentDesc: postData.ContentDesc|| '',
             ContentURL: postData.ContentURL|| '',
             ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
@@ -1903,7 +1922,8 @@ useEffect(() => {
             repostedAt: postData.repostedAt || null,
             isAnonymous: postData.isAnonymous || false,
             contentType: postData.contentType ?? 'My Thoughts',
-            isEducational: postData.isEducational === true || postData.contentType === 'Educational',
+            isEducational: postData.isEducational === true || 
+               postData.contentType?.toLowerCase() === 'educational',
             moderationData: postData.moderationData || null,
             isReported: postData.isReported || false,
             reportedAt: postData.reportedAt || null,
@@ -1959,26 +1979,18 @@ useEffect(() => {
       setUserId(fetchuserID);
     }
 
-    if (!hasMore || loading || isFetchingMore || !lastVisible) return; // Prevent multiple fetches or fetching if no more data
+if (!hasMore || loading || isFetchingMore || !lastVisible) return; // Prevent multiple fetches or fetching if no more data
 
-    setIsFetchingMore(true); // Use a separate loading state if needed for 'loading more' indicator
-    try {
-        const collSentinelRefPost = collection(db, 'SentinelPosts');
-        let queryNext = query(
-            collSentinelRefPost,
-            orderBy('ContentDate', 'desc'),
-            startAfter(lastVisible), // Start after the last document fetched
-            limit(BATCH_SIZE)
-        );
-        if (activeTab === 'educational') {
-          queryNext = query(
-              collSentinelRefPost,
-              where('contentType', '==', 'Educational'),
-              orderBy('ContentDate', 'desc'),
-              startAfter(lastVisible),
-              limit(BATCH_SIZE)
-          );
-        }
+setIsFetchingMore(true); // Use a separate loading state if needed for 'loading more' indicator
+try {
+    const collSentinelRefPost = collection(db, 'SentinelPosts');
+    // ✅ Single query, filtering is client-side
+    const queryNext = query(
+      collSentinelRefPost,
+      orderBy('ContentDate', 'desc'),
+      startAfter(lastVisible),
+      limit(BATCH_SIZE)
+    );
 
         // *** Use getDocs for the lazy load to avoid a new onSnapshot listener ***
         const nextSnapshot = await getDocs(queryNext);
@@ -2008,8 +2020,7 @@ useEffect(() => {
             AuthorNickName: postData.AuthorNickName|| '',
             AuthorEmail: postData.AuthorEmail|| '',
             AuthorBio: postData.AuthorBio || postData.Bio || '',  // ✅ ADD THIS
-            AuthorUserID: postData.AuthorUserID || postData.repostedBy || '123456',
-            ContentDate: postData.ContentDate,
+            AuthorUserID: postData.AuthorUserID || '',            ContentDate: postData.ContentDate,
             ContentDesc: postData.ContentDesc,
             ContentURL: postData.ContentURL,
             ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
@@ -2031,7 +2042,8 @@ useEffect(() => {
             repostedAt: postData.repostedAt || null,
             isAnonymous: postData.isAnonymous || false,
             contentType: postData.contentType ?? 'My Thoughts',
-            isEducational: postData.isEducational === true || postData.contentType === 'Educational',
+            isEducational: postData.isEducational === true || 
+               postData.contentType?.toLowerCase() === 'educational',
             moderationData: postData.moderationData || null,
             isReported: postData.isReported || false,
             reportedAt: postData.reportedAt || null,
@@ -4079,16 +4091,11 @@ useEffect(() => {
   }, [handleFetchAllData]);
 
   const filteredData = useMemo(() => {
-    const blockedSet = new Set(allBlockedIds ?? []);
-  // Remove blocked users
-  const sourceData = fetchedData.filter(
-    item => !blockedSet?.has(item.AuthorUserID)
-  );
+  const blockedSet = new Set(allBlockedIds ?? []);
+  const sourceData = fetchedData.filter(item => !blockedSet?.has(item.AuthorUserID));
 
-  // ONE WEEK window constant for data eligibility
-  const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+  const ONEWEEKMS = 7 * 24 * 60 * 60 * 1000;
   const now = Date.now();
-
   const toMs = (date: any): number => {
     if (!date) return 0;
     if (typeof date === 'object' && date?.toDate) return date.toDate().getTime();
@@ -4096,122 +4103,71 @@ useEffect(() => {
     return new Date(date).getTime();
   };
 
-  // Base approved data
+  // ── FOLLOWING TAB ──────────────────────────────────────────────
+ // ✅ UPDATED following filter in filteredData useMemo
+  // ✅ UPDATED — don't return [] just because followingUserIds is empty yet
+    if (activeTab === 'following') {
+      if (!followingLoaded) return []; // still loading, return empty (loader shows)
+      if (followingUserIds.length === 0) return []; // loaded but no one followed
+      return sourceData.filter(item => {
+        if (item.postType?.includes('X-Data')) return false;
+        if (item.isAnonymous === true) return false;
+        const postAuthor = item.AuthorUserID;
+        const reposter = item.repostedBy;
+        return (
+          followingUserIds.includes(postAuthor ?? '') ||
+          followingUserIds.includes(reposter ?? '')
+        );
+      });
+    }
+
+  // ── FOR YOU TAB ────────────────────────────────────────────────
+  // Base: approved posts only for regular users
   const baseData = sourceData.filter(item => {
     if (userRole === 'User') {
-      return (
-        item.postType.includes('X-Data') ||
-        (item.isApproved && !item.isNew)
-      );
-    }
-    return true;
-  });
-
-  // Educational data
-  // Educational data — loose matching to handle missing/inconsistent fields
-  const educationalData = sourceData.filter(item => {
-    const isEdu =
-      item.contentType === 'Educational' ||
-      item.isEducational === true ||
-      item.postType?.toLowerCase().includes('educational');
-
-    if (userRole === 'User') {
-      // X-Data posts are never educational; Sentinel posts need approval
-      if (item.postType.includes('X-Data')) return false;
-      return (item.isApproved && !item.isNew) && isEdu;
-    }
-    // Admin/Mod: show all educational posts regardless of approval
-    return isEdu;
-  });
-
-
-  
-  const publishedData = sourceData.filter(item => {
-    const isXData = item.postType.includes('X-Data');
-
-    if (userRole === 'User') {
-      // ✅ Explicitly hide reported posts for regular users
       if (item.isReported && item.moderationStatus === 'pending-review') return false;
-      return isXData
-        ? (item.isApproved && !item.isNew)
-        : (item.isApproved && !item.isNew && item.contentType !== 'Educational' && !item.isEducational);
+      if (item.postType?.includes('X-Data')) return item.isApproved && !item.isNew;
+      return item.isApproved && !item.isNew;
     }
-    // Admins/Mods see everything (intentional)
-    return item.contentType !== 'Educational' && !item.isEducational;
+    return true; // Admins/Mods see all
   });
 
-  // ── FOLLOWING TAB ──────────────────────────────────────────────────────────
-  if (activeTab === 'following') {
-    const followingData = publishedData.filter(item => {  
-    const authorId = item.repostedBy || item.AuthorUserID;
-    return authorId && followingUserIds.includes(authorId);
-  });
-    if (followingData.length < 4) handleLoadMore();
-    return followingData;
-  }
+  // ── LEARN SUB-TAB: only educational posts ──────────────────────
+  if (forYouSubTab === 'learn') {
+  const learnPosts = baseData.filter(
+    item => item.isEducational === true || item.contentType?.toLowerCase() === 'educational'
+  );
+  // TEMP DEBUG — remove after fixing
+  console.log('📚 Learn tab — total posts checked:', baseData.length);
+  console.log('📚 Learn tab — educational posts found:', learnPosts.length);
+  console.log('📚 Sample contentTypes:', baseData.slice(0, 5).map(p => p.contentType));
+  return learnPosts;
+}
 
-  // ── EDUCATIONAL TAB ────────────────────────────────────────────────────────
-  if (activeTab === 'educational') {
-    if (educationalData.length < 4) handleLoadMore();
-    return educationalData;
-  }
+  // ── REACT SUB-TAB: all normal (non-educational) posts ─────────
+  const publishedData = baseData.filter(item =>
+    !item.isEducational && item.contentType?.toLowerCase() !== 'educational'
+  );
 
-  // ── FOR YOU TAB ────────────────────────────────────────────────────────────
-  if (activeTab === 'forYou') {
-    // 1. Separate Sentinel and X-Data posts
-    const allSentinels = publishedData.filter(
-      item => !item.postType.includes('X-Data')
-    );
-    const allXData = publishedData.filter(
-      item => item.postType.includes('X-Data')
-    );
+  // Interleaved feed logic (keep your existing code below)
+  const allSentinels = publishedData.filter(item => !item.postType?.includes('X-Data'));
+  const allXData = publishedData.filter(item => item.postType?.includes('X-Data'));
 
-    // 2. BOTH pools limited to last 1 week for relevancy
-    const weekSentinels = allSentinels.filter(
-      p => now - toMs(p.createdAt ?? p.ContentDate) <= ONE_WEEK_MS
-    );
-    const weekXData = allXData.filter(
-      p => now - toMs(p.createdAt ?? p.ContentDate) <= ONE_WEEK_MS
-    );
+  const weekSentinels = allSentinels.filter(p => now - toMs(p.createdAt ?? p.ContentDate) < ONEWEEKMS);
+  const weekXData = allXData.filter(p => now - toMs(p.createdAt ?? p.ContentDate) < ONEWEEKMS);
+  const olderSentinels = allSentinels.filter(p => now - toMs(p.createdAt ?? p.ContentDate) >= ONEWEEKMS);
+  const olderXData = allXData.filter(p => now - toMs(p.createdAt ?? p.ContentDate) >= ONEWEEKMS);
 
-    // 3. Older posts (beyond 1 week) as fallback pool
-    const olderSentinels = allSentinels.filter(
-      p => now - toMs(p.createdAt ?? p.ContentDate) > ONE_WEEK_MS
-    );
-    const olderXData = allXData.filter(
-      p => now - toMs(p.createdAt ?? p.ContentDate) > ONE_WEEK_MS
-    );
+  const windowMs = getAdaptiveTimeWindow(weekSentinels, 5);
+  const freshSentinels = weekSentinels.filter(p => now - toMs(p.createdAt ?? p.ContentDate) <= windowMs);
+  const recentSentinels = weekSentinels.filter(p => now - toMs(p.createdAt ?? p.ContentDate) > windowMs);
 
-    // 4. Within the 1-week pool, get adaptive window for "fresh" Sentinel boost
-    const windowMs = getAdaptiveTimeWindow(weekSentinels, 5);
-    const freshSentinels = weekSentinels.filter(
-      p => now - toMs(p.createdAt ?? p.ContentDate) <= windowMs
-    );
-    const recentSentinels = weekSentinels.filter(
-      p => now - toMs(p.createdAt ?? p.ContentDate) > windowMs
-    );
+  const interleavedWeek = buildInterleavedFeed(recentSentinels, weekXData, 20, 10);
+  const interleavedOlder = buildInterleavedFeed(olderSentinels, olderXData, 20, 10);
 
-    // 5. Build interleaved blocks for the 1-week pool
-    //    Pattern: [recentSentinels 20] [weekXData 10] repeating
-    const interleavedWeek = buildInterleavedFeed(recentSentinels, weekXData, 20, 10);
+  return [...freshSentinels, ...interleavedWeek, ...interleavedOlder];
 
-    // 6. Build interleaved blocks for older posts (beyond 1 week) as tail
-    const interleavedOlder = buildInterleavedFeed(olderSentinels, olderXData, 20, 10);
-
-    console.log(
-      `[Feed] Window: ${windowMs / 3600000}h | Fresh: ${freshSentinels.length} | Week Sentinels: ${weekSentinels.length} | Week X: ${weekXData.length} | Older: ${olderSentinels.length + olderXData.length}`
-    );
-
-    // Final order:
-    // 1. Fresh Sentinels (latest within adaptive window) — always top
-    // 2. Interleaved 1-week posts (20S/10X pattern)
-    // 3. Interleaved older posts as infinite tail
-    return [...freshSentinels, ...interleavedWeek, ...interleavedOlder];
-  }
-
-  return publishedData;
-
-}, [fetchedData, userRole, activeTab, followingUserIds, allBlockedIds]);
+}, [fetchedData, userRole, activeTab, forYouSubTab, followingUserIds, followingLoaded,allBlockedIds]);
 
 
     const handleScroll = useCallback((event: any) => {
@@ -5185,62 +5141,49 @@ useEffect(() => {
         );
       // }
     });
-  }, [filteredData, userRole, initializeCardAnimation, renderPostContent, activeTab]);
+  }, [filteredData, userRole, initializeCardAnimation, renderPostContent, activeTab,followingLoaded,forYouSubTab]);
 
-  const renderEmptyState = () => {
-  if (activeTab === 'educational') {
+ const renderEmptyState = () => {
+  if (activeTab === 'forYou' && forYouSubTab === 'learn') {
     return (
       <View className="flex-1 justify-center items-center py-20 px-8">
         <View className="w-20 h-20 bg-gray-100 rounded-full items-center justify-center mb-6">
           <Ionicons name="school-outline" size={40} color="#9CA3AF" />
         </View>
         <Text className="text-xl font-semibold text-gray-900 mb-2 text-center">
-          Educational feed is waiting
+          No educational content yet
         </Text>
-        <Text className="text-gray-500 text-center leading-6 mb-4">
-          Educational content will be available here. Stay tuned for learning materials and resources!
+        <Text className="text-gray-500 text-center leading-6">
+          Educational posts will appear here. Stay tuned!
         </Text>
       </View>
     );
   }
-  else {
-    // Following tab empty state
-  return (
-    <View className="flex-1 justify-center items-center py-20 px-8 bg-white">
-  {/* Icon Container - Larger with subtle background */}
-      <View className="w-32 h-32 bg-gray-50 rounded-full items-center justify-center mb-8">
-        <MaterialCommunityIcons 
-          name="account-heart-outline" 
-          size={64} 
-          color="#D1D5DB" 
-        />
-      </View>
-      
-      {/* Heading - Larger and bolder */}
-      <Text className="text-2xl font-bold text-gray-900 mb-3 text-center">
-        Your feed is waiting
-      </Text>
-      
-      {/* Description - More spacing */}
-      <Text className="text-base text-gray-500 text-center leading-6 mb-8 px-4">
-        Start following creators and friends to fill this space.
-      </Text>
-      
-      {/* Button - Red/Pink color to match Figma */}
-      <TouchableOpacity 
-        className="bg-red-600 px-8 py-3.5 rounded-lg shadow-sm"
-        onPress={() => {
-          router.push('/search');
-        }}
-        activeOpacity={0.8}
-      >
-        <Text className="text-white font-semibold text-base">Search Now</Text>
-      </TouchableOpacity>
-    </View>
 
-  );
+  if (activeTab === 'following') {
+    return (
+      <View className="flex-1 justify-center items-center py-20 px-8 bg-white">
+        <View className="w-32 h-32 bg-gray-50 rounded-full items-center justify-center mb-8">
+          <MaterialCommunityIcons name="account-heart-outline" size={64} color="#D1D5DB" />
+        </View>
+        <Text className="text-2xl font-bold text-gray-900 mb-3 text-center">
+          Your feed is empty
+        </Text>
+        <Text className="text-base text-gray-500 text-center leading-6 mb-8 px-4">
+          Follow creators to see their posts here.
+        </Text>
+        <TouchableOpacity
+          className="bg-black px-8 py-3.5 rounded-full"
+          onPress={() => router.push('/search')}
+          activeOpacity={0.8}
+        >
+          <Text className="text-white font-semibold text-base">Find People</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
+  return null;
 };
 
 
@@ -5296,79 +5239,82 @@ useEffect(() => {
         </View>
       </View>
 
-      <TabHeader 
-        activeTab={activeTab} 
-        onTabChange={setActiveTab}
-      />
+      {/* <TabHeader activeTab={activeTab} onTabChange={setActiveTab} /> */}
 
-      <ScrollView 
-        // key={`feed-${activeTab}-${filteredData.length}`}
-        key={`feed-${activeTab}`}
-        ref={scrollViewRef}
-        className="flex-1" 
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ 
-          paddingTop: 6, 
-          paddingBottom: 16,
-        }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={['#3b82f6']}
-            tintColor="#3b82f6"
-            title="Pull to refresh"
-            titleColor="#64748b"
-          />
-        }
-        onScroll={handleScroll} 
-        scrollEventThrottle={16}
-      >
-        {/* {loading ? (
-          <View className="flex-1 justify-center items-center py-20">
-            <LoadingComponent visible={true} size="large" />
-          </View>
-        ) : (activeTab === 'following' || activeTab === 'educational') && listItems.length === 0 ? (
-          renderEmptyState()
-        ) : listItems.length > 0 ? (
-          listItems
-        ) : (
-          <View className="flex-1 justify-center items-center py-20">
-            <LoadingComponent visible={true} size="large" />
-          </View>
-        )} */}
+      {/* ✅ React / Learn sub-tabs — only shown when For You is active */}
+      {activeTab === 'forYou' && (
+        <ForYouSubTabBar
+          activeSubTab={forYouSubTab}
+          onSubTabChange={setForYouSubTab}
+        />
+      )}
 
-        {loading && !isFetchingMore ? (
-            // Full-screen loader for initial/refresh load
+      <ScrollView
+          key={`feed-${activeTab}-${forYouSubTab}-${filteredData.length}`}
+          ref={scrollViewRef}
+          className="flex-1"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingTop: 6, paddingBottom: 100 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#3b82f6']}
+              tintColor="#3b82f6"
+              title="Pull to refresh"
+              titleColor="#64748b"
+            />
+          }
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+        >
+
+          {/* 1. Full-screen loader for initial/refresh load — only for ForYou tab */}
+          {loading && !isFetchingMore && activeTab !== 'following' && (
             <View className="flex-1 justify-center items-center py-20">
-                <LoadingComponent visible={true} size="large" />
+              <LoadingComponent visible={true} size="large" />
             </View>
-        ) : (activeTab === 'following' || activeTab === 'educational') && listItems.length === 0 ? (
-            renderEmptyState()
-        ) : listItems.length > 0 ? (
-            // The list of items
-            listItems
-        ) : (
-             // Fallback loader if list is empty after initial load (optional)
+          )}
+
+          {/* 2. Show loader while following data is not yet fetched */}
+          {activeTab === 'following' && !followingLoaded && (
             <View className="flex-1 justify-center items-center py-20">
-                <LoadingComponent visible={true} size="large" />
+              <LoadingComponent visible={true} size="large" />
             </View>
-        )}
+          )}
 
-        {/* 👇 5. Small Loader for Pagination */}
-        {isFetchingMore && (
-            <View className="py-4 justify-center items-center">
-                <LoadingComponent visible={true} size="small" /> 
-            </View>
-        )}
+          {/* 3. Render posts — for ForYou tab use !loading, for Following tab use followingLoaded */}
+          {(activeTab !== 'following' ? !loading : followingLoaded) && listItems.length > 0 && listItems}
 
-        {/* 👇 6. "No More Data" Indicator (Optional) */}
-        {!hasMore && listItems.length > BATCH_SIZE && (
-            <View className="py-4 justify-center items-center">
-                <Text className="text-gray-500">You've reached the end of the feed.</Text>
+          {/* 4. Empty state for Following tab — only after followingLoaded is true */}
+          {followingLoaded && listItems.length === 0 && activeTab === 'following' && renderEmptyState()}
+
+          {/* 5. Empty state for Learn sub-tab */}
+          {!loading && listItems.length === 0 && activeTab === 'forYou' && forYouSubTab === 'learn' && renderEmptyState()}
+
+          {/* 6. Fallback loader — ForYou React tab when still empty after load */}
+          {!loading && listItems.length === 0 &&
+            activeTab === 'forYou' && forYouSubTab !== 'learn' && (
+            <View className="flex-1 justify-center items-center py-20">
+              <LoadingComponent visible={true} size="large" />
             </View>
-        )}
-      </ScrollView>
+          )}
+
+          {/* 7. Pagination loader */}
+          {isFetchingMore && (
+            <View className="py-4 justify-center items-center">
+              <LoadingComponent visible={true} size="small" />
+            </View>
+          )}
+
+          {/* 8. End of feed */}
+          {!hasMore && listItems.length >= BATCH_SIZE && (
+            <View className="py-4 justify-center items-center">
+              <Text className="text-gray-500">You've reached the end of the feed.</Text>
+            </View>
+          )}
+
+        </ScrollView>
 
       
       {/* IMAGE MODAL */}
@@ -6030,6 +5976,76 @@ useEffect(() => {
             </TouchableOpacity>
           </Modal>
         )}
+        {/* ✅ Floating For You / Following pill toggle at bottom */}
+      <View
+        style={{
+          position: 'absolute',
+          bottom: 16,
+          left: 0,
+          right: 0,
+          alignItems: 'center',
+          zIndex: 999,
+          pointerEvents: 'box-none',
+        }}
+      >
+        <View
+          style={{
+            flexDirection: 'row',
+            backgroundColor: '#E5E7EB',
+            borderRadius: 999,
+            padding: 1,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.15,
+            shadowRadius: 8,
+            elevation: 6,
+          }}
+        >
+          {/* For You Pill */}
+          <TouchableOpacity
+            onPress={() => setActiveTab('forYou')}
+            activeOpacity={0.8}
+            style={{
+              paddingHorizontal: 30,
+              paddingVertical: 10,
+              borderRadius: 999,
+              backgroundColor: activeTab === 'forYou' ? '#000000' : 'transparent',
+            }}
+          >
+            <Text
+              style={{
+                fontWeight: '600',
+                fontSize: 12,
+                color: activeTab === 'forYou' ? '#FFFFFF' : '#6B7280',
+              }}
+            >
+              For You
+            </Text>
+          </TouchableOpacity>
+
+          {/* Following Pill */}
+          <TouchableOpacity
+            onPress={() => setActiveTab('following')}
+            activeOpacity={0.8}
+            style={{
+              paddingHorizontal: 30,
+              paddingVertical: 10,
+              borderRadius: 999,
+              backgroundColor: activeTab === 'following' ? '#000000' : 'transparent',
+            }}
+          >
+            <Text
+              style={{
+                fontWeight: '600',
+                fontSize: 12,
+                color: activeTab === 'following' ? '#FFFFFF' : '#6B7280',
+              }}
+            >
+              Following
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
 
      
