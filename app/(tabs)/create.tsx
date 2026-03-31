@@ -1481,7 +1481,7 @@ const checkPostContent = async (postText: string, imageUrl: string | null) => {
               {/* The Educational Toggle (Switch + Text) */}
               <View style={styles.container}> 
                 <Text style={[styles.statusText, { marginRight: 4 }]}> 
-                  Educational 
+                  Learn 
                 </Text>
                 <Switch
                   value={isEducationalEnabled}
