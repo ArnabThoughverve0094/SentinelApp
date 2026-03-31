@@ -2240,21 +2240,26 @@ useEffect(() => {
       collSentinelDeletedUsers,
       async (updateSnapshot) => {
         const deletedIds: string[] = [];
-        for (const doc of updateSnapshot.docs) {
-          const deletedData = doc.data();
 
-          // ❌ FIX 2a: Collect all deleted user IDs for feed filtering
+        let fetchuserID = userId;
+        if (!fetchuserID) fetchuserID = await AsyncStorage.getItem('userId');
+        if (fetchuserID) setUserId(fetchuserID);
+
+        for (const docSnap of updateSnapshot.docs) {
+          const deletedData = docSnap.data();
+
+          // ✅ Collect all deleted user IDs for feed filtering
           if (deletedData.userId) {
             deletedIds.push(deletedData.userId);
           }
 
-          // Keep your existing logout logic
-          let fetchuserID = userId;
-          if (!fetchuserID) fetchuserID = await AsyncStorage.getItem('userId');
-          setUserId(fetchuserID!);
-          if (fetchuserID && deletedData.userName) confirmAccDeletedLogout();
+          // ✅ FIX: Only logout if the CURRENT logged-in user is the deleted one
+          if (fetchuserID && deletedData.userId === fetchuserID) {
+            confirmAccDeletedLogout();
+          }
         }
-        setDeletedUserIds(deletedIds); // ← store for feed filtering
+
+        setDeletedUserIds(deletedIds);
       }
     );
     return unsubscribeSentinelDeletedUsers;
@@ -2263,7 +2268,7 @@ useEffect(() => {
   } finally {
     setLoading(false);
   }
-    }, []);
+}, [userId]);
 
   const fetchBlockedUser = useCallback(async () => {
     try {
