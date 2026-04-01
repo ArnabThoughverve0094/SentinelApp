@@ -1444,10 +1444,10 @@ const fetchFollowerCounts = async () => {
     setSelectedGraphPostId(item.id);
     setSelectedGraphPostType(item.postType);
     setIsGraphModalVisible(true);
-    setSelectedPostId(item.id);
-    setSelectedPostType(item.postType);
-    setIsCommentModalVisible(false);
-    setSelectedCommentTemplate(item.CommentTemplate);
+    // setSelectedPostId(item.id);
+    // setSelectedPostType(item.postType);
+    // setIsCommentModalVisible(false);
+    // setSelectedCommentTemplate(item.CommentTemplate);
   }, []);
 
   const closeGraphModal = useCallback(() => {
@@ -1939,11 +1939,7 @@ const fetchFollowerCounts = async () => {
     const displayAuthorImage = item.isAnonymous ? dummyAuthorImage : (item.AuthorImageURL || dummyAuthorImage);
 
     return (
-      <TouchableOpacity
-        key={`post-${item.uniqueId}-${index}`}
-        activeOpacity={0.95}
-        onPress={() => openCommentsModal(item)}
-      >
+      <View>
         <View className="bg-white mx-4 mb-3 rounded-2xl shadow-sm border border-gray-100">
           <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
             <View className="flex-row items-center">
@@ -2091,7 +2087,7 @@ const fetchFollowerCounts = async () => {
             </View>
           </View>
         </View>
-      </TouchableOpacity>
+      </View>
     );
   };
 
