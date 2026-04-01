@@ -2755,10 +2755,10 @@ useEffect(() => {
     setSelectedGraphPostId(item.id);
     setSelectedGraphPostType(item.postType);
     setIsGraphModalVisible(true);
-    setSelectedPostId(item.id);
-    setSelectedPostType(item.postType);
-    setIsCommentModalVisible(false);
-    setSelectedCommentTemplate(item.CommentTemplate);
+    // setSelectedPostId(item.id);
+    // setSelectedPostType(item.postType);
+    // setIsCommentModalVisible(false);
+    // setSelectedCommentTemplate(item.CommentTemplate);
   }, [areInteractionsDisabled]);
 
   const closeGraphModal = useCallback(() => {
@@ -4534,12 +4534,7 @@ useEffect(() => {
 
 
     return (
-      <TouchableOpacity 
-        activeOpacity={0.95}
-        onPress={() => openCommentsModal(item)}
-      >
-        {/* ✅ REPORTED POST BADGE - VISIBLE TO ADMINS */}
-       {/* ✅ REPORTED POST BADGE - TOP RIGHT */}
+      <View>
         {userRole !== "User" &&
           item.isReported === true &&
           item.reportedBy &&
@@ -5155,7 +5150,7 @@ useEffect(() => {
 
 
 
-      </TouchableOpacity>
+      </View>
     )
   }, [openCommentsModal, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, ApprovalToggle, handleApprovalToggle, dummyAuthorImage, userRole, getPostStatus, areInteractionsDisabled, openGraphModal, renderRepostContent]);
 
