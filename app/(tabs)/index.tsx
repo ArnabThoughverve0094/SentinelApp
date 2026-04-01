@@ -1138,6 +1138,7 @@ export default function SentinelFeed(): React.JSX.Element {
   const [blockUserName, setBlockUserName] = useState<string | null>(null);
   const [allBlockedIds, setAllBlockedIds] = useState<any>([]);
   const [isBlockLoading, setIsBlockLoading] = useState(false);
+  const [deletedUserIds, setDeletedUserIds] = useState<string[]>([]);
   
 
   const [viewedPosts, setViewedPosts] = useState<Set<string>>(new Set());
@@ -2233,46 +2234,41 @@ useEffect(() => {
   },[]);
 
   const fetchDeletedUser = useCallback(async () => {
-    try {
-      const collSentinelDeletedUsers = collection(db, 'UserDeletionAudit');
-      console.log("Sentinel DeletedUsers Called");
+  try {
+    const collSentinelDeletedUsers = collection(db, 'UserDeletionAudit');
+    const unsubscribeSentinelDeletedUsers = onSnapshot(
+      collSentinelDeletedUsers,
+      async (updateSnapshot) => {
+        const deletedIds: string[] = [];
 
-      const unsubscribeSentinelDeletedUsers = onSnapshot(collSentinelDeletedUsers, async updateSnapshot => {
-        const updateDataArr = updateSnapshot.docs.map(doc => ({
-          id: doc.id,
-          data: doc.data(),
-        }));
+        let fetchuserID = userId;
+        if (!fetchuserID) fetchuserID = await AsyncStorage.getItem('userId');
+        if (fetchuserID) setUserId(fetchuserID);
 
-        console.log("DeletedUsers Data: ", updateDataArr);
+        for (const docSnap of updateSnapshot.docs) {
+          const deletedData = docSnap.data();
 
-        for (const doc of updateDataArr) {
-          const deletedData = doc.data;
-          console.log("DeletedUsers Data: ", deletedData);
-          let fetchuserID = "";
-          if(fetchuserID === ""){
-            fetchuserID = await AsyncStorage.getItem('userId') || "";
-            setUserId(fetchuserID);
+          // ✅ Collect all deleted user IDs for feed filtering
+          if (deletedData.userId) {
+            deletedIds.push(deletedData.userId);
           }
-          console.log("userId Data: ", fetchuserID);
-          
-          if (fetchuserID === deletedData.userName) {
+
+          // ✅ FIX: Only logout if the CURRENT logged-in user is the deleted one
+          if (fetchuserID && deletedData.userId === fetchuserID) {
             confirmAccDeletedLogout();
           }
-
         }
 
-      })
-
-      return () => {
-        unsubscribeSentinelDeletedUsers();
-      };
-
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  },[]);
+        setDeletedUserIds(deletedIds);
+      }
+    );
+    return unsubscribeSentinelDeletedUsers;
+  } catch (error) {
+    console.error(error);
+  } finally {
+    setLoading(false);
+  }
+}, [userId]);
 
   const fetchBlockedUser = useCallback(async () => {
     try {
@@ -2759,10 +2755,10 @@ useEffect(() => {
     setSelectedGraphPostId(item.id);
     setSelectedGraphPostType(item.postType);
     setIsGraphModalVisible(true);
-    setSelectedPostId(item.id);
-    setSelectedPostType(item.postType);
-    setIsCommentModalVisible(false);
-    setSelectedCommentTemplate(item.CommentTemplate);
+    // setSelectedPostId(item.id);
+    // setSelectedPostType(item.postType);
+    // setIsCommentModalVisible(false);
+    // setSelectedCommentTemplate(item.CommentTemplate);
   }, [areInteractionsDisabled]);
 
   const closeGraphModal = useCallback(() => {
@@ -4141,14 +4137,24 @@ useEffect(() => {
   });
 
   // ── FOLLOWING TAB ──────────────────────────────────────────────────────────
-  if (activeTab === 'following') {
-    const followingData = publishedData.filter(item => {  
-    const authorId = item.repostedBy || item.AuthorUserID;
-    return authorId && followingUserIds.includes(authorId);
-  });
-    if (followingData.length < 4) handleLoadMore();
-    return followingData;
-  }
+    if (activeTab === 'following') {
+      const deletedSet = new Set(deletedUserIds); // O(1) lookups
+
+      const followingData = publishedData.filter(item => {
+        
+        if (item.isAnonymous) return false;
+
+        const authorId = item.repostedBy || item.AuthorUserID;
+
+        
+        if (authorId && deletedSet.has(authorId)) return false;
+
+        return authorId && followingUserIds.includes(authorId);
+      });
+
+      if (followingData.length < 4) handleLoadMore();
+      return followingData;
+    }
 
   // ── EDUCATIONAL TAB ────────────────────────────────────────────────────────
   if (activeTab === 'educational') {
@@ -4211,7 +4217,7 @@ useEffect(() => {
 
   return publishedData;
 
-}, [fetchedData, userRole, activeTab, followingUserIds, allBlockedIds]);
+}, [fetchedData, userRole, activeTab, followingUserIds, allBlockedIds,deletedUserIds]);
 
 
     const handleScroll = useCallback((event: any) => {
@@ -4528,12 +4534,7 @@ useEffect(() => {
 
 
     return (
-      <TouchableOpacity 
-        activeOpacity={0.95}
-        onPress={() => openCommentsModal(item)}
-      >
-        {/* ✅ REPORTED POST BADGE - VISIBLE TO ADMINS */}
-       {/* ✅ REPORTED POST BADGE - TOP RIGHT */}
+      <View>
         {userRole !== "User" &&
           item.isReported === true &&
           item.reportedBy &&
@@ -5149,7 +5150,7 @@ useEffect(() => {
 
 
 
-      </TouchableOpacity>
+      </View>
     )
   }, [openCommentsModal, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, ApprovalToggle, handleApprovalToggle, dummyAuthorImage, userRole, getPostStatus, areInteractionsDisabled, openGraphModal, renderRepostContent]);
 
