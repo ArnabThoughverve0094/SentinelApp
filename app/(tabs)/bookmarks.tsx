@@ -1227,10 +1227,10 @@ useEffect(() => {
     setSelectedGraphPostId(item.id);
     setSelectedGraphPostType(item.postType);
     setIsGraphModalVisible(true);
-    setSelectedPostId(item.id);
-    setSelectedPostType(item.postType);
-    setIsCommentModalVisible(false);
-    setSelectedCommentTemplate(item.CommentTemplate);
+    // setSelectedPostId(item.id);
+    // setSelectedPostType(item.postType);
+    // setIsCommentModalVisible(false);
+    // setSelectedCommentTemplate(item.CommentTemplate);
   }, []);
 
   const closeGraphModal = useCallback(() => {
@@ -1821,10 +1821,7 @@ const onRefresh = useCallback(async () => {
     }
 
     return (
-      <TouchableOpacity 
-        activeOpacity={0.95}
-        onPress={() => openCommentsModal(item)}
-      >
+      <View>
           <EnhancedCard postId={item.uniqueId}>
         <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
           <View className="flex-row items-center justify-between">
@@ -1986,7 +1983,7 @@ const onRefresh = useCallback(async () => {
             </View>
         </View>
       </EnhancedCard>
-      </TouchableOpacity>
+      </View>
       
     )
   } , [EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleRemoveBookmark, dummyAuthorImage, openCommentsModal, renderRepostContent]);
