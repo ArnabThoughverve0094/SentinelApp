@@ -2996,10 +2996,10 @@ const checkProfilePicture = async (imageUrl: string) => {
   setSelectedGraphPostId(item.id);
   setSelectedGraphPostType(item.postType);
   setIsGraphModalVisible(true);
-  setSelectedPostId(item.id);
-  setSelectedPostType(item.postType);
-  setSelectedCommentTemplate(item.CommentTemplate);
-  setIsCommentModalVisible(false);
+  // setSelectedPostId(item.id);
+  // setSelectedPostType(item.postType);
+  // setSelectedCommentTemplate(item.CommentTemplate);
+  // setIsCommentModalVisible(false);
 }, [areInteractionsDisabled]);
 
   // TO CLOSE GRAPH MODAL
@@ -3785,12 +3785,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
 
   // UPDATED: Render post content with DISABLED BUTTONS for rejected posts
   const renderPostContent = useCallback((item: PostItem, index: number) => (
-    <TouchableOpacity 
-      key={`post-${item.uniqueId}-${index}`}
-      activeOpacity={0.95}
-      onPress={() => openCommentsModal(item)}
-      className="bg-white mx-4 mb-3 rounded-2xl shadow-sm border border-gray-100"
-    >
+    <View>
       <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
         <View className="flex-row items-center">
           <View className="relative">
@@ -3994,7 +3989,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
 
             </View>
       </View>
-    </TouchableOpacity>
+    </View>
   ), [openCommentsModal, toggleLike, handleRepost, handleBookmark, handleSharePost, openGraphModal, renderMediaContent, getTimeAgo, getPostStatus, profilePicUrl, dummyAuthorImage, areInteractionsDisabled, renderRepostContent]);
 
   // Refresh function
