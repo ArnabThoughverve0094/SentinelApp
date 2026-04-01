@@ -604,6 +604,7 @@ export default function BookmarksPage(): React.JSX.Element {
   const [isDeleteUserModalVisible, setIsDeleteUserModalVisible] = useState(false);
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
   const [showMenuModal, setShowMenuModal] = useState(false);
+  const bookmarkUnsubscribersRef = useRef<(() => void)[]>([]);
   
   
 
@@ -1032,128 +1033,155 @@ export default function BookmarksPage(): React.JSX.Element {
     };
 
   // FIXED: Fetch bookmarked posts without problematic queries
-  const handleFetchBookmarkedPosts = useCallback(async (forceRefresh: boolean = false) => {
-    setLoading(true);
-    
-    let fetchuserID = userId;
-    if (!fetchuserID) {
-      fetchuserID = await AsyncStorage.getItem('userId') || '';
-      setUserId(fetchuserID);
-    }
+  
 
-    try {
-      const allBookmarkedPosts: PostItem[] = [];
+// ✅ Replace handleFetchBookmarkedPosts with this
+const setupBookmarkListeners = useCallback((fetchuserID: string) => {
+  // Clean up previous listeners first
+  bookmarkUnsubscribersRef.current.forEach(unsub => unsub());
+  bookmarkUnsubscribersRef.current = [];
 
-      // Fetch X-Data bookmarks
-      // const xDataRef = collection(db, 'X-Data');
-      // const xDataQuery = query(xDataRef, orderBy('ContentDate', 'desc'));
-      // const xDataSnapshot = await getDocs(xDataQuery);
+  setLoading(true);
 
-      // xDataSnapshot.docs.forEach(doc => {
-      //   const postData = doc.data();
-      //   if (postData.BookmarkedBy?.includes(fetchuserID)) {
-      //     allBookmarkedPosts.push({
-      //       uniqueId: `xdata-${doc.id}`,
-      //       id: doc.id,
-      //       AuthorImageURL: postData.AuthorImageURL,
-      //       AuthorName: postData.AuthorName,
-      //       AuthorEmail: postData.AuthorEmail|| '',
-      //       AuthorBio: postData.AuthorBio || '',
-      //       AuthorUserID: postData.AuthorUserID,
-      //       ContentDate: postData.ContentDate,
-      //       ContentDesc: postData.ContentDesc,
-      //       ContentURL: postData.ContentURL,
-      //       ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
-      //       ContentLikeCount: postData.ContentLikeCount || 0,
-      //       ContentRepostCount: postData.ContentRepostCount || 0,
-      //       ContentCommentCount: postData.ContentCommentCount || 0,
-      //       ContentViewCount: postData.ContentViewCount || 0, // ✅ VIEW COUNT
-      //       ViewedBy: postData.ViewedBy || [], // ✅ VIEW TRACKING
-      //       isApproved: true,
-      //       isNew: false,
-      //       postType: 'X-Data',
-      //       Liked: postData.LikedBy?.includes(fetchuserID) || false,
-      //       Reposted: postData.RepostedBy?.includes(fetchuserID) || false,
-      //       Bookmarked: true,
-      //       createdAt: postData.createdAt || postData.ContentDate,
-      //       bookmarkedAt: postData.bookmarkedAt || new Date(),
-      //       CommentTemplate: postData.CommentTemplate || 'Standard Template',
-      //       isAnonymous: false,
-      //       contentType: postData.contentType || 'My Thoughts',
-      //     });
-      //   }
-      // });
+  // Track posts from both collections separately
+  let sentinelBookmarks: PostItem[] = [];
+  let xDataBookmarks: PostItem[] = [];
+  let sentinelLoaded = false;
+  let xDataLoaded = false;
 
-      // Fetch SentinelPosts bookmarks
-      const sentinelRef = collection(db, 'SentinelPosts');
-      const sentinelQuery = query(sentinelRef, orderBy('ContentDate', 'desc'));
-      const sentinelSnapshot = await getDocs(sentinelQuery);
-
-      sentinelSnapshot.docs.forEach(doc => {
-        const postData = doc.data();
-        if (postData.BookmarkedBy?.includes(fetchuserID)) {
-          allBookmarkedPosts.push({
-            uniqueId: `sentinel-${doc.id}`,
-            id: doc.id,
-            AuthorImageURL: postData.AuthorImageURL,
-            AuthorName: postData.AuthorName,
-            AuthorEmail: postData.AuthorEmail|| '',
-            AuthorBio: postData.AuthorBio || '',
-            AuthorUserID: postData.AuthorUserID || postData.repostedBy || '123456',
-            ContentDate: postData.ContentDate,
-            ContentDesc: postData.ContentDesc,
-            ContentURL: postData.ContentURL,
-            ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
-            ContentLikeCount: postData.ContentLikeCount || 0,
-            ContentRepostCount: postData.ContentRepostCount || 0,
-            ContentCommentCount: postData.ContentCommentCount || 0,
-            ContentViewCount: postData.ContentViewCount || 0, // ✅ VIEW COUNT
-            ViewedBy: postData.ViewedBy || [], // ✅ VIEW TRACKING
-            isApproved: postData.isApproved || false,
-            isNew: postData.isNew !== undefined ? postData.isNew : true,
-            postType: postData.postType || 'SentinelPosts',
-            Liked: postData.LikedBy?.includes(fetchuserID) || false,
-            Reposted: postData.RepostedBy?.includes(fetchuserID) || false,
-            Bookmarked: true,
-            createdAt: postData.createdAt || postData.ContentDate,
-            bookmarkedAt: postData.bookmarkedAt || new Date(),
-            CommentTemplate: postData.CommentTemplate || 'Standard Template',
-            isRepost: postData.isRepost || false,
-            originalPost: postData.originalPost || null,
-            repostComment: postData.repostComment || '',
-            repostedBy: postData.repostedBy || '',
-            repostedAt: postData.repostedAt || null,
-            isAnonymous: postData.isAnonymous || false,
-            contentType: postData.contentType || 'My Thoughts',
-          });
-        }
-      });
-
-      setBookmarkedPosts(allBookmarkedPosts);
-      console.log(`✅ Loaded ${allBookmarkedPosts.length} bookmarked posts`);
-
-    } catch (error) {
-      console.error('Error fetching bookmarked posts:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Failed to load bookmarks',
-        position: 'bottom',
-      });
-    } finally {
+  const mergeAndSet = () => {
+    if (sentinelLoaded && xDataLoaded) {
+      const all = [...sentinelBookmarks, ...xDataBookmarks];
+      setBookmarkedPosts(all);
       setLoading(false);
     }
-  }, [userId]);
+  };
 
-  // Initialize on mount
-  useEffect(() => {
-    const getItem = async () => {
-      const fetchuserID = await AsyncStorage.getItem('userId');
+  // ── 1. Real-time listener for SentinelPosts ──
+  const sentinelRef = collection(db, 'SentinelPosts');
+  const sentinelQuery = query(sentinelRef, orderBy('ContentDate', 'desc'));
+
+  const unsubSentinel = onSnapshot(sentinelQuery, (snapshot) => {
+    sentinelBookmarks = snapshot.docs
+      .filter(doc => doc.data().BookmarkedBy?.includes(fetchuserID))
+      .map(doc => {
+        const postData = doc.data();
+        return {
+          uniqueId: `sentinel-${doc.id}`,
+          id: doc.id,
+          AuthorImageURL: postData.AuthorImageURL,
+          AuthorName: postData.AuthorName,
+          AuthorEmail: postData.AuthorEmail || '',
+          AuthorBio: postData.AuthorBio || '',
+          AuthorUserID: postData.AuthorUserID || postData.repostedBy || '123456',
+          ContentDate: postData.ContentDate,
+          ContentDesc: postData.ContentDesc,
+          ContentURL: postData.ContentURL,
+          ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+          ContentLikeCount: postData.ContentLikeCount || 0,
+          ContentRepostCount: postData.ContentRepostCount || 0,
+          ContentCommentCount: postData.ContentCommentCount || 0,
+          ContentViewCount: postData.ContentViewCount || 0,
+          ViewedBy: postData.ViewedBy || [],
+          isApproved: postData.isApproved || false,
+          isNew: postData.isNew !== undefined ? postData.isNew : true,
+          postType: postData.postType || 'SentinelPosts',
+          Liked: postData.LikedBy?.includes(fetchuserID) || false,
+          Reposted: postData.RepostedBy?.includes(fetchuserID) || false,
+          Bookmarked: true,
+          createdAt: postData.createdAt || postData.ContentDate,
+          bookmarkedAt: postData.bookmarkedAt || new Date(),
+          CommentTemplate: postData.CommentTemplate || 'Standard Template',
+          isRepost: postData.isRepost || false,
+          originalPost: postData.originalPost || null,
+          repostComment: postData.repostComment || '',
+          repostedBy: postData.repostedBy || '',
+          repostedAt: postData.repostedAt || null,
+          isAnonymous: postData.isAnonymous || false,
+          contentType: postData.contentType || 'My Thoughts',
+        } as PostItem;
+      });
+
+    sentinelLoaded = true;
+    mergeAndSet();
+  }, (error) => {
+    console.error('Error listening to SentinelPosts bookmarks:', error);
+    sentinelLoaded = true;
+    mergeAndSet();
+  });
+
+  // ── 2. Real-time listener for X-Data ──
+  const xDataRef = collection(db, 'X-Data');
+  const xDataQuery = query(xDataRef, orderBy('ContentDate', 'desc'));
+
+  const unsubXData = onSnapshot(xDataQuery, (snapshot) => {
+    xDataBookmarks = snapshot.docs
+      .filter(doc => doc.data().BookmarkedBy?.includes(fetchuserID))
+      .map(doc => {
+        const postData = doc.data();
+        return {
+          uniqueId: `xdata-${doc.id}`,
+          id: doc.id,
+          AuthorImageURL: postData.AuthorImageURL,
+          AuthorName: postData.AuthorName,
+          AuthorEmail: postData.AuthorEmail || '',
+          AuthorBio: postData.AuthorBio || '',
+          AuthorUserID: postData.AuthorUserID,
+          ContentDate: postData.ContentDate,
+          ContentDesc: postData.ContentDesc,
+          ContentURL: postData.ContentURL,
+          ContentURLs: postData.ContentURLs || (postData.ContentURL ? [postData.ContentURL] : []),
+          ContentLikeCount: postData.ContentLikeCount || 0,
+          ContentRepostCount: postData.ContentRepostCount || 0,
+          ContentCommentCount: postData.ContentCommentCount || 0,
+          ContentViewCount: postData.ContentViewCount || 0,
+          ViewedBy: postData.ViewedBy || [],
+          isApproved: true,
+          isNew: false,
+          postType: 'X-Data',
+          Liked: postData.LikedBy?.includes(fetchuserID) || false,
+          Reposted: postData.RepostedBy?.includes(fetchuserID) || false,
+          Bookmarked: true,
+          createdAt: postData.createdAt || postData.ContentDate,
+          bookmarkedAt: postData.bookmarkedAt || new Date(),
+          CommentTemplate: postData.CommentTemplate || 'Standard Template',
+          isAnonymous: false,
+          contentType: postData.contentType || 'My Thoughts',
+        } as PostItem;
+      });
+
+    xDataLoaded = true;
+    mergeAndSet();
+  }, (error) => {
+    console.error('Error listening to X-Data bookmarks:', error);
+    xDataLoaded = true;
+    mergeAndSet();
+  });
+
+  bookmarkUnsubscribersRef.current = [unsubSentinel, unsubXData];
+}, []);
+
+useEffect(() => {
+  const init = async () => {
+    let fetchuserID = userId;
+    if (!fetchuserID) {
+      fetchuserID = await AsyncStorage.getItem('userId');
       if (fetchuserID) setUserId(fetchuserID);
-    };
-    getItem();
-    handleFetchBookmarkedPosts();
-  }, []);
+    }
+    const fetchuserRole = await AsyncStorage.getItem('userRole');
+    if (fetchuserRole) setUserRole(fetchuserRole as any);
+
+    if (fetchuserID) {
+      setupBookmarkListeners(fetchuserID);
+    }
+  };
+  init();
+
+  // ✅ Cleanup listeners when component unmounts
+  return () => {
+    bookmarkUnsubscribersRef.current.forEach(unsub => unsub());
+  };
+}, []);
 
   const openRepostModal = useCallback((postItem: PostItem) => {
     if (postItem.Reposted) {
@@ -1199,10 +1227,10 @@ export default function BookmarksPage(): React.JSX.Element {
     setSelectedGraphPostId(item.id);
     setSelectedGraphPostType(item.postType);
     setIsGraphModalVisible(true);
-    setSelectedPostId(item.id);
-    setSelectedPostType(item.postType);
-    setIsCommentModalVisible(false);
-    setSelectedCommentTemplate(item.CommentTemplate);
+    // setSelectedPostId(item.id);
+    // setSelectedPostType(item.postType);
+    // setIsCommentModalVisible(false);
+    // setSelectedCommentTemplate(item.CommentTemplate);
   }, []);
 
   const closeGraphModal = useCallback(() => {
@@ -1657,12 +1685,19 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
 
 
   // OPTIMIZED REFRESH
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    console.log('Manual refresh triggered');
-    await handleFetchBookmarkedPosts(true);
-    setRefreshing(false);
-  }, [handleFetchBookmarkedPosts]);
+  // ✅ Update onRefresh
+const onRefresh = useCallback(async () => {
+  setRefreshing(true);
+  let fetchuserID = userId;
+  if (!fetchuserID) {
+    fetchuserID = await AsyncStorage.getItem('userId');
+    if (fetchuserID) setUserId(fetchuserID);
+  }
+  if (fetchuserID) {
+    setupBookmarkListeners(fetchuserID);
+  }
+  setRefreshing(false);
+}, [userId, setupBookmarkListeners]);
 
   // Filter and sort bookmarked posts
   const filteredAndSortedPosts = useMemo(() => {
@@ -1786,10 +1821,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
     }
 
     return (
-      <TouchableOpacity 
-        activeOpacity={0.95}
-        onPress={() => openCommentsModal(item)}
-      >
+      <View>
           <EnhancedCard postId={item.uniqueId}>
         <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
           <View className="flex-row items-center justify-between">
@@ -1951,7 +1983,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
             </View>
         </View>
       </EnhancedCard>
-      </TouchableOpacity>
+      </View>
       
     )
   } , [EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleRemoveBookmark, dummyAuthorImage, openCommentsModal, renderRepostContent]);

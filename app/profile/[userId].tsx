@@ -291,8 +291,17 @@ export default function UserProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [followLoading, setFollowLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [userDoc, setUserDoc] = useState<UserDoc | null>(null);
-  const [userPosts, setUserPosts] = useState<PostItem[]>([]);
+  const [userDoc, setUserDoc] = useState<UserDoc | null>({
+    userID: userId as string,
+    userName: authorName as string || '',
+    userNickName: userNickName as string || '',
+    profilePicUrl: authorImageUrl as string || '',
+    userBio: userBio as string || '',
+    FollowersCount: 0,
+    Following: [],
+    PostsCount: 0,
+  }); 
+ const [userPosts, setUserPosts] = useState<PostItem[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [currentUserEmail, setCurrentUserEmail] = useState<string>("");
   const [currentUserName, setCurrentUserName] = useState<string>("");
@@ -1435,10 +1444,10 @@ const fetchFollowerCounts = async () => {
     setSelectedGraphPostId(item.id);
     setSelectedGraphPostType(item.postType);
     setIsGraphModalVisible(true);
-    setSelectedPostId(item.id);
-    setSelectedPostType(item.postType);
-    setIsCommentModalVisible(false);
-    setSelectedCommentTemplate(item.CommentTemplate);
+    // setSelectedPostId(item.id);
+    // setSelectedPostType(item.postType);
+    // setIsCommentModalVisible(false);
+    // setSelectedCommentTemplate(item.CommentTemplate);
   }, []);
 
   const closeGraphModal = useCallback(() => {
@@ -1866,27 +1875,23 @@ const fetchFollowerCounts = async () => {
         }
       };
 
-  const avatar = React.useMemo(() => {
-    if (isAnonymous === 'true') {
+    const avatar = React.useMemo(() => {
+      if (isAnonymous === 'true') return dummyAuthorImage;
+      if (userDoc?.profilePicUrl) return getFullImageUrl(userDoc.profilePicUrl);
+      if (authorImageUrl) return authorImageUrl as string;  
       return dummyAuthorImage;
-    }
-    
-    if (!userDoc?.profilePicUrl) {
-      return dummyAuthorImage;
-    }
-    
-    return getFullImageUrl(userDoc.profilePicUrl) || dummyAuthorImage;
-  }, [isAnonymous, userDoc?.profilePicUrl]);
+    }, [isAnonymous, userDoc?.profilePicUrl, authorImageUrl]);
 
-    const displayName =
-    isAnonymous === 'true'
+    const displayName = isAnonymous === 'true'
       ? 'Anonymous'
       : userDoc?.userName?.trim()
-      ? userDoc.userName.trim()
-      : userDoc?.userNickName?.trim()
-      ? userDoc.userNickName.trim()
-      : userDoc?.userEmail?.split('@')[0]  
-      ?? 'Unknown';
+        ? userDoc.userName.trim()
+        : userDoc?.userNickName?.trim()
+          ? userDoc.userNickName.trim()
+          : (authorName as string)?.trim()    
+            ? (authorName as string).trim()
+            : userDoc?.userEmail?.split('@')[0]
+              ?? ''; 
 
 
   const handleWebsitePress = () => {
@@ -1934,11 +1939,7 @@ const fetchFollowerCounts = async () => {
     const displayAuthorImage = item.isAnonymous ? dummyAuthorImage : (item.AuthorImageURL || dummyAuthorImage);
 
     return (
-      <TouchableOpacity
-        key={`post-${item.uniqueId}-${index}`}
-        activeOpacity={0.95}
-        onPress={() => openCommentsModal(item)}
-      >
+      <View>
         <View className="bg-white mx-4 mb-3 rounded-2xl shadow-sm border border-gray-100">
           <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
             <View className="flex-row items-center">
@@ -2086,7 +2087,7 @@ const fetchFollowerCounts = async () => {
             </View>
           </View>
         </View>
-      </TouchableOpacity>
+      </View>
     );
   };
 
