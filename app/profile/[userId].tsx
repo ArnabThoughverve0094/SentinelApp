@@ -1939,7 +1939,7 @@ const fetchFollowerCounts = async () => {
     const displayAuthorImage = item.isAnonymous ? dummyAuthorImage : (item.AuthorImageURL || dummyAuthorImage);
 
     return (
-      <View>
+      <View key={item.uniqueId}>
         <View className="bg-white mx-4 mb-3 rounded-2xl shadow-sm border border-gray-100">
           <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
             <View className="flex-row items-center">

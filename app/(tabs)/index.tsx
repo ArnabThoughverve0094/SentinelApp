@@ -1971,10 +1971,58 @@ useEffect(() => {
             startAfter(lastVisible), // Start after the last document fetched
             limit(BATCH_SIZE)
         );
-        if (activeTab === 'educational') {
+        // if (activeTab === 'educational') {
+        //   queryNext = query(
+        //       collSentinelRefPost,
+        //       where('contentType', '==', 'Educational'),
+        //       orderBy('ContentDate', 'desc'),
+        //       startAfter(lastVisible),
+        //       limit(BATCH_SIZE)
+        //   );
+        // }
+        // if (activeTab === 'following') {
+        //   if (!followingUserIds || followingUserIds.length === 0) {
+        //     console.log("User is not following anyone. Skipping query.");
+        //     return [];
+        //   } else {
+        //     queryNext = query(
+        //       collSentinelRefPost,
+        //       where("AuthorUserID", "in", followingUserIds),
+        //       orderBy('ContentDate', 'desc'),
+        //       startAfter(lastVisible),
+        //       limit(BATCH_SIZE)
+        //     );
+        //   }
+        // }
+
+        if (activeTab === 'following') {
+          // GUARD: If not following anyone, stop immediately
+          if (!followingUserIds || followingUserIds.length === 0) {
+            console.log("User is not following anyone. Skipping query.");
+            setHasMore(false);
+            setIsFetchingMore(false);
+            return; 
+          }
+          
+          queryNext = query(
+            collSentinelRefPost,
+            where("AuthorUserID", "in", followingUserIds),
+            orderBy('ContentDate', 'desc'),
+            startAfter(lastVisible),
+            limit(BATCH_SIZE)
+          );
+        } else if (activeTab === 'educational') {
           queryNext = query(
               collSentinelRefPost,
               where('contentType', '==', 'Educational'),
+              orderBy('ContentDate', 'desc'),
+              startAfter(lastVisible),
+              limit(BATCH_SIZE)
+          );
+        } else {
+          // Default (Global Feed)
+          queryNext = query(
+              collSentinelRefPost,
               orderBy('ContentDate', 'desc'),
               startAfter(lastVisible),
               limit(BATCH_SIZE)
@@ -2039,8 +2087,8 @@ useEffect(() => {
             reportReasons: postData.reportReasons || [],
             reportedBy: postData.reportedBy || [],
             moderationStatus: postData.moderationStatus || "",
-            ContentViewCount: postData.ContentViewCount || 0, // ✅ ADD THIS
-            ViewedBy: postData.ViewedBy || [],                // ✅ ADD THIS
+            ContentViewCount: postData.ContentViewCount || 0, 
+            ViewedBy: postData.ViewedBy || [],  
 
           });
         }
