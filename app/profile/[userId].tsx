@@ -1943,6 +1943,7 @@ const fetchFollowerCounts = async () => {
 
     return (
       <View>
+        <View key={item.id || item.uniqueId || index}>
         <View className="bg-white mx-4 mb-3 rounded-2xl shadow-sm border border-gray-100">
           <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
             <View className="flex-row items-center">
@@ -2090,6 +2091,7 @@ const fetchFollowerCounts = async () => {
             </View>
           </View>
         </View>
+      </View>
       </View>
     );
   };
@@ -2282,7 +2284,11 @@ const fetchFollowerCounts = async () => {
               </View>
             </View>
           ) : (
-            userPosts.map((item, index) => renderPost(item, index))
+           userPosts.map((item, index) => (
+            <React.Fragment key={item.id || item.uniqueId || index}>
+              {renderPost(item, index)}
+            </React.Fragment>
+          ))
           )}
 
           <View style={{ height: 80 }} />
