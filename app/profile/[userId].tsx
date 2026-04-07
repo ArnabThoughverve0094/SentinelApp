@@ -1,6 +1,7 @@
 // app/profile/[userId].tsx
 import { db } from "@/FirebaseConfig";
 import CommentsModal from "@/components/CommentsModal";
+import { LoadingComponent } from '../../components/LoadingComponent';
 import TotalSentiment from "@/components/TotalSentiment";
 import Feather from "@expo/vector-icons/Feather";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -329,7 +330,9 @@ export default function UserProfileScreen() {
   const [realFollowersCount, setRealFollowersCount] = useState<number>(0);
   const [realFollowingCount, setRealFollowingCount] = useState<number>(0);
   const [viewedPosts, setViewedPosts] = useState<Set<string>>(new Set());
-  const viewTrackingTimeout = useRef<NodeJS.Timeout | number | null>(null);
+  const viewTrackingTimeout = useRef<NodeJS.Timeout | number | null>(null);        
+  const [postsLoading, setPostsLoading] = useState(true); 
+  const [dataReady, setDataReady] = useState(false);
 
   const [sharingId, setSharingId] = useState(null);
   const [selectedPostUserId, setSelectedPostUserId] = useState<string | null>(null);
@@ -1187,6 +1190,7 @@ const fetchFollowerCounts = async () => {
         });
 
         setUserPosts(sortedPosts);
+        setPostsLoading(false);
 
         // ✅ NEW CODE - MUCH BETTER PERFORMANCE
         sortedPosts.forEach(post => {
@@ -1246,6 +1250,12 @@ const fetchFollowerCounts = async () => {
 
       return () => unsubscribe();
     }, [userId, isAnonymous]);
+
+    useEffect(() => {
+      if (!loading && !postsLoading) {
+        setDataReady(true);
+      }
+    }, [loading, postsLoading]);
 
 
   const handleFollowPress = useCallback(async () => {
@@ -2095,18 +2105,7 @@ const fetchFollowerCounts = async () => {
       </View>
     );
   };
-
-  const isOwnProfile = currentUserId === userId;
-    if (!userId) {
-    return (
-      <SafeAreaView className="flex-1 bg-white items-center justify-center">
-        <ActivityIndicator size="large" color="#111827" />
-        <Text className="text-gray-500 mt-4">Loading profile...</Text>
-      </SafeAreaView>
-    );
-  }
-
-      const goToFollowing = useCallback(() => {
+  const goToFollowing = useCallback(() => {
       router.push({
         pathname: '/followers/[userid]',
         params: { userid: userId, type: 'following' },
@@ -2120,6 +2119,17 @@ const fetchFollowerCounts = async () => {
       });
     }, [router, userId]);
  const goBack = useCallback(() => router.back(), [router]);
+
+  const isOwnProfile = currentUserId === userId;
+
+     if (!dataReady || !userId) return (
+      <SafeAreaView className="flex-1 bg-white">
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+        <View className="flex-1 justify-center items-center">
+          <LoadingComponent visible={true} size="large" />
+        </View>
+      </SafeAreaView>
+    );
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
