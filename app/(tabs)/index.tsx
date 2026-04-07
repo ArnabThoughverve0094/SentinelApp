@@ -503,7 +503,7 @@ const TabHeader: React.FC<{
 }> = ({ activeTab, onTabChange }) => {
   const slideAnim = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef<ScrollView>(null);
-  const tabWidth = screenWidth * 0.40;
+  const tabWidth = screenWidth * 0.33;
 
   const tabIndexMap: Record<string, number> = {
     forYou: 0,
