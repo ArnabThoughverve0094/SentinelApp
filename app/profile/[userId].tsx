@@ -371,7 +371,8 @@ export default function UserProfileScreen() {
         return;
       }
 
-      const collectionName = postType === 'X-Data' ? 'X-Data' : 'SentinelPosts';
+      // const collectionName = postType === 'X-Data' ? 'X-Data' : 'SentinelPosts';
+      const collectionName = 'SentinelPosts';
       const postRef = doc(db, collectionName, postId);
       
       const postDoc = await getDoc(postRef);
@@ -500,38 +501,38 @@ export default function UserProfileScreen() {
   }, [userPosts.length, setupViewCountListeners]);
 
   useEffect(() => {
-  if (!userId) return;
+    if (!userId) return;
 
-  const userDocRef = doc(db, "IronExUsers", userId);
+    const userDocRef = doc(db, "IronExUsers", userId);
 
-  const unsubscribe = onSnapshot(
-    userDocRef,
-    (docSnapshot) => {
-      if (docSnapshot.exists()) {
-        const data = docSnapshot.data();
-        const followingList = asArray<FollowingUser>(data?.Following);
+    const unsubscribe = onSnapshot(
+      userDocRef,
+      (docSnapshot) => {
+        if (docSnapshot.exists()) {
+          const data = docSnapshot.data();
+          const followingList = asArray<FollowingUser>(data?.Following);
 
-        const followingCount =
-          typeof data?.followingCount === "number"
-            ? data.followingCount
-            : followingList.length;
+          const followingCount =
+            typeof data?.followingCount === "number"
+              ? data.followingCount
+              : followingList.length;
 
-        const followerCount =
-          typeof data?.followerCount === "number"
-            ? data.followerCount
-            : 0;
+          const followerCount =
+            typeof data?.followerCount === "number"
+              ? data.followerCount
+              : 0;
 
-        setRealFollowingCount(followingCount);
-        setRealFollowersCount(followerCount);
-      } else {
-        setRealFollowingCount(0);
-        setRealFollowersCount(0);
+          setRealFollowingCount(followingCount);
+          setRealFollowersCount(followerCount);
+        } else {
+          setRealFollowingCount(0);
+          setRealFollowersCount(0);
+        }
+      },
+      (error) => {
+        console.error("❌ Real-time listener failed:", error);
       }
-    },
-    (error) => {
-      console.error("❌ Real-time listener failed:", error);
-    }
-  );
+    );
 
   return () => unsubscribe();
 }, [userId]);
@@ -901,21 +902,21 @@ const fetchFollowerCounts = async () => {
   }, [currentUserId, userId, isAnonymous]);
 
   useEffect(() => {
-  let unsubscribe: (() => void) | undefined;
+    let unsubscribe: (() => void) | undefined;
 
-  const run = async () => {
-    unsubscribe = await fetchUserFollowing();
-  };
+    const run = async () => {
+      unsubscribe = await fetchUserFollowing();
+    };
 
-  run();
+    run();
 
-  return () => {
-    if (unsubscribe) unsubscribe();
-  };
-}, [fetchUserFollowing]);
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [fetchUserFollowing]);
 
 
-    useEffect(() => {
+  useEffect(() => {
     if (!userId) return;
 
     const isUserFollowing = followingUsers.some(
@@ -989,7 +990,12 @@ const fetchFollowerCounts = async () => {
               firestoreData?.userNickName ||
               storedNickName[1] ||
               "",
-            userEmail: storedEmail[1] || "",
+            userEmail: 
+              firestoreData?.email ||
+              firestoreData?.userEmail ||
+              storedEmail[1] ||
+              (userEmail as string) ||
+              "",
             profilePicUrl:
               firestoreData?.profilePicUrl ||
               storedProfilePic[1] ||
@@ -1048,6 +1054,13 @@ const fetchFollowerCounts = async () => {
                 data.userNickName ||
                 data.userNick ||
                 "",
+              userEmail:
+                data.email ||
+                data.userEmail ||
+                data.UserEmail ||
+                data.AuthorEmail ||
+                userEmail ||
+                "",
               profilePicUrl:
                 data.profilePicUrl ||
                 data.profilePic ||
@@ -1072,6 +1085,7 @@ const fetchFollowerCounts = async () => {
               userID: userId,
               userName: (authorName as string) || "",
               userNickName: "",
+              userEmail: (userEmail as string) || "",
               profilePicUrl: (authorImageUrl as string) || "",
               userBio: (userBio as string) || "",
               Website: undefined,
