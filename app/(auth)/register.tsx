@@ -972,42 +972,50 @@ const goBack = useCallback(() => router.back(), [router]);
         }}
         onBackdropPress={() => setShowCountryDropdown(false)}
         style={{
-          modal: {
-            height: 500,
-            backgroundColor: 'white',
-          },
-          textInput: {
-            height: 50,
-            borderRadius: 12,
-            paddingHorizontal: 16,
-            fontSize: 16,
-            backgroundColor: '#F3F4F6',
-            borderWidth: 1,
-            borderColor: '#E5E7EB',
-            marginHorizontal: 16,
-            marginBottom: 16,
-          },
-          countryButtonStyles: {
-            height: 60,
-            paddingHorizontal: 16,
-            borderBottomWidth: 1,
-            borderBottomColor: '#F3F4F6',
-          },
-         dialCode: {
-            maxWidth: 0,
-            maxHeight: 0,
-            overflow: 'hidden',
-            opacity: 0,
-          },
-          countryName: {
-            fontSize: 16,
-            color: '#1F2937',
-          },
-          flag: {
-            fontSize: 24,
-            marginRight: 12,
-          },
-        }}
+            modal: {
+              height: '78%',           
+              backgroundColor: 'white',
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              paddingBottom: 40,       
+            },
+            textInput: {
+              height: 50,
+              borderRadius: 12,
+              paddingHorizontal: 16,
+              fontSize: 16,
+              backgroundColor: '#F3F4F6',
+              borderWidth: 1,
+              borderColor: '#E5E7EB',
+              marginHorizontal: 16,
+              marginTop: 12,          
+              marginBottom: 8,
+            },
+            countryButtonStyles: {
+              height: 58,
+              paddingHorizontal: 16,
+              borderBottomWidth: 1,
+              borderBottomColor: '#F3F4F6',
+            },
+            dialCode: {
+              maxWidth: 0,
+              maxHeight: 0,
+              overflow: 'hidden',
+              opacity: 0,
+            },
+            countryName: {
+              fontSize: 15,
+              color: '#1F2937',
+            },
+            flag: {
+              fontSize: 24,
+              marginRight: 12,
+            },
+            // ✅ This is the key fix — pushes the modal above keyboard
+            line: {
+              backgroundColor: '#E5E7EB',
+            },
+          }}
         searchMessage="Search for your country..."
         lang="en"
       />
