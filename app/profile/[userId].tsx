@@ -707,7 +707,9 @@ const fetchFollowerCounts = async () => {
             </Text>
             {userDoc?.userBio && (
               <Text className="text-white/80 text-sm mt-1">
-                {userDoc.userBio}
+                    {isAnonymous === 'true'
+        ? 'This is an anonymous user'          // ✅ Always show this for anonymous
+        : userDoc?.userBio || ''}
               </Text>
             )}
           </View>
@@ -938,7 +940,7 @@ const fetchFollowerCounts = async () => {
             userName: 'Anonymous',
             userNickName: 'Anonymous',
             profilePicUrl: dummyAuthorImage,
-            userBio: userBio as string || 'This is an anonymous user',
+            userBio:'This is an anonymous user',
             Website: undefined,
             website: undefined,
             FollowersCount: 0,
@@ -1227,6 +1229,7 @@ const fetchFollowerCounts = async () => {
   // ✅ Add inside UserProfileScreen, after existing useEffects
     useEffect(() => {
       if (!userId) return;
+      if (isAnonymous === 'true') return;
 
       const ironExRef = collection(db, 'IronExUsers');
       const q = query(ironExRef, where('userID', '==', userId as string));
@@ -1242,7 +1245,7 @@ const fetchFollowerCounts = async () => {
       });
 
       return () => unsubscribe();
-    }, [userId]);
+    }, [userId, isAnonymous]);
 
 
   const handleFollowPress = useCallback(async () => {
@@ -2206,15 +2209,21 @@ const fetchFollowerCounts = async () => {
                 <Text className="ml-2 text-sm text-gray-500">Loading profile…</Text>
               </View>
             ) : (
-              <View className="mt-3">
-                {userDoc?.userBio && userDoc.userBio.trim() !== '' ? (
-                  <Text className="text-sm text-gray-800 leading-5">{userDoc.userBio}</Text>
-                ) : (
-                  <Text className="text-sm text-gray-500 italic">
-                    {isOwnProfile ? 'Tap Edit Profile to add a bio' : 'No bio yet'}
-                  </Text>
-                )}
-              </View>
+              <View style={{ marginTop: 12 }}>
+              {isAnonymous === 'true' ? (
+                <Text className="text-sm text-gray-600 leading-5">
+                  This is an anonymous user
+                </Text>
+              ) : userDoc?.userBio && userDoc.userBio.trim() !== '' ? (
+                <Text className="text-sm text-gray-800 leading-5">
+                  {userDoc.userBio}
+                </Text>
+              ) : (
+                <Text className="text-sm text-gray-500 italic">
+                  {isOwnProfile ? 'Tap Edit Profile to add a bio' : 'No bio yet'}
+                </Text>
+              )}
+            </View>
             )}
 
 
