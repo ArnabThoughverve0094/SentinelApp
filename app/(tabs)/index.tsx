@@ -4654,8 +4654,8 @@ useEffect(() => {
         <ImageBackground
           source={
             isIronExEducational
-              ? require('../../assets/images/education-bg.png')
-              : require('../../assets/images/ironex-bg.png')
+              ? require('../../assets/images/education-bg1.png')
+              : require('../../assets/images/ironex-bg1.png')
           }
           resizeMode="cover"
           style={{
