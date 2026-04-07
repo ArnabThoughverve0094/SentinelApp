@@ -4184,11 +4184,25 @@ useEffect(() => {
     return item.contentType !== 'Educational' && !item.isEducational;
   });
 
+  const allApprovedData = sourceData.filter(item => {
+    const isXData = item.postType.includes('X-Data');
+
+    if (userRole === 'User') {
+      // ✅ Explicitly hide reported posts for regular users
+      if (item.isReported && item.moderationStatus === 'pending-review') return false;
+      return isXData
+        ? (item.isApproved && !item.isNew)
+        : (item.isApproved && !item.isNew);
+    }
+    // Admins/Mods see everything (intentional)
+    return true;
+  });
+
   // ── FOLLOWING TAB ──────────────────────────────────────────────────────────
     if (activeTab === 'following') {
       const deletedSet = new Set(deletedUserIds); // O(1) lookups
 
-      const followingData = publishedData.filter(item => {
+      const followingData = allApprovedData.filter(item => {
         
         if (item.isAnonymous) return false;
 

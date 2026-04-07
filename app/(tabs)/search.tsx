@@ -428,6 +428,8 @@ export default function SearchPage() {
                 docID: "",
                 id: authorId,
                 name: data.AuthorName || 'Unknown User',
+                email: data.AuthorEmail || '',
+                nickName: data.AuthorNickName || '',
                 avatar: data.AuthorImageURL || '',
                 postCount: 1,
                 isFollowing: false,
