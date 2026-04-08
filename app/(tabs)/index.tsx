@@ -118,8 +118,8 @@ interface MediaCarouselProps {
   onVideoPress: (url: string) => void;
   onDocPress: (url: string) => void;
   getMediaType: (url: string) => string;
-  VideoPlayer: any;
   index?: number;
+   currentVideoIndex: number;
 }
 
 type EmailResponse = {
@@ -132,6 +132,53 @@ type ShortURLResponse = {
   shortURL: string;
   id: any;
 };
+
+interface VideoPlayerProps {
+  videoUrl: string;
+  index?: number;
+  currentVideoIndex: number;
+}
+
+const VideoPlayerItem = React.memo(({ videoUrl, index, currentVideoIndex }: VideoPlayerProps) => {
+  const isActive = currentVideoIndex === index;
+
+  const player = useVideoPlayer(videoUrl, (p) => {
+    p.loop = true;
+    p.muted = true;
+  });
+
+  
+  useEffect(() => {
+    if (!player) return;
+    // Small delay lets the native player finish attaching
+    const timer = setTimeout(() => {
+      if (isActive) {
+        player.play();
+      } else {
+        player.pause();
+      }
+    }, 150); // 150ms is enough for both Android & iOS
+    return () => clearTimeout(timer);
+  }, [isActive, player]);
+
+  return (
+    <View className="relative rounded-xl overflow-hidden bg-black">
+      <VideoView
+        player={player}
+        style={{ width: '100%', aspectRatio: 16 / 9 }}
+        contentFit="cover"
+        nativeControls={false}
+      />
+      {!isActive && (
+        <View className="absolute inset-0 bg-black/20 items-center justify-center">
+          <View className="w-10 h-10 bg-black/60 rounded-full items-center justify-center">
+            <Ionicons name="play" size={20} color="white" />
+          </View>
+        </View>
+      )}
+    </View>
+  );
+});
 const ironExBg = require('../../assets/images/ironex-bg.png');
 
 
@@ -238,8 +285,8 @@ const MediaCarousel: React.FC<MediaCarouselProps> = React.memo(({
   onVideoPress,
   onDocPress,
   getMediaType,
-  VideoPlayer,
-  index
+  index,
+  currentVideoIndex
 }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -250,11 +297,15 @@ const MediaCarousel: React.FC<MediaCarouselProps> = React.memo(({
 
   if (!mediaUrls || mediaUrls.length === 0) return null;
 
-  const handleScroll = (event: any) => {
-    const offset = event.nativeEvent.contentOffset.x;
-    const activeSlide = Math.round(offset / ITEM_WIDTH);
-    setCurrentSlide(activeSlide);
-  };
+    const handleScroll = (event: any) => {
+      const offset = event.nativeEvent.contentOffset.x;
+      // ✅ clamp to valid range to prevent out-of-bound values
+      const activeSlide = Math.min(
+        Math.max(Math.round(offset / ITEM_WIDTH), 0),
+        mediaUrls.length - 1
+      );
+      setCurrentSlide(activeSlide);
+    };
 
   return (
     <View className="mb-2 relative">
@@ -278,6 +329,16 @@ const MediaCarousel: React.FC<MediaCarouselProps> = React.memo(({
           decelerationRate="fast"
           disableIntervalMomentum={true}
           // Other props
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          onMomentumScrollEnd={(event) => {
+            const offset = event.nativeEvent.contentOffset.x;
+            const activeSlide = Math.min(
+              Math.max(Math.round(offset / ITEM_WIDTH), 0),
+              mediaUrls.length - 1
+            );
+            setCurrentSlide(activeSlide);
+          }}
           nestedScrollEnabled={true}
           scrollEnabled={true}
           removeClippedSubviews={false}
@@ -326,7 +387,11 @@ const MediaCarousel: React.FC<MediaCarouselProps> = React.memo(({
                     }}
                     activeOpacity={0.95}
                   >
-                    <VideoPlayer videoUrl={mediaUrl} index={index} />
+                     <VideoPlayerItem
+                      videoUrl={mediaUrl}
+                      index={index}
+                      currentVideoIndex={currentVideoIndex}  // pass from parent
+                    />
                   </TouchableOpacity>
                 )}
 
@@ -438,7 +503,7 @@ const TabHeader: React.FC<{
 }> = ({ activeTab, onTabChange }) => {
   const slideAnim = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef<ScrollView>(null);
-  const tabWidth = screenWidth * 0.40;
+  const tabWidth = screenWidth * 0.33;
 
   const tabIndexMap: Record<string, number> = {
     forYou: 0,
@@ -4012,52 +4077,6 @@ useEffect(() => {
   };
 
 
-  // UPDATED: VideoPlayer component using expo-video
-    const VideoPlayer = useCallback(({ videoUrl, index }: { videoUrl: string; index?: number }) => {
-    const player = useVideoPlayer(videoUrl, (player) => {
-      player.loop = true;
-      player.muted = true;
-      if (currentVideoIndex === index) {
-        player.play();
-      } else {
-        player.pause();
-      }
-    });
-
-    // Update play/pause when currentVideoIndex changes
-    useEffect(() => {
-      if (currentVideoIndex === index) {
-        player.play();
-      } else {
-        player.pause();
-      }
-    }, [currentVideoIndex, index, player]);
-
-    return (
-      <View className="relative rounded-xl overflow-hidden bg-black">
-        <VideoView
-          player={player}
-          style={{ 
-            width: '100%', 
-            aspectRatio: 16 / 9  // Changed from fixed height to responsive aspectRatio
-          }}
-          contentFit="cover"  // Changed from "contain" to "cover" for full-area display
-          nativeControls={false}
-        />
-        <View className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50">
-          <Ionicons name="play-outline" size={14} color="white" />
-        </View>
-        {currentVideoIndex !== index && (
-          <View className="absolute inset-0 bg-black/20 items-center justify-center">
-            <View className="w-10 h-10 bg-black/60 rounded-full items-center justify-center">
-              <Ionicons name="play" size={20} color="white" />
-            </View>
-          </View>
-        )}
-      </View>
-    );
-  }, [currentVideoIndex]);
-
 
         const renderMediaContent = useCallback((item: PostItem, index?: number) => {
       const mediaUrls = item.ContentURLs && item.ContentURLs.length > 0 
@@ -4072,11 +4091,11 @@ useEffect(() => {
           onVideoPress={openFullScreenVideo}
           onDocPress={openFullScreenDoc}
           getMediaType={getMediaType}
-          VideoPlayer={VideoPlayer}
           index={index}
+          currentVideoIndex={currentVideoIndex}
         />
       );
-    }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, VideoPlayer]);
+    }, [getMediaType, openFullScreenImage, openFullScreenVideo, openFullScreenDoc, currentVideoIndex]);
 
 
 
@@ -4697,8 +4716,8 @@ useEffect(() => {
         <ImageBackground
           source={
             isIronExEducational
-              ? require('../../assets/images/education-bg.png')
-              : require('../../assets/images/ironex-bg.png')
+              ? require('../../assets/images/education-bg1.png')
+              : require('../../assets/images/ironex-bg1.png')
           }
           resizeMode="cover"
           style={{
