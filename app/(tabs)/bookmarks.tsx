@@ -203,10 +203,14 @@ const MediaCarousel: React.FC<MediaCarouselProps> = React.memo(({
   if (!mediaUrls || mediaUrls.length === 0) return null;
 
   const handleScroll = (event: any) => {
-    const offset = event.nativeEvent.contentOffset.x;
-    const activeSlide = Math.round(offset / ITEM_WIDTH);
-    setCurrentSlide(activeSlide);
-  };
+      const offset = event.nativeEvent.contentOffset.x;
+      // ✅ clamp to valid range to prevent out-of-bound values
+      const activeSlide = Math.min(
+        Math.max(Math.round(offset / ITEM_WIDTH), 0),
+        mediaUrls.length - 1
+      );
+      setCurrentSlide(activeSlide);
+    };
 
   return (
     <View className="mb-2 relative">
@@ -231,6 +235,14 @@ const MediaCarousel: React.FC<MediaCarouselProps> = React.memo(({
           snapToAlignment="start"
           decelerationRate="fast"
           disableIntervalMomentum={true}
+          onMomentumScrollEnd={(event) => {
+            const offset = event.nativeEvent.contentOffset.x;
+            const activeSlide = Math.min(
+              Math.max(Math.round(offset / ITEM_WIDTH), 0),
+              mediaUrls.length - 1
+            );
+            setCurrentSlide(activeSlide);
+          }}
           // Other props
           nestedScrollEnabled={true}
           scrollEnabled={true}

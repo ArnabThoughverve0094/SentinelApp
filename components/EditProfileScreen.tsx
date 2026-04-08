@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -49,6 +49,8 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
   const [bioValidated, setBioValidated] = useState(false);
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const [currentUserDocId, setCurrentUserDocId] = useState('');
+  const scrollViewRef = useRef(null);
+  const bioInputRef = useRef(null);
 
   
   // Custom Alert State
@@ -669,10 +671,11 @@ return (
       
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
       >
         <ScrollView
+           ref={scrollViewRef}
           contentContainerStyle={{
             flexGrow: 1,
             justifyContent: 'center',
@@ -851,6 +854,18 @@ return (
                 onChangeText={handleBioChange}
                 maxLength={200}
                 editable={!isLoading}
+                onFocus={() => {
+    
+                setTimeout(() => {
+                  bioInputRef.current?.measureLayout(
+                    scrollViewRef.current,
+                    (x, y) => {
+                      scrollViewRef.current?.scrollTo({ y: y - 100, animated: true });
+                    },
+                    () => {}
+                  );
+                }, 300);
+              }}
               />
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
                 <TouchableOpacity

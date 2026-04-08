@@ -42,6 +42,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from "react-native-toast-message";
+import { LoadingComponent } from '../../components/LoadingComponent';
 
 const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
 const dummyHeaderImage = require('../../assets/images/user-background.png');
@@ -329,7 +330,9 @@ export default function UserProfileScreen() {
   const [realFollowersCount, setRealFollowersCount] = useState<number>(0);
   const [realFollowingCount, setRealFollowingCount] = useState<number>(0);
   const [viewedPosts, setViewedPosts] = useState<Set<string>>(new Set());
-  const viewTrackingTimeout = useRef<NodeJS.Timeout | number | null>(null);
+  const viewTrackingTimeout = useRef<NodeJS.Timeout | number | null>(null);        
+  const [postsLoading, setPostsLoading] = useState(true); 
+  const [dataReady, setDataReady] = useState(false);
 
   const [sharingId, setSharingId] = useState(null);
   const [selectedPostUserId, setSelectedPostUserId] = useState<string | null>(null);
@@ -708,7 +711,9 @@ const fetchFollowerCounts = async () => {
             </Text>
             {userDoc?.userBio && (
               <Text className="text-white/80 text-sm mt-1">
-                {userDoc.userBio}
+                    {isAnonymous === 'true'
+        ? 'This is an anonymous user'          // ✅ Always show this for anonymous
+        : userDoc?.userBio || ''}
               </Text>
             )}
           </View>
@@ -939,7 +944,7 @@ const fetchFollowerCounts = async () => {
             userName: 'Anonymous',
             userNickName: 'Anonymous',
             profilePicUrl: dummyAuthorImage,
-            userBio: userBio as string || 'This is an anonymous user',
+            userBio:'This is an anonymous user',
             Website: undefined,
             website: undefined,
             FollowersCount: 0,
@@ -1199,6 +1204,7 @@ const fetchFollowerCounts = async () => {
         });
 
         setUserPosts(sortedPosts);
+        setPostsLoading(false);
 
         // ✅ NEW CODE - MUCH BETTER PERFORMANCE
         sortedPosts.forEach(post => {
@@ -1241,6 +1247,7 @@ const fetchFollowerCounts = async () => {
   // ✅ Add inside UserProfileScreen, after existing useEffects
     useEffect(() => {
       if (!userId) return;
+      if (isAnonymous === 'true') return;
 
       const ironExRef = collection(db, 'IronExUsers');
       const q = query(ironExRef, where('userID', '==', userId as string));
@@ -1256,7 +1263,13 @@ const fetchFollowerCounts = async () => {
       });
 
       return () => unsubscribe();
-    }, [userId]);
+    }, [userId, isAnonymous]);
+
+    useEffect(() => {
+      if (!loading && !postsLoading) {
+        setDataReady(true);
+      }
+    }, [loading, postsLoading]);
 
 
   const handleFollowPress = useCallback(async () => {
@@ -1953,7 +1966,8 @@ const fetchFollowerCounts = async () => {
     const displayAuthorImage = item.isAnonymous ? dummyAuthorImage : (item.AuthorImageURL || dummyAuthorImage);
 
     return (
-      <View key={item.uniqueId || `post-${index}`}>
+      <View>
+        <View key={item.id || item.uniqueId || index}>
         <View className="bg-white mx-4 mb-3 rounded-2xl shadow-sm border border-gray-100">
           <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
             <View className="flex-row items-center">
@@ -2102,20 +2116,10 @@ const fetchFollowerCounts = async () => {
           </View>
         </View>
       </View>
+      </View>
     );
   };
-
-  const isOwnProfile = currentUserId === userId;
-    if (!userId) {
-    return (
-      <SafeAreaView className="flex-1 bg-white items-center justify-center">
-        <ActivityIndicator size="large" color="#111827" />
-        <Text className="text-gray-500 mt-4">Loading profile...</Text>
-      </SafeAreaView>
-    );
-  }
-
-      const goToFollowing = useCallback(() => {
+  const goToFollowing = useCallback(() => {
       router.push({
         pathname: '/followers/[userid]',
         params: { userid: userId, type: 'following' },
@@ -2129,6 +2133,17 @@ const fetchFollowerCounts = async () => {
       });
     }, [router, userId]);
  const goBack = useCallback(() => router.back(), [router]);
+
+  const isOwnProfile = currentUserId === userId;
+
+     if (!dataReady || !userId) return (
+      <SafeAreaView className="flex-1 bg-white">
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+        <View className="flex-1 justify-center items-center">
+          <LoadingComponent visible={true} size="large" />
+        </View>
+      </SafeAreaView>
+    );
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -2220,15 +2235,21 @@ const fetchFollowerCounts = async () => {
                 <Text className="ml-2 text-sm text-gray-500">Loading profile…</Text>
               </View>
             ) : (
-              <View className="mt-3">
-                {userDoc?.userBio && userDoc.userBio.trim() !== '' ? (
-                  <Text className="text-sm text-gray-800 leading-5">{userDoc.userBio}</Text>
-                ) : (
-                  <Text className="text-sm text-gray-500 italic">
-                    {isOwnProfile ? 'Tap Edit Profile to add a bio' : 'No bio yet'}
-                  </Text>
-                )}
-              </View>
+              <View style={{ marginTop: 12 }}>
+              {isAnonymous === 'true' ? (
+                <Text className="text-sm text-gray-600 leading-5">
+                  This is an anonymous user
+                </Text>
+              ) : userDoc?.userBio && userDoc.userBio.trim() !== '' ? (
+                <Text className="text-sm text-gray-800 leading-5">
+                  {userDoc.userBio}
+                </Text>
+              ) : (
+                <Text className="text-sm text-gray-500 italic">
+                  {isOwnProfile ? 'Tap Edit Profile to add a bio' : 'No bio yet'}
+                </Text>
+              )}
+            </View>
             )}
 
 
@@ -2287,7 +2308,11 @@ const fetchFollowerCounts = async () => {
               </View>
             </View>
           ) : (
-            userPosts.map((item, index) => renderPost(item, index))
+           userPosts.map((item, index) => (
+            <React.Fragment key={item.id || item.uniqueId || index}>
+              {renderPost(item, index)}
+            </React.Fragment>
+          ))
           )}
 
           <View style={{ height: 80 }} />
