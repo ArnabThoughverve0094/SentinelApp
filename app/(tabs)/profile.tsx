@@ -1526,7 +1526,7 @@ const loadProfileData = async () => {
       );
       try {
         const fetchuserID = await AsyncStorage.getItem('userId');
-        const userDocSnap = await getDocs(query(collection(db, 'SentinelUsers'), where('userID', '==', fetchuserID)));
+        const userDocSnap = await getDocs(query(collection(db, 'IronExUsers'), where('userID', '==', fetchuserID)));
         const notifyPayload = {
           id: `post_edit_flagged_${editPostData.id}_${Date.now()}`,
           AuthorImageURL: profilePicUrl || await AsyncStorage.getItem('profilePicUrl') || dummyAuthorImage,
@@ -1540,9 +1540,9 @@ const loadProfileData = async () => {
           isRead: false,
         };
         if (!userDocSnap.empty) {
-          await updateDoc(doc(db, 'SentinelUsers', userDocSnap.docs[0].id), { Notification: arrayUnion(notifyPayload) });
+          await updateDoc(doc(db, 'IronExUsers', userDocSnap.docs[0].id), { Notification: arrayUnion(notifyPayload) });
         } else {
-          await addDoc(collection(db, 'SentinelUsers'), { userID: fetchuserID, Notification: [notifyPayload] });
+          await addDoc(collection(db, 'IronExUsers'), { userID: fetchuserID, Notification: [notifyPayload] });
         }
       } catch (notifErr) {
         console.error('Notification error (non-critical):', notifErr);
@@ -1632,7 +1632,7 @@ const loadProfileData = async () => {
       // ✅ NOTIFICATION — irrelevant post after edit
       try {
         const fetchuserID = await AsyncStorage.getItem('userId');
-        const userDocSnap = await getDocs(query(collection(db, 'SentinelUsers'), where('userID', '==', fetchuserID)));
+        const userDocSnap = await getDocs(query(collection(db, 'IronExUsers'), where('userID', '==', fetchuserID)));
         const notifyPayload = {
           id: `post_edit_irrelevant_${editPostData.id}_${Date.now()}`,
           AuthorImageURL: profilePicUrl || await AsyncStorage.getItem('profilePicUrl') || dummyAuthorImage,
@@ -1646,9 +1646,9 @@ const loadProfileData = async () => {
           isRead: false,
         };
         if (!userDocSnap.empty) {
-          await updateDoc(doc(db, 'SentinelUsers', userDocSnap.docs[0].id), { Notification: arrayUnion(notifyPayload) });
+          await updateDoc(doc(db, 'IronExUsers', userDocSnap.docs[0].id), { Notification: arrayUnion(notifyPayload) });
         } else {
-          await addDoc(collection(db, 'SentinelUsers'), { userID: fetchuserID, Notification: [notifyPayload] });
+          await addDoc(collection(db, 'IronExUsers'), { userID: fetchuserID, Notification: [notifyPayload] });
         }
       } catch (notifErr) {
         console.error('Notification error (non-critical):', notifErr);
@@ -1701,7 +1701,7 @@ const loadProfileData = async () => {
     // ✅ NOTIFICATION — approved post after edit
     try {
       const fetchuserID = await AsyncStorage.getItem('userId');
-      const userDocSnap = await getDocs(query(collection(db, 'SentinelUsers'), where('userID', '==', fetchuserID)));
+      const userDocSnap = await getDocs(query(collection(db, 'IronExUsers'), where('userID', '==', fetchuserID)));
       const notifyPayload = {
         id: `post_edit_approved_${editPostData.id}_${Date.now()}`,
         AuthorImageURL: profilePicUrl || await AsyncStorage.getItem('profilePicUrl') || dummyAuthorImage,
@@ -1715,9 +1715,9 @@ const loadProfileData = async () => {
         isRead: false,
       };
       if (!userDocSnap.empty) {
-        await updateDoc(doc(db, 'SentinelUsers', userDocSnap.docs[0].id), { Notification: arrayUnion(notifyPayload) });
+        await updateDoc(doc(db, 'IronExUsers', userDocSnap.docs[0].id), { Notification: arrayUnion(notifyPayload) });
       } else {
-        await addDoc(collection(db, 'SentinelUsers'), { userID: fetchuserID, Notification: [notifyPayload] });
+        await addDoc(collection(db, 'IronExUsers'), { userID: fetchuserID, Notification: [notifyPayload] });
       }
     } catch (notifErr) {
       console.error('Notification error (non-critical):', notifErr);
@@ -3785,7 +3785,7 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
 
   // UPDATED: Render post content with DISABLED BUTTONS for rejected posts
   const renderPostContent = useCallback((item: PostItem, index: number) => (
-    <View>
+    <View key={item.id || `post-${index}`}>
       <View className="px-3 py-2 bg-gray-50 border-b border-gray-100">
         <View className="flex-row items-center">
           <View className="relative">
