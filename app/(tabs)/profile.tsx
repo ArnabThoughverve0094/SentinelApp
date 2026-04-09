@@ -3935,6 +3935,7 @@ const handleRepost = useCallback(async (postItem: PostItem) => {
   const handleDeletePost = async (postId: string) => {
     postToDeleteRef.current = postId;
     setPostToDelete(postId);
+    setShowMenuModal(false);
     setIsDeleteModalVisible(true);
   };
 
@@ -4988,8 +4989,6 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
       />
 
       {/* Three Dots Menu Modal */}
-      {/* Three Dots Menu Modal */}
-      {/* Three Dots Menu Modal */}
       {showMenuModal && (
         <Modal
           visible={showMenuModal}
@@ -5005,8 +5004,8 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
             <View
               style={{
                 position: 'absolute',
-                top: menuPosition.y,
-                left: menuPosition.x,
+                top: Math.max(20, menuPosition.y),
+                left: Math.min(menuPosition.x, Dimensions.get('window').width - 180),
                 backgroundColor: '#fff',
                 borderRadius: 12,
                 paddingVertical: 8,
