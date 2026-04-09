@@ -2,7 +2,7 @@ import { db } from '@/FirebaseConfig';
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { arrayRemove, arrayUnion, collection, doc, getDocs, increment, onSnapshot, writeBatch } from 'firebase/firestore';
+import { arrayRemove, arrayUnion, collection, doc, getDoc, getDocs, increment, onSnapshot, writeBatch } from 'firebase/firestore';
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -34,6 +34,14 @@ interface SearchUser {
   postCount?: number;
   isFollowing?: boolean;
 }
+
+type FollowingUser = {
+  userId: string;
+  userEmail?: string;
+  userName?: string;
+  userNickName?: string;
+  profilePicUrl?: string;
+};
 
 // Enhanced Loading Component
 const LoadingComponent: React.FC<{ visible?: boolean; size?: 'small' | 'medium' | 'large' }> = ({
@@ -299,6 +307,7 @@ export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [allUsers, setAllUsers] = useState<SearchUser[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<SearchUser[]>([]);
+  const [followingUsers, setFollowingUsers] = useState<FollowingUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [userId, setUserId] = useState('');
@@ -311,6 +320,9 @@ export default function SearchPage() {
   const deletedUserIdsRef = useRef<string[]>([]);
 
   const searchInputRef = useRef<TextInput>(null);
+  const asArray = <T,>(value: unknown): T[] => {
+    return Array.isArray(value) ? (value as T[]) : [];
+    };
 
   // EXACT SAME PATTERN AS LANDING PAGE - Fetch user following
   const fetchUserFollowing = useCallback(async () => {
@@ -331,15 +343,18 @@ export default function SearchPage() {
             const data = docSnapshot.data();
 
             // 1. Get the Array of following objects
-            const followingList: any[] = data.Following || [];
+            // const followingList: any[] = data.Following || [];
+            const followingList = asArray<FollowingUser>(data?.Following);
             const idOnlyList: string[] = followingList.map(item => item.userId);
 
             console.log(`✅ Displaying ${followingList.length} following`);
             setFollowingUserIds(idOnlyList);
+            setFollowingUsers(followingList);
           }
         }, (error) => {
           console.error("❌ Real-time listener failed:", error);
           setFollowingUserIds([]);
+          setFollowingUsers([]);
         });
 
         return unsubscribeFollowing;
@@ -588,15 +603,52 @@ export default function SearchPage() {
     try {
       if (user.isFollowing) {
         // --- UNFOLLOW LOGIC ---
-        batch.update(userUsersDocRef, {
-          Following: arrayRemove(followingData), // Atomic remove
-          followingCount: increment(-1)
-        });
+        // batch.update(userUsersDocRef, {
+        //   Following: arrayRemove(followingData), // Atomic remove
+        //   followingCount: increment(-1)
+        // });
   
-        batch.update(targetUserDocRef, {
-          Follower: arrayRemove(followerData), // Atomic remove
-          followerCount: increment(-1)
-        });
+        // batch.update(targetUserDocRef, {
+        //   Follower: arrayRemove(followerData), // Atomic remove
+        //   followerCount: increment(-1)
+        // });
+
+        try {
+          const userDocRef = doc(db, "IronExUsers", user.id);
+          const docSnapshot = await getDoc(userDocRef); // One-time request
+      
+          if (docSnapshot.exists()) {
+            const data = docSnapshot.data();
+            
+            // Use your helper to ensure they are arrays
+            const followerList = asArray<FollowingUser>(data?.Follower) || [];
+      
+            const exactFollowingData = followingUsers.find(f => f.userId === user.id);
+  
+            const exactFollowerData = followerList.find(f => f.userId === fetchuserID);
+
+            if (exactFollowingData) {
+              batch.update(userUsersDocRef, {
+                Following: arrayRemove(exactFollowingData),
+                followingCount: increment(-1)
+              });
+            }
+
+            if (exactFollowerData) {
+              batch.update(targetUserDocRef, {
+                Follower: arrayRemove(exactFollowerData),
+                followerCount: increment(-1)
+              });
+            }
+            
+          } else {
+            console.error("❌ Failed to fetch user follower");
+          }
+        } catch (error) {
+          console.error("❌ Failed to fetch user stats:", error);
+        }
+
+        
 
       } else {
         // --- FOLLOW LOGIC ---
