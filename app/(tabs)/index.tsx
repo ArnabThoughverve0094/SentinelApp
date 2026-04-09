@@ -1272,20 +1272,29 @@ useEffect(() => {
   runOnce();
 }, []);
 
-  const handleNavigateToProfile = useCallback(
-    (targetUserId: string, authorName: string, authorImageUrl: string) => {
-      router.push({
-        pathname: '/profile/[userId]',
-        params: {
-          userId: targetUserId,
-          authorName,
-          authorImageUrl,
-          isAnonymous: 'false',
-        },
-      });
-    },
-    [router]
-  );
+  const handleNavigateToProfile = useCallback((
+  targetUserId: string,
+  authorName: string,
+  authorImageUrl: string,
+  isAnonymous?: boolean   // ← add this new param
+) => {
+  // 🔒 Block profile open for anonymous users
+  if (isAnonymous) {
+    Toast.show({
+      type: 'info',
+      text1: 'Anonymous User',
+      text2: 'This user posted anonymously. Profile is hidden.',
+      position: 'bottom',
+      visibilityTime: 2500,
+    });
+    return;
+  }
+
+  router.push({
+    pathname: "/profile/[userId]",
+    params: { userId: targetUserId, authorName, authorImageUrl, isAnonymous: 'false' },
+  });
+}, [router]);
 
      
     
@@ -1576,6 +1585,18 @@ useEffect(() => {
 
 
         const openUserProfile = useCallback((item: PostItem) => {
+          // 🔒 Block profile open for anonymous posts
+          if (item.isAnonymous) {
+            Toast.show({
+              type: 'info',
+              text1: 'Anonymous Post',
+              text2: 'This user posted anonymously. Profile is not available.',
+              position: 'bottom',
+              visibilityTime: 2500,
+            });
+            return;
+          }
+
           const authorId = item.AuthorUserID || item.repostedBy;
           if (!authorId) return;
 
@@ -1583,12 +1604,12 @@ useEffect(() => {
             pathname: "/profile/[userId]",
             params: {
               userId: authorId || '12345',
-              userEmail: item.AuthorEmail || '',
+              userEmail: item.AuthorEmail ?? '',
               authorName: item.AuthorName || 'Anonymous',
-              userNickName: item.AuthorNickName || '',
-              authorImageUrl: item.AuthorImageURL || '',
-              isAnonymous: item.isAnonymous ? 'true' : 'false',
-              userBio: item.AuthorBio || '',
+              userNickName: item.AuthorNickName ?? '',
+              authorImageUrl: item.AuthorImageURL,
+              isAnonymous: 'false',
+              userBio: item.AuthorBio ?? '',
             },
           });
         }, [router]);
