@@ -18,6 +18,7 @@ import {
   doc,
   getCountFromServer,
   getDoc,
+  getDocs,
   increment,
   onSnapshot,
   query,
@@ -517,21 +518,13 @@ export default function UserProfileScreen() {
           const followingList = asArray<FollowingUser>(data?.Following) || [];
           const followerList = asArray<FollowingUser>(data?.Follower) || [];
 
-          // const followingCount =
-          //   typeof data?.followingCount === "number"
-          //     ? data.followingCount
-          //     : followingList.length;
-
-          // const followerCount =
-          //   typeof data?.followerCount === "number"
-          //     ? data.followerCount
-          //     : followerList.length;
-
           const followingCount = followingList.length;
           const followerCount = followerList.length;
 
           setRealFollowingCount(followingCount);
           setRealFollowersCount(followerCount);
+
+          syncUserStats(followingList, followerList);
         } else {
           setRealFollowingCount(0);
           setRealFollowersCount(0);
@@ -544,6 +537,44 @@ export default function UserProfileScreen() {
 
   return () => unsubscribe();
 }, [userId]);
+
+const syncUserStats = async (rawFollowing: FollowingUser[], rawFollowers: FollowingUser[]) => {
+  if (!userId) return;
+  console.log("RawFollowing: ", rawFollowing);
+  console.log("RawFollowers: ", rawFollowers);
+
+  try {
+    const userDocRef = doc(db, "IronExUsers", userId);
+    
+    // Note: We only fetch the 'UserID' field to keep it lightweight
+    const auditRef = collection(db, "UserDeletionAudit");
+    const auditSnap = await getDocs(auditRef);
+    const deletedUserIds = new Set(auditSnap.docs.map(doc => doc.data().userName));
+
+    // 3. Filter out users who appear in the deleted list
+    const cleanFollowing = rawFollowing.filter(u => !deletedUserIds.has(u.userId));
+    const cleanFollowers = rawFollowers.filter(u => !deletedUserIds.has(u.userId));
+
+    // 4. Update State
+    setRealFollowingCount(cleanFollowing.length);
+    setRealFollowersCount(cleanFollowers.length);
+
+    // 5. (Optional) Auto-Cleanup Database
+    // If the lengths changed, it means we found deleted users. 
+    // You might want to update the DB here so you don't have to filter next time.
+    if (cleanFollowing.length !== rawFollowing.length || cleanFollowers.length !== rawFollowers.length) {
+      await updateDoc(userDocRef, {
+        Following: cleanFollowing,
+        Follower: cleanFollowers,
+        followingCount: cleanFollowing.length,
+        followerCount: cleanFollowers.length
+      });
+    }
+
+  } catch (error) {
+    console.error("❌ Error syncing user lists:", error);
+  }
+};
 
 
 const fetchCounts = async () => {
