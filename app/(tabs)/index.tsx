@@ -180,6 +180,54 @@ const VideoPlayerItem = React.memo(({ videoUrl, index, currentVideoIndex }: Vide
   );
 });
 const ironExBg = require('../../assets/images/ironex-bg.png');
+// ✅ ExpandableText — fully self-contained, auto See More/See Less
+  const ExpandableText = React.memo(({ text }: { text: string }) => {
+  const [expanded, setExpanded] = useState(false);
+  const [showButton, setShowButton] = useState(false);
+  const [measured, setMeasured] = useState(false);
+
+  if (!text) return null;
+
+  return (
+    <View>
+      {/* Hidden text to measure actual line count */}
+      {!measured && (
+        <Text
+          style={{ position: 'absolute', opacity: 0, fontSize: 14, lineHeight: 20 }}
+          numberOfLines={0}
+          onTextLayout={e => {
+            if (!measured) {
+              setShowButton(e.nativeEvent.lines.length > 3);
+              setMeasured(true);
+            }
+          }}
+        >
+          {text}
+        </Text>
+      )}
+
+      {/* Visible text */}
+      <Text
+        style={{ color: '#111827', fontSize: 14, lineHeight: 20, marginBottom: 4, fontWeight: '400' }}
+        numberOfLines={expanded ? undefined : 3}
+      >
+        {renderStyledPostText(text)}
+      </Text>
+
+      {showButton && (
+        <TouchableOpacity
+          onPress={e => { e.stopPropagation(); setExpanded(prev => !prev); }}
+          activeOpacity={0.7}
+          style={{ marginBottom: 4 }}
+        >
+          <Text style={{ color: '#2563EB', fontSize: 12, fontWeight: '600' }}>
+            {expanded ? 'See Less' : 'See More'}
+          </Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+});
 
 
 const renderStyledPostText = (text) => {
@@ -742,9 +790,10 @@ const RepostModal: React.FC<RepostModalProps> = ({
                 />
                 <Text className="font-semibold text-gray-900 text-sm">{AuthorName}</Text>
               </View>
-              <Text className="text-gray-700 text-sm" numberOfLines={3}>
+              {/* <Text className="text-gray-700 text-sm" numberOfLines={3}>
                 {renderStyledPostText(post.ContentDesc)}
-              </Text>
+              </Text> */}
+              <ExpandableText text={post.ContentDesc} />
             </View>
 
             {/* <View className="flex-row items-center justify-between mb-4">
@@ -4148,9 +4197,7 @@ useEffect(() => {
             {getTimeAgo(item.originalPost.ContentDate)}
           </Text> */}
         </View>
-        <Text className="text-gray-700 text-sm mt-4" numberOfLines={3}>
-          {renderStyledPostText(item.originalPost.ContentDesc)}
-        </Text>
+        <ExpandableText text={item.ContentDesc} />
       </View>
     );
   }, [getTimeAgo, dummyAuthorImage]);
@@ -4765,17 +4812,7 @@ useEffect(() => {
               minHeight: 160,
             }}
           >
-            <Text
-              style={{
-                fontSize: 13,
-                fontWeight: '600',
-                color: isIronExEducational ? '#111827' : '#ffffff',
-                lineHeight: 19,
-              }}
-              numberOfLines={6}
-            >
-              {item.ContentDesc}
-            </Text>
+            <ExpandableText text={item.ContentDesc} />
 
             {item.ContentTagline ? (
               <Text
@@ -5048,9 +5085,7 @@ useEffect(() => {
 
       {/* ===== BODY ===== */}
       <View className="px-3 py-2.5">
-        <Text className="text-gray-800 text-sm leading-5 mb-2 font-normal" numberOfLines={3}>
-          {renderStyledPostText(item.ContentDesc)}
-        </Text>
+        <ExpandableText text={item.ContentDesc} />
 
         {renderRepostContent(item)}
         {item.postType !== "X-Data" && renderMediaContent(item, index)}
