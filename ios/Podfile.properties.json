@@ -2,6 +2,7 @@
   "expo.jsEngine": "hermes",
   "EX_DEV_CLIENT_NETWORK_INSPECTOR": "true",
   "newArchEnabled": "true",
-  "ios.forceStaticLinking": "[]",
+  "ios.useFrameworks": "static",
+  "ios.forceStaticLinking": "[\"RNFBApp\",\"RNFBCrashlytics\",\"FirebaseCore\"]",
   "apple.privacyManifestAggregationEnabled": "true"
 }

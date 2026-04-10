@@ -2316,12 +2316,12 @@ useEffect(() => {
   },[]);
 
   const cleanupSubscriptions = useCallback(() => {
-  unsubscribers.forEach(unsub => {
-    if (typeof unsub === 'function') {
-      unsub();
-    }
-  });
-  setUnsubscribers([]);
+    unsubscribers.forEach(unsub => {
+      if (typeof unsub === 'function') {
+        unsub();
+      }
+    });
+    setUnsubscribers([]);
 }, [unsubscribers]);
 
   const fetchPostComments = useCallback(async () => {

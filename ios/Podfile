@@ -27,7 +27,10 @@ target 'IronEx' do
     config_command = ['node', '-e', "process.argv=['', '', 'config'];require('@react-native-community/cli').run()"];
   else
     config_command = [
-      'npx',
+      'node',
+      '--no-warnings',
+      '--eval',
+      'require(\'expo/bin/autolinking\')',
       'expo-modules-autolinking',
       'react-native-config',
       '--json',
@@ -50,6 +53,14 @@ target 'IronEx' do
   )
 
   post_install do |installer|
+    installer.pods_project.targets.each do |target|
+      if target.name.start_with?('RNFB')
+        target.build_configurations.each do |config|
+          config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+          config.build_settings['OTHER_CFLAGS'] = '$(inherited) -Wno-non-modular-include-in-framework-module'
+        end
+      end
+    end
     react_native_post_install(
       installer,
       config[:reactNativePath],
