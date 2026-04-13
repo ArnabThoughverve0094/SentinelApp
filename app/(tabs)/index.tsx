@@ -4211,162 +4211,173 @@ useEffect(() => {
 
   const filteredData = useMemo(() => {
     const blockedSet = new Set(allBlockedIds ?? []);
-  // Remove blocked users
-  const sourceData = fetchedData.filter(
-    item => !blockedSet?.has(item.AuthorUserID)
-  );
+    // Remove blocked users
+    const sourceData = fetchedData.filter(
+      item => !blockedSet?.has(item.AuthorUserID)
+    );
 
-  // ONE WEEK window constant for data eligibility
-  const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-  const now = Date.now();
+    // ONE WEEK window constant for data eligibility
+    const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
 
-  const toMs = (date: any): number => {
-    if (!date) return 0;
-    if (typeof date === 'object' && date?.toDate) return date.toDate().getTime();
-    if (date instanceof Date) return date.getTime();
-    return new Date(date).getTime();
-  };
+    const toMs = (date: any): number => {
+      if (!date) return 0;
+      if (typeof date === 'object' && date?.toDate) return date.toDate().getTime();
+      if (date instanceof Date) return date.getTime();
+      return new Date(date).getTime();
+    };
 
-  // Base approved data
-  const baseData = sourceData.filter(item => {
-    if (userRole === 'User') {
-      return (
-        item.postType.includes('X-Data') ||
-        (item.isApproved && !item.isNew)
-      );
-    }
-    return true;
-  });
+    // Base approved data
+    const baseData = sourceData.filter(item => {
+      if (userRole === 'User') {
+        return (
+          item.postType.includes('X-Data') ||
+          (item.isApproved && !item.isNew)
+        );
+      }
+      return true;
+    });
 
-  // Educational data
-  // Educational data — loose matching to handle missing/inconsistent fields
-  const educationalData = sourceData.filter(item => {
-    const isEdu =
-      item.contentType === 'Educational' ||
-      item.isEducational === true ||
-      item.postType?.toLowerCase().includes('educational');
+    // Educational data
+    // Educational data — loose matching to handle missing/inconsistent fields
+    const educationalData = sourceData.filter(item => {
+      const isEdu =
+        item.contentType === 'Educational' ||
+        item.isEducational === true ||
+        item.postType?.toLowerCase().includes('educational');
 
-    if (userRole === 'User') {
-      // X-Data posts are never educational; Sentinel posts need approval
-      if (item.postType.includes('X-Data')) return false;
-      return (item.isApproved && !item.isNew) && isEdu;
-    }
-    // Admin/Mod: show all educational posts regardless of approval
-    return isEdu;
-  });
+      if (userRole === 'User') {
+        // X-Data posts are never educational; Sentinel posts need approval
+        if (item.postType.includes('X-Data')) return false;
+          return (item.isApproved && !item.isNew) && isEdu;
+      }
+      // Admin/Mod: show all educational posts regardless of approval
+      return isEdu;
+    });
 
+    const allApprovedData = sourceData.filter(item => {
+      const isXData = item.postType.includes('X-Data');
+
+      if (userRole === 'User') {
+        // ✅ Explicitly hide reported posts for regular users
+        if (item.isReported && item.moderationStatus === 'pending-review') return false;
+        return isXData
+          ? (item.isApproved && !item.isNew)
+          : (item.isApproved && !item.isNew);
+      }
+      // Admins/Mods see everything (intentional)
+      return true;
+    });
+
+    const deletedSet = new Set(deletedUserIds); // O(1) lookups
+
+    const followingData = allApprovedData.filter(item => {
+        
+      if (item.isAnonymous) return false;
+
+      const authorId = item.repostedBy || item.AuthorUserID;
+
+      if (authorId && deletedSet.has(authorId)) return false;
+
+      return authorId && followingUserIds.includes(authorId);
+    });
 
   
-  const publishedData = sourceData.filter(item => {
-    const isXData = item.postType.includes('X-Data');
+    const publishedData = sourceData.filter(item => {
+      const isXData = item.postType.includes('X-Data');
 
-    if (userRole === 'User') {
-      // ✅ Explicitly hide reported posts for regular users
-      if (item.isReported && item.moderationStatus === 'pending-review') return false;
-      return isXData
-        ? (item.isApproved && !item.isNew)
-        : (item.isApproved && !item.isNew && item.contentType !== 'Educational' && !item.isEducational);
-    }
-    // Admins/Mods see everything (intentional)
-    return item.contentType !== 'Educational' && !item.isEducational;
-  });
+      if (userRole === 'User') {
+        // ✅ Explicitly hide reported posts for regular users
+        if (item.isReported && item.moderationStatus === 'pending-review') return false;
+        return isXData
+          ? (item.isApproved && !item.isNew)
+          : (item.isApproved && !item.isNew && item.contentType !== 'Educational' && !item.isEducational);
+      }
+      // Admins/Mods see everything (intentional)
+      return item.contentType !== 'Educational' && !item.isEducational;
+    });
 
-  const allApprovedData = sourceData.filter(item => {
-    const isXData = item.postType.includes('X-Data');
+    // ── FOLLOWING TAB ──────────────────────────────────────────────────────────
+      if (activeTab === 'following') {
+        // const deletedSet = new Set(deletedUserIds); // O(1) lookups
 
-    if (userRole === 'User') {
-      // ✅ Explicitly hide reported posts for regular users
-      if (item.isReported && item.moderationStatus === 'pending-review') return false;
-      return isXData
-        ? (item.isApproved && !item.isNew)
-        : (item.isApproved && !item.isNew);
-    }
-    // Admins/Mods see everything (intentional)
-    return true;
-  });
-
-  // ── FOLLOWING TAB ──────────────────────────────────────────────────────────
-    if (activeTab === 'following') {
-      const deletedSet = new Set(deletedUserIds); // O(1) lookups
-
-      const followingData = allApprovedData.filter(item => {
+        // const followingData = allApprovedData.filter(item => {
         
-        if (item.isAnonymous) return false;
+        //   if (item.isAnonymous) return false;
 
-        const authorId = item.repostedBy || item.AuthorUserID;
+        //   const authorId = item.repostedBy || item.AuthorUserID;
 
-        
-        if (authorId && deletedSet.has(authorId)) return false;
+        //   if (authorId && deletedSet.has(authorId)) return false;
 
-        return authorId && followingUserIds.includes(authorId);
-      });
+        //   return authorId && followingUserIds.includes(authorId);
+        // });
 
-      if (followingData.length < 4) handleLoadMore();
-      return followingData;
+        if (followingData.length < 4) handleLoadMore();
+        return followingData;
+      }
+
+    // ── EDUCATIONAL TAB ────────────────────────────────────────────────────────
+    if (activeTab === 'educational') {
+      if (educationalData.length < 4) handleLoadMore();
+      return educationalData;
     }
 
-  // ── EDUCATIONAL TAB ────────────────────────────────────────────────────────
-  if (activeTab === 'educational') {
-    if (educationalData.length < 4) handleLoadMore();
-    return educationalData;
-  }
+    // ── FOR YOU TAB ────────────────────────────────────────────────────────────
+    if (activeTab === 'forYou') {
+      // 1. Separate Sentinel and X-Data posts
+      const allSentinels = publishedData.filter(
+        item => !item.postType.includes('X-Data')
+      );
+      const allXData = publishedData.filter(
+        item => item.postType.includes('X-Data')
+      );
 
-  // ── FOR YOU TAB ────────────────────────────────────────────────────────────
-  if (activeTab === 'forYou') {
-    // 1. Separate Sentinel and X-Data posts
-    const allSentinels = publishedData.filter(
-      item => !item.postType.includes('X-Data')
-    );
-    const allXData = publishedData.filter(
-      item => item.postType.includes('X-Data')
-    );
+      // 2. BOTH pools limited to last 1 week for relevancy
+      const weekSentinels = allSentinels.filter(
+        p => now - toMs(p.createdAt ?? p.ContentDate) <= ONE_WEEK_MS
+      );
+      const weekXData = allXData.filter(
+        p => now - toMs(p.createdAt ?? p.ContentDate) <= ONE_WEEK_MS
+      );
 
-    // 2. BOTH pools limited to last 1 week for relevancy
-    const weekSentinels = allSentinels.filter(
-      p => now - toMs(p.createdAt ?? p.ContentDate) <= ONE_WEEK_MS
-    );
-    const weekXData = allXData.filter(
-      p => now - toMs(p.createdAt ?? p.ContentDate) <= ONE_WEEK_MS
-    );
+      // 3. Older posts (beyond 1 week) as fallback pool
+      const olderSentinels = allSentinels.filter(
+        p => now - toMs(p.createdAt ?? p.ContentDate) > ONE_WEEK_MS
+      );
+      const olderXData = allXData.filter(
+        p => now - toMs(p.createdAt ?? p.ContentDate) > ONE_WEEK_MS
+      );
 
-    // 3. Older posts (beyond 1 week) as fallback pool
-    const olderSentinels = allSentinels.filter(
-      p => now - toMs(p.createdAt ?? p.ContentDate) > ONE_WEEK_MS
-    );
-    const olderXData = allXData.filter(
-      p => now - toMs(p.createdAt ?? p.ContentDate) > ONE_WEEK_MS
-    );
+      // 4. Within the 1-week pool, get adaptive window for "fresh" Sentinel boost
+      const windowMs = getAdaptiveTimeWindow(weekSentinels, 5);
+      const freshSentinels = weekSentinels.filter(
+        p => now - toMs(p.createdAt ?? p.ContentDate) <= windowMs
+      );
+      const recentSentinels = weekSentinels.filter(
+        p => now - toMs(p.createdAt ?? p.ContentDate) > windowMs
+      );
 
-    // 4. Within the 1-week pool, get adaptive window for "fresh" Sentinel boost
-    const windowMs = getAdaptiveTimeWindow(weekSentinels, 5);
-    const freshSentinels = weekSentinels.filter(
-      p => now - toMs(p.createdAt ?? p.ContentDate) <= windowMs
-    );
-    const recentSentinels = weekSentinels.filter(
-      p => now - toMs(p.createdAt ?? p.ContentDate) > windowMs
-    );
+      // 5. Build interleaved blocks for the 1-week pool
+      //    Pattern: [recentSentinels 20] [weekXData 10] repeating
+      const interleavedWeek = buildInterleavedFeed(recentSentinels, weekXData, 20, 10);
 
-    // 5. Build interleaved blocks for the 1-week pool
-    //    Pattern: [recentSentinels 20] [weekXData 10] repeating
-    const interleavedWeek = buildInterleavedFeed(recentSentinels, weekXData, 20, 10);
+      // 6. Build interleaved blocks for older posts (beyond 1 week) as tail
+      const interleavedOlder = buildInterleavedFeed(olderSentinels, olderXData, 20, 10);
 
-    // 6. Build interleaved blocks for older posts (beyond 1 week) as tail
-    const interleavedOlder = buildInterleavedFeed(olderSentinels, olderXData, 20, 10);
+      console.log(
+        `[Feed] Window: ${windowMs / 3600000}h | Fresh: ${freshSentinels.length} | Week Sentinels: ${weekSentinels.length} | Week X: ${weekXData.length} | Older: ${olderSentinels.length + olderXData.length}`
+      );
 
-    console.log(
-      `[Feed] Window: ${windowMs / 3600000}h | Fresh: ${freshSentinels.length} | Week Sentinels: ${weekSentinels.length} | Week X: ${weekXData.length} | Older: ${olderSentinels.length + olderXData.length}`
-    );
+      // Final order:
+      // 1. Fresh Sentinels (latest within adaptive window) — always top
+      // 2. Interleaved 1-week posts (20S/10X pattern)
+      // 3. Interleaved older posts as infinite tail
+      return [...freshSentinels, ...interleavedWeek, ...interleavedOlder];
+    }
 
-    // Final order:
-    // 1. Fresh Sentinels (latest within adaptive window) — always top
-    // 2. Interleaved 1-week posts (20S/10X pattern)
-    // 3. Interleaved older posts as infinite tail
-    return [...freshSentinels, ...interleavedWeek, ...interleavedOlder];
-  }
+    return publishedData;
 
-  return publishedData;
-
-}, [fetchedData, userRole, activeTab, followingUserIds, allBlockedIds,deletedUserIds]);
+  }, [fetchedData, userRole, activeTab, followingUserIds, allBlockedIds,deletedUserIds]);
 
 
     const handleScroll = useCallback((event: any) => {
@@ -5333,10 +5344,10 @@ useEffect(() => {
           <Ionicons name="school-outline" size={40} color="#9CA3AF" />
         </View>
         <Text className="text-xl font-semibold text-gray-900 mb-2 text-center">
-          Educational feed is waiting
+          Learn feed is waiting
         </Text>
         <Text className="text-gray-500 text-center leading-6 mb-4">
-          Educational content will be available here. Stay tuned for learning materials and resources!
+          Learn content will be available here. Stay tuned for learning materials and resources!
         </Text>
       </View>
     );
