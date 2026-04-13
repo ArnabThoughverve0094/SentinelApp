@@ -1949,13 +1949,11 @@ useEffect(() => {
         
         setHasMore(sentinelSnapshot.docs.length === BATCH_SIZE); // Check if more data exists
         
+        setLastFetchTime(currentTime);
+        console.log('All Data Fetched and Sorted', `Total: ${postsData.length} documents`);
+        
+        setIsInitialized(true);
       });
-      
-      
-      setLastFetchTime(currentTime);
-      console.log('All Data Fetched and Sorted', `Total: ${fetchedData.length} documents`);
-      
-      setIsInitialized(true);
 
       // Store the unsubscribe function in the ref
       sentinelUnsubscribeRef.current = unsubscribeSentinel;
@@ -2249,31 +2247,26 @@ try {
       const collSentinelDeletedUsers = collection(db, 'UserDeletionAudit');
       console.log("Sentinel DeletedUsers Called");
 
-      const unsubscribeSentinelDeletedUsers = onSnapshot(collSentinelDeletedUsers, async updateSnapshot => {
-        const updateDataArr = updateSnapshot.docs.map(doc => ({
-          id: doc.id,
-          data: doc.data(),
-        }));
+      // ✅ FIXED — fetch userId ONCE, outside the loop
+const unsubscribeSentinelDeletedUsers = onSnapshot(collSentinelDeletedUsers, async (updateSnapshot) => {
+  // ✅ Get userId ONCE before looping
+  let fetchuserID = userId;
+  if (!fetchuserID) {
+    fetchuserID = await AsyncStorage.getItem("userId");
+    setUserId(fetchuserID);
+  }
+  console.log("userId Data: ", fetchuserID);
 
-        console.log("DeletedUsers Data: ", updateDataArr);
-
-        for (const doc of updateDataArr) {
-          const deletedData = doc.data;
-          console.log("DeletedUsers Data: ", deletedData);
-          let fetchuserID = "";
-          if(fetchuserID === ""){
-            fetchuserID = await AsyncStorage.getItem('userId') || "";
-            setUserId(fetchuserID);
-          }
-          console.log("userId Data: ", fetchuserID);
-          
-          if (fetchuserID === deletedData.userName) {
-            confirmAccDeletedLogout();
-          }
-
-        }
-
-      })
+  const updateDataArr = updateSnapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
+  
+  for (const doc of updateDataArr) {
+    const deletedData = doc.data;
+    if (fetchuserID === deletedData.userName) {
+      confirmAccDeletedLogout();
+      break; // ✅ Stop checking after match found
+    }
+  }
+});
 
       return () => {
         unsubscribeSentinelDeletedUsers();
@@ -4094,64 +4087,57 @@ try {
   const blockedSet = new Set(allBlockedIds ?? []);
   const sourceData = fetchedData.filter(item => !blockedSet?.has(item.AuthorUserID));
 
+  // ─── FOLLOWING TAB ───────────────────────────────────────────
+  if (activeTab === "following") {
+    if (!followingLoaded) return []; // still loading
+    if (followingUserIds.length === 0) return []; // not following anyone
+
+    const result = sourceData.filter(item => {
+      if (item.postType?.includes("X-Data")) return false;
+      if (item.isAnonymous === true) return false;
+      const postAuthor = item.AuthorUserID ?? "";
+      const reposter = item.repostedBy ?? "";
+      return followingUserIds.includes(postAuthor) || followingUserIds.includes(reposter);
+    });
+
+    console.log("🔄 Following filter result:", result.length, "of", sourceData.length);
+    return result;
+  }
+
+  // ─── FOR YOU TAB ─────────────────────────────────────────────
   const ONEWEEKMS = 7 * 24 * 60 * 60 * 1000;
   const now = Date.now();
+
   const toMs = (date: any): number => {
     if (!date) return 0;
-    if (typeof date === 'object' && date?.toDate) return date.toDate().getTime();
+    if (typeof date === "object" && date?.toDate) return date.toDate().getTime();
     if (date instanceof Date) return date.getTime();
     return new Date(date).getTime();
   };
 
-  // ── FOLLOWING TAB ──────────────────────────────────────────────
- // ✅ UPDATED following filter in filteredData useMemo
-  // ✅ UPDATED — don't return [] just because followingUserIds is empty yet
-    if (activeTab === 'following') {
-      if (!followingLoaded) return []; // still loading, return empty (loader shows)
-      if (followingUserIds.length === 0) return []; // loaded but no one followed
-      return sourceData.filter(item => {
-        if (item.postType?.includes('X-Data')) return false;
-        if (item.isAnonymous === true) return false;
-        const postAuthor = item.AuthorUserID;
-        const reposter = item.repostedBy;
-        return (
-          followingUserIds.includes(postAuthor ?? '') ||
-          followingUserIds.includes(reposter ?? '')
-        );
-      });
-    }
-
-  // ── FOR YOU TAB ────────────────────────────────────────────────
-  // Base: approved posts only for regular users
+  // Base approved posts only for regular users
   const baseData = sourceData.filter(item => {
-    if (userRole === 'User') {
-      if (item.isReported && item.moderationStatus === 'pending-review') return false;
-      if (item.postType?.includes('X-Data')) return item.isApproved && !item.isNew;
-      return item.isApproved && !item.isNew;
-    }
-    return true; // Admins/Mods see all
+    if (userRole !== "User") return true; // Admins/Mods see all
+    if (item.isReported && item.moderationStatus === "pending-review") return false;
+    if (item.postType?.includes("X-Data")) return item.isApproved && !item.isNew;
+    return item.isApproved && !item.isNew;
   });
 
-  // ── LEARN SUB-TAB: only educational posts ──────────────────────
-  if (forYouSubTab === 'learn') {
-  const learnPosts = baseData.filter(
-    item => item.isEducational === true || item.contentType?.toLowerCase() === 'educational'
-  );
-  // TEMP DEBUG — remove after fixing
-  console.log('📚 Learn tab — total posts checked:', baseData.length);
-  console.log('📚 Learn tab — educational posts found:', learnPosts.length);
-  console.log('📚 Sample contentTypes:', baseData.slice(0, 5).map(p => p.contentType));
-  return learnPosts;
-}
+  // LEARN SUB-TAB
+  if (forYouSubTab === "learn") {
+    return baseData.filter(item =>
+      item.isEducational === true ||
+      item.contentType?.toLowerCase() === "educational"
+    );
+  }
 
-  // ── REACT SUB-TAB: all normal (non-educational) posts ─────────
+  // REACT SUB-TAB — all non-educational posts, interleaved
   const publishedData = baseData.filter(item =>
-    !item.isEducational && item.contentType?.toLowerCase() !== 'educational'
+    !item.isEducational && item.contentType?.toLowerCase() !== "educational"
   );
 
-  // Interleaved feed logic (keep your existing code below)
-  const allSentinels = publishedData.filter(item => !item.postType?.includes('X-Data'));
-  const allXData = publishedData.filter(item => item.postType?.includes('X-Data'));
+  const allSentinels = publishedData.filter(item => !item.postType?.includes("X-Data"));
+  const allXData = publishedData.filter(item => item.postType?.includes("X-Data"));
 
   const weekSentinels = allSentinels.filter(p => now - toMs(p.createdAt ?? p.ContentDate) < ONEWEEKMS);
   const weekXData = allXData.filter(p => now - toMs(p.createdAt ?? p.ContentDate) < ONEWEEKMS);
@@ -4167,8 +4153,7 @@ try {
 
   return [...freshSentinels, ...interleavedWeek, ...interleavedOlder];
 
-}, [fetchedData, userRole, activeTab, forYouSubTab, followingUserIds, followingLoaded,allBlockedIds]);
-
+}, [fetchedData, userRole, activeTab, forYouSubTab, followingUserIds, followingLoaded, allBlockedIds]);
 
     const handleScroll = useCallback((event: any) => {
       try {
@@ -5143,8 +5128,9 @@ try {
     });
   }, [filteredData, userRole, initializeCardAnimation, renderPostContent, activeTab,followingLoaded,forYouSubTab]);
 
- const renderEmptyState = () => {
-  if (activeTab === 'forYou' && forYouSubTab === 'learn') {
+const renderEmptyState = () => {
+  // Learn sub-tab empty state
+  if (activeTab === "forYou" && forYouSubTab === "learn") {
     return (
       <View className="flex-1 justify-center items-center py-20 px-8">
         <View className="w-20 h-20 bg-gray-100 rounded-full items-center justify-center mb-6">
@@ -5159,30 +5145,6 @@ try {
       </View>
     );
   }
-
-  if (activeTab === 'following') {
-    return (
-      <View className="flex-1 justify-center items-center py-20 px-8 bg-white">
-        <View className="w-32 h-32 bg-gray-50 rounded-full items-center justify-center mb-8">
-          <MaterialCommunityIcons name="account-heart-outline" size={64} color="#D1D5DB" />
-        </View>
-        <Text className="text-2xl font-bold text-gray-900 mb-3 text-center">
-          Your feed is empty
-        </Text>
-        <Text className="text-base text-gray-500 text-center leading-6 mb-8 px-4">
-          Follow creators to see their posts here.
-        </Text>
-        <TouchableOpacity
-          className="bg-black px-8 py-3.5 rounded-full"
-          onPress={() => router.push('/search')}
-          activeOpacity={0.8}
-        >
-          <Text className="text-white font-semibold text-base">Find People</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
   return null;
 };
 
@@ -5249,72 +5211,90 @@ try {
         />
       )}
 
-      <ScrollView
-          key={`feed-${activeTab}-${forYouSubTab}-${filteredData.length}`}
-          ref={scrollViewRef}
-          className="flex-1"
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingTop: 6, paddingBottom: 100 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={['#3b82f6']}
-              tintColor="#3b82f6"
-              title="Pull to refresh"
-              titleColor="#64748b"
-            />
-          }
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
+     <ScrollView
+  ref={scrollViewRef}
+  className="flex-1"
+  showsVerticalScrollIndicator={false}
+  contentContainerStyle={{ paddingTop: 6, paddingBottom: 100 }}
+  refreshControl={
+    <RefreshControl
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      colors={["#3b82f6"]}
+      tintColor="#3b82f6"
+    />
+  }
+  onScroll={handleScroll}
+  scrollEventThrottle={16}
+>
+
+  {/* 1. Loading spinner — only while following list is loading */}
+  {activeTab === "following" && !followingLoaded && (
+    <View className="flex-1 justify-center items-center py-20">
+      <ActivityIndicator size="large" color="#000" />
+    </View>
+  )}
+
+  {/* 2. Render posts — gate Following on followingLoaded */}
+  {(activeTab !== "following" ? !loading : followingLoaded) &&
+    listItems.length > 0 &&
+    listItems}
+
+  {/* 3. Following empty state — ONLY when loaded AND truly no posts */}
+  {activeTab === "following" &&
+    followingLoaded &&
+    listItems.length === 0 && (  // ✅ THIS GUARD is critical
+      <View className="flex-1 justify-center items-center py-20 px-8 bg-white">
+        <View className="w-32 h-32 bg-gray-50 rounded-full items-center justify-center mb-8">
+          <MaterialCommunityIcons
+            name="account-heart-outline"
+            size={64}
+            color="#D1D5DB"
+          />
+        </View>
+        <Text className="text-2xl font-bold text-gray-900 mb-3 text-center">
+          Your feed is empty
+        </Text>
+        <Text className="text-base text-gray-500 text-center leading-6 mb-8 px-4">
+          {followingUserIds.length === 0
+            ? "You're not following anyone yet. Discover and follow creators to see their posts here."
+            : "The people you follow haven't posted anything yet. Check back later!"}
+        </Text>
+        <TouchableOpacity
+          className="bg-black px-8 py-3.5 rounded-full"
+          onPress={() => router.push("/search")}
+          activeOpacity={0.8}
         >
+          <Text className="text-white font-semibold text-base">
+            Find People
+          </Text>
+        </TouchableOpacity>
+      </View>
+    )}
 
-          {/* 1. Full-screen loader for initial/refresh load — only for ForYou tab */}
-          {loading && !isFetchingMore && activeTab !== 'following' && (
-            <View className="flex-1 justify-center items-center py-20">
-              <LoadingComponent visible={true} size="large" />
-            </View>
-          )}
+  {/* 4. ForYou empty states */}
+  {!loading && listItems.length === 0 && activeTab === "forYou" &&
+    renderEmptyState()}
 
-          {/* 2. Show loader while following data is not yet fetched */}
-          {activeTab === 'following' && !followingLoaded && (
-            <View className="flex-1 justify-center items-center py-20">
-              <LoadingComponent visible={true} size="large" />
-            </View>
-          )}
+  {/* 5. Pagination loader */}
+  {isFetchingMore && (
+    <View className="py-4 justify-center items-center">
+      <ActivityIndicator size="small" color="#000" />
+    </View>
+  )}
 
-          {/* 3. Render posts — for ForYou tab use !loading, for Following tab use followingLoaded */}
-          {(activeTab !== 'following' ? !loading : followingLoaded) && listItems.length > 0 && listItems}
+  {/* 6. End of feed */}
+  {!hasMore && listItems.length >= BATCH_SIZE && (
+    
+    <View className="py-4 justify-center items-center">
+      <Text className="text-gray-500">
+        You've reached the end of the feed.
+      </Text>
+    </View>
+  )}
 
-          {/* 4. Empty state for Following tab — only after followingLoaded is true */}
-          {followingLoaded && listItems.length === 0 && activeTab === 'following' && renderEmptyState()}
+</ScrollView>
 
-          {/* 5. Empty state for Learn sub-tab */}
-          {!loading && listItems.length === 0 && activeTab === 'forYou' && forYouSubTab === 'learn' && renderEmptyState()}
-
-          {/* 6. Fallback loader — ForYou React tab when still empty after load */}
-          {!loading && listItems.length === 0 &&
-            activeTab === 'forYou' && forYouSubTab !== 'learn' && (
-            <View className="flex-1 justify-center items-center py-20">
-              <LoadingComponent visible={true} size="large" />
-            </View>
-          )}
-
-          {/* 7. Pagination loader */}
-          {isFetchingMore && (
-            <View className="py-4 justify-center items-center">
-              <LoadingComponent visible={true} size="small" />
-            </View>
-          )}
-
-          {/* 8. End of feed */}
-          {!hasMore && listItems.length >= BATCH_SIZE && (
-            <View className="py-4 justify-center items-center">
-              <Text className="text-gray-500">You've reached the end of the feed.</Text>
-            </View>
-          )}
-
-        </ScrollView>
 
       
       {/* IMAGE MODAL */}
