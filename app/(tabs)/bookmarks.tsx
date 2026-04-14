@@ -11,6 +11,7 @@ import {
   Animated,
   Dimensions,
   Image,
+  KeyboardAvoidingView,
   Linking,
   Modal,
   Platform,
@@ -21,7 +22,7 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Toast } from 'react-native-toast-message/lib/src/Toast';
 import CommentsModal from '../../components/CommentsModal';
 import { LoadingComponent } from '../../components/LoadingComponent';
@@ -456,6 +457,7 @@ const RepostModal: React.FC<RepostModalProps> = ({
   onQuoteRepost
 }) => {
   const [repostComment, setRepostComment] = useState('');
+  const insets = useSafeAreaInsets();
   const [isQuoteMode, setIsQuoteMode] = useState(false);
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
@@ -499,121 +501,187 @@ const RepostModal: React.FC<RepostModalProps> = ({
     AuthorImage = post.AuthorImageURL;
   }
 
-  return (
+    return (
     <Modal
       visible={visible}
       transparent={true}
       animationType="fade"
       onRequestClose={onClose}
     >
-      <View className="flex-1 bg-black/50 items-center justify-end px-4 pb-8">
-        <Animated.View 
-          style={[{ transform: [{ scale: scaleAnim }] }]}
-          className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl"
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        {/* Dark backdrop — tap outside to close */}
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}
+          activeOpacity={1}
+          onPress={onClose}
+        />
+  
+        {/* White card — sits ABOVE the backdrop */}
+        <Animated.View
+          style={[
+            {
+              transform: [{ scale: scaleAnim }],
+              backgroundColor: 'white',
+              borderTopLeftRadius: 28,
+              borderTopRightRadius: 28,
+              borderBottomLeftRadius: 28,
+              borderBottomRightRadius: 28,
+              marginHorizontal: 16,
+              marginBottom: insets.bottom + 24, // ✅ lifts card above nav bar/back button
+              overflow: 'hidden',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: -4 },
+              shadowOpacity: 0.12,
+              shadowRadius: 16,
+              elevation: 12,
+            },
+          ]}
         >
-          <View className="px-6 pt-4 border-b border-gray-100">
-            <View className="flex-row items-center justify-between">
-              <View className="flex-1">
-                <Text className="text-xl font-bold text-gray-900">Share this post</Text>
-                {/* <Text className="text-gray-500 text-sm mt-1">Add your thoughts or share as is</Text> */}
-              </View>
-              <TouchableOpacity 
-                className="p-2 rounded-full bg-gray-100"
+          {/* ── Header ── */}
+          <View
+            style={{
+              paddingHorizontal: 24,
+              paddingTop: 16,
+              paddingBottom: 16,
+              borderBottomWidth: 1,
+              borderBottomColor: '#F3F4F6',
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827' }}>
+                Share this post
+              </Text>
+              <TouchableOpacity
                 onPress={onClose}
+                style={{
+                  padding: 8,
+                  borderRadius: 999,
+                  backgroundColor: '#F3F4F6',
+                }}
               >
                 <Ionicons name="close" size={20} color="#64748b" />
               </TouchableOpacity>
             </View>
           </View>
-
-          <View className="px-2 py-0">
-            <View className="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-200">
-              <View className="flex-row items-center mb-2">
+  
+          {/* ── Body ── */}
+          <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16 }}>
+  
+            {/* Post preview */}
+            <View
+              style={{
+                backgroundColor: '#F9FAFB',
+                borderRadius: 12,
+                padding: 16,
+                marginBottom: 12,
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                 <Image
-                  // source={{ uri: post.AuthorImageURL }}
-                  source={{uri: AuthorImage || dummyAuthorImage}}
-                  className="w-8 h-8 rounded-full mr-2"
+                  source={{ uri: AuthorImage || dummyAuthorImage }}
+                  style={{ width: 32, height: 32, borderRadius: 16, marginRight: 8 }}
                   resizeMode="cover"
                   resizeMethod="resize"
                 />
-                <Text className="font-semibold text-gray-900 text-sm">{AuthorName}</Text>
+                <Text style={{ fontWeight: '600', color: '#111827', fontSize: 14 }}>
+                  {AuthorName}
+                </Text>
               </View>
               <ExpandableText text={post.ContentDesc} />
             </View>
-
-            {/* <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-gray-600 text-sm">Add your thoughts?</Text>
-              <TouchableOpacity
-                onPress={() => setIsQuoteMode(!isQuoteMode)}
-                className={`px-3 py-1 rounded-full border ${
-                  isQuoteMode ? 'bg-black border-black' : 'bg-gray-100 border-gray-300'
-                }`}
-              >
-                <Text className={`text-xs font-medium ${
-                  isQuoteMode ? 'text-white' : 'text-gray-600'
-                }`}>
-                  Quote
-                </Text>
-              </TouchableOpacity>
-            </View> */}
-
+  
+            {/* Quote text input (only in quote mode) */}
             {isQuoteMode && (
-              <View className="mb-4">
+              <View style={{ marginBottom: 12 }}>
                 <TextInput
-                  className="border border-gray-300 rounded-xl p-3 text-gray-900 min-h-[80px]"
+                  style={{
+                    borderWidth: 1,
+                    borderColor: '#D1D5DB',
+                    borderRadius: 12,
+                    padding: 12,
+                    color: '#111827',
+                    minHeight: 80,
+                    textAlignVertical: 'top',
+                  }}
                   placeholder="Add your comment..."
                   placeholderTextColor="#9CA3AF"
                   multiline
-                  textAlignVertical="top"
                   value={repostComment}
                   onChangeText={setRepostComment}
                   maxLength={280}
                 />
-                <Text className="text-xs text-gray-500 mt-1 text-right">
+                <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 4, textAlign: 'right' }}>
                   {repostComment.length}/280
                 </Text>
               </View>
             )}
-
-            <View className="flex-row space-x-3">
+  
+            {/* Action buttons */}
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+  
+              {/* Repost button */}
               <TouchableOpacity
                 onPress={handleSimpleRepost}
-                className="flex-1 bg-gray-100 py-3 rounded-xl items-center"
                 activeOpacity={0.8}
+                style={{
+                  flex: 1,
+                  backgroundColor: '#F3F4F6',
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                }}
               >
-                <View className="flex-row items-center">
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <Ionicons name="repeat" size={18} color="#64748b" />
-                  <Text className="ml-2 text-gray-700 font-semibold">Repost</Text>
+                  <Text style={{ marginLeft: 8, color: '#374151', fontWeight: '600' }}>
+                    Repost
+                  </Text>
                 </View>
               </TouchableOpacity>
-
+  
+              {/* Quote button (only in quote mode) */}
               {isQuoteMode && (
                 <TouchableOpacity
                   onPress={handleQuoteRepost}
-                  className={`flex-1 py-3 rounded-xl items-center ${
-                    repostComment.trim() ? 'bg-black' : 'bg-gray-300'
-                  }`}
                   activeOpacity={0.8}
                   disabled={!repostComment.trim()}
+                  style={{
+                    flex: 1,
+                    backgroundColor: repostComment.trim() ? '#000' : '#D1D5DB',
+                    paddingVertical: 12,
+                    borderRadius: 12,
+                    alignItems: 'center',
+                  }}
                 >
-                  <View className="flex-row items-center">
-                    <MaterialCommunityIcons 
-                      name="comment-quote" 
-                      size={18} 
-                      color={repostComment.trim() ? "white" : "#9CA3AF"} 
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <MaterialCommunityIcons
+                      name="comment-quote"
+                      size={18}
+                      color={repostComment.trim() ? 'white' : '#9CA3AF'}
                     />
-                    <Text className={`ml-2 font-semibold ${
-                      repostComment.trim() ? 'text-white' : 'text-gray-500'
-                    }`}>
+                    <Text
+                      style={{
+                        marginLeft: 8,
+                        fontWeight: '600',
+                        color: repostComment.trim() ? 'white' : '#6B7280',
+                      }}
+                    >
                       Quote
                     </Text>
                   </View>
                 </TouchableOpacity>
               )}
+  
             </View>
           </View>
         </Animated.View>
-      </View>
+  
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
