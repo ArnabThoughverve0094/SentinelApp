@@ -776,124 +776,189 @@ const RepostModal: React.FC<RepostModalProps> = ({
   }
 
   return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="fade"
-      onRequestClose={onClose}
+  <Modal
+    visible={visible}
+    transparent={true}
+    animationType="fade"
+    onRequestClose={onClose}
+  >
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View className="flex-1 bg-black/50 items-center justify-end px-4 pb-8">
-        <Animated.View 
-          style={[{ transform: [{ scale: scaleAnim }] }]}
-          className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl"
-        >
-          <View className="px-6 pt-4 border-b border-gray-100">
-            <View className="flex-row items-center justify-between">
-              <View className="flex-1">
-                <Text className="text-xl font-bold text-gray-900">Share this post</Text>
-                {/* <Text className="text-gray-500 text-sm mt-1">Add your thoughts or share as is</Text> */}
-              </View>
-              <TouchableOpacity 
-                className="p-2 rounded-full bg-gray-100"
-                onPress={onClose}
-              >
-                <Ionicons name="close" size={20} color="#64748b" />
-              </TouchableOpacity>
-            </View>
-          </View>
+      {/* Dark backdrop — tap outside to close */}
+      <TouchableOpacity
+        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}
+        activeOpacity={1}
+        onPress={onClose}
+      />
 
-          <View className="px-2 py-0">
-            <View className="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-200">
-              <View className="flex-row items-center mb-2">
-                <Image
-                  // source={{ uri: post.AuthorImageURL }}
-                  source={{uri: AuthorImage || dummyAuthorImage}}
-                  className="w-8 h-8 rounded-full mr-2"
-                  resizeMode="cover"
-                  resizeMethod="resize"
-                />
-                <Text className="font-semibold text-gray-900 text-sm">{AuthorName}</Text>
-              </View>
-              <Text className="text-gray-700 text-sm" numberOfLines={3}>
-                {renderStyledPostText(post.ContentDesc)}
+      {/* White card */}
+      <Animated.View
+        style={{
+          transform: [{ scale: scaleAnim }],
+          backgroundColor: 'white',
+          borderTopLeftRadius: 28,
+          borderTopRightRadius: 28,
+          borderBottomLeftRadius: 28,
+          borderBottomRightRadius: 28,
+          marginHorizontal: 16,
+          marginBottom: insets.bottom + 24, // ✅ lifts above nav bar/back button
+          overflow: 'hidden',
+          elevation: 0,                     // ✅ no Android white glow
+          shadowOpacity: 0,                 // ✅ no iOS shadow
+          borderWidth: 1,
+          borderColor: 'rgba(0,0,0,0.08)',  // ✅ clean hairline border instead
+        }}
+      >
+        {/* ── Header ── */}
+        <View
+          style={{
+            paddingHorizontal: 24,
+            paddingTop: 16,
+            paddingBottom: 16,
+            borderBottomWidth: 1,
+            borderBottomColor: '#F3F4F6',
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827' }}>
+              Share this post
+            </Text>
+            <TouchableOpacity
+              onPress={onClose}
+              style={{
+                padding: 8,
+                borderRadius: 999,
+                backgroundColor: '#F3F4F6',
+              }}
+            >
+              <Ionicons name="close" size={20} color="#64748b" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ── Body ── */}
+        <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16 }}>
+
+          {/* Post preview card */}
+          <View
+            style={{
+              backgroundColor: '#F9FAFB',
+              borderRadius: 12,
+              padding: 16,
+              marginBottom: 12,
+              borderWidth: 1,
+              borderColor: '#E5E7EB',
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <Image
+                source={{ uri: AuthorImage || dummyAuthorImage }}
+                style={{ width: 32, height: 32, borderRadius: 16, marginRight: 8 }}
+                resizeMode="cover"
+                resizeMethod="resize"
+              />
+              <Text style={{ fontWeight: '600', color: '#111827', fontSize: 14 }}>
+                {AuthorName}
               </Text>
             </View>
+            <Text style={{ color: '#374151', fontSize: 14, lineHeight: 20 }} numberOfLines={3}>
+              {post.ContentDesc}
+            </Text>
+          </View>
 
-            {/* <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-gray-600 text-sm">Add your thoughts?</Text>
-              <TouchableOpacity
-                onPress={() => setIsQuoteMode(!isQuoteMode)}
-                className={`px-3 py-1 rounded-full border ${
-                  isQuoteMode ? 'bg-black border-black' : 'bg-gray-100 border-gray-300'
-                }`}
-              >
-                <Text className={`text-xs font-medium ${
-                  isQuoteMode ? 'text-white' : 'text-gray-600'
-                }`}>
-                  Quote
-                </Text>
-              </TouchableOpacity>
-            </View> */}
+          {/* Quote text input */}
+          {isQuoteMode && (
+            <View style={{ marginBottom: 12 }}>
+              <TextInput
+                style={{
+                  borderWidth: 1,
+                  borderColor: '#D1D5DB',
+                  borderRadius: 12,
+                  padding: 12,
+                  color: '#111827',
+                  minHeight: 80,
+                  textAlignVertical: 'top',
+                  fontSize: 14,
+                }}
+                placeholder="Add your comment..."
+                placeholderTextColor="#9CA3AF"
+                multiline
+                value={repostComment}
+                onChangeText={setRepostComment}
+                maxLength={280}
+              />
+              <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 4, textAlign: 'right' }}>
+                {repostComment.length}/280
+              </Text>
+            </View>
+          )}
 
-            {isQuoteMode && (
-              <View className="mb-4">
-                <TextInput
-                  className="border border-gray-300 rounded-xl p-3 text-gray-900 min-h-[80px]"
-                  placeholder="Add your comment..."
-                  placeholderTextColor="#9CA3AF"
-                  multiline
-                  textAlignVertical="top"
-                  value={repostComment}
-                  onChangeText={setRepostComment}
-                  maxLength={280}
-                />
-                <Text className="text-xs text-gray-500 mt-1 text-right">
-                  {repostComment.length}/280
+          {/* Action buttons */}
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+
+            {/* Repost button */}
+            <TouchableOpacity
+              onPress={handleSimpleRepost}
+              activeOpacity={0.8}
+              style={{
+                flex: 1,
+                backgroundColor: '#F3F4F6',
+                paddingVertical: 14,
+                borderRadius: 12,
+                alignItems: 'center',
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="repeat" size={18} color="#64748b" />
+                <Text style={{ marginLeft: 8, color: '#374151', fontWeight: '600', fontSize: 14 }}>
+                  Repost
                 </Text>
               </View>
-            )}
+            </TouchableOpacity>
 
-            <View className="flex-row space-x-3">
+            {/* Quote button */}
+            {isQuoteMode && (
               <TouchableOpacity
-                onPress={handleSimpleRepost}
-                className="flex-1 bg-gray-100 py-3 rounded-xl items-center"
+                onPress={handleQuoteRepost}
                 activeOpacity={0.8}
+                disabled={!repostComment.trim()}
+                style={{
+                  flex: 1,
+                  backgroundColor: repostComment.trim() ? '#000' : '#D1D5DB',
+                  paddingVertical: 14,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                }}
               >
-                <View className="flex-row items-center">
-                  <Ionicons name="repeat" size={18} color="#64748b" />
-                  <Text className="ml-2 text-gray-700 font-semibold">Repost</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <MaterialCommunityIcons
+                    name="comment-quote"
+                    size={18}
+                    color={repostComment.trim() ? 'white' : '#9CA3AF'}
+                  />
+                  <Text
+                    style={{
+                      marginLeft: 8,
+                      fontWeight: '600',
+                      fontSize: 14,
+                      color: repostComment.trim() ? 'white' : '#6B7280',
+                    }}
+                  >
+                    Quote
+                  </Text>
                 </View>
               </TouchableOpacity>
+            )}
 
-              {isQuoteMode && (
-                <TouchableOpacity
-                  onPress={handleQuoteRepost}
-                  className={`flex-1 py-3 rounded-xl items-center ${
-                    repostComment.trim() ? 'bg-black' : 'bg-gray-300'
-                  }`}
-                  activeOpacity={0.8}
-                  disabled={!repostComment.trim()}
-                >
-                  <View className="flex-row items-center">
-                    <MaterialCommunityIcons 
-                      name="comment-quote" 
-                      size={18} 
-                      color={repostComment.trim() ? "white" : "#9CA3AF"} 
-                    />
-                    <Text className={`ml-2 font-semibold ${
-                      repostComment.trim() ? 'text-white' : 'text-gray-500'
-                    }`}>
-                      Quote
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-            </View>
           </View>
-        </Animated.View>
-      </View>
-    </Modal>
-  );
+        </View>
+      </Animated.View>
+
+    </KeyboardAvoidingView>
+  </Modal>
+);
 };
 
 // Custom Modal Component with better UI
@@ -1264,6 +1329,8 @@ export default function ProfilePage(): React.JSX.Element {
         if (viewedPosts.has(postId)) {
           return;
         }
+        const pendingPost = userPosts.find(p => p.id === postId);
+        if (pendingPost?.isNew && !pendingPost?.isApproved) return;
 
         const collectionName = postType === 'X-Data' ? 'X-Data' : 'SentinelPosts';
         const postRef = doc(db, collectionName, postId);
@@ -1325,16 +1392,16 @@ export default function ProfilePage(): React.JSX.Element {
         const unsubscribe = onSnapshot(postRef, (snapshot) => {
           if (snapshot.exists()) {
             const data = snapshot.data();
-            const newViewCount = data.ContentViewCount || 0;
+            const newViewCount = data.ContentViewCount ?? 0;
             
-            // Only update if count actually changed
-            setUserPosts(prev =>
-              prev.map(p =>
-                p.id === post.id && p.ContentViewCount !== newViewCount
-                  ? { ...p, ContentViewCount: newViewCount }
-                  : p
-              )
-            );
+            
+           setUserPosts(prev => prev.map(p => {
+              if (p.id !== post.id) return p;
+              
+              if (p.isNew && !p.isApproved) return p;
+              if (p.ContentViewCount === newViewCount) return p;
+              return { ...p, ContentViewCount: newViewCount };
+            }));
           }
         }, (error) => {
           console.error(`Error listening to post ${post.id}:`, error);
@@ -4270,9 +4337,9 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
                     style={{ opacity: (areInteractionsDisabled(item) || (item.isNew && !item.isApproved)) ? 0.35 : 1 }} 
                   >
                     <Feather name="bar-chart-2" size={20} color="#64748b" />
-                    {item.ContentViewCount !== undefined && item.ContentViewCount > 0 && (
-                      <Text className="text-gray-600 ml-1.5 text-xs font-medium">
-                        {formatViewCount(item.ContentViewCount)}
+                    {!(item.isNew && !item.isApproved) && item.ContentViewCount !== undefined && item.ContentViewCount >= 0 && (
+                    <Text className="text-gray-600 ml-1.5 text-xs font-medium">
+                      {formatViewCount(item.ContentViewCount)}
                       </Text>
                     )}
                   </TouchableOpacity>
