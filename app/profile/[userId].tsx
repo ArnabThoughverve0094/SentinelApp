@@ -18,6 +18,7 @@ import {
   doc,
   getCountFromServer,
   getDoc,
+  getDocs,
   increment,
   onSnapshot,
   query,
@@ -57,6 +58,7 @@ interface UserDoc {
   Website?: string;
   website?: string;
   FollowersCount?: number;
+  Follower?: FollowingUser[];
   Following?: FollowingUser[];
   PostsCount?: number;
 }
@@ -513,20 +515,16 @@ export default function UserProfileScreen() {
       (docSnapshot) => {
         if (docSnapshot.exists()) {
           const data = docSnapshot.data();
-          const followingList = asArray<FollowingUser>(data?.Following);
+          const followingList = asArray<FollowingUser>(data?.Following) || [];
+          const followerList = asArray<FollowingUser>(data?.Follower) || [];
 
-          const followingCount =
-            typeof data?.followingCount === "number"
-              ? data.followingCount
-              : followingList.length;
-
-          const followerCount =
-            typeof data?.followerCount === "number"
-              ? data.followerCount
-              : 0;
+          const followingCount = followingList.length;
+          const followerCount = followerList.length;
 
           setRealFollowingCount(followingCount);
           setRealFollowersCount(followerCount);
+
+          syncUserStats(followingList, followerList);
         } else {
           setRealFollowingCount(0);
           setRealFollowersCount(0);
@@ -539,6 +537,44 @@ export default function UserProfileScreen() {
 
   return () => unsubscribe();
 }, [userId]);
+
+const syncUserStats = async (rawFollowing: FollowingUser[], rawFollowers: FollowingUser[]) => {
+  if (!userId) return;
+  console.log("RawFollowing: ", rawFollowing);
+  console.log("RawFollowers: ", rawFollowers);
+
+  try {
+    const userDocRef = doc(db, "IronExUsers", userId);
+    
+    // Note: We only fetch the 'UserID' field to keep it lightweight
+    const auditRef = collection(db, "UserDeletionAudit");
+    const auditSnap = await getDocs(auditRef);
+    const deletedUserIds = new Set(auditSnap.docs.map(doc => doc.data().userName));
+
+    // 3. Filter out users who appear in the deleted list
+    const cleanFollowing = rawFollowing.filter(u => !deletedUserIds.has(u.userId));
+    const cleanFollowers = rawFollowers.filter(u => !deletedUserIds.has(u.userId));
+
+    // 4. Update State
+    setRealFollowingCount(cleanFollowing.length);
+    setRealFollowersCount(cleanFollowers.length);
+
+    // 5. (Optional) Auto-Cleanup Database
+    // If the lengths changed, it means we found deleted users. 
+    // You might want to update the DB here so you don't have to filter next time.
+    if (cleanFollowing.length !== rawFollowing.length || cleanFollowers.length !== rawFollowers.length) {
+      await updateDoc(userDocRef, {
+        Following: cleanFollowing,
+        Follower: cleanFollowers,
+        followingCount: cleanFollowing.length,
+        followerCount: cleanFollowers.length
+      });
+    }
+
+  } catch (error) {
+    console.error("❌ Error syncing user lists:", error);
+  }
+};
 
 
 const fetchCounts = async () => {
@@ -871,32 +907,6 @@ const fetchFollowerCounts = async () => {
           }
         });
 
-
-        // const sentinelUsersRef = collection(db, "SentinelUsers");
-        // const q = query(sentinelUsersRef, where("userID", "==", fetchuserID));
-
-        // const unsubscribe = onSnapshot(q, (snapshot) => {
-        //   if (!snapshot.empty) {
-        //     const userDoc = snapshot.docs[0];
-        //     const userData = userDoc.data();
-        //     setCurrentUserDocId(userDoc.id);
-        //     const following = userData.Following || [];
-        //     setFollowingUserIds(following);
-        //     console.log("✅ Following list updated:", following);
-
-        //     if (userId) {
-        //       const isUserFollowing = following.includes(userId);
-        //       setIsFollowing(isUserFollowing);
-        //       console.log(`📌 Is following ${userId}:`, isUserFollowing);
-        //     }
-        //   } else {
-        //     console.log("📝 No user document found");
-        //     setFollowingUserIds([]);
-        //     setCurrentUserDocId("");
-        //     setIsFollowing(false);
-        //   }
-        // });
-
         return unsubscribe;
       }
     } catch (error) {
@@ -1015,6 +1025,7 @@ const fetchFollowerCounts = async () => {
             Website: undefined,
             website: undefined,
             FollowersCount: 0,
+            Follower: [],
             Following: [],
             PostsCount: 0,
           };
@@ -1079,6 +1090,7 @@ const fetchFollowerCounts = async () => {
               Website: data.Website,
               website: data.website,
               FollowersCount: data.FollowersCount || 0,
+              Follower: data.Follower || [],
               Following: data.Following || [],
               PostsCount: data.PostsCount || 0,
             };
@@ -1096,6 +1108,7 @@ const fetchFollowerCounts = async () => {
               Website: undefined,
               website: undefined,
               FollowersCount: 0,
+              Follower: [],
               Following: [],
               PostsCount: 0,
             };
@@ -1305,16 +1318,35 @@ const fetchFollowerCounts = async () => {
   
     try {
       if (isFollowing) {
-        // --- UNFOLLOW LOGIC ---
-        batch.update(userUsersDocRef, {
-          Following: arrayRemove(followingData), // Atomic remove
-          followingCount: increment(-1)
-        });
+        // // --- UNFOLLOW LOGIC ---
+        // batch.update(userUsersDocRef, {
+        //   Following: arrayRemove(followingData), // Atomic remove
+        //   followingCount: increment(-1)
+        // });
   
-        batch.update(targetUserDocRef, {
-          Follower: arrayRemove(followerData), // Atomic remove
-          followerCount: increment(-1)
-        });
+        // batch.update(targetUserDocRef, {
+        //   Follower: arrayRemove(followerData), // Atomic remove
+        //   followerCount: increment(-1)
+        // });
+
+
+        const exactFollowingData = followingUsers.find(f => f.userId === userId);
+  
+        const exactFollowerData = userDoc?.Follower?.find(f => f.userId === fetchuserID);
+
+        if (exactFollowingData) {
+          batch.update(userUsersDocRef, {
+            Following: arrayRemove(exactFollowingData),
+            followingCount: increment(-1)
+          });
+        }
+
+        if (exactFollowerData) {
+          batch.update(targetUserDocRef, {
+            Follower: arrayRemove(exactFollowerData),
+            followerCount: increment(-1)
+          });
+        }
   
       } else {
         // --- FOLLOW LOGIC ---

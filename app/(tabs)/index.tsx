@@ -180,6 +180,54 @@ const VideoPlayerItem = React.memo(({ videoUrl, index, currentVideoIndex }: Vide
   );
 });
 const ironExBg = require('../../assets/images/ironex-bg.png');
+// ✅ ExpandableText — fully self-contained, auto See More/See Less
+  const ExpandableText = React.memo(({ text }: { text: string }) => {
+  const [expanded, setExpanded] = useState(false);
+  const [showButton, setShowButton] = useState(false);
+  const [measured, setMeasured] = useState(false);
+
+  if (!text) return null;
+
+  return (
+    <View>
+      {/* Hidden text to measure actual line count */}
+      {!measured && (
+        <Text
+          style={{ position: 'absolute', opacity: 0, fontSize: 14, lineHeight: 20 }}
+          numberOfLines={0}
+          onTextLayout={e => {
+            if (!measured) {
+              setShowButton(e.nativeEvent.lines.length > 3);
+              setMeasured(true);
+            }
+          }}
+        >
+          {text}
+        </Text>
+      )}
+
+      {/* Visible text */}
+      <Text
+        style={{ color: '#111827', fontSize: 14, lineHeight: 20, marginBottom: 4, fontWeight: '400' }}
+        numberOfLines={expanded ? undefined : 3}
+      >
+        {renderStyledPostText(text)}
+      </Text>
+
+      {showButton && (
+        <TouchableOpacity
+          onPress={e => { e.stopPropagation(); setExpanded(prev => !prev); }}
+          activeOpacity={0.7}
+          style={{ marginBottom: 4 }}
+        >
+          <Text style={{ color: '#2563EB', fontSize: 12, fontWeight: '600' }}>
+            {expanded ? 'See Less' : 'See More'}
+          </Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+});
 
 
 const renderStyledPostText = (text) => {
@@ -742,9 +790,10 @@ const RepostModal: React.FC<RepostModalProps> = ({
                 />
                 <Text className="font-semibold text-gray-900 text-sm">{AuthorName}</Text>
               </View>
-              <Text className="text-gray-700 text-sm" numberOfLines={3}>
+              {/* <Text className="text-gray-700 text-sm" numberOfLines={3}>
                 {renderStyledPostText(post.ContentDesc)}
-              </Text>
+              </Text> */}
+              <ExpandableText text={post.ContentDesc} />
             </View>
 
             {/* <View className="flex-row items-center justify-between mb-4">
@@ -1272,20 +1321,29 @@ useEffect(() => {
   runOnce();
 }, []);
 
-  const handleNavigateToProfile = useCallback(
-    (targetUserId: string, authorName: string, authorImageUrl: string) => {
-      router.push({
-        pathname: '/profile/[userId]',
-        params: {
-          userId: targetUserId,
-          authorName,
-          authorImageUrl,
-          isAnonymous: 'false',
-        },
-      });
-    },
-    [router]
-  );
+  const handleNavigateToProfile = useCallback((
+  targetUserId: string,
+  authorName: string,
+  authorImageUrl: string,
+  isAnonymous?: boolean   // ← add this new param
+) => {
+  // 🔒 Block profile open for anonymous users
+  if (isAnonymous) {
+    Toast.show({
+      type: 'info',
+      text1: 'Anonymous User',
+      text2: 'This user posted anonymously. Profile is hidden.',
+      position: 'bottom',
+      visibilityTime: 2500,
+    });
+    return;
+  }
+
+  router.push({
+    pathname: "/profile/[userId]",
+    params: { userId: targetUserId, authorName, authorImageUrl, isAnonymous: 'false' },
+  });
+}, [router]);
 
      
     
@@ -1576,6 +1634,18 @@ useEffect(() => {
 
 
         const openUserProfile = useCallback((item: PostItem) => {
+          // 🔒 Block profile open for anonymous posts
+          if (item.isAnonymous) {
+            Toast.show({
+              type: 'info',
+              text1: 'Anonymous Post',
+              text2: 'This user posted anonymously. Profile is not available.',
+              position: 'bottom',
+              visibilityTime: 2500,
+            });
+            return;
+          }
+
           const authorId = item.AuthorUserID || item.repostedBy;
           if (!authorId) return;
 
@@ -1583,12 +1653,12 @@ useEffect(() => {
             pathname: "/profile/[userId]",
             params: {
               userId: authorId || '12345',
-              userEmail: item.AuthorEmail || '',
+              userEmail: item.AuthorEmail ?? '',
               authorName: item.AuthorName || 'Anonymous',
-              userNickName: item.AuthorNickName || '',
-              authorImageUrl: item.AuthorImageURL || '',
-              isAnonymous: item.isAnonymous ? 'true' : 'false',
-              userBio: item.AuthorBio || '',
+              userNickName: item.AuthorNickName ?? '',
+              authorImageUrl: item.AuthorImageURL,
+              isAnonymous: 'false',
+              userBio: item.AuthorBio ?? '',
             },
           });
         }, [router]);
@@ -2246,12 +2316,12 @@ useEffect(() => {
   },[]);
 
   const cleanupSubscriptions = useCallback(() => {
-  unsubscribers.forEach(unsub => {
-    if (typeof unsub === 'function') {
-      unsub();
-    }
-  });
-  setUnsubscribers([]);
+    unsubscribers.forEach(unsub => {
+      if (typeof unsub === 'function') {
+        unsub();
+      }
+    });
+    setUnsubscribers([]);
 }, [unsubscribers]);
 
   const fetchPostComments = useCallback(async () => {
@@ -4127,9 +4197,7 @@ useEffect(() => {
             {getTimeAgo(item.originalPost.ContentDate)}
           </Text> */}
         </View>
-        <Text className="text-gray-700 text-sm mt-4" numberOfLines={3}>
-          {renderStyledPostText(item.originalPost.ContentDesc)}
-        </Text>
+        <ExpandableText text={item.ContentDesc} />
       </View>
     );
   }, [getTimeAgo, dummyAuthorImage]);
@@ -4143,162 +4211,173 @@ useEffect(() => {
 
   const filteredData = useMemo(() => {
     const blockedSet = new Set(allBlockedIds ?? []);
-  // Remove blocked users
-  const sourceData = fetchedData.filter(
-    item => !blockedSet?.has(item.AuthorUserID)
-  );
+    // Remove blocked users
+    const sourceData = fetchedData.filter(
+      item => !blockedSet?.has(item.AuthorUserID)
+    );
 
-  // ONE WEEK window constant for data eligibility
-  const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-  const now = Date.now();
+    // ONE WEEK window constant for data eligibility
+    const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
 
-  const toMs = (date: any): number => {
-    if (!date) return 0;
-    if (typeof date === 'object' && date?.toDate) return date.toDate().getTime();
-    if (date instanceof Date) return date.getTime();
-    return new Date(date).getTime();
-  };
+    const toMs = (date: any): number => {
+      if (!date) return 0;
+      if (typeof date === 'object' && date?.toDate) return date.toDate().getTime();
+      if (date instanceof Date) return date.getTime();
+      return new Date(date).getTime();
+    };
 
-  // Base approved data
-  const baseData = sourceData.filter(item => {
-    if (userRole === 'User') {
-      return (
-        item.postType.includes('X-Data') ||
-        (item.isApproved && !item.isNew)
-      );
-    }
-    return true;
-  });
+    // Base approved data
+    const baseData = sourceData.filter(item => {
+      if (userRole === 'User') {
+        return (
+          item.postType.includes('X-Data') ||
+          (item.isApproved && !item.isNew)
+        );
+      }
+      return true;
+    });
 
-  // Educational data
-  // Educational data — loose matching to handle missing/inconsistent fields
-  const educationalData = sourceData.filter(item => {
-    const isEdu =
-      item.contentType === 'Educational' ||
-      item.isEducational === true ||
-      item.postType?.toLowerCase().includes('educational');
+    // Educational data
+    // Educational data — loose matching to handle missing/inconsistent fields
+    const educationalData = sourceData.filter(item => {
+      const isEdu =
+        item.contentType === 'Educational' ||
+        item.isEducational === true ||
+        item.postType?.toLowerCase().includes('educational');
 
-    if (userRole === 'User') {
-      // X-Data posts are never educational; Sentinel posts need approval
-      if (item.postType.includes('X-Data')) return false;
-      return (item.isApproved && !item.isNew) && isEdu;
-    }
-    // Admin/Mod: show all educational posts regardless of approval
-    return isEdu;
-  });
+      if (userRole === 'User') {
+        // X-Data posts are never educational; Sentinel posts need approval
+        if (item.postType.includes('X-Data')) return false;
+          return (item.isApproved && !item.isNew) && isEdu;
+      }
+      // Admin/Mod: show all educational posts regardless of approval
+      return isEdu;
+    });
 
+    const allApprovedData = sourceData.filter(item => {
+      const isXData = item.postType.includes('X-Data');
+
+      if (userRole === 'User') {
+        // ✅ Explicitly hide reported posts for regular users
+        if (item.isReported && item.moderationStatus === 'pending-review') return false;
+        return isXData
+          ? (item.isApproved && !item.isNew)
+          : (item.isApproved && !item.isNew);
+      }
+      // Admins/Mods see everything (intentional)
+      return true;
+    });
+
+    const deletedSet = new Set(deletedUserIds); // O(1) lookups
+
+    const followingData = allApprovedData.filter(item => {
+        
+      if (item.isAnonymous) return false;
+
+      const authorId = item.repostedBy || item.AuthorUserID;
+
+      if (authorId && deletedSet.has(authorId)) return false;
+
+      return authorId && followingUserIds.includes(authorId);
+    });
 
   
-  const publishedData = sourceData.filter(item => {
-    const isXData = item.postType.includes('X-Data');
+    const publishedData = sourceData.filter(item => {
+      const isXData = item.postType.includes('X-Data');
 
-    if (userRole === 'User') {
-      // ✅ Explicitly hide reported posts for regular users
-      if (item.isReported && item.moderationStatus === 'pending-review') return false;
-      return isXData
-        ? (item.isApproved && !item.isNew)
-        : (item.isApproved && !item.isNew && item.contentType !== 'Educational' && !item.isEducational);
-    }
-    // Admins/Mods see everything (intentional)
-    return item.contentType !== 'Educational' && !item.isEducational;
-  });
+      if (userRole === 'User') {
+        // ✅ Explicitly hide reported posts for regular users
+        if (item.isReported && item.moderationStatus === 'pending-review') return false;
+        return isXData
+          ? (item.isApproved && !item.isNew)
+          : (item.isApproved && !item.isNew && item.contentType !== 'Educational' && !item.isEducational);
+      }
+      // Admins/Mods see everything (intentional)
+      return item.contentType !== 'Educational' && !item.isEducational;
+    });
 
-  const allApprovedData = sourceData.filter(item => {
-    const isXData = item.postType.includes('X-Data');
+    // ── FOLLOWING TAB ──────────────────────────────────────────────────────────
+      if (activeTab === 'following') {
+        // const deletedSet = new Set(deletedUserIds); // O(1) lookups
 
-    if (userRole === 'User') {
-      // ✅ Explicitly hide reported posts for regular users
-      if (item.isReported && item.moderationStatus === 'pending-review') return false;
-      return isXData
-        ? (item.isApproved && !item.isNew)
-        : (item.isApproved && !item.isNew);
-    }
-    // Admins/Mods see everything (intentional)
-    return true;
-  });
-
-  // ── FOLLOWING TAB ──────────────────────────────────────────────────────────
-    if (activeTab === 'following') {
-      const deletedSet = new Set(deletedUserIds); // O(1) lookups
-
-      const followingData = allApprovedData.filter(item => {
+        // const followingData = allApprovedData.filter(item => {
         
-        if (item.isAnonymous) return false;
+        //   if (item.isAnonymous) return false;
 
-        const authorId = item.repostedBy || item.AuthorUserID;
+        //   const authorId = item.repostedBy || item.AuthorUserID;
 
-        
-        if (authorId && deletedSet.has(authorId)) return false;
+        //   if (authorId && deletedSet.has(authorId)) return false;
 
-        return authorId && followingUserIds.includes(authorId);
-      });
+        //   return authorId && followingUserIds.includes(authorId);
+        // });
 
-      if (followingData.length < 4) handleLoadMore();
-      return followingData;
+        if (followingData.length < 4) handleLoadMore();
+        return followingData;
+      }
+
+    // ── EDUCATIONAL TAB ────────────────────────────────────────────────────────
+    if (activeTab === 'educational') {
+      if (educationalData.length < 4) handleLoadMore();
+      return educationalData;
     }
 
-  // ── EDUCATIONAL TAB ────────────────────────────────────────────────────────
-  if (activeTab === 'educational') {
-    if (educationalData.length < 4) handleLoadMore();
-    return educationalData;
-  }
+    // ── FOR YOU TAB ────────────────────────────────────────────────────────────
+    if (activeTab === 'forYou') {
+      // 1. Separate Sentinel and X-Data posts
+      const allSentinels = publishedData.filter(
+        item => !item.postType.includes('X-Data')
+      );
+      const allXData = publishedData.filter(
+        item => item.postType.includes('X-Data')
+      );
 
-  // ── FOR YOU TAB ────────────────────────────────────────────────────────────
-  if (activeTab === 'forYou') {
-    // 1. Separate Sentinel and X-Data posts
-    const allSentinels = publishedData.filter(
-      item => !item.postType.includes('X-Data')
-    );
-    const allXData = publishedData.filter(
-      item => item.postType.includes('X-Data')
-    );
+      // 2. BOTH pools limited to last 1 week for relevancy
+      const weekSentinels = allSentinels.filter(
+        p => now - toMs(p.createdAt ?? p.ContentDate) <= ONE_WEEK_MS
+      );
+      const weekXData = allXData.filter(
+        p => now - toMs(p.createdAt ?? p.ContentDate) <= ONE_WEEK_MS
+      );
 
-    // 2. BOTH pools limited to last 1 week for relevancy
-    const weekSentinels = allSentinels.filter(
-      p => now - toMs(p.createdAt ?? p.ContentDate) <= ONE_WEEK_MS
-    );
-    const weekXData = allXData.filter(
-      p => now - toMs(p.createdAt ?? p.ContentDate) <= ONE_WEEK_MS
-    );
+      // 3. Older posts (beyond 1 week) as fallback pool
+      const olderSentinels = allSentinels.filter(
+        p => now - toMs(p.createdAt ?? p.ContentDate) > ONE_WEEK_MS
+      );
+      const olderXData = allXData.filter(
+        p => now - toMs(p.createdAt ?? p.ContentDate) > ONE_WEEK_MS
+      );
 
-    // 3. Older posts (beyond 1 week) as fallback pool
-    const olderSentinels = allSentinels.filter(
-      p => now - toMs(p.createdAt ?? p.ContentDate) > ONE_WEEK_MS
-    );
-    const olderXData = allXData.filter(
-      p => now - toMs(p.createdAt ?? p.ContentDate) > ONE_WEEK_MS
-    );
+      // 4. Within the 1-week pool, get adaptive window for "fresh" Sentinel boost
+      const windowMs = getAdaptiveTimeWindow(weekSentinels, 5);
+      const freshSentinels = weekSentinels.filter(
+        p => now - toMs(p.createdAt ?? p.ContentDate) <= windowMs
+      );
+      const recentSentinels = weekSentinels.filter(
+        p => now - toMs(p.createdAt ?? p.ContentDate) > windowMs
+      );
 
-    // 4. Within the 1-week pool, get adaptive window for "fresh" Sentinel boost
-    const windowMs = getAdaptiveTimeWindow(weekSentinels, 5);
-    const freshSentinels = weekSentinels.filter(
-      p => now - toMs(p.createdAt ?? p.ContentDate) <= windowMs
-    );
-    const recentSentinels = weekSentinels.filter(
-      p => now - toMs(p.createdAt ?? p.ContentDate) > windowMs
-    );
+      // 5. Build interleaved blocks for the 1-week pool
+      //    Pattern: [recentSentinels 20] [weekXData 10] repeating
+      const interleavedWeek = buildInterleavedFeed(recentSentinels, weekXData, 20, 10);
 
-    // 5. Build interleaved blocks for the 1-week pool
-    //    Pattern: [recentSentinels 20] [weekXData 10] repeating
-    const interleavedWeek = buildInterleavedFeed(recentSentinels, weekXData, 20, 10);
+      // 6. Build interleaved blocks for older posts (beyond 1 week) as tail
+      const interleavedOlder = buildInterleavedFeed(olderSentinels, olderXData, 20, 10);
 
-    // 6. Build interleaved blocks for older posts (beyond 1 week) as tail
-    const interleavedOlder = buildInterleavedFeed(olderSentinels, olderXData, 20, 10);
+      console.log(
+        `[Feed] Window: ${windowMs / 3600000}h | Fresh: ${freshSentinels.length} | Week Sentinels: ${weekSentinels.length} | Week X: ${weekXData.length} | Older: ${olderSentinels.length + olderXData.length}`
+      );
 
-    console.log(
-      `[Feed] Window: ${windowMs / 3600000}h | Fresh: ${freshSentinels.length} | Week Sentinels: ${weekSentinels.length} | Week X: ${weekXData.length} | Older: ${olderSentinels.length + olderXData.length}`
-    );
+      // Final order:
+      // 1. Fresh Sentinels (latest within adaptive window) — always top
+      // 2. Interleaved 1-week posts (20S/10X pattern)
+      // 3. Interleaved older posts as infinite tail
+      return [...freshSentinels, ...interleavedWeek, ...interleavedOlder];
+    }
 
-    // Final order:
-    // 1. Fresh Sentinels (latest within adaptive window) — always top
-    // 2. Interleaved 1-week posts (20S/10X pattern)
-    // 3. Interleaved older posts as infinite tail
-    return [...freshSentinels, ...interleavedWeek, ...interleavedOlder];
-  }
+    return publishedData;
 
-  return publishedData;
-
-}, [fetchedData, userRole, activeTab, followingUserIds, allBlockedIds,deletedUserIds]);
+  }, [fetchedData, userRole, activeTab, followingUserIds, allBlockedIds,deletedUserIds]);
 
 
     const handleScroll = useCallback((event: any) => {
@@ -4744,17 +4823,7 @@ useEffect(() => {
               minHeight: 160,
             }}
           >
-            <Text
-              style={{
-                fontSize: 13,
-                fontWeight: '600',
-                color: isIronExEducational ? '#111827' : '#ffffff',
-                lineHeight: 19,
-              }}
-              numberOfLines={6}
-            >
-              {item.ContentDesc}
-            </Text>
+            <ExpandableText text={item.ContentDesc} />
 
             {item.ContentTagline ? (
               <Text
@@ -5027,9 +5096,7 @@ useEffect(() => {
 
       {/* ===== BODY ===== */}
       <View className="px-3 py-2.5">
-        <Text className="text-gray-800 text-sm leading-5 mb-2 font-normal" numberOfLines={3}>
-          {renderStyledPostText(item.ContentDesc)}
-        </Text>
+        <ExpandableText text={item.ContentDesc} />
 
         {renderRepostContent(item)}
         {item.postType !== "X-Data" && renderMediaContent(item, index)}
@@ -5277,10 +5344,10 @@ useEffect(() => {
           <Ionicons name="school-outline" size={40} color="#9CA3AF" />
         </View>
         <Text className="text-xl font-semibold text-gray-900 mb-2 text-center">
-          Educational feed is waiting
+          Learn feed is waiting
         </Text>
         <Text className="text-gray-500 text-center leading-6 mb-4">
-          Educational content will be available here. Stay tuned for learning materials and resources!
+          Learn content will be available here. Stay tuned for learning materials and resources!
         </Text>
       </View>
     );

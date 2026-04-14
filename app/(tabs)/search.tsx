@@ -2,7 +2,7 @@ import { db } from '@/FirebaseConfig';
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { arrayRemove, arrayUnion, collection, doc, getDocs, increment, onSnapshot, writeBatch } from 'firebase/firestore';
+import { arrayRemove, arrayUnion, collection, doc, getDoc, getDocs, increment, onSnapshot, writeBatch } from 'firebase/firestore';
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -34,6 +34,14 @@ interface SearchUser {
   postCount?: number;
   isFollowing?: boolean;
 }
+
+type FollowingUser = {
+  userId: string;
+  userEmail?: string;
+  userName?: string;
+  userNickName?: string;
+  profilePicUrl?: string;
+};
 
 // Enhanced Loading Component
 const LoadingComponent: React.FC<{ visible?: boolean; size?: 'small' | 'medium' | 'large' }> = ({
@@ -299,6 +307,7 @@ export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [allUsers, setAllUsers] = useState<SearchUser[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<SearchUser[]>([]);
+  const [followingUsers, setFollowingUsers] = useState<FollowingUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [userId, setUserId] = useState('');
@@ -311,44 +320,51 @@ export default function SearchPage() {
   const deletedUserIdsRef = useRef<string[]>([]);
 
   const searchInputRef = useRef<TextInput>(null);
+  const asArray = <T,>(value: unknown): T[] => {
+    return Array.isArray(value) ? (value as T[]) : [];
+    };
 
   // EXACT SAME PATTERN AS LANDING PAGE - Fetch user following
-  const fetchUserFollowing = useCallback(async () => {
-    try {
-      let fetchuserID = userId;
-      if (!fetchuserID) {
-        fetchuserID = (await AsyncStorage.getItem('userId')) || '';
-        setUserId(fetchuserID);
-      }
+  // const fetchUserFollowing = useCallback(async () => {
+  //   try {
+  //     let fetchuserID = userId;
+  //     if (!fetchuserID) {
+  //       fetchuserID = (await AsyncStorage.getItem('userId')) || '';
+  //       setUserId(fetchuserID);
+  //     }
 
-      if (fetchuserID) {
-        console.log('👤 Fetching following list for user:', fetchuserID);
+  //     if (fetchuserID) {
+  //       console.log('👤 Fetching following list for user:', fetchuserID);
 
-        const userDocRef = doc(db, 'IronExUsers', fetchuserID);
+  //       const userDocRef = doc(db, 'IronExUsers', fetchuserID);
 
-        const unsubscribeFollowing = onSnapshot(userDocRef, (docSnapshot) => {
-          if (docSnapshot.exists()) {
-            const data = docSnapshot.data();
+  //       const unsubscribeFollowing = onSnapshot(userDocRef, (docSnapshot) => {
+  //         if (docSnapshot.exists()) {
+  //           const data = docSnapshot.data();
 
-            // 1. Get the Array of following objects
-            const followingList: any[] = data.Following || [];
-            const idOnlyList: string[] = followingList.map(item => item.userId);
+  //           // 1. Get the Array of following objects
+  //           // const followingList: any[] = data.Following || [];
+  //           const followingList = asArray<FollowingUser>(data?.Following);
+  //           const idOnlyList: string[] = followingList.map(item => item.userId);
 
-            console.log(`✅ Displaying ${followingList.length} following`);
-            setFollowingUserIds(idOnlyList);
-          }
-        }, (error) => {
-          console.error("❌ Real-time listener failed:", error);
-          setFollowingUserIds([]);
-        });
+  //           console.log(`✅ Displaying ${followingList.length} following`);
+  //           setFollowingUserIds(idOnlyList);
+  //           setFollowingUsers(followingList);
+  //         }
+  //       }, (error) => {
+  //         console.error("❌ Real-time listener failed:", error);
+  //         setFollowingUserIds([]);
+  //         setFollowingUsers([]);
+  //       });
 
-        return unsubscribeFollowing;
-      }
-    } catch (error) {
-      console.error('❌ Error fetching following list:', error);
-      setFollowingUserIds([]);
-    }
-  }, [userId]);
+  //       return unsubscribeFollowing;
+  //     }
+  //   } catch (error) {
+  //     console.error('❌ Error fetching following list:', error);
+  //     setFollowingUserIds([]);
+  //   }
+  // }, [userId]);
+
   const fetchDeletedUsers = useCallback(async () => {
     try {
       const deletionRef = collection(db, 'UserDeletionAudit');
@@ -396,16 +412,60 @@ export default function SearchPage() {
   }, [userId]);
 
   // ✅ FIX: Mount order — fetch blocked/deleted FIRST, then fetch users
+  // useEffect(() => {
+  //   const init = async () => {
+  //     await fetchUserFollowing();
+  //     await fetchDeletedUsers();
+  //     await fetchBlockedUsers();
+  //     // ✅ Now fetch users AFTER blocked/deleted IDs are loaded into refs
+  //     fetchAllUsers();
+  //   };
+  //   init();
+  // }, []);
+
   useEffect(() => {
-    const init = async () => {
-      await fetchUserFollowing();
-      await fetchDeletedUsers();
-      await fetchBlockedUsers();
-      // ✅ Now fetch users AFTER blocked/deleted IDs are loaded into refs
-      fetchAllUsers();
+    let unsubscribeFollowing = () => {};
+  
+    const setupListeners = async () => {
+      // 1. Run your one-time fetches first
+      await Promise.all([fetchDeletedUsers(), fetchBlockedUsers()]);
+      
+      // 2. Get the ID for the listener
+      let fetchuserID = userId;
+      if (!fetchuserID) {
+        fetchuserID = (await AsyncStorage.getItem('userId')) || '';
+        setUserId(fetchuserID);
+      }
+  
+      if (fetchuserID) {
+        const userDocRef = doc(db, 'IronExUsers', fetchuserID);
+  
+        // 3. Start the real-time listener
+        unsubscribeFollowing = onSnapshot(userDocRef, (docSnapshot) => {
+          if (docSnapshot.exists()) {
+            const data = docSnapshot.data();
+            const followingList = asArray<FollowingUser>(data?.Following) || [];
+            const idOnlyList = followingList.map(item => item.userId);
+  
+            setFollowingUserIds(idOnlyList);
+            setFollowingUsers(followingList);
+            
+            // 4. Re-fetch or filter all users whenever the following list changes
+            fetchAllUsers(); 
+          }
+        }, (error) => {
+          console.error("❌ Listener failed:", error);
+        });
+      }
     };
-    init();
-  }, []);
+  
+    setupListeners();
+  
+    // CLEANUP: This is crucial for real-time to work correctly
+    return () => {
+      unsubscribeFollowing();
+    };
+  }, [userId]);
 
   // Fetch ALL users from database
   const fetchAllUsers = async () => {
@@ -588,15 +648,55 @@ export default function SearchPage() {
     try {
       if (user.isFollowing) {
         // --- UNFOLLOW LOGIC ---
-        batch.update(userUsersDocRef, {
-          Following: arrayRemove(followingData), // Atomic remove
-          followingCount: increment(-1)
-        });
+        // batch.update(userUsersDocRef, {
+        //   Following: arrayRemove(followingData), // Atomic remove
+        //   followingCount: increment(-1)
+        // });
   
-        batch.update(targetUserDocRef, {
-          Follower: arrayRemove(followerData), // Atomic remove
-          followerCount: increment(-1)
-        });
+        // batch.update(targetUserDocRef, {
+        //   Follower: arrayRemove(followerData), // Atomic remove
+        //   followerCount: increment(-1)
+        // });
+
+        console.log('user.isFollowing:', user.isFollowing);
+        try {
+          const userDocRef = doc(db, "IronExUsers", user.id);
+          const docSnapshot = await getDoc(userDocRef); // One-time request
+      
+          if (docSnapshot.exists()) {
+            const data = docSnapshot.data();
+            
+            // Use your helper to ensure they are arrays
+            const followerList = asArray<FollowingUser>(data?.Follower) || [];
+      
+            const exactFollowingData = followingUsers.find(f => f.userId === user.id);
+            console.log('exactFollowingData:', exactFollowingData);
+  
+            const exactFollowerData = followerList.find(f => f.userId === fetchuserID);
+            console.log('exactFollowerData:', exactFollowerData);
+
+            if (exactFollowingData) {
+              batch.update(userUsersDocRef, {
+                Following: arrayRemove(exactFollowingData),
+                followingCount: increment(-1)
+              });
+            }
+
+            if (exactFollowerData) {
+              batch.update(targetUserDocRef, {
+                Follower: arrayRemove(exactFollowerData),
+                followerCount: increment(-1)
+              });
+            }
+            
+          } else {
+            console.error("❌ Failed to fetch user follower");
+          }
+        } catch (error) {
+          console.error("❌ Failed to fetch user stats:", error);
+        }
+
+        
 
       } else {
         // --- FOLLOW LOGIC ---
@@ -631,7 +731,7 @@ export default function SearchPage() {
     } finally {
       setLoadingUserId(null);
     }
-  }, [userId]);
+  }, [userId, followingUsers]);
 
   // Clear search
   const clearSearch = () => {

@@ -1,33 +1,33 @@
+import { db } from '@/FirebaseConfig';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
-import { useEffect, useState, useRef } from 'react';
+import {
+  addDoc,
+  arrayUnion,
+  collection,
+  doc,
+  getDocs,
+  query,
+  setDoc,
+  updateDoc,
+  where
+} from 'firebase/firestore';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
   Text,
-  Keyboard ,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { db } from '@/FirebaseConfig';
-import { 
-  collection, 
-  query, 
-  where, 
-  getDocs, 
-  updateDoc, 
-  doc, 
-  setDoc,
-  addDoc,
-  arrayUnion 
-} from 'firebase/firestore';
 import { CountryPicker } from 'react-native-country-codes-picker';
-import { Ionicons } from '@expo/vector-icons';
 
 const EDIT_PROFILE_API = 'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/update-profile';
 const UPLOAD_API = 'https://8ufqzsm271.execute-api.us-east-2.amazonaws.com/dev/api/uploadFile';
@@ -227,7 +227,20 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
     }
   };
 
-  const showCustomAlert = (type, title, message, buttons = [], icon = 'information-circle') => {
+  // const showCustomAlert = (type: string, title: string, message: string, buttons = [], icon = 'information-circle') => {
+  //   setAlertConfig({
+  //     type,
+  //     title,
+  //     message,
+  //     buttons: buttons.length > 0 ? buttons : [{ text: 'OK', onPress: () => setCustomAlertVisible(false) }],
+  //     icon,
+  //   });
+  //   setCustomAlertVisible(true);
+  // };
+
+  const showCustomAlert = (type: string, title: string, message: string, buttons = [], icon = 'information-circle') => {
+    setCustomAlertVisible(false);
+
     setAlertConfig({
       type,
       title,
@@ -235,7 +248,10 @@ export default function EditProfileScreen({ visible, onClose, onSuccess }) {
       buttons: buttons.length > 0 ? buttons : [{ text: 'OK', onPress: () => setCustomAlertVisible(false) }],
       icon,
     });
-    setCustomAlertVisible(true);
+
+    setTimeout(() => {
+      setCustomAlertVisible(true);
+    }, 100);
   };
 
   const hideCustomAlert = () => {
@@ -695,227 +711,269 @@ return (
               position: 'relative',
             }}
           >
-            <TouchableOpacity
-              style={{ position: 'absolute', right: 15, top: 15, zIndex: 10 }}
-              onPress={onClose}
-              disabled={isLoading}
-            >
-              <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#666' }}>✕</Text>
-            </TouchableOpacity>
-
-            {/* Profile Picture */}
-            <TouchableOpacity
-              style={{ alignItems: 'center', marginBottom: 18 }}
-              onPress={handlePickImage}
-              disabled={isLoading}
-            >
-              <View style={{ position: 'relative' }}>
-                <Image
-                  key={fields.profilePicUrl}
-                  source={
-                    fields.profilePicUrl
-                      ? { uri: `${fields.profilePicUrl}?t=${Date.now()}` }
-                      : { uri: DEFAULT_AVATAR }
-                  }
-                  style={{
-                    width: 90,
-                    height: 90,
-                    borderRadius: 45,
-                    backgroundColor: '#eee',
-                  }}
-                />
-                {imageValidated && (
-                  <View
-                    style={{
-                      position: 'absolute',
-                      top: -5,
-                      right: -5,
-                      backgroundColor: '#4CAF50',
-                      borderRadius: 20,
-                      width: 32,
-                      height: 32,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      borderWidth: 2,
-                      borderColor: '#fff',
-                    }}
-                  >
-                    <Text style={{ fontSize: 18, color: '#fff' }}>✓</Text>
-                  </View>
-                )}
-                <View
-                  style={{
-                    position: 'absolute',
-                    bottom: -8,
-                    right: -8,
-                    backgroundColor: '#fff',
-                    padding: 6,
-                    borderRadius: 20,
-                    borderWidth: 1,
-                    borderColor: '#ccc',
-                  }}
-                >
-                  <Text style={{ fontSize: 17 }}>📷</Text>
-                </View>
-              </View>
-              <Text style={{ fontSize: 12, color: '#888', marginTop: 8 }}>
-                Tap to change profile picture
-              </Text>
-              {imageValidated && (
-                <Text style={{ fontSize: 11, color: '#4CAF50', marginTop: 4 }}>
-                  ✓ Image validated
-                </Text>
-              )}
-            </TouchableOpacity>
-
-            {/* Name */}
-            <View style={{ marginBottom: 11 }}>
-              <Text>Name <Text style={{ color: 'red' }}>*</Text></Text>
-              <TextInput
-                style={{ backgroundColor: '#f4f4f4', borderRadius: 8, padding: 12, marginTop: 4 }}
-                placeholder="Enter your full name"
-                value={fields.name}
-                onChangeText={t => setFields(f => ({ ...f, name: t }))}
-                editable={!isLoading}
-              />
-            </View>
-
-            {/* Nickname */}
-            <View style={{ marginBottom: 11 }}>
-              <Text>Nickname <Text style={{ color: 'red' }}>*</Text></Text>
-              <TextInput
-                style={{ backgroundColor: '#f4f4f4', borderRadius: 8, padding: 12, marginTop: 4 }}
-                placeholder="Choose a nickname"
-                value={fields.nickname}
-                onChangeText={t => setFields(f => ({ ...f, nickname: t }))}
-                editable={!isLoading}
-              />
-            </View>
-
-            {/* Email */}
-            <View style={{ marginBottom: 11 }}>
-              <Text>Email</Text>
-              <TextInput
-                style={{ backgroundColor: '#f4f4f4', borderRadius: 8, padding: 12, marginTop: 4 }}
-                value={fields.email}
-                editable={false}
-              />
-              <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
-                Email cannot be changed
-              </Text>
-            </View>
-
-            {/* ✅ FIXED Country Picker Trigger */}
-            <View style={{ marginBottom: 11 }}>
-              <Text>Country <Text style={{ color: 'red' }}>*</Text></Text>
+            {!customAlertVisible && (
+              <View>
               <TouchableOpacity
-                style={{
-                  backgroundColor: '#f4f4f4',
-                  borderRadius: 8,
-                  padding: 12,
-                  marginTop: 4,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                }}
-                onPress={() => {
-                  Keyboard.dismiss(); // ✅ FIX: Dismiss keyboard BEFORE opening picker
-                  setTimeout(() => setShowCountryDropdown(true), 150); // ✅ Small delay so keyboard fully hides first
-                }}
-                disabled={isLoading}
-              >
-                <Text style={{ color: fields.country ? '#000' : '#999', flex: 1 }}>
-                  {fields.country || 'Select your country'}
-                </Text>
-                <Ionicons name="chevron-down" size={20} color="#9CA3AF" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Bio */}
-            <View style={{ marginBottom: 11 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text>Bio</Text>
-                {bioValidated && (
-                  <Text style={{ fontSize: 12, color: '#4CAF50' }}>✓ Validated</Text>
-                )}
-              </View>
-              <TextInput
-                style={{
-                  backgroundColor: '#f4f4f4',
-                  borderRadius: 8,
-                  padding: 12,
-                  marginTop: 4,
-                  minHeight: 80,
-                  textAlignVertical: 'top',
-                }}
-                multiline
-                placeholder="Tell us about yourself…"
-                value={fields.bio}
-                onChangeText={handleBioChange}
-                maxLength={200}
-                editable={!isLoading}
-                onFocus={() => {
-    
-                setTimeout(() => {
-                  bioInputRef.current?.measureLayout(
-                    scrollViewRef.current,
-                    (x, y) => {
-                      scrollViewRef.current?.scrollTo({ y: y - 100, animated: true });
-                    },
-                    () => {}
-                  );
-                }, 300);
-              }}
-              />
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
-                <TouchableOpacity
-                  onPress={validateBio}
-                  disabled={isLoading || !fields.bio.trim() || bioValidated}
-                  style={{
-                    backgroundColor: bioValidated ? '#4CAF50' : '#000000',
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    borderRadius: 6,
-                    opacity: (isLoading || !fields.bio.trim() || bioValidated) ? 0.5 : 1,
-                  }}
-                >
-                  <Text style={{ fontSize: 11, color: '#fff', fontWeight: '600' }}>
-                    {bioValidated ? '✓ Validated' : 'Validate Bio'}
-                  </Text>
-                </TouchableOpacity>
-                <Text style={{ fontSize: 12, color: '#888' }}>{fields.bio.length}/200</Text>
-              </View>
-            </View>
-
-            {/* Buttons */}
-            <View style={{ flexDirection: 'row', marginTop: 14, marginBottom: 10 }}>
-              <TouchableOpacity
-                style={{ flex: 1, backgroundColor: '#eee', padding: 14, borderRadius: 8, marginRight: 6 }}
+                style={{ position: 'absolute', right: 15, top: 15, zIndex: 10 }}
                 onPress={onClose}
                 disabled={isLoading}
               >
-                <Text style={{ color: '#222', textAlign: 'center', fontWeight: '600' }}>Cancel</Text>
+                <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#666' }}>✕</Text>
               </TouchableOpacity>
+  
+              {/* Profile Picture */}
               <TouchableOpacity
-                style={{
-                  flex: 1,
-                  backgroundColor: '#333',
-                  padding: 14,
-                  borderRadius: 8,
-                  marginLeft: 6,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-                onPress={handleSaveProfile}
+                style={{ alignItems: 'center', marginBottom: 18 }}
+                onPress={handlePickImage}
                 disabled={isLoading}
               >
-                {isLoading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '600' }}>Save Changes</Text>
+                <View style={{ position: 'relative' }}>
+                  <Image
+                    key={fields.profilePicUrl}
+                    source={
+                      fields.profilePicUrl
+                        ? { uri: `${fields.profilePicUrl}?t=${Date.now()}` }
+                        : { uri: DEFAULT_AVATAR }
+                    }
+                    style={{
+                      width: 90,
+                      height: 90,
+                      borderRadius: 45,
+                      backgroundColor: '#eee',
+                    }}
+                  />
+                  {imageValidated && (
+                    <View
+                      style={{
+                        position: 'absolute',
+                        top: -5,
+                        right: -5,
+                        backgroundColor: '#4CAF50',
+                        borderRadius: 20,
+                        width: 32,
+                        height: 32,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        borderWidth: 2,
+                        borderColor: '#fff',
+                      }}
+                    >
+                      <Text style={{ fontSize: 18, color: '#fff' }}>✓</Text>
+                    </View>
+                  )}
+                  <View
+                    style={{
+                      position: 'absolute',
+                      bottom: -8,
+                      right: -8,
+                      backgroundColor: '#fff',
+                      padding: 6,
+                      borderRadius: 20,
+                      borderWidth: 1,
+                      borderColor: '#ccc',
+                    }}
+                  >
+                    <Text style={{ fontSize: 17 }}>📷</Text>
+                  </View>
+                </View>
+                <Text style={{ fontSize: 12, color: '#888', marginTop: 8 }}>
+                  Tap to change profile picture
+                </Text>
+                {imageValidated && (
+                  <Text style={{ fontSize: 11, color: '#4CAF50', marginTop: 4 }}>
+                    ✓ Image validated
+                  </Text>
                 )}
               </TouchableOpacity>
+  
+              {/* Name */}
+              <View style={{ marginBottom: 11 }}>
+                <Text>Name <Text style={{ color: 'red' }}>*</Text></Text>
+                <TextInput
+                  style={{ backgroundColor: '#f4f4f4', borderRadius: 8, padding: 12, marginTop: 4 }}
+                  placeholder="Enter your full name"
+                  value={fields.name}
+                  onChangeText={t => setFields(f => ({ ...f, name: t }))}
+                  editable={!isLoading}
+                />
+              </View>
+  
+              {/* Nickname */}
+              <View style={{ marginBottom: 11 }}>
+                <Text>Nickname <Text style={{ color: 'red' }}>*</Text></Text>
+                <TextInput
+                  style={{ backgroundColor: '#f4f4f4', borderRadius: 8, padding: 12, marginTop: 4 }}
+                  placeholder="Choose a nickname"
+                  value={fields.nickname}
+                  onChangeText={t => setFields(f => ({ ...f, nickname: t }))}
+                  editable={!isLoading}
+                />
+              </View>
+  
+              {/* Email */}
+              <View style={{ marginBottom: 11 }}>
+                <Text>Email</Text>
+                <TextInput
+                  style={{ backgroundColor: '#f4f4f4', borderRadius: 8, padding: 12, marginTop: 4 }}
+                  value={fields.email}
+                  editable={false}
+                />
+                <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
+                  Email cannot be changed
+                </Text>
+              </View>
+  
+              {/* ✅ FIXED Country Picker Trigger */}
+              <View style={{ marginBottom: 11 }}>
+                <Text>Country <Text style={{ color: 'red' }}>*</Text></Text>
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: '#f4f4f4',
+                    borderRadius: 8,
+                    padding: 12,
+                    marginTop: 4,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                  onPress={() => {
+                    Keyboard.dismiss(); // ✅ FIX: Dismiss keyboard BEFORE opening picker
+                    setTimeout(() => setShowCountryDropdown(true), 150); // ✅ Small delay so keyboard fully hides first
+                  }}
+                  disabled={isLoading}
+                >
+                  <Text style={{ color: fields.country ? '#000' : '#999', flex: 1 }}>
+                    {fields.country || 'Select your country'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color="#9CA3AF" />
+                </TouchableOpacity>
+              </View>
+  
+              {/* Bio */}
+              <View style={{ marginBottom: 11 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text>Bio</Text>
+                  {bioValidated && (
+                    <Text style={{ fontSize: 12, color: '#4CAF50' }}>✓ Validated</Text>
+                  )}
+                </View>
+                <TextInput
+                  style={{
+                    backgroundColor: '#f4f4f4',
+                    borderRadius: 8,
+                    padding: 12,
+                    marginTop: 4,
+                    minHeight: 80,
+                    textAlignVertical: 'top',
+                  }}
+                  multiline
+                  placeholder="Tell us about yourself…"
+                  value={fields.bio}
+                  onChangeText={handleBioChange}
+                  maxLength={200}
+                  editable={!isLoading}
+                  onFocus={() => {
+      
+                  setTimeout(() => {
+                    bioInputRef.current?.measureLayout(
+                      scrollViewRef.current,
+                      (x, y) => {
+                        scrollViewRef.current?.scrollTo({ y: y - 100, animated: true });
+                      },
+                      () => {}
+                    );
+                  }, 300);
+                }}
+                />
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
+                  <TouchableOpacity
+                    onPress={validateBio}
+                    disabled={isLoading || !fields.bio.trim() || bioValidated}
+                    style={{
+                      backgroundColor: bioValidated ? '#4CAF50' : '#000000',
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 6,
+                      opacity: (isLoading || !fields.bio.trim() || bioValidated) ? 0.5 : 1,
+                    }}
+                  >
+                    <Text style={{ fontSize: 11, color: '#fff', fontWeight: '600' }}>
+                      {bioValidated ? '✓ Validated' : 'Validate Bio'}
+                    </Text>
+                  </TouchableOpacity>
+                  <Text style={{ fontSize: 12, color: '#888' }}>{fields.bio.length}/200</Text>
+                </View>
+              </View>
+  
+              {/* Buttons */}
+              <View style={{ flexDirection: 'row', marginTop: 14, marginBottom: 10 }}>
+                <TouchableOpacity
+                  style={{ flex: 1, backgroundColor: '#eee', padding: 14, borderRadius: 8, marginRight: 6 }}
+                  onPress={onClose}
+                  disabled={isLoading}
+                >
+                  <Text style={{ color: '#222', textAlign: 'center', fontWeight: '600' }}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    backgroundColor: '#333',
+                    padding: 14,
+                    borderRadius: 8,
+                    marginLeft: 6,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  onPress={handleSaveProfile}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '600' }}>Save Changes</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+              </View>
+            )}
+
+            {customAlertVisible && (
+              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0)' }}>
+              <View style={{ backgroundColor: '#fff', borderRadius: 12, padding: 20, width: '85%', maxWidth: 400 }}>
+                <View style={{ alignItems: 'center', marginBottom: 15 }}>
+                  <Text style={{ fontSize: 50, marginBottom: 10 }}>{getIconEmoji(alertConfig.icon)}</Text>
+                  <Text style={{ fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 10 }}>
+                    {alertConfig.title}
+                  </Text>
+                  <Text style={{ fontSize: 14, color: '#666', textAlign: 'center', lineHeight: 20 }}>
+                    {alertConfig.message}
+                  </Text>
+                </View>
+                <View style={{ flexDirection: alertConfig.buttons.length > 1 ? 'row' : 'column', gap: 10 }}>
+                  {alertConfig.buttons.map((button, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={{
+                        flex: alertConfig.buttons.length > 1 ? 1 : undefined,
+                        backgroundColor: index === 0 && alertConfig.buttons.length > 1 ? '#f0f0f0' : '#000000',
+                        padding: 12,
+                        borderRadius: 8,
+                        alignItems: 'center',
+                      }}
+                      onPress={() => {
+                        if (button.onPress) button.onPress();
+                        else hideCustomAlert();
+                      }}
+                    >
+                      <Text style={{ color: index === 0 && alertConfig.buttons.length > 1 ? '#000' : '#fff', fontWeight: '600', fontSize: 14 }}>
+                        {button.text}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
             </View>
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -977,7 +1035,7 @@ return (
     </Modal>
 
     {/* Custom Alert Modal - unchanged */}
-    <Modal
+    {/* <Modal
       visible={customAlertVisible}
       transparent
       animationType="fade"
@@ -1018,7 +1076,7 @@ return (
           </View>
         </View>
       </View>
-    </Modal>
+    </Modal> */}
   </>
 );
 }
