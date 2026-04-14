@@ -33,7 +33,7 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import CommentsModal from '../../components/CommentsModal';
 import SentinelFAQ from '../../components/SentinelFAQ';
@@ -732,6 +732,7 @@ const RepostModal: React.FC<RepostModalProps> = ({
 }) => {
   const [repostComment, setRepostComment] = useState('');
   const [isQuoteMode, setIsQuoteMode] = useState(false);
+  const insets = useSafeAreaInsets();
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const dummyAuthorImage = 'https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg';
 
@@ -3267,6 +3268,28 @@ const handleScroll = useCallback((event: any) => {
   // TO OPEN GRAPH MODAL
   const openGraphModal = useCallback((item: PostItem) => {
   // Check if post is new (waiting for approval)
+  if (item.isNew && !item.isApproved) {
+    Toast.show({
+      type: 'warning',
+      text1: 'Pending Approval',
+      text2: 'Analytics are available once the post is approved.',
+      position: 'bottom',
+      visibilityTime: 2000,
+    });
+    return; // ✅ stops here — modal does NOT open
+  }
+
+  // ✅ Block for REJECTED posts
+  if (areInteractionsDisabled(item)) {
+    Toast.show({
+      type: 'warning',
+      text1: 'Post Not Available',
+      text2: 'This post has been rejected. Analytics are not available.',
+      position: 'bottom',
+      visibilityTime: 2000,
+    });
+    return; // ✅ stops here — modal does NOT open
+  }
   if (item.isNew) {
     Toast.show({
       type: 'warning',
@@ -4243,7 +4266,8 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
                       openGraphModal(item);
                     }}
                     activeOpacity={0.7}
-                    disabled={areInteractionsDisabled(item)}
+                    disabled={areInteractionsDisabled(item) || (item.isNew && !item.isApproved)} 
+                    style={{ opacity: (areInteractionsDisabled(item) || (item.isNew && !item.isApproved)) ? 0.35 : 1 }} 
                   >
                     <Feather name="bar-chart-2" size={20} color="#64748b" />
                     {item.ContentViewCount !== undefined && item.ContentViewCount > 0 && (
