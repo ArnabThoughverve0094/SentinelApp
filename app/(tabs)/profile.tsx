@@ -97,6 +97,14 @@ type ShortURLResponse = {
   id: any;
 };
 
+type FollowingUser = {
+  userId: string;
+  userEmail?: string;
+  userName?: string;
+  userNickName?: string;
+  profilePicUrl?: string;
+};
+
 const renderStyledPostText = (text) => {
   if (!text) return null;
 
@@ -1297,6 +1305,11 @@ export default function ProfilePage(): React.JSX.Element {
   const [selectedPostUserId, setSelectedPostUserId] = useState<string | null>(null);
   const [isDeleteUserModalVisible, setIsDeleteUserModalVisible] = useState(false);
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
+  const [realFollowersCount, setRealFollowersCount] = useState<number>(0);
+  const [realFollowingCount, setRealFollowingCount] = useState<number>(0);
+  const asArray = <T,>(value: unknown): T[] => {
+    return Array.isArray(value) ? (value as T[]) : [];
+  };
       
 
     // ✅ FORMAT VIEW COUNT LIKE X/TWITTER
@@ -2347,27 +2360,113 @@ const areInteractionsDisabled = useCallback((item: PostItem) => {
     useEffect(() => {
       if (!userId) return;
 
-      const ironExRef = collection(db, 'IronExUsers');
-      const q = query(ironExRef, where('userID', '==', userId));
+      // const ironExRef = collection(db, 'IronExUsers');
+      // const q = query(ironExRef, where('userID', '==', userId));
 
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        if (!snapshot.empty) {
-          const data = snapshot.docs[0].data();
-          // Covers all possible field name variants
-          const firestoreBio = data.bio || data.userBio || data.Bio || '';
-          console.log('🔥 [ProfilePage] Firestore bio synced:', firestoreBio);
+      // const unsubscribe = onSnapshot(q, (snapshot) => {
+      //   if (!snapshot.empty) {
+      //     const data = snapshot.docs[0].data();
+      //     // Covers all possible field name variants
+      //     const firestoreBio = data.bio || data.userBio || data.Bio || '';
+      //     console.log('🔥 [ProfilePage] Firestore bio synced:', firestoreBio);
           
-          // Keep AsyncStorage in sync too
-          if (firestoreBio) {
-           setUserBio(firestoreBio);
-            AsyncStorage.setItem('userBio', firestoreBio);
+      //     // Keep AsyncStorage in sync too
+      //     if (firestoreBio) {
+      //      setUserBio(firestoreBio);
+      //       AsyncStorage.setItem('userBio', firestoreBio);
+      //     }
+      //   }
+      // });
+
+      const userDocRef = doc(db, "IronExUsers", userId);
+
+      const unsubscribe = onSnapshot(
+        userDocRef,
+        (docSnapshot) => {
+          if (docSnapshot.exists()) {
+            const data = docSnapshot.data();
+            const followingList = asArray<FollowingUser>(data?.Following) || [];
+            const followerList = asArray<FollowingUser>(data?.Follower) || [];
+            const firestoreBio = data?.bio || data?.userBio || data?.Bio || '';
+
+            const followingCount = followingList.length;
+            const followerCount = followerList.length;
+
+            setRealFollowingCount(followingCount);
+            setRealFollowersCount(followerCount);
+
+            // Keep AsyncStorage in sync too
+            if (firestoreBio) {
+              setUserBio(firestoreBio);
+              AsyncStorage.setItem('userBio', firestoreBio);
+            }
+
+            syncUserStats(followingList, followerList);
+          
+          } else {
+            setRealFollowingCount(0);
+            setRealFollowersCount(0);
           }
+        },
+        (error) => {
+          console.error("❌ Real-time listener failed:", error);
         }
-      });
+      );
 
       return () => unsubscribe();
     }, [userId]);
 
+    const syncUserStats = async (rawFollowing: FollowingUser[], rawFollowers: FollowingUser[]) => {
+      if (!userId) return;
+      console.log("RawFollowing: ", rawFollowing);
+      console.log("RawFollowers: ", rawFollowers);
+    
+      try {
+        const userDocRef = doc(db, "IronExUsers", userId);
+        
+        // Note: We only fetch the 'UserID' field to keep it lightweight
+        const auditRef = collection(db, "UserDeletionAudit");
+        const auditSnap = await getDocs(auditRef);
+        const deletedUserIds = new Set(auditSnap.docs.map(doc => doc.data().userName));
+    
+        // 3. Filter out users who appear in the deleted list
+        const cleanFollowing = rawFollowing.filter(u => !deletedUserIds.has(u.userId));
+        const cleanFollowers = rawFollowers.filter(u => !deletedUserIds.has(u.userId));
+    
+        // 4. Update State
+        setRealFollowingCount(cleanFollowing.length);
+        setRealFollowersCount(cleanFollowers.length);
+    
+        // 5. (Optional) Auto-Cleanup Database
+        // If the lengths changed, it means we found deleted users. 
+        // You might want to update the DB here so you don't have to filter next time.
+        if (cleanFollowing.length !== rawFollowing.length || cleanFollowers.length !== rawFollowers.length) {
+          await updateDoc(userDocRef, {
+            Following: cleanFollowing,
+            Follower: cleanFollowers,
+            followingCount: cleanFollowing.length,
+            followerCount: cleanFollowers.length
+          });
+        }
+    
+      } catch (error) {
+        console.error("❌ Error syncing user lists:", error);
+      }
+    };
+
+    const goToFollowing = useCallback(() => {
+      router.push({
+        pathname: '/followers/[userid]',
+        params: { userid: userId, type: 'following' },
+      });
+    }, [router, userId]);
+
+    const goToFollowers = useCallback(() => {
+      router.push({
+        pathname: '/followers/[userid]',
+        params: { userid: userId, type: 'followers' },
+      });
+    }, [router, userId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -3219,7 +3318,8 @@ const handleScroll = useCallback((event: any) => {
       if (currentVideoIndex === index) {
         player.play();
       } else {
-        player.pause();
+        // player.pause();
+        player.release();
       }
     });
 
@@ -3228,7 +3328,8 @@ const handleScroll = useCallback((event: any) => {
       if (currentVideoIndex === index) {
         player.play();
       } else {
-        player.pause();
+        // player.pause();
+        player.release();
       }
     }, [currentVideoIndex, index, player]);
 
@@ -4769,6 +4870,25 @@ const renderMediaContent = useCallback((item: PostItem, index?: number) => {
               <Text className="text-gray-700 leading-6 text-justify">
                 {userBio || "Welcome to my profile! I love sharing moments and connecting with amazing people. Let's create something beautiful together! ✨"}
               </Text>
+            </View>
+            <View className="flex-row mt-3 mb-0">
+              <TouchableOpacity
+                onPress={goToFollowing}
+                activeOpacity={0.7}
+              >
+                <Text className="mr-4 text-sm text-gray-900">
+                  <Text className="font-semibold">{realFollowingCount}</Text> Following
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={goToFollowers}
+                activeOpacity={0.7}
+              >
+                <Text className="text-sm text-gray-900">
+                  <Text className="font-semibold">{realFollowersCount}</Text> Followers
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
