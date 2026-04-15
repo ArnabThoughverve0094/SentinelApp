@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import * as Sharing from "expo-sharing";
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { addDoc, arrayRemove, arrayUnion, collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
+import { addDoc, arrayRemove, arrayUnion, collection, doc, getDoc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
@@ -933,7 +933,8 @@ export default function BookmarksPage(): React.JSX.Element {
       if (currentVideoIndex === index) {
         player.play();
       } else {
-        player.pause();
+        // player.pause();
+        player.release();
       }
     });
 
@@ -942,7 +943,8 @@ export default function BookmarksPage(): React.JSX.Element {
       if (currentVideoIndex === index) {
         player.play();
       } else {
-        player.pause();
+        // player.pause();
+        player.release();
       }
     }, [currentVideoIndex, index, player]);
 

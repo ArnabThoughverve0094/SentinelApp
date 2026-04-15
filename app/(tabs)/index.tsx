@@ -155,11 +155,23 @@ const VideoPlayerItem = React.memo(({ videoUrl, index, currentVideoIndex }: Vide
       if (isActive) {
         player.play();
       } else {
-        player.pause();
+        // player.pause();
+        player.release();
       }
     }, 150); // 150ms is enough for both Android & iOS
     return () => clearTimeout(timer);
   }, [isActive, player]);
+
+  // useEffect(() => {
+  //   return () => {
+  //     // If the component unmounts, we MUST kill the native instance.
+  //     // Check your expo-video version: it's usually player.release() or player.dispose()
+  //     if (player) {
+  //       console.log("Cleaning up native player resources...");
+  //       player.release(); 
+  //     }
+  //   };
+  // }, [player]);
 
   return (
     <View className="relative rounded-xl overflow-hidden bg-black">
