@@ -233,6 +233,12 @@ export default function EmailLogin(): React.JSX.Element {
     items.push(['userRole', 'User']);
   }
 
+  if (expoPushToken) {
+    items.push(['deviceToken', expoPushToken]);
+  } else {
+    items.push(['deviceToken', '']);
+  }
+
   // ✅ COUNTRY - Check all possible locations
   const userCountry = data.userAttributes.country || 
                       data.decodedClaims?.country ||
