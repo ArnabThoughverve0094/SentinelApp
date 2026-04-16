@@ -78,7 +78,8 @@
             ]
           }
         }
-      ]
+      ],
+      "@react-native-firebase/messaging"
     ],
     "experiments": {
       "typedRoutes": true

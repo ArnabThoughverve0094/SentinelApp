@@ -2,6 +2,7 @@ import { db } from "@/FirebaseConfig";
 import compressImage from "@/components/CompressImage";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import functions from '@react-native-firebase/functions';
 import { useFocusEffect } from "@react-navigation/native";
 import * as DocumentPicker from 'expo-document-picker';
 import { FileSystemUploadType, uploadAsync } from 'expo-file-system/legacy';
@@ -444,6 +445,7 @@ export default function CreatePost() {
   const [userEmail, setUserEmail] = useState("");
   const [userNickName, setUserNickName] = useState("");
   const [userId, setUserId] = useState("");
+  const [userDeviceToken, setUserDeviceToken] = useState("");
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(false);
@@ -565,6 +567,7 @@ export default function CreatePost() {
       const fetchuserID = (await AsyncStorage.getItem('userId') || '1234');
       const fetchCreateType = (await AsyncStorage.getItem('createType') || '');
       const fetchuseNickrName = (await AsyncStorage.getItem('userNickName') || '');
+      const fetchuserDeviceToken = (await AsyncStorage.getItem('deviceToken') || '');
 
       setUserEmail(await AsyncStorage.getItem('userEmail') || '');
 
@@ -579,6 +582,7 @@ export default function CreatePost() {
       }
 
       if(fetchuserID !== null) {
+        console.log("userID: ", fetchuserID);
         setUserId(fetchuserID);
       }
 
@@ -595,6 +599,11 @@ export default function CreatePost() {
       if(fetchuseNickrName !== null) {
         console.log("userNickName: ", fetchuseNickrName);
         setUserNickName(fetchuseNickrName);
+      }
+
+      if(fetchuserDeviceToken !== null) {
+        console.log("userDeviceToken: ", fetchuserDeviceToken);
+        setUserDeviceToken(fetchuserDeviceToken);
       }
       
     } catch (error) {
@@ -1368,6 +1377,9 @@ const compressAndGetUrl = async (localUri) => {
         }),
       });
       console.log(isContentApproved ? 'Published' : hasVideo ? 'Video submitted for manual review' : 'Submitted for review', 'post');
+      if (userDeviceToken) {
+        notifyUser(userDeviceToken, "Post Status", isContentApproved ? 'Published' : hasVideo ? 'Video submitted for manual review' : 'Submitted for review');
+      }
     } else {
       await addDoc(collection(db, 'SentinelUsers'), {
         userID: await AsyncStorage.getItem('userId'),
@@ -1385,6 +1397,10 @@ const compressAndGetUrl = async (localUri) => {
         }]
       });
       console.log('Created new user document and notification');
+
+      if (userDeviceToken) {
+        notifyUser(userDeviceToken, "Post Status", isContentApproved ? 'Published' : hasVideo ? 'Video submitted for manual review' : 'Submitted for review');
+      }
     }
 
   } catch (e) {
@@ -1395,6 +1411,17 @@ const compressAndGetUrl = async (localUri) => {
   }
 };
 
+const notifyUser = async (token: string, notiTitle: string, notiBody: string) => {
+  try {
+    await functions().httpsCallable('sendDirectNotification')({
+      targetToken: token,
+      title: notiTitle,
+      body: notiBody,
+    });
+  } catch (e) {
+    console.error(e);
+  }
+};
 
 
 // Helper function remains the same - not called for video posts
