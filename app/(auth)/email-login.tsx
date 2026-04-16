@@ -39,6 +39,7 @@ type LoginResponse = {
     termsAccepted: string;
     profilePic?: string;
     bio?: string;
+    deviceToken?: string;
   };
   decodedClaims: any;
 };
@@ -235,6 +236,8 @@ export default function EmailLogin(): React.JSX.Element {
 
   if (expoPushToken) {
     items.push(['deviceToken', expoPushToken]);
+  } else if (data.userAttributes.deviceToken) {
+    items.push(['deviceToken', data.userAttributes.deviceToken]);
   } else {
     items.push(['deviceToken', '']);
   }

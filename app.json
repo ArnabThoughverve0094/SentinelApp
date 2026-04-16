@@ -58,6 +58,7 @@
       "expo-font",
       "expo-video",
       "@react-native-firebase/app",
+      "@react-native-firebase/messaging",
       "@react-native-firebase/crashlytics",
       "expo-web-browser",
       [
@@ -73,13 +74,13 @@
             "useFrameworks": "static",
             "forceStaticLinking": [
               "RNFBApp",
+              "RNFBMessaging",
               "RNFBCrashlytics",
               "FirebaseCore"
             ]
           }
         }
-      ],
-      "@react-native-firebase/messaging"
+      ]
     ],
     "experiments": {
       "typedRoutes": true
