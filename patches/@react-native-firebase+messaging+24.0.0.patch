@@ -1,0 +1,25 @@
+diff --git a/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessaging+UNUserNotificationCenter.m b/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessaging+UNUserNotificationCenter.m
+index 78db8f4..9d10f3a 100644
+--- a/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessaging+UNUserNotificationCenter.m
++++ b/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessaging+UNUserNotificationCenter.m
+@@ -15,6 +15,7 @@
+  *
+  */
+ 
++#import <RNFBApp/RNFBJSON.h>
+ #import <RNFBApp/RNFBRCTEventEmitter.h>
+ 
+ #import "RNFBJSON.h"
+diff --git a/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessagingModule.m b/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessagingModule.m
+index 657ac96..ac17370 100644
+--- a/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessagingModule.m
++++ b/node_modules/@react-native-firebase/messaging/ios/RNFBMessaging/RNFBMessagingModule.m
+@@ -15,6 +15,8 @@
+  *
+  */
+ 
++#import <React/RCTBridgeModule.h>
++#import <RNFBApp/RNFBJSON.h>
+ #import <Firebase/Firebase.h>
+ #import <RNFBApp/RNFBSharedUtils.h>
+ #import <React/RCTConvert.h>
