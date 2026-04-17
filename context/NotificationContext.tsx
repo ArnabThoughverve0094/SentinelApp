@@ -1,12 +1,12 @@
 import { EventSubscription } from 'expo-modules-core';
 import * as Notifications from "expo-notifications";
 import React, {
-    ReactNode,
-    createContext,
-    useContext,
-    useEffect,
-    useRef,
-    useState,
+  ReactNode,
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
 } from "react";
 import { registerForPushNotificationAsync } from "../utils/registerForPushNotificationAsync";
   
@@ -16,6 +16,16 @@ import { registerForPushNotificationAsync } from "../utils/registerForPushNotifi
     error: Error | null;
   }
   
+  Notifications.setNotificationHandler({
+    handleNotification:async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    })
+  })
+
   const NotificationContext = createContext<NotificationContextType | undefined>(
     undefined
   );
@@ -73,6 +83,21 @@ import { registerForPushNotificationAsync } from "../utils/registerForPushNotifi
             responseListener.current?.remove();
           };
     }, []);
+
+    useEffect(() => {
+      const subscription = Notifications.addNotificationReceivedListener(notification => {
+        console.log("📩 Notification received:", notification);
+      });
+    
+      const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+        console.log("👉 User tapped notification:", response);
+      });
+    
+      return () => {
+        subscription.remove();
+        responseListener.remove();
+      };
+    }, []);
   
     return (
       <NotificationContext.Provider
@@ -82,3 +107,24 @@ import { registerForPushNotificationAsync } from "../utils/registerForPushNotifi
       </NotificationContext.Provider>
     );
   };
+
+  export async function sendPushNotification(token: string, notiTitle: string, notiBody: string) {
+    const message = {
+      to: token,
+      sound: 'default',
+      title: notiTitle,
+      body: notiBody,
+      // data: { someData: 'goes here' },
+    };
+  
+    const response = await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(message),
+    });
+  
+    const data = await response.json();
+    console.log("📨 Expo Response:", data);
+  }

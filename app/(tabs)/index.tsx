@@ -1,4 +1,5 @@
 import { db } from '@/FirebaseConfig';
+import { sendPushNotification } from '@/context/NotificationContext';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Application from 'expo-application';
@@ -3412,6 +3413,34 @@ useEffect(() => {
       }
     };
 
+    const fetchPostUserData = useCallback(async (fetchuserID: string, fetchPostStatus: string, fetchPostDetails: string) => {
+      try {
+        
+        if (fetchuserID) {
+          const userDocRef = doc(db, 'IronExUsers', fetchuserID);
+  
+          let postFetchUserDeviceToken = "";
+          const unsubscribeFollowing = onSnapshot(userDocRef, (docSnapshot) => {
+            if (docSnapshot.exists()) {
+              const data = docSnapshot.data();
+  
+              postFetchUserDeviceToken = data.deviceToken || "";
+            }
+          }, (error) => {
+            console.error("❌ Real-time listener failed:", error);
+          });
+
+          if (postFetchUserDeviceToken) {
+            sendPushNotification(postFetchUserDeviceToken, fetchPostStatus, fetchPostDetails);
+          }
+          
+          return unsubscribeFollowing;
+        }
+      } catch (error) {
+        console.error('❌ Error fetching post user:', error);
+      }
+    }, [userId]);
+
   // APPROVAL TOGGLE WITH TOAST
   const handleApprovalToggle = useCallback(
   async (
@@ -3483,12 +3512,19 @@ useEffect(() => {
         });
 
         console.log("✅ Post approved and report data cleared");
+        if (postUserID) {
+          fetchPostUserData(postUserID, "Post Approved", 'Your post is approved');
+        }
       } else {
         // Post is being REJECTED or set to pending - keep report data
         await updateDoc(doc(db, "SentinelPosts", postId), {
           isApproved: newApprovedStatus,
           isNew: newIsNew,
         });
+      }
+
+      if (postUserID) {
+        fetchPostUserData(postUserID, "Post Rejected", 'Your post is rejected');
       }
 
       console.log("Post status updated successfully");
@@ -4748,7 +4784,10 @@ useEffect(() => {
   const renderPostContent = useCallback((item: PostItem, index: number) => {
     let AuthorName = "";
     let AuthorImage = "";
-    if (item.isAnonymous) {
+    if (item.postType === 'X-Data') {
+      AuthorName = "IronEx Data";
+      AuthorImage = dummyAuthorImage;
+    } else if (item.isAnonymous) {
       AuthorName = "Anonymous";
       AuthorImage = dummyAuthorImage;
     } else {

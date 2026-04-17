@@ -482,23 +482,26 @@ export default function SearchPage() {
           const data = doc.data();
           const authorId = data.AuthorUserID;
 
-          if (authorId) {
-            if (!uniqueUsers.has(authorId)) {
-              uniqueUsers.set(authorId, {
-                docID: "",
-                id: authorId,
-                name: data.AuthorName || 'Unknown User',
-                email: data.AuthorEmail || '',
-                nickName: data.AuthorNickName || '',
-                avatar: data.AuthorImageURL || '',
-                postCount: 1,
-                isFollowing: false,
-              });
-            } else {
-              const existing = uniqueUsers.get(authorId)!;
-              existing.postCount = (existing.postCount || 0) + 1;
+          if (data.postType !== 'X-Data') {
+            if (authorId) {
+              if (!uniqueUsers.has(authorId)) {
+                uniqueUsers.set(authorId, {
+                  docID: "",
+                  id: authorId,
+                  name: data.AuthorName || 'Unknown User',
+                  email: data.AuthorEmail || '',
+                  nickName: data.AuthorNickName || '',
+                  avatar: data.AuthorImageURL || '',
+                  postCount: 1,
+                  isFollowing: false,
+                });
+              } else {
+                const existing = uniqueUsers.get(authorId)!;
+                existing.postCount = (existing.postCount || 0) + 1;
+              }
             }
           }
+          
         });
         console.log(`✅ Fetched ${uniqueUsers.size} users from SentinelPosts`);
       } catch (error) {

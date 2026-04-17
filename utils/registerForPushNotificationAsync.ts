@@ -45,6 +45,15 @@ export async function registerForPushNotificationAsync() {
                 })
             ).data;
             console.log('PushTokenString: ',pushTokenString);
+            
+            // ✅ Android channel setup
+            if (Platform.OS === 'android') {
+                await Notifications.setNotificationChannelAsync('default', {
+                    name: 'default',
+                    importance: Notifications.AndroidImportance.MAX,
+                });
+            }
+
             return pushTokenString;
         } catch (error) {
             console.log('PushTokenString Error: ', error);
