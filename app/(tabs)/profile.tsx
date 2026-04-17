@@ -3311,15 +3311,15 @@ const handleScroll = useCallback((event: any) => {
     player.play();
   });
 
-    const VideoPlayer = useCallback(({ videoUrl, index }: { videoUrl: string; index?: number }) => {
+  const VideoPlayer = useCallback(({ videoUrl, index }: { videoUrl: string; index?: number }) => {
     const player = useVideoPlayer(videoUrl, (player) => {
       player.loop = true;
       player.muted = true;
       if (currentVideoIndex === index) {
         player.play();
       } else {
-        // player.pause();
-        player.release();
+        player.pause();
+        // player.release();
       }
     });
 
@@ -3328,8 +3328,8 @@ const handleScroll = useCallback((event: any) => {
       if (currentVideoIndex === index) {
         player.play();
       } else {
-        // player.pause();
-        player.release();
+        player.pause();
+        // player.release();
       }
     }, [currentVideoIndex, index, player]);
 

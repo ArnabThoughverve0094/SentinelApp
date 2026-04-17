@@ -135,28 +135,40 @@ export default function FollowersFollowingScreen() {
       setLoading(false);
       return;
     }
-
+  
     console.log("🔍 Fetching followers for userid:", userid);
     setLoading(true);
-
+  
     try {
       const userDocRef = doc(db, 'IronExUsers', userid);
       const docSnap = await getDoc(userDocRef);
-
+  
       if (docSnap.exists()) {
-        const userData = docSnap.data();
-        
-        const fetchedFollower: UserItem[] = userData.Follower || [];
-        console.log(`✅ Displaying followers`, userData);
-        console.log(`✅ Displaying ${fetchedFollower.length} followers`);
-        setUsers(fetchedFollower);
+        const data = docSnap.data();
+        const rawFollowerList: UserItem[] = data.Follower || [];
+  
+        // ✅ Keep only valid userIds (with '-')
+        const validFollowerList = rawFollowerList.filter(
+          (user) => user.userId && user.userId.includes('-')
+        );
+  
+        // ❗ Update Firestore only if cleanup is needed
+        if (validFollowerList.length !== rawFollowerList.length) {
+          console.log("🧹 Cleaning invalid followers from Firestore...");
+  
+          await updateDoc(userDocRef, {
+            Follower: validFollowerList,
+          });
+        }
+  
+        console.log(`✅ Displaying ${validFollowerList.length} follower`);
+        setUsers(validFollowerList);
       }
-
+  
     } catch (error) {
       console.error("❌ Error fetching followers:", error);
       setUsers([]);
-      setLoading(false);
-    } finally{
+    } finally {
       setLoading(false);
     }
   }, [userid]);
@@ -167,39 +179,50 @@ export default function FollowersFollowingScreen() {
       setLoading(false);
       return;
     }
-
+  
     console.log("🔍 Fetching following for userid:", userid);
     setLoading(true);
-
+  
     try {
       const userDocRef = doc(db, 'IronExUsers', userid);
-
-      const unsubscribeFollowing = onSnapshot(userDocRef, (docSnapshot) => {
-        if (docSnapshot.exists()) {
-          const data = docSnapshot.data();
-
-          // 1. Get the Array of following objects
-          const followingList: UserItem[] = data.Following || [];
-
-          // Update your React states
-          // setFollowingData(followingList);
-          console.log(`✅ Displaying ${followingList.length} following`);
-          setUsers(followingList);
+  
+      const unsubscribeFollowing = onSnapshot(
+        userDocRef,
+        async (docSnapshot) => {
+          if (docSnapshot.exists()) {
+            const data = docSnapshot.data();
+  
+            const rawFollowingList: UserItem[] = data.Following || [];
+  
+            // ✅ Keep only valid userIds (with '-')
+            const validFollowingList = rawFollowingList.filter(
+              (user) => user.userId && user.userId.includes('-')
+            );
+  
+            // ❗ Only update Firestore if something was removed
+            if (validFollowingList.length !== rawFollowingList.length) {
+              console.log("🧹 Cleaning invalid userIds from Firestore...");
+  
+              await updateDoc(userDocRef, {
+                Following: validFollowingList,
+              });
+            }
+  
+            console.log(`✅ Displaying ${validFollowingList.length} following`);
+            setUsers(validFollowingList);
+          }
+        },
+        (error) => {
+          console.error("❌ Real-time listener failed:", error);
         }
-      }, (error) => {
-        console.error("❌ Real-time listener failed:", error);
-      });
-
-      setLoading(false);
-
+      );
+  
       return () => {
         unsubscribeFollowing();
       };
-      
     } catch (error) {
       console.error("❌ Error fetching following:", error);
       setUsers([]);
-      setLoading(false);
     } finally {
       setLoading(false);
     }

@@ -398,6 +398,7 @@ export default function UserProfileScreen() {
   const [currentUserDocId, setCurrentUserDocId] = useState("");
   const [profileUserDocId, setProfileUserDocId] = useState("");
   const [isFollowing, setIsFollowing] = useState(false);
+  const [isIronExData, setIsIronExData] = useState(false);
 
   const [isCommentModalVisible, setIsCommentModalVisible] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
@@ -1138,15 +1139,18 @@ const fetchFollowerCounts = async () => {
             const data = userDocData.data() as DocumentData;
             setProfileUserDocId(userDocData.id);
 
+            const isStandardUserID = data.userID || data.userId;
+            console.log("isStandardUser: ", isStandardUserID);
+            setIsIronExData(!isStandardUserID.includes('-'));
+
             const mapped: UserDoc = {
               userID: data.userID || data.userId,
               userName:
-                data.name ||
-                data.userName ||
-                data.UserName ||
-                data.AuthorName ||
-                authorName ||
-                "",
+                data.name || 
+                data.userName || 
+                data.UserName || 
+                data.AuthorName || 
+                authorName || "",
               userNickName:
                 data.nickName ||
                 data.nickname ||
@@ -2079,7 +2083,7 @@ const fetchFollowerCounts = async () => {
   const renderPost = (item: PostItem, index: number) => {
     const displayAuthorName = item.isAnonymous ? "Anonymous" : item.AuthorName;
     const displayAuthorImage = item.isAnonymous ? dummyAuthorImage : (item.AuthorImageURL || dummyAuthorImage);
-
+    
     return (
       <View>
         <View key={item.id || item.uniqueId || index}>
@@ -2088,14 +2092,14 @@ const fetchFollowerCounts = async () => {
             <View className="flex-row items-center">
               <View className="w-10 h-10 rounded-full mr-2 overflow-hidden border-2 border-white shadow-sm">
                 <Image
-                  source={{ uri: displayAuthorImage || dummyAuthorImage }}
+                  source={{ uri: isIronExData ? dummyAuthorImage : (displayAuthorImage || dummyAuthorImage) }}
                   className="w-full h-full"
                   resizeMode="cover"
                 />
               </View>
 
               <View className="flex-1">
-                <Text className="font-bold text-gray-900 text-sm">{displayAuthorName}</Text>
+                <Text className="font-bold text-gray-900 text-sm">{isIronExData ? "IronEx Data" : displayAuthorName}</Text>
                 <Text className="text-gray-500 text-xs">{getTimeAgo(item.ContentDate)}</Text>
               </View>
 
@@ -2285,7 +2289,7 @@ const fetchFollowerCounts = async () => {
         <View className="w-24 h-24 rounded-full border-4 border-white bg-gray-200 shadow-lg">
           <Image
             source={{ 
-              uri: avatar || 'https://ui-avatars.com/api/?name=Anonymous&background=4F46E5'
+              uri: isIronExData ? dummyAuthorImage : avatar || 'https://ui-avatars.com/api/?name=Anonymous&background=4F46E5'
             }}
             className="w-full h-full rounded-full"
             resizeMode="cover"
@@ -2334,9 +2338,11 @@ const fetchFollowerCounts = async () => {
             )}
           </View>
           
-          <Text className="text-xl font-bold text-gray-900">{displayName}</Text>
+          <Text className="text-xl font-bold text-gray-900">{isIronExData ? "IronEx Data" : displayName}</Text>
 
-          {isAnonymous === 'true' ? (
+          {isIronExData ? (
+            <Text className="text-sm text-gray-500">IronEx Data</Text>
+          ) : isAnonymous === 'true' ? (
             <Text className="text-sm text-gray-500">@Anonymous</Text>
           ) : (
             <Text className="text-sm text-gray-500">
