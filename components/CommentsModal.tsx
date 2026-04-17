@@ -384,6 +384,8 @@ export default function CommentScreen({
   const [isDeleteCommentModalVisible, setIsDeleteCommentModalVisible] = useState(false);
   const [commentToDelete, setCommentToDelete] = useState<string | null>(null);
   const [isDeletingComment, setIsDeletingComment] = useState(false);
+  const [isCheckingExistingComment, setIsCheckingExistingComment] = useState(false);
+
   // let templateName = '';
 
   
@@ -514,6 +516,7 @@ export default function CommentScreen({
   };
 
   const checkUserExistingComment = async (itemId: string, itemType: string, currentUserId: string) => {
+    setIsCheckingExistingComment(true);
     try {
       const commentsRef = collection(db, "SentinelPosts", itemId, 'Comments');
       const userCommentQuery = query(
@@ -550,6 +553,9 @@ export default function CommentScreen({
       console.error('Error checking user existing comment:', error);
       return null;
     }
+    finally {
+    setIsCheckingExistingComment(false); // ✅ ADD THIS LINE — always clear the flag
+  }
   };
 
   const VideoPlayer = useCallback(({ videoUrl, index }: { videoUrl: string; index?: number }) => {
@@ -692,43 +698,47 @@ export default function CommentScreen({
   };
 
   const getItem = async () => {
-    try {
-      const fetchuserID = await AsyncStorage.getItem('userId');
-      const fetchuserName = await AsyncStorage.getItem('userName');
-      const fetchUserImage = await AsyncStorage.getItem('profilePicUrl');
-      
-      if(fetchuserID !== null && fetchuserName !== null) {
-        console.log("userID: ", fetchuserID);
-        console.log("userName: ", fetchuserName);
-        setUserId(fetchuserID);
-        setUserName(fetchuserName);
-      }
+  try {
+    
+    setIsCheckingExistingComment(true);
 
-      if(fetchUserImage !== null) {
-        console.log("userImage: ", fetchUserImage);
-        setUserImage(fetchUserImage);
+    const fetchuserID = await AsyncStorage.getItem('userId');
+    const fetchuserName = await AsyncStorage.getItem('userName');
+    const fetchUserImage = await AsyncStorage.getItem('profilePicUrl');
+    
+    if(fetchuserID !== null && fetchuserName !== null) {
+      setUserId(fetchuserID);
+      setUserName(fetchuserName);
+    }
+
+    if(fetchUserImage !== null) {
+      setUserImage(fetchUserImage);
+    }
+    
+    if(postId && postType) {
+      if (postData) {
+        convertPostData(postData);
+      } else {
+        await fetchPostData(postId, postType);
       }
       
-      if(postId && postType) {
-        console.log("Item: ", postId);
-        console.log("type: ", postType);
-        
-        if (postData) {
-          convertPostData(postData);
-        } else {
-          await fetchPostData(postId, postType);
-        }
-        
-        if (fetchuserID) {
-          await checkUserExistingComment(postId, postType, fetchuserID);
-        }
-        
-        fetchCommentFirestore(postId, postType);
+      if (fetchuserID) {
+        // checkUserExistingComment will set flag false in its finally block
+        await checkUserExistingComment(postId, postType, fetchuserID);
+      } else {
+        // ✅ No userId — clear the flag manually
+        setIsCheckingExistingComment(false);
       }
-    } catch (error) {
-      console.log("Error retrieving item", error);
+      
+      fetchCommentFirestore(postId, postType);
+    } else {
+      setIsCheckingExistingComment(false);
     }
-  };
+  } catch (error) {
+    console.log("Error retrieving item", error);
+    setIsCheckingExistingComment(false); // ✅ Always clear on error
+  }
+};
 
   // **NEW: Template creation**
   const createTemplate = async (uploadedUrls: string[], postText: string) => {
@@ -885,53 +895,77 @@ export default function CommentScreen({
   };
 
   const handleSubmitResponse = async (optionId: string) => {
-    setIsSubmitting(true);
-    
-    try {
-      const selectedOptionData = RESPONSE_OPTIONS.find(opt => opt.id === optionId);
-      const commentText = selectedOptionData?.label || '';
-      
-      if (isEditMode && userExistingComment) {
-        const commentRef = doc(db, "SentinelPosts", postId, 'Comments', userExistingComment.id);
-        await updateDoc(commentRef, {
-          Comment: commentText,
-          selectedOptions: [optionId],
-          commentType: 'structured'
-        });
-        console.log('Comment updated successfully');
-        setIsEditMode(false);
-      } else {
-        const commentRef = collection(db, "SentinelPosts", postId, 'Comments');
-        const postDocRef = await addDoc(commentRef, {
-          AuthorImageURL: userImage || dummyAuthorImage,
-          AuthorName: userName,
-          CommentDate: new Date(),
-          Comment: commentText,
-          selectedOptions: [optionId],
-          commentType: 'structured',
-          userId: userId
-        });
-        console.log('Response submitted with ID: ', postDocRef.id);
-      }
-      
-      // setSelectedOption(null);
-      // setShowResponseModal(false);
-      // setReplyingTo(null);
+  if (!isEditMode && userExistingComment) {
+    console.warn('User already has a response. Blocked duplicate submission.');
+    setShowResponseModal(false);
+    return;
+  }
 
-      if (postId && postType) {
-        await checkUserExistingComment(postId, postType, userId);
+ 
+  if (isCheckingExistingComment) {
+    console.warn('Still checking existing comment. Blocked submission.');
+    return;
+  }
+
+  setIsSubmitting(true);
+  try {
+    const selectedOptionData = RESPONSE_OPTIONS.find(opt => opt.id === optionId);
+    const commentText = selectedOptionData?.label || '';
+
+    if (isEditMode && userExistingComment) {
+      const commentRef = doc(db, "SentinelPosts", postId, 'Comments', userExistingComment.id);
+      await updateDoc(commentRef, {
+        Comment: commentText,
+        selectedOptions: [optionId],
+        commentType: 'structured'
+      });
+      console.log('Comment updated successfully');
+      setIsEditMode(false);
+    } else {
+      // ✅ FIX 3: One final Firestore check before writing (server-side safety)
+      const commentsRef = collection(db, "SentinelPosts", postId, 'Comments');
+      const duplicateCheck = query(commentsRef, where('userId', '==', userId));
+      const duplicateSnapshot = await getDocs(duplicateCheck);
+      if (!duplicateSnapshot.empty) {
+        console.warn('Duplicate detected at submission time. Blocked.');
+        setUserExistingComment({
+          id: duplicateSnapshot.docs[0].id,
+          ...duplicateSnapshot.docs[0].data(),
+          replies: [],
+          likes: 0,
+          isLiked: false,
+        } as Comment);
+        setShowResponseModal(false);
+        return;
       }
 
-      setTimeout(() => {
-        onClose(); 
-      }, 100);
-      
-    } catch (error) {
-      console.error('Error submitting response:', error);
-    } finally {
-      setIsSubmitting(false);
+      const commentRef = collection(db, "SentinelPosts", postId, 'Comments');
+      const postDocRef = await addDoc(commentRef, {
+        AuthorImageURL: userImage || dummyAuthorImage,
+        AuthorName: userName,
+        CommentDate: new Date(),
+        Comment: commentText,
+        selectedOptions: [optionId],
+        commentType: 'structured',
+        userId: userId
+      });
+      console.log('Response submitted with ID: ', postDocRef.id);
     }
-  };
+
+    if (postId && postType) {
+      await checkUserExistingComment(postId, postType, userId);
+    }
+
+    setTimeout(() => {
+      onClose();
+    }, 100);
+
+  } catch (error) {
+    console.error('Error submitting response:', error);
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
 const handleDeleteComment = async (commentId: string) => {
   if (!postId || !postType) return;
@@ -1033,6 +1067,7 @@ const confirmDeleteComment = async () => {
 
   const handleAddResponseFromSentiment = () => {
     setShowSentimentPage(false);
+     if (isCheckingExistingComment) return;
     
     if (userExistingComment) {
       Alert.alert(
@@ -1197,6 +1232,7 @@ const confirmDeleteComment = async () => {
       setIsEditMode(false);
       setShowMenuModal(false);
       setSelectedCommentId(null);
+      setIsCheckingExistingComment(false); 
       closeFullScreenImage();
       closeFullScreenVideo();
     }
@@ -1246,7 +1282,7 @@ const confirmDeleteComment = async () => {
           <ScrollView 
             style={{ flex: 1 }}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: userExistingComment ? 20 : 100 }}
+            contentContainerStyle={{ paddingBottom: (userExistingComment || isCheckingExistingComment) ? 20 : 100  }}
           >
             {/* POST CONTENT SECTION */}
             {postLoading ? (
@@ -1458,38 +1494,40 @@ const confirmDeleteComment = async () => {
               paddingVertical: 12,
               paddingBottom: insets.bottom + 12
             }}>
-              {addRespLoading ? (
-                <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 40 }}>
-                  <ActivityIndicator size="small" color="#0ea5e9" />
+              {isCheckingExistingComment || addRespLoading ? (
+                // ✅ Show spinner while checking — user cannot tap anything
+                <View style={{ 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  paddingVertical: 14,
+                  flexDirection: 'row',
+                  gap: 8
+                }}>
+                  <ActivityIndicator size="small" color="#FF3B30" />
+                  <Text style={{ color: '#8e8e93', fontSize: 14 }}>Checking...</Text>
                 </View>
               ) : (
-              <TouchableOpacity
-                onPress={() => setShowResponseModal(true)}
-                style={{
-                  backgroundColor: '#FF3B30',
-                  borderRadius: 12,
-                  paddingVertical: 14,
-                  alignItems: 'center',
-                  flexDirection: 'row',
-                  justifyContent: 'center'
-                }}
-              >
-                <Ionicons 
-                  name="add" 
-                  size={18} 
-                  color="#fff" 
-                  style={{ marginRight: 8 }} 
-                />
-                <Text style={{
-                  color: '#fff',
-                  fontSize: 16,
-                  fontWeight: '600'
-                }}>
-                  Add Response
-                </Text>
-              </TouchableOpacity>
-            )}
-            
+                <TouchableOpacity
+                  onPress={() => {
+                    // ✅ Final safety check before opening modal
+                    if (userExistingComment || isCheckingExistingComment) return;
+                    setShowResponseModal(true);
+                  }}
+                  style={{
+                    backgroundColor: '#FF3B30',
+                    borderRadius: 12,
+                    paddingVertical: 14,
+                    alignItems: 'center',
+                    flexDirection: 'row',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <Ionicons name="add" size={18} color="#fff" style={{ marginRight: 8 }} />
+                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
+                    Add Response
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
 
