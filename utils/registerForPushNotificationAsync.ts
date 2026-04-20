@@ -1,5 +1,8 @@
+import { db } from "@/FirebaseConfig";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
+import { doc, updateDoc } from "firebase/firestore";
 import { Platform } from "react-native";
 
 export async function registerForPushNotificationAsync() {
@@ -45,6 +48,14 @@ export async function registerForPushNotificationAsync() {
                 })
             ).data;
             console.log('PushTokenString: ',pushTokenString);
+
+            let fetchuserID = await AsyncStorage.getItem('userId') || "";
+            if (fetchuserID !== "") {
+                await updateDoc(doc(db, 'IronExUsers', fetchuserID), {
+                    deviceToken: pushTokenString,
+                  });
+            }
+            
             
             // ✅ Android channel setup
             if (Platform.OS === 'android') {

@@ -1,6 +1,18 @@
+import { registerForPushNotificationAsync } from '@/utils/registerForPushNotificationAsync';
 import * as Linking from 'expo-linking';
-import { useEffect } from 'react';
+import * as Notifications from "expo-notifications";
+import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
+
+Notifications.setNotificationHandler({
+  handleNotification:async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  })
+})
 
 export default function App() {
     // Automatically creates a prefix depending on environment (Dev vs Production)
@@ -30,6 +42,43 @@ export default function App() {
             `Linked to app with hostname: ${hostname}, path: ${path}, and data: ${JSON.stringify(queryParams)}`
         );
     };
+
+    const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
+    const [notification, setNotification] =
+      useState<Notifications.Notification | null>(null);
+    const [error, setError] = useState<Error | null>(null);
+
+    useEffect(() => {
+      registerForPushNotificationAsync().then(
+        (token) => {
+          console.log("📱 Token:", token);
+          setExpoPushToken(token);
+        },
+        (error) => setError(error)
+      );
+  
+      const notificationListener =
+        Notifications.addNotificationReceivedListener((notification) => {
+          console.log("🔔 Notification Received: ", notification);
+          setNotification(notification);
+        });
+  
+      const responseListener =
+        Notifications.addNotificationResponseReceivedListener((response) => {
+          console.log(
+            "🔔 Notification Response: ",
+            JSON.stringify(response, null, 2),
+            JSON.stringify(response.notification.request.content.data, null, 2)
+          );
+          // Handle the notification response here
+        });
+  
+        return () => {
+            // Check if the current value exists, then call .remove()
+            notificationListener?.remove();
+            responseListener?.remove();
+          };
+    }, []);
 
     return (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>

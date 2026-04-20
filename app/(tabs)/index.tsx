@@ -3413,33 +3413,36 @@ useEffect(() => {
       }
     };
 
-    const fetchPostUserData = useCallback(async (fetchuserID: string, fetchPostStatus: string, fetchPostDetails: string) => {
-      try {
-        
-        if (fetchuserID) {
+    const fetchPostUserData = useCallback(
+      async (fetchuserID: string, fetchPostStatus: string, fetchPostDetails: string) => {
+        try {
+          if (!fetchuserID) return;
+    
           const userDocRef = doc(db, 'IronExUsers', fetchuserID);
-  
-          let postFetchUserDeviceToken = "";
-          const unsubscribeFollowing = onSnapshot(userDocRef, (docSnapshot) => {
-            if (docSnapshot.exists()) {
-              const data = docSnapshot.data();
-  
-              postFetchUserDeviceToken = data.deviceToken || "";
+          const docSnapshot = await getDoc(userDocRef);
+    
+          if (docSnapshot.exists()) {
+            const data = docSnapshot.data();
+            const postFetchUserDeviceToken = data.deviceToken || "";
+    
+            console.log('✅ Token:', postFetchUserDeviceToken);
+    
+            if (postFetchUserDeviceToken) {
+              await sendPushNotification(
+                postFetchUserDeviceToken,
+                fetchPostStatus,
+                fetchPostDetails
+              );
+            } else {
+              console.log("⚠️ No device token found");
             }
-          }, (error) => {
-            console.error("❌ Real-time listener failed:", error);
-          });
-
-          if (postFetchUserDeviceToken) {
-            sendPushNotification(postFetchUserDeviceToken, fetchPostStatus, fetchPostDetails);
           }
-          
-          return unsubscribeFollowing;
+        } catch (error) {
+          console.error('❌ Error fetching post user:', error);
         }
-      } catch (error) {
-        console.error('❌ Error fetching post user:', error);
-      }
-    }, [userId]);
+      },
+      [userId]
+    );
 
   // APPROVAL TOGGLE WITH TOAST
   const handleApprovalToggle = useCallback(
@@ -3512,6 +3515,7 @@ useEffect(() => {
         });
 
         console.log("✅ Post approved and report data cleared");
+        console.log("✅ Post approved postUserID: ", postUserID);
         if (postUserID) {
           fetchPostUserData(postUserID, "Post Approved", 'Your post is approved');
         }

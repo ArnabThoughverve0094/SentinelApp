@@ -57,7 +57,10 @@ import { registerForPushNotificationAsync } from "../utils/registerForPushNotifi
   
     useEffect(() => {
       registerForPushNotificationAsync().then(
-        (token) => setExpoPushToken(token),
+        (token) => {
+          console.log("📱 Token:", token);
+          setExpoPushToken(token);
+        },
         (error) => setError(error)
       );
   
@@ -84,20 +87,20 @@ import { registerForPushNotificationAsync } from "../utils/registerForPushNotifi
           };
     }, []);
 
-    useEffect(() => {
-      const subscription = Notifications.addNotificationReceivedListener(notification => {
-        console.log("📩 Notification received:", notification);
-      });
+    // useEffect(() => {
+    //   const subscription = Notifications.addNotificationReceivedListener(notification => {
+    //     console.log("📩 Notification received:", notification);
+    //   });
     
-      const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-        console.log("👉 User tapped notification:", response);
-      });
+    //   const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+    //     console.log("👉 User tapped notification:", response);
+    //   });
     
-      return () => {
-        subscription.remove();
-        responseListener.remove();
-      };
-    }, []);
+    //   return () => {
+    //     subscription.remove();
+    //     responseListener.remove();
+    //   };
+    // }, []);
   
     return (
       <NotificationContext.Provider
@@ -114,12 +117,14 @@ import { registerForPushNotificationAsync } from "../utils/registerForPushNotifi
       sound: 'default',
       title: notiTitle,
       body: notiBody,
-      // data: { someData: 'goes here' },
+      data: { someData: notiBody },
     };
   
     const response = await fetch('https://exp.host/--/api/v2/push/send', {
       method: 'POST',
       headers: {
+        Accept: 'application/json',
+        'Accept-encoding': 'gzip, deflate',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(message),
