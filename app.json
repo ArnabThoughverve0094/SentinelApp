@@ -28,6 +28,7 @@
       "edgeToEdgeEnabled": true,
       "package": "in.thoughtverve.sentinel",
       "icon": "./assets/images/new_logo.png",
+      "useNextNotificationsApi": true,
       "googleServicesFile": "./google-services.json"
     },
     "web": {
