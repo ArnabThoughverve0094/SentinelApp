@@ -2501,11 +2501,11 @@ useEffect(() => {
 
           // ✅ Collect all deleted user IDs for feed filtering
           if (deletedData.userId) {
-            deletedIds.push(deletedData.userId);
+            deletedIds.push(deletedData.userName);
           }
 
           // ✅ FIX: Only logout if the CURRENT logged-in user is the deleted one
-          if (fetchuserID && deletedData.userId === fetchuserID) {
+          if (fetchuserID && deletedData.userName === fetchuserID) {
             confirmAccDeletedLogout();
           }
         }
