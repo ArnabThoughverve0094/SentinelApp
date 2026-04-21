@@ -445,7 +445,6 @@ export default function CreatePost() {
   const [userEmail, setUserEmail] = useState("");
   const [userNickName, setUserNickName] = useState("");
   const [userId, setUserId] = useState("");
-  const [userExpoToken, setUserExpoToken] = useState("");
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(false);
@@ -567,7 +566,6 @@ export default function CreatePost() {
       const fetchuserID = (await AsyncStorage.getItem('userId') || '1234');
       const fetchCreateType = (await AsyncStorage.getItem('createType') || '');
       const fetchuseNickrName = (await AsyncStorage.getItem('userNickName') || '');
-      const fetchuserExpoToken = (await AsyncStorage.getItem('expoToken') || '');
 
       setUserEmail(await AsyncStorage.getItem('userEmail') || '');
 
@@ -599,11 +597,6 @@ export default function CreatePost() {
       if(fetchuseNickrName !== null) {
         console.log("userNickName: ", fetchuseNickrName);
         setUserNickName(fetchuseNickrName);
-      }
-
-      if(fetchuserExpoToken !== null) {
-        console.log("userExpoToken: ", fetchuserExpoToken);
-        setUserExpoToken(fetchuserExpoToken);
       }
       
     } catch (error) {
@@ -1508,7 +1501,6 @@ const checkPostContent = async (postText: string, imageUrl: string | null) => {
   useFocusEffect(() => {
     getItem();
   })
-  const goBack = useCallback(() => router.back(), [router]);
   const goBack = useCallback(() => router.back(), [router]);
 
   return (
