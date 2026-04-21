@@ -1509,6 +1509,7 @@ const checkPostContent = async (postText: string, imageUrl: string | null) => {
     getItem();
   })
   const goBack = useCallback(() => router.back(), [router]);
+  const goBack = useCallback(() => router.back(), [router]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "white" }}>

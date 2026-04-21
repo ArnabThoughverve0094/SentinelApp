@@ -1176,13 +1176,32 @@ const setupBookmarkListeners = useCallback((fetchuserID: string) => {
   let sentinelLoaded = false;
   let xDataLoaded = false;
 
-  const mergeAndSet = () => {
-    if (sentinelLoaded && xDataLoaded) {
-      const all = [...sentinelBookmarks, ...xDataBookmarks];
-      setBookmarkedPosts(all);
-      setLoading(false);
-    }
-  };
+
+const mergeAndSet = () => {
+  if (sentinelLoaded && xDataLoaded) {
+    const all = [...sentinelBookmarks, ...xDataBookmarks];
+
+    
+    all.sort((a, b) => {
+      const dateA = a.bookmarkedAt
+        ? (typeof a.bookmarkedAt === 'object' && a.bookmarkedAt?.toDate
+            ? a.bookmarkedAt.toDate()
+            : new Date(a.bookmarkedAt))
+        : new Date(a.ContentDate);
+
+      const dateB = b.bookmarkedAt
+        ? (typeof b.bookmarkedAt === 'object' && b.bookmarkedAt?.toDate
+            ? b.bookmarkedAt.toDate()
+            : new Date(b.bookmarkedAt))
+        : new Date(b.ContentDate);
+
+      return dateB.getTime() - dateA.getTime(); 
+    });
+
+    setBookmarkedPosts(all);
+    setLoading(false);
+  }
+};
 
   // ── 1. Real-time listener for SentinelPosts ──
   const sentinelRef = collection(db, 'SentinelPosts');
@@ -1217,7 +1236,7 @@ const setupBookmarkListeners = useCallback((fetchuserID: string) => {
           Reposted: postData.RepostedBy?.includes(fetchuserID) || false,
           Bookmarked: true,
           createdAt: postData.createdAt || postData.ContentDate,
-          bookmarkedAt: postData.bookmarkedAt || new Date(),
+          bookmarkedAt: postData.bookmarkedAt ?? postData.ContentDate ?? null,
           CommentTemplate: postData.CommentTemplate || 'Standard Template',
           isRepost: postData.isRepost || false,
           originalPost: postData.originalPost || null,
@@ -1270,7 +1289,7 @@ const setupBookmarkListeners = useCallback((fetchuserID: string) => {
           Reposted: postData.RepostedBy?.includes(fetchuserID) || false,
           Bookmarked: true,
           createdAt: postData.createdAt || postData.ContentDate,
-          bookmarkedAt: postData.bookmarkedAt || new Date(),
+          bookmarkedAt: postData.bookmarkedAt ?? postData.ContentDate ?? null,
           CommentTemplate: postData.CommentTemplate || 'Standard Template',
           isAnonymous: false,
           contentType: postData.contentType || 'My Thoughts',
@@ -1835,14 +1854,21 @@ const onRefresh = useCallback(async () => {
         post.AuthorName.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
+    const toDate = (val: any): Date => {
+      if (!val) return new Date(0);
+      if (typeof val === 'object' && val.toDate) return val.toDate(); // Firestore Timestamp
+      return new Date(val);
+    };
 
-    // Sort posts
+    
     filtered.sort((a, b) => {
       switch (sortBy) {
         case 'recent':
-          return new Date(b.bookmarkedAt || b.ContentDate).getTime() - new Date(a.bookmarkedAt || a.ContentDate).getTime();
+          return toDate(b.bookmarkedAt || b.ContentDate).getTime() -
+                toDate(a.bookmarkedAt || a.ContentDate).getTime();
         case 'oldest':
-          return new Date(a.bookmarkedAt || a.ContentDate).getTime() - new Date(b.bookmarkedAt || b.ContentDate).getTime();
+          return toDate(a.bookmarkedAt || a.ContentDate).getTime() -
+                toDate(b.bookmarkedAt || b.ContentDate).getTime();
         case 'likes':
           return b.ContentLikeCount - a.ContentLikeCount;
         default:

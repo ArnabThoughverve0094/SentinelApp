@@ -4,7 +4,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ResponseType, TokenResponse, makeRedirectUri, useAuthRequest } from 'expo-auth-session';
 import { Link, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { doc, writeBatch } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -37,9 +36,7 @@ type LoginResponse = {
     sub: string;
     role: string;
     termsAccepted: string;
-    profilePic?: string;
-    bio?: string;
-    expoToken?: string;
+    profilePic?: string; // **ADDED: Profile picture field**
   };
   decodedClaims: any;
 };
@@ -212,35 +209,25 @@ export default function EmailLogin(): React.JSX.Element {
     items.push(['idToken', data.tokens.idToken]);
   }
 
-  // Store user attributes
-  if (data.userAttributes.email) {
-    items.push(['userEmail', data.userAttributes.email]);
-  }
-  if (data.userAttributes.name) {
-    items.push(['userName', data.userAttributes.name]);
-  }
-  if (data.userAttributes.nickname) {
-    items.push(['userNickName', data.userAttributes.nickname]);
-  } else {
-    items.push(['userNickName', ""]);
-  }
-  if (data.userAttributes.sub) {
-    items.push(['userId', data.userAttributes.sub]);
-    fetchUserData(data);
-  }
-  if (data.userAttributes.role) {
-    items.push(['userRole', data.userAttributes.role]);
-  } else {
-    items.push(['userRole', 'User']);
-  }
-
-  if (expoPushToken) {
-    items.push(['expoToken', expoPushToken]);
-  } else if (data.userAttributes.expoToken) {
-    items.push(['expoToken', data.userAttributes.expoToken]);
-  } else {
-    items.push(['expoToken', '']);
-  }
+        // Store user attributes
+        if (data.userAttributes.email) {
+          items.push(['userEmail', data.userAttributes.email]);
+        }
+        if (data.userAttributes.name) {
+          items.push(['userName', data.userAttributes.name]);
+        }
+        if (data.userAttributes.nickname) {
+          items.push(['userNickName', data.userAttributes.nickname]);
+        }
+        if (data.userAttributes.sub) {
+          items.push(['userId', data.userAttributes.sub]);
+          fetchUserData(data.userAttributes.sub);
+        }
+        if (data.userAttributes.role) {
+          items.push(['userRole', data.userAttributes.role]);
+        } else {
+          items.push(['userRole', 'user']);
+        }
 
   // ✅ COUNTRY - Check all possible locations
   const userCountry = data.userAttributes.country || 
@@ -377,59 +364,35 @@ export default function EmailLogin(): React.JSX.Element {
     }
   };
 
-  const fetchUserData = useCallback(async (userData: LoginResponse) => {
-    if (!userData.userAttributes.sub) return;
-  
-    // const sentinelUsersRef = collection(db, 'SentinelUsers');
-    // const q = query(sentinelUsersRef, where('userID', '==', userId));
-  
-    // const unsubscribe = onSnapshot(q, async (snapshot) => {
-    //   if (snapshot.empty) {
-    //     try {
-    //       await addDoc(collection(db, 'SentinelUsers'), {
-    //         userID: userId,
-    //         deviceToken: expoPushToken || '',
-    //         createdAt: new Date()
-    //       });
-    //       console.log('📱 New user created');
-    //     } catch (err) {
-    //       console.error("Error creating user:", err);
-    //     }
-    //   } else {
-    //     const userDoc = snapshot.docs[0];
-    //     const userData = userDoc.data();
-  
-    //     if (userData.deviceToken !== expoPushToken) {
-    //       const userRef = doc(db, "SentinelUsers", userDoc.id);
-    //       await updateDoc(userRef, { deviceToken: expoPushToken || '' });
-    //       console.log('✅ Device token synced');
-    //     }
-    //   }
-    // }, (error) => {
-    //   console.error('Snapshot error:', error);
-    // });
-  
-    // return unsubscribe;
-
-    const batch = writeBatch(db);
-    const userDocRef = doc(db, 'IronExUsers', userData.userAttributes.sub);
-    
+  const fetchUserData = useCallback(async (userId: string) => {
     try {
-      batch.set(userDocRef, {
-        userID: userData.userAttributes.sub,
-        userEmail: userData.userAttributes.email || '',
-        userName: userData.userAttributes.name || '',
-        userNickName: userData.userAttributes.nickname || '',
-        profilePicUrl: userData.userAttributes.profilePic || '',
-        expoToken: expoPushToken || '',
-        bio: userData.userAttributes.bio || '',
-        userBio: userData.userAttributes.bio || '',
-        Bio: userData.userAttributes.bio || '',
-      }, { merge: true });
-  
-      // Commit both updates at once
-      await batch.commit();
-  
+      if (userId) {
+        console.log('🔄 Fetching following list for user:', userId);
+        
+        const sentinelUsersRef = collection(db, 'SentinelUsers');
+        const q = query(sentinelUsersRef, where('userID', '==', userId));
+        
+        const unsubscribe = onSnapshot(q, async (snapshot) => {
+          if (!snapshot.empty) {
+            const userDoc = snapshot.docs[0];
+            
+            // const userRef = doc(db, "SentinelUsers", userDoc.id);
+            // await updateDoc(userRef, {
+            //   deviceToken: expoPushToken,
+            // });
+            console.log('✅ Current user doc updated');
+
+          } else {
+            await addDoc(collection(db, 'SentinelUsers'), {
+              userID: userId,
+              // deviceToken: expoPushToken,
+            });
+            console.log('📱 No user document found');
+          }
+        });
+
+        return unsubscribe;
+      }
     } catch (error) {
       console.error("❌ User Error:", error);
     }
