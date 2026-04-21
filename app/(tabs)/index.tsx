@@ -2360,21 +2360,6 @@ useEffect(() => {
                 color: '#34C759'
               })
             })
-
-            // for (const key in optionsField) {
-            //   if (Object.prototype.hasOwnProperty.call(optionsField, key)) {
-            //     const maybeOption = (optionsField as any)[key];
-            //     if (maybeOption && typeof maybeOption === "object") {
-            //       const icon = (maybeOption as any).icon;
-            //       const title = (maybeOption as any).title;
-            //       result.push({
-            //         key,
-            //         icon: typeof icon === "string" ? icon : "",
-            //         title: typeof title === "string" ? title : "",
-            //       });
-            //     }
-            //   }
-            // }
             commentTemmp.push({
               name: postData.name || "",
               options: result,
