@@ -1292,6 +1292,7 @@ export default function SentinelFeed(): React.JSX.Element {
   const [isRejectionModalVisible, setIsRejectionModalVisible] = useState(false);
   const [selectedRejectionReasons, setSelectedRejectionReasons] = useState<string[]>([]);
   const [rejectionPostId, setRejectionPostId] = useState<string | null>(null);
+  const [rejectionPostUserId, setRejectionPostUserId] = useState<string | null>(null);
 
   const [isRepostModalVisible, setIsRepostModalVisible] = useState(false);
   const [selectedRepostPost, setSelectedRepostPost] = useState<PostItem | null>(null);
@@ -3023,8 +3024,9 @@ useEffect(() => {
     setIsCommentModalVisible(true);
   }, []);
 
-  const openRejectionModal = useCallback((postId: string) => {
+  const openRejectionModal = useCallback((postId: string, postUserId: string) => {
     setRejectionPostId(postId);
+    setRejectionPostUserId(postUserId);
     setSelectedRejectionReasons([]);
     setIsRejectionModalVisible(true);
   }, []);
@@ -3032,6 +3034,7 @@ useEffect(() => {
   const closeRejectionModal = useCallback(() => {
     setIsRejectionModalVisible(false);
     setRejectionPostId(null);
+    setRejectionPostUserId(null);
     setSelectedRejectionReasons([]);
   }, []);
 
@@ -3077,6 +3080,10 @@ useEffect(() => {
         visibilityTime: 3000,
       });
 
+      if (rejectionPostUserId) {
+        fetchPostUserData(rejectionPostUserId, "Post Rejected", 'Your post has been rejected');
+      }
+
       // Create Notification
           // ✅ Notify the post author - same pattern as handleReportSubmit
         try {
@@ -3120,36 +3127,6 @@ useEffect(() => {
           console.error('Rejection notification error (non-critical):', rejectNotifError);
         }
 
-
-      // Create a new Expo client instance
-      // let expo = new Expo();
-
-      // // Assume this token was retrieved from your database
-      // let targetToken = postUserDeviceToken; 
-
-      // // Check that the push token is valid
-      // if (!Expo.isExpoPushToken(targetToken)) {
-      //   console.error(`Push token ${targetToken} is not a valid Expo push token`);
-      // }
-
-      // // Construct the notification message
-      // let messages = [{
-      //   to: targetToken,
-      //   sound: 'default',
-      //   title: 'Post Rejected',
-      //   body: 'Post has been rejected successfully with '+ selectedRejectionReasons.length + ' reason(s).',
-      //   data: { withSome: 'data' }, // Data for your app to handle when the user taps
-      // }];
-
-      // // Send the message
-      // try {
-      //   let ticket = await expo.sendPushNotificationsAsync(messages);
-      //   console.log("Push notification sent, ticket:", ticket);
-
-      //   // You should save the 'ticket' ID to check the receipt later for errors.
-      // } catch (error) {
-      // console.error(error);
-      // }
       
     } catch (error) {
       console.error('Error rejecting post:', error);
@@ -3161,7 +3138,7 @@ useEffect(() => {
         visibilityTime: 3000,
       });
     }
-  }, [selectedRejectionReasons, rejectionPostId, closeRejectionModal]);
+  }, [selectedRejectionReasons, rejectionPostId, rejectionPostUserId, closeRejectionModal]);
 
   const openFullScreenImage = useCallback((imageUrl: string) => {
     setFullScreenImage(imageUrl);
@@ -3413,6 +3390,48 @@ useEffect(() => {
       }
     };
 
+    const fetchAllUserTokens = async (): Promise<string[]> => {
+      try {
+        const snapshot = await getDocs(collection(db, "IronExUsers"));
+        const tokens: string[] = [];
+    
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          if (data.expoToken) {
+            tokens.push(data.expoToken);
+          }
+        });
+    
+        console.log("✅ All Tokens:", tokens);
+        return tokens;
+      } catch (error) {
+        console.error("❌ Error fetching tokens:", error);
+        return [];
+      }
+    };
+    
+    const sendNotificationToAllUsers = useCallback(
+      async (fetchPostStatus: string, fetchPostDetails: string) => {
+        try {
+          const tokens = await fetchAllUserTokens();
+    
+          if (tokens.length === 0) {
+            console.log("⚠️ No tokens found");
+            return;
+          }
+    
+          await sendPushNotification(
+            tokens,
+            fetchPostStatus,
+            fetchPostDetails
+          );
+        } catch (error) {
+          console.error("❌ Error sending notifications:", error);
+        }
+      },
+      []
+    );
+
     const fetchPostUserData = useCallback(
       async (fetchuserID: string, fetchPostStatus: string, fetchPostDetails: string) => {
         try {
@@ -3423,13 +3442,13 @@ useEffect(() => {
     
           if (docSnapshot.exists()) {
             const data = docSnapshot.data();
-            const postFetchUserDeviceToken = data.deviceToken || "";
+            const postFetchUserExpoToken = data.expoToken || "";
     
-            console.log('✅ Token:', postFetchUserDeviceToken);
+            console.log('✅ Token:', postFetchUserExpoToken);
     
-            if (postFetchUserDeviceToken) {
+            if (postFetchUserExpoToken) {
               await sendPushNotification(
-                postFetchUserDeviceToken,
+                [postFetchUserExpoToken],
                 fetchPostStatus,
                 fetchPostDetails
               );
@@ -3441,7 +3460,7 @@ useEffect(() => {
           console.error('❌ Error fetching post user:', error);
         }
       },
-      [userId]
+      []
     );
 
   // APPROVAL TOGGLE WITH TOAST
@@ -3517,7 +3536,7 @@ useEffect(() => {
         console.log("✅ Post approved and report data cleared");
         console.log("✅ Post approved postUserID: ", postUserID);
         if (postUserID) {
-          fetchPostUserData(postUserID, "Post Approved", 'Your post is approved');
+          sendNotificationToAllUsers("New Post", 'New post has been approved');
         }
       } else {
         // Post is being REJECTED or set to pending - keep report data
@@ -3525,10 +3544,10 @@ useEffect(() => {
           isApproved: newApprovedStatus,
           isNew: newIsNew,
         });
-      }
-
-      if (postUserID) {
-        fetchPostUserData(postUserID, "Post Rejected", 'Your post is rejected');
+        
+        if (postUserID) {
+          fetchPostUserData(postUserID, "Post Rejected", 'Your post is rejected');
+        }
       }
 
       console.log("Post status updated successfully");
@@ -4674,7 +4693,7 @@ useEffect(() => {
           // setPostUserDeviceToken(doc.docDeviceToken);
         }
       }
-      openRejectionModal(postId);
+      openRejectionModal(postId, postItem.AuthorUserID);
     };
 
     return (
@@ -5073,7 +5092,7 @@ useEffect(() => {
                     <Text className={`ml-1 text-xs font-semibold ${item.isApproved && !item.isNew ? "text-white" : "text-green-500"}`}>Approve</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    onPress={() => openRejectionModal(item.id)}
+                    onPress={() => openRejectionModal(item.id, item.AuthorUserID)}
                     className={`flex-1 flex-row items-center justify-center py-2 rounded-lg ${!item.isApproved && !item.isNew ? "bg-red-500" : "bg-white border border-red-500"}`}
                     activeOpacity={0.7}
                   >
@@ -5325,7 +5344,7 @@ useEffect(() => {
                   <Text className={`ml-1 text-xs font-semibold ${item.isApproved && !item.isNew ? "text-white" : "text-green-500"}`}>Approve</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  onPress={() => openRejectionModal(item.id)}
+                  onPress={() => openRejectionModal(item.id, item.AuthorUserID)}
                   className={`flex-1 flex-row items-center justify-center py-2 rounded-lg ${!item.isApproved && !item.isNew ? "bg-red-500" : "bg-white border border-red-500"}`}
                   activeOpacity={0.7}
                 >

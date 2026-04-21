@@ -8,6 +8,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { Platform } from 'react-native';
 import { registerForPushNotificationAsync } from "../utils/registerForPushNotificationAsync";
   
   interface NotificationContextType {
@@ -21,7 +22,7 @@ import { registerForPushNotificationAsync } from "../utils/registerForPushNotifi
       shouldShowAlert: true,
       shouldPlaySound: true,
       shouldSetBadge: false,
-      shouldShowBanner: true,
+      shouldShowBanner: false,
       shouldShowList: true,
     })
   })
@@ -87,6 +88,15 @@ import { registerForPushNotificationAsync } from "../utils/registerForPushNotifi
           };
     }, []);
 
+    useEffect(() => {
+      if (Platform.OS === "android") {
+        Notifications.setNotificationChannelAsync("default", {
+          name: "default",
+          importance: Notifications.AndroidImportance.MAX,
+        });
+      }
+    }, []);
+
     // useEffect(() => {
     //   const subscription = Notifications.addNotificationReceivedListener(notification => {
     //     console.log("📩 Notification received:", notification);
@@ -111,25 +121,41 @@ import { registerForPushNotificationAsync } from "../utils/registerForPushNotifi
     );
   };
 
-  export async function sendPushNotification(token: string, notiTitle: string, notiBody: string) {
-    const message = {
+  export async function sendPushNotification(tokens: string[], notiTitle: string, notiBody: string) {
+    const messages = tokens.map((token) => ({
       to: token,
       sound: 'default',
       title: notiTitle,
-      body: notiBody,
-      data: { someData: notiBody },
-    };
+      body: notiBody, 
+      priority: "high",
+      data: { screen: "home" },
+    }));
   
-    const response = await fetch('https://exp.host/--/api/v2/push/send', {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Accept-encoding': 'gzip, deflate',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(message),
-    });
+    try {
+      const response = await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Accept-encoding': 'gzip, deflate',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(messages),
+      });
   
-    const data = await response.json();
-    console.log("📨 Expo Response:", data);
+      const data = await response.json();
+      console.log("📨 Batch Response:", data);
+
+      if (data.data) {
+        data.data.forEach((item: any, index: number) => {
+          if (item.status === "error") {
+            console.log(
+              `❌ Error for token ${tokens[index]}:`,
+              item.details?.error
+            );
+          }
+        });
+      }
+    } catch (error) {
+      console.error("❌ Batch push error:", error);
+    }
   }

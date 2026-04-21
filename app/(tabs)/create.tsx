@@ -7,7 +7,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { FileSystemUploadType, uploadAsync } from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from "expo-router";
-import { addDoc, arrayUnion, collection, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
+import { addDoc, arrayUnion, collection, doc, getDocs, onSnapshot, query, updateDoc, where } from "firebase/firestore";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -445,7 +445,7 @@ export default function CreatePost() {
   const [userEmail, setUserEmail] = useState("");
   const [userNickName, setUserNickName] = useState("");
   const [userId, setUserId] = useState("");
-  const [userDeviceToken, setUserDeviceToken] = useState("");
+  const [userExpoToken, setUserExpoToken] = useState("");
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(false);
@@ -567,7 +567,7 @@ export default function CreatePost() {
       const fetchuserID = (await AsyncStorage.getItem('userId') || '1234');
       const fetchCreateType = (await AsyncStorage.getItem('createType') || '');
       const fetchuseNickrName = (await AsyncStorage.getItem('userNickName') || '');
-      const fetchuserDeviceToken = (await AsyncStorage.getItem('deviceToken') || '');
+      const fetchuserExpoToken = (await AsyncStorage.getItem('expoToken') || '');
 
       setUserEmail(await AsyncStorage.getItem('userEmail') || '');
 
@@ -601,9 +601,9 @@ export default function CreatePost() {
         setUserNickName(fetchuseNickrName);
       }
 
-      if(fetchuserDeviceToken !== null) {
-        console.log("userDeviceToken: ", fetchuserDeviceToken);
-        setUserDeviceToken(fetchuserDeviceToken);
+      if(fetchuserExpoToken !== null) {
+        console.log("userExpoToken: ", fetchuserExpoToken);
+        setUserExpoToken(fetchuserExpoToken);
       }
       
     } catch (error) {
@@ -934,6 +934,48 @@ const compressAndGetUrl = async (localUri) => {
     throw e;
   }
 };
+
+const fetchAllUserTokens = async (): Promise<string[]> => {
+  try {
+    const snapshot = await getDocs(collection(db, "IronExUsers"));
+    const tokens: string[] = [];
+
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      if (data.expoToken) {
+        tokens.push(data.expoToken);
+      }
+    });
+
+    console.log("✅ All Tokens:", tokens);
+    return tokens;
+  } catch (error) {
+    console.error("❌ Error fetching tokens:", error);
+    return [];
+  }
+};
+
+const sendNotificationToAllUsers = useCallback(
+  async (fetchPostStatus: string, fetchPostDetails: string) => {
+    try {
+      const tokens = await fetchAllUserTokens();
+
+      if (tokens.length === 0) {
+        console.log("⚠️ No tokens found");
+        return;
+      }
+
+      await sendPushNotification(
+        tokens,
+        fetchPostStatus,
+        fetchPostDetails
+      );
+    } catch (error) {
+      console.error("❌ Error sending notifications:", error);
+    }
+  },
+  []
+);
 
   const fetchUserData = useCallback(async () => {
     try {
@@ -1355,6 +1397,10 @@ const compressAndGetUrl = async (localUri) => {
       onPress: () => { hideModal(); setTimeout(() => router.back(), 500); }
     }], 'checkmark-circle');
 
+    if (isContentApproved) {
+      sendNotificationToAllUsers("New Post", 'Someone just posted something new!');
+    }
+
     // Step 8: Create Notification — original, untouched
     if (currentUserDocId) {
       const userRef = doc(db, "SentinelUsers", currentUserDocId);
@@ -1377,10 +1423,7 @@ const compressAndGetUrl = async (localUri) => {
         }),
       });
       console.log(isContentApproved ? 'Published' : hasVideo ? 'Video submitted for manual review' : 'Submitted for review', 'post');
-      if (userDeviceToken) {
-        // notifyUser(userDeviceToken, "Post Status", isContentApproved ? 'Published' : hasVideo ? 'Video submitted for manual review' : 'Submitted for review');
-        sendPushNotification(userDeviceToken, "Post Status", isContentApproved ? 'Published' : hasVideo ? 'Video submitted for manual review' : 'Submitted for review');
-      }
+      
     } else {
       await addDoc(collection(db, 'SentinelUsers'), {
         userID: await AsyncStorage.getItem('userId'),
@@ -1399,10 +1442,6 @@ const compressAndGetUrl = async (localUri) => {
       });
       console.log('Created new user document and notification');
 
-      if (userDeviceToken) {
-        // notifyUser(userDeviceToken, "Post Status", isContentApproved ? 'Published' : hasVideo ? 'Video submitted for manual review' : 'Submitted for review');
-        sendPushNotification(userDeviceToken, "Post Status", isContentApproved ? 'Published' : hasVideo ? 'Video submitted for manual review' : 'Submitted for review');
-      }
     }
 
   } catch (e) {

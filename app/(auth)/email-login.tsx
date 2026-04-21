@@ -39,7 +39,7 @@ type LoginResponse = {
     termsAccepted: string;
     profilePic?: string;
     bio?: string;
-    deviceToken?: string;
+    expoToken?: string;
   };
   decodedClaims: any;
 };
@@ -235,11 +235,11 @@ export default function EmailLogin(): React.JSX.Element {
   }
 
   if (expoPushToken) {
-    items.push(['deviceToken', expoPushToken]);
-  } else if (data.userAttributes.deviceToken) {
-    items.push(['deviceToken', data.userAttributes.deviceToken]);
+    items.push(['expoToken', expoPushToken]);
+  } else if (data.userAttributes.expoToken) {
+    items.push(['expoToken', data.userAttributes.expoToken]);
   } else {
-    items.push(['deviceToken', '']);
+    items.push(['expoToken', '']);
   }
 
   // ✅ COUNTRY - Check all possible locations
@@ -421,7 +421,7 @@ export default function EmailLogin(): React.JSX.Element {
         userName: userData.userAttributes.name || '',
         userNickName: userData.userAttributes.nickname || '',
         profilePicUrl: userData.userAttributes.profilePic || '',
-        deviceToken: expoPushToken || '',
+        expoToken: expoPushToken || '',
         bio: userData.userAttributes.bio || '',
         userBio: userData.userAttributes.bio || '',
         Bio: userData.userAttributes.bio || '',

@@ -52,7 +52,7 @@ export async function registerForPushNotificationAsync() {
             let fetchuserID = await AsyncStorage.getItem('userId') || "";
             if (fetchuserID !== "") {
                 await updateDoc(doc(db, 'IronExUsers', fetchuserID), {
-                    deviceToken: pushTokenString,
+                    expoToken: pushTokenString,
                   });
             }
             
