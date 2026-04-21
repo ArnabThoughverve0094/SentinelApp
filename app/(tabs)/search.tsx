@@ -2,7 +2,7 @@ import { db } from '@/FirebaseConfig';
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { arrayRemove, arrayUnion, collection, doc, getDoc, getDocs, increment, onSnapshot, writeBatch } from 'firebase/firestore';
+import { arrayRemove, arrayUnion, collection, doc, getDoc, getDocs, increment, onSnapshot, query, where, writeBatch } from 'firebase/firestore';
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -42,6 +42,19 @@ type FollowingUser = {
   userNickName?: string;
   profilePicUrl?: string;
 };
+
+export interface User {
+  username: string;
+  email: string;
+  role: string;
+  status: string;
+  enabled: boolean;
+}
+
+export interface UsersApiResponse {
+  users: User[];
+  nextToken: string | null;
+}
 
 // Enhanced Loading Component
 const LoadingComponent: React.FC<{ visible?: boolean; size?: 'small' | 'medium' | 'large' }> = ({
@@ -268,11 +281,11 @@ const SearchItem: React.FC<SearchItemProps> = ({ user, onFollowPress, currentUse
                 @{user.nickName}
               </Text>
             )}
-            {user.postCount !== undefined && (
+            {/* {user.postCount !== undefined && (
               <Text className="text-xs text-gray-400">
                 {user.postCount} posts
               </Text>
-            )}
+            )} */}
           </View>
         </View>
       </View>
@@ -309,7 +322,7 @@ export default function SearchPage() {
   const [filteredUsers, setFilteredUsers] = useState<SearchUser[]>([]);
   const [followingUsers, setFollowingUsers] = useState<FollowingUser[]>([]);
   const [loading, setLoading] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(false);
   const [userId, setUserId] = useState('');
   const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
   const [loadingUserId, setLoadingUserId] = useState<string | null>(null);
@@ -323,47 +336,6 @@ export default function SearchPage() {
   const asArray = <T,>(value: unknown): T[] => {
     return Array.isArray(value) ? (value as T[]) : [];
     };
-
-  // EXACT SAME PATTERN AS LANDING PAGE - Fetch user following
-  // const fetchUserFollowing = useCallback(async () => {
-  //   try {
-  //     let fetchuserID = userId;
-  //     if (!fetchuserID) {
-  //       fetchuserID = (await AsyncStorage.getItem('userId')) || '';
-  //       setUserId(fetchuserID);
-  //     }
-
-  //     if (fetchuserID) {
-  //       console.log('👤 Fetching following list for user:', fetchuserID);
-
-  //       const userDocRef = doc(db, 'IronExUsers', fetchuserID);
-
-  //       const unsubscribeFollowing = onSnapshot(userDocRef, (docSnapshot) => {
-  //         if (docSnapshot.exists()) {
-  //           const data = docSnapshot.data();
-
-  //           // 1. Get the Array of following objects
-  //           // const followingList: any[] = data.Following || [];
-  //           const followingList = asArray<FollowingUser>(data?.Following);
-  //           const idOnlyList: string[] = followingList.map(item => item.userId);
-
-  //           console.log(`✅ Displaying ${followingList.length} following`);
-  //           setFollowingUserIds(idOnlyList);
-  //           setFollowingUsers(followingList);
-  //         }
-  //       }, (error) => {
-  //         console.error("❌ Real-time listener failed:", error);
-  //         setFollowingUserIds([]);
-  //         setFollowingUsers([]);
-  //       });
-
-  //       return unsubscribeFollowing;
-  //     }
-  //   } catch (error) {
-  //     console.error('❌ Error fetching following list:', error);
-  //     setFollowingUserIds([]);
-  //   }
-  // }, [userId]);
 
   const fetchDeletedUsers = useCallback(async () => {
     try {
@@ -411,18 +383,7 @@ export default function SearchPage() {
     }
   }, [userId]);
 
-  // ✅ FIX: Mount order — fetch blocked/deleted FIRST, then fetch users
-  // useEffect(() => {
-  //   const init = async () => {
-  //     await fetchUserFollowing();
-  //     await fetchDeletedUsers();
-  //     await fetchBlockedUsers();
-  //     // ✅ Now fetch users AFTER blocked/deleted IDs are loaded into refs
-  //     fetchAllUsers();
-  //   };
-  //   init();
-  // }, []);
-
+  
   useEffect(() => {
     let unsubscribeFollowing = () => {};
   
@@ -451,7 +412,8 @@ export default function SearchPage() {
             setFollowingUsers(followingList);
             
             // 4. Re-fetch or filter all users whenever the following list changes
-            fetchAllUsers(); 
+            // fetchAllUsers(); 
+            fetchCognitoUsers();
           }
         }, (error) => {
           console.error("❌ Listener failed:", error);
@@ -522,6 +484,97 @@ export default function SearchPage() {
     } catch (error) {
       console.error('❌ Error fetching all users:', error);
       setInitialLoading(false);
+    }
+  };
+
+  const fetchCognitoUsers = async () => {
+    setLoading(true);
+  
+    try {
+      const response = await fetch('https://ironex.app/api/fetchUsers', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+  
+      const data: UsersApiResponse = await response.json();
+      console.log('Fetch Cognito Users response:', data);
+  
+      const userPromises = data.users.map(
+        async (cognitoUser): Promise<SearchUser | null> => {
+        try {
+          const emailId = cognitoUser.email;
+  
+          const q = query(
+            collection(db, "IronExUsers"),
+            where("userEmail", "==", emailId)
+          );
+  
+          const querySnapshot = await getDocs(q);
+  
+          if (!querySnapshot.empty) {
+            const docSnap = querySnapshot.docs[0];
+            const fsData = docSnap.data();
+  
+            return {
+              docID: docSnap.id,
+              id: fsData.userID || cognitoUser.username,
+              name: fsData.userName || emailId || "Unknown",
+              nickName: fsData.userNickName || undefined,
+              email: emailId,
+              avatar: fsData.profilePicUrl || "",
+              followers: fsData.Followers || [],
+              postCount: 0,
+              isFollowing: false,
+            };
+          }
+  
+          const fallbackUser: SearchUser = {
+            docID: "",
+            id: cognitoUser.username,
+            name: emailId || "Unknown",
+            email: emailId,
+            avatar: "",
+            followers: [],
+            postCount: 0,
+            isFollowing: false,
+          };
+          
+          return fallbackUser;
+  
+        } catch (err) {
+          console.error(`❌ Error fetching user ${cognitoUser.email}:`, err);
+          return null;
+        }
+      });
+  
+      const usersData = await Promise.all(userPromises);
+  
+      const finalUsers: SearchUser[] = usersData.filter(
+        (user): user is SearchUser => user !== null
+      );
+  
+      console.log("✅ Final SearchUser list:", finalUsers);
+  
+      const uniqueUsersMap = new Map<string, SearchUser>();
+
+      finalUsers.forEach(user => {
+        const key = user.docID || user.id;
+
+        if (!uniqueUsersMap.has(key)) {
+          uniqueUsersMap.set(key, user);
+        }
+      });
+
+      const uniqueUsers = Array.from(uniqueUsersMap.values());
+
+      console.log("✅ Deduplicated users:", uniqueUsers);
+
+      setAllUsers(uniqueUsers);
+  
+    } catch (err) {
+      console.error('❌ Fetch Cognito Users error: ', err);
+    } finally {
+      setLoading(false);
     }
   };
 
