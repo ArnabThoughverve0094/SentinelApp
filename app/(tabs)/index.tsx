@@ -4435,9 +4435,9 @@ useEffect(() => {
   
       if (item.isApproved === true && item.isNew === false) return true;
     
-      if (userRole === 'User' && item.isReported === true) return false;
+      if (item.isReported === true) return false;
       
-      if (userRole === 'User' && !item.isApproved) return false;
+      if (!item.isApproved) return false;
       return true;
     });
 
@@ -4466,19 +4466,6 @@ useEffect(() => {
 
     // ── FOLLOWING TAB ──────────────────────────────────────────────────────────
       if (activeTab === 'following') {
-        // const deletedSet = new Set(deletedUserIds); // O(1) lookups
-
-        // const followingData = allApprovedData.filter(item => {
-        
-        //   if (item.isAnonymous) return false;
-
-        //   const authorId = item.repostedBy || item.AuthorUserID;
-
-        //   if (authorId && deletedSet.has(authorId)) return false;
-
-        //   return authorId && followingUserIds.includes(authorId);
-        // });
-
         if (followingData.length < 4) handleLoadMore();
         return followingData;
       }

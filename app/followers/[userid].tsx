@@ -141,6 +141,8 @@ export default function FollowersFollowingScreen() {
   
     try {
       const userDocRef = doc(db, 'IronExUsers', userid);
+      const blockedDocRef = doc(db, 'UserBlocked', userid);
+
       const docSnap = await getDoc(userDocRef);
   
       if (docSnap.exists()) {
@@ -151,18 +153,39 @@ export default function FollowersFollowingScreen() {
         const validFollowerList = rawFollowerList.filter(
           (user) => user.userId && user.userId.includes('-')
         );
+
+        let blockedUserIds: string[] = [];
+
+        try {
+          const blockedSnap = await getDoc(blockedDocRef);
+          if (blockedSnap.exists()) {
+            const blockedData = blockedSnap.data();
+
+            const blockedList = blockedData.blockedList || [];
+
+            blockedUserIds = blockedList
+              .map((item: any) => item.postauthoruserid)
+              .filter(Boolean);
+          }
+        } catch (err) {
+          console.error("❌ Error fetching blocked list:", err);
+        }
+
+        const filteredFollowerList = validFollowerList.filter(
+          (user) => !blockedUserIds.includes(user.userId)
+        );
   
         // ❗ Update Firestore only if cleanup is needed
-        if (validFollowerList.length !== rawFollowerList.length) {
+        if (filteredFollowerList.length !== rawFollowerList.length) {
           console.log("🧹 Cleaning invalid followers from Firestore...");
   
           await updateDoc(userDocRef, {
-            Follower: validFollowerList,
+            Follower: filteredFollowerList,
           });
         }
   
-        console.log(`✅ Displaying ${validFollowerList.length} follower`);
-        setUsers(validFollowerList);
+        console.log(`✅ Displaying ${filteredFollowerList.length} follower`);
+        setUsers(filteredFollowerList);
       }
   
     } catch (error) {
@@ -185,6 +208,7 @@ export default function FollowersFollowingScreen() {
   
     try {
       const userDocRef = doc(db, 'IronExUsers', userid);
+      const blockedDocRef = doc(db, 'UserBlocked', userid);
   
       const unsubscribeFollowing = onSnapshot(
         userDocRef,
@@ -193,23 +217,43 @@ export default function FollowersFollowingScreen() {
             const data = docSnapshot.data();
   
             const rawFollowingList: UserItem[] = data.Following || [];
-  
-            // ✅ Keep only valid userIds (with '-')
+
             const validFollowingList = rawFollowingList.filter(
               (user) => user.userId && user.userId.includes('-')
             );
-  
+
+            let blockedUserIds: string[] = [];
+
+            try {
+              const blockedSnap = await getDoc(blockedDocRef);
+              if (blockedSnap.exists()) {
+                const blockedData = blockedSnap.data();
+
+                const blockedList = blockedData.blockedList || [];
+
+                blockedUserIds = blockedList
+                  .map((item: any) => item.postauthoruserid)
+                  .filter(Boolean);
+              }
+            } catch (err) {
+              console.error("❌ Error fetching blocked list:", err);
+            }
+ 
+            const filteredFollowingList = validFollowingList.filter(
+              (user) => !blockedUserIds.includes(user.userId)
+            );
+            
             // ❗ Only update Firestore if something was removed
-            if (validFollowingList.length !== rawFollowingList.length) {
+            if (filteredFollowingList.length !== rawFollowingList.length) {
               console.log("🧹 Cleaning invalid userIds from Firestore...");
   
               await updateDoc(userDocRef, {
-                Following: validFollowingList,
+                Following: filteredFollowingList,
               });
             }
   
-            console.log(`✅ Displaying ${validFollowingList.length} following`);
-            setUsers(validFollowingList);
+            console.log(`✅ Displaying ${filteredFollowingList.length} following`);
+            setUsers(filteredFollowingList);
           }
         },
         (error) => {
@@ -227,6 +271,8 @@ export default function FollowersFollowingScreen() {
       setLoading(false);
     }
   }, [userid]);
+
+
 
   useEffect(() => {
     console.log(`\n🔄 Active tab: ${activeTab}\n`);
