@@ -17,6 +17,7 @@ import {
   Animated,
   Dimensions,
   Easing,
+  FlatList,
   Image,
   ImageBackground,
   InteractionManager,
@@ -778,7 +779,7 @@ const RepostModal: React.FC<RepostModalProps> = ({
   >
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       {/* Dark backdrop — tap outside to close */}
       <TouchableOpacity
@@ -804,7 +805,8 @@ const RepostModal: React.FC<RepostModalProps> = ({
             shadowOffset: { width: 0, height: -4 },
             shadowOpacity: 0.12,
             shadowRadius: 16,
-            elevation: 12,
+            elevation: 20,
+            zIndex: 2
           },
         ]}
       >
@@ -1275,7 +1277,8 @@ export default function SentinelFeed(): React.JSX.Element {
   const [isInitialized, setIsInitialized] = useState(false);
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(-1);
-  const scrollViewRef = useRef<ScrollView>(null);
+  // const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<FlatList<PostItem>>(null);
   
   // UPDATED: Removed videoRefs since we'll use useVideoPlayer directly
   const flipCardRef = useRef<any>(null);
@@ -4410,7 +4413,7 @@ useEffect(() => {
       if (userRole === 'User') {
         // X-Data posts are never educational; Sentinel posts need approval
         if (item.postType.includes('X-Data')) return false;
-          return (item.isApproved && !item.isNew) && isEdu;
+        return (item.isApproved && !item.isNew) && isEdu;
       }
       // Admin/Mod: show all educational posts regardless of approval
       return isEdu;
@@ -5052,7 +5055,13 @@ useEffect(() => {
                 activeOpacity={0.7}
                 disabled={areInteractionsDisabled(item)}
               >
-                <Ionicons name={item.Bookmarked ? "bookmark" : "bookmark-outline"} size={20} color={item.Bookmarked ? "#000000" : "#64748b"} />
+                <View style={{ width: 24, height: 24 }}>
+                  <Ionicons
+                    name={item.Bookmarked ? "bookmark" : "bookmark-outline"}
+                    size={20}
+                    color={item.Bookmarked ? "#000000" : "#64748b"}
+                  />
+                </View>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -5304,7 +5313,13 @@ useEffect(() => {
               activeOpacity={0.7}
               disabled={areInteractionsDisabled(item)}
             >
-              <Ionicons name={item.Bookmarked ? "bookmark" : "bookmark-outline"} size={20} color={item.Bookmarked ? "#000000" : "#64748b"} />
+             <View style={{ width: 24, height: 24 }}>
+                <Ionicons
+                  name={item.Bookmarked ? "bookmark" : "bookmark-outline"}
+                  size={20}
+                  color={item.Bookmarked ? "#000000" : "#64748b"}
+                />
+              </View>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -5458,7 +5473,8 @@ useEffect(() => {
         return '';
       };
       const timestampKey = `${getTimestamp(item.createdAt) || getTimestamp(item.ContentDate)}-${index}`;
-      const uniqueKey = `${baseKey}-${contextKey}-${timestampKey}`;
+      // const uniqueKey = `${baseKey}-${contextKey}-${timestampKey}`;
+      const uniqueKey = item.uniqueId || item.id;
 
       
       return (
@@ -5526,7 +5542,798 @@ useEffect(() => {
 };
 
 
-  return (
+//   return (
+//     <SafeAreaView className="flex-1 bg-gray-50">
+//       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
+//       <View className="bg-white border-b border-gray-200 pt-3">
+//         <View 
+//           className="px-4 py-2 flex-row items-center justify-between"
+//           style={{ paddingTop: Platform.OS === 'ios' ? 12 : 12 }}
+//         >
+//           {/* <View>
+//             <Image
+//               source={require("../../assets/images/new_logo.png")}
+//               className="w-16 h-10"
+//               resizeMode="contain"
+//             />
+//           </View> */}
+//           {/* <Text className="text-3xl font-bold text-black-900">Sentinel</Text> */}
+//           <Link href="/" asChild>
+//               <TouchableOpacity className="flex-row items-center">
+//                 <View className="ml-2">
+//                   <View className="flex-row items-center">
+//                     <View className="w-8 h-8 mr-0">
+//                       <Image
+//                         source={require("../../assets/images/new_logo.png")}
+//                         style={{ flex: 1, width: undefined, height: undefined }}
+//                         resizeMode="contain"
+//                       />
+//                     </View>
+//                     {/* Sentinel Text */}
+//                     {/* <Text className="text-3xl font-extrabold text-[#281C20]">entinel</Text> */}
+//                     <Text className="text-3xl font-extrabold text-[#281C20]">IronExSafe™</Text>
+//                   </View>
+//                   {/* Logo Icon */}
+//                   <Text className="text-lg text-[#281C20]">
+//                     Report. Expose. Educate.
+//                   </Text>
+//                 </View>
+//               </TouchableOpacity>
+//             </Link>
+          
+//           <TouchableOpacity 
+//               className="p-2 "
+//               onPress={() => router.push('/search')}
+//             >
+//               <MaterialCommunityIcons 
+//                 name="magnify" 
+//                 size={30} 
+//                 color="#000000" 
+//               />
+//             </TouchableOpacity>
+//         </View>
+//       </View>
+
+//       <TabHeader 
+//         activeTab={activeTab} 
+//         onTabChange={setActiveTab}
+//       />
+
+//       <ScrollView 
+//        key={`feed-${activeTab}-${allBlockedIds instanceof Set ? allBlockedIds.size : 0}-${deletedUserIds.length}`}
+//         ref={scrollViewRef}
+//         className="flex-1" 
+//         showsVerticalScrollIndicator={false}
+//         contentContainerStyle={{ 
+//           paddingTop: 6, 
+//           paddingBottom: 16,
+//         }}
+//         refreshControl={
+//           <RefreshControl
+//             refreshing={refreshing}
+//             onRefresh={onRefresh}
+//             colors={['#3b82f6']}
+//             tintColor="#3b82f6"
+//             title="Pull to refresh"
+//             titleColor="#64748b"
+//           />
+//         }
+//         onScroll={handleScroll} 
+//         scrollEventThrottle={16}
+//       >
+        
+
+//         {loading && !isFetchingMore ? (
+//             // Full-screen loader for initial/refresh load
+//             <View className="flex-1 justify-center items-center py-20">
+//                 <LoadingComponent visible={true} size="large" />
+//             </View>
+//         ) : (activeTab === 'following' || activeTab === 'educational') && listItems.length === 0 ? (
+//             renderEmptyState()
+//         ) : listItems.length > 0 ? (
+//             // The list of items
+//             listItems
+//         ) : (
+//              // Fallback loader if list is empty after initial load (optional)
+//             <View className="flex-1 justify-center items-center py-20">
+//                 <LoadingComponent visible={true} size="large" />
+//             </View>
+//         )}
+
+//         {/* 👇 5. Small Loader for Pagination */}
+//         {isFetchingMore && (
+//             <View className="py-4 justify-center items-center">
+//                 <LoadingComponent visible={true} size="small" /> 
+//             </View>
+//         )}
+
+//         {/* 👇 6. "No More Data" Indicator (Optional) */}
+//         {!hasMore && listItems.length > BATCH_SIZE && (
+//             <View className="py-4 justify-center items-center">
+//                 <Text className="text-gray-500">You've reached the end of the feed.</Text>
+//             </View>
+//         )}
+//       </ScrollView>
+
+      
+//       {/* IMAGE MODAL */}
+//       <Modal
+//         visible={isImageModalVisible}
+//         transparent={true}
+//         animationType="fade"
+//         onRequestClose={closeFullScreenImage}
+//         statusBarTranslucent
+//       >
+//         <View className="flex-1 bg-black">
+//           <TouchableOpacity 
+//             className="absolute top-12 right-6 z-10 p-3 rounded-full bg-black/60 backdrop-blur-sm"
+//             onPress={closeFullScreenImage}
+//           >
+//             <Ionicons name="close" size={24} color="white" />
+//           </TouchableOpacity>
+          
+//           <TouchableOpacity 
+//             className="flex-1 justify-center items-center"
+//             activeOpacity={1}
+//             onPress={closeFullScreenImage}
+//           >
+//             {fullScreenImage && (
+//               <Image
+//                 source={{ uri: fullScreenImage }}
+//                 style={{
+//                   width: '100%',
+//                   height: '100%', // Fills the parent View
+//                 }}
+//                 // No className here, as the background image is now handled by the other Image
+//                 resizeMode="contain" // Ensures the full foreground image is visible
+//                 resizeMethod="resize"
+//                 onError={(error) => {
+//                   console.log("Image load error:", error.nativeEvent.error);
+//                 }}
+//               />
+//             )}
+//           </TouchableOpacity>
+//         </View>
+//       </Modal>
+
+//       {/* VIDEO MODAL - UPDATED */}
+//       <Modal
+//         visible={isVideoModalVisible}
+//         transparent={true}
+//         animationType="fade"
+//         onRequestClose={closeFullScreenVideo}
+//         statusBarTranslucent
+//       >
+//         <View className="flex-1 bg-black">
+//           <TouchableOpacity 
+//             className="absolute top-12 right-6 z-10 p-3 rounded-full bg-black/60 backdrop-blur-sm"
+//             onPress={closeFullScreenVideo}
+//           >
+//             <Ionicons name="close" size={24} color="white" />
+//           </TouchableOpacity>
+          
+//           <View className="flex-1 justify-center items-center">
+//             {fullScreenVideo && (
+//               <VideoView
+//                 player={fullScreenVideoPlayer}
+//                 style={{ width: screenWidth, height: screenHeight - 100 }}
+//                 contentFit="contain"
+//                 nativeControls={true}
+//               />
+//             )}
+//           </View>
+//         </View>
+//       </Modal>
+
+//       {/* DOCUMENT MODAL */}
+//       <Modal
+//         visible={isDocModalVisible}
+//         transparent={true}
+//         animationType="fade"
+//         onRequestClose={closeFullScreenDoc}
+//         statusBarTranslucent
+//       >
+//         <View className="flex-1 bg-black">
+//           <TouchableOpacity 
+//             className="absolute top-12 right-6 z-10 p-3 rounded-full bg-black/60 backdrop-blur-sm"
+//             onPress={closeFullScreenDoc}
+//           >
+//             <Ionicons name="close" size={24} color="white" />
+//           </TouchableOpacity>
+          
+//           <View className="flex-1 justify-center items-center px-8">
+//             {fullScreenDoc && (
+//               <TouchableOpacity 
+//                 onPress={() => Linking.openURL(fullScreenDoc)}
+//                 className="items-center"
+//               >
+//                 <Ionicons name="document-text-outline" size={80} color="white" />
+//                 <Text className="text-white text-xl mt-6 text-center font-bold">
+//                   Open Document
+//                 </Text>
+//                 <Text className="text-purple-400 text-base mt-4 text-center underline">
+//                   {fullScreenDoc.split('/').pop() || 'Document'}
+//                 </Text>
+//                 <Text className="text-gray-400 text-sm mt-4 text-center">
+//                   Tap here to open the file in your browser or default app
+//                 </Text>
+//               </TouchableOpacity>
+//             )}
+//           </View>
+//         </View>
+//       </Modal>
+      
+      
+//         {/* Report Modal */}
+//         {isReportModalVisible && (
+//           <Modal
+//             visible={isReportModalVisible}
+//             transparent={true}
+//             animationType="slide"
+//             onRequestClose={closeReportModal}
+//             statusBarTranslucent
+//           >
+//             <View className="flex-1 bg-black/50 justify-end">
+//               <KeyboardAvoidingView 
+//                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+//                 style={{
+//                     backgroundColor: 'white',
+//                     borderTopLeftRadius: 24,
+//                     borderTopRightRadius: 24,
+//                     maxHeight: windowHeight * 0.80,       // ✅ Dynamic: 85% of real screen height
+//                     paddingBottom: insets.bottom > 0 ? insets.bottom : 16, // ✅ Above nav bar
+//                   }}
+//               >
+//                 {/* Header */}
+//                 <View className="px-6 pt-6 pb-4 border-b border-gray-200">
+//                   <View className="flex-row items-center justify-between">
+//                     <Text className="text-2xl font-bold text-gray-900">Report Post</Text>
+//                     <TouchableOpacity
+//                       onPress={closeReportModal}
+//                       className="p-2 rounded-full bg-gray-100"
+//                     >
+//                       <Ionicons name="close" size={22} color="#64748b" />
+//                     </TouchableOpacity>
+//                   </View>
+//                   <Text className="text-gray-600 text-sm mt-2">
+//                     Help us understand the problem with this post
+//                   </Text>
+//                 </View>
+
+//                 {/* Reasons List */}
+//                 <ScrollView className="px-6 py-4" showsVerticalScrollIndicator={false}>
+//                   {reportReasons.map((reason, index) => (
+//                     <TouchableOpacity
+//                       key={index}
+//                       onPress={() => toggleReportReason(reason)}
+//                       className={`flex-row items-center p-4 mb-3 rounded-xl border-2 ${
+//                         selectedReportReasons.includes(reason)
+//                           ? 'border-orange-500 bg-orange-50'
+//                           : 'border-gray-200 bg-white'
+//                       }`}
+//                       activeOpacity={0.7}
+//                     >
+//                       <View
+//                         className={`w-6 h-6 rounded-full border-2 items-center justify-center mr-3 ${
+//                           selectedReportReasons.includes(reason)
+//                             ? 'border-orange-500 bg-orange-500'
+//                             : 'border-gray-300 bg-white'
+//                         }`}
+//                       >
+//                         {selectedReportReasons.includes(reason) && (
+//                           <Ionicons name="checkmark" size={16} color="white" />
+//                         )}
+//                       </View>
+//                       <Text
+//                         className={`flex-1 text-sm ${
+//                           selectedReportReasons.includes(reason)
+//                             ? 'text-orange-600 font-semibold'
+//                             : 'text-gray-700 font-medium'
+//                         }`}
+//                       >
+//                         {reason}
+//                       </Text>
+//                     </TouchableOpacity>
+//                   ))}
+//                 </ScrollView>
+
+//                 {/* Submit Button */}
+//                 <View className="px-6 py-4 border-t border-gray-200">
+//                   <TouchableOpacity
+//                     onPress={handleReportSubmit}
+//                     className={`py-4 rounded-xl items-center ${
+//                       selectedReportReasons.length > 0
+//                         ? 'bg-orange-500'
+//                         : 'bg-gray-300'
+//                     }`}
+//                     disabled={selectedReportReasons.length === 0}
+//                     activeOpacity={0.8}
+//                   >
+//                     <Text
+//                       className={`text-base font-semibold ${
+//                         selectedReportReasons.length > 0
+//                           ? 'text-white'
+//                           : 'text-gray-500'
+//                       }`}
+//                     >
+//                       Submit Report
+//                     </Text>
+//                   </TouchableOpacity>
+//                 </View>
+//               </KeyboardAvoidingView>
+//             </View>
+//           </Modal>
+//         )}
+
+
+//       {/* REJECTION MODAL */}
+//       <Modal
+//         visible={isRejectionModalVisible}
+//         transparent={true}
+//         animationType="slide"
+//         onRequestClose={closeRejectionModal}
+//         statusBarTranslucent
+//       >
+//         <View className="flex-1 bg-black/50 justify-center items-center px-6">
+//           <View className="bg-white rounded-3xl w-full max-w-md overflow-hidden"
+//                style={{
+//                  shadowColor: '#000',
+//                  shadowOffset: { width: 0, height: 10 },
+//                  shadowOpacity: 0.25,
+//                  shadowRadius: 25,
+//                  elevation: 10,
+//                }}
+//           >
+//             <View className=" px-6 py-5 border-b border-gray-100">
+//               <View className="flex-row items-center justify-between">
+//                 <View className="flex-row items-center">
+//                   <View className="w-12 h-12 rounded-full items-center justify-center mr-4">
+//                     <Ionicons name="close-circle" size={28} color="#000" />
+//                   </View>
+//                   <View>
+//                     <Text className="font-bold text-gray-900 text-xl">Reject Post</Text>
+//                     <Text className="text-black text-sm mt-1">Select rejection reasons</Text>
+//                   </View>
+//                 </View>
+//                 <TouchableOpacity 
+//                   className="p-2 rounded-full bg-gray-100"
+//                   onPress={closeRejectionModal}
+//                 >
+//                   <Ionicons name="close" size={20} color="#64748b" />
+//                 </TouchableOpacity>
+//               </View>
+//             </View>
+
+//             <ScrollView style={{ maxHeight: screenHeight * 0.6 }} showsVerticalScrollIndicator={false}>
+//               <View className="px-6 py-6">
+//                 <Text className="text-gray-700 text-base mb-6 leading-6">
+//                   Please select one or more reasons why this post is being rejected. This will help the user understand our community guidelines.
+//                 </Text>
+
+//                 <View style={{ gap: 12 }}>
+//                   {rejectionReasons.map((reason, index) => {
+//                     const isSelected = selectedRejectionReasons.includes(reason);
+//                     return (
+//                       <TouchableOpacity
+//                         key={index}
+//                         className={`flex-row items-center py-4 px-5 rounded-2xl border-2 ${
+//                           isSelected 
+//                             ? 'bg-white border-black' 
+//                             : 'bg-gray-50 border-gray-200'
+//                         }`}
+//                         onPress={() => toggleRejectionReason(reason)}
+//                         activeOpacity={0.7}
+//                         style={{
+//                           shadowColor: isSelected ? '#000' : 'transparent',
+//                           shadowOffset: { width: 0, height: 2 },
+//                           shadowOpacity: isSelected ? 0.1 : 0,
+//                           shadowRadius: 4,
+//                           elevation: isSelected ? 2 : 0,
+//                         }}
+//                       >
+//                         <View 
+//                           className={`w-6 h-6 rounded-lg border-2 items-center justify-center mr-4 ${
+//                             isSelected 
+//                               ? ' border-black' 
+//                               : 'bg-white border-gray-300'
+//                           }`}
+//                         >
+//                           {isSelected && (
+//                             <Ionicons name="checkmark" size={16} color="black" />
+//                           )}
+//                         </View>
+                        
+//                         <Text 
+//                           className={`flex-1 text-base leading-6 font-medium ${
+//                             isSelected ? 'text-black' : 'text-gray-700'
+//                           }`}
+//                         >
+//                           {reason}
+//                         </Text>
+                        
+//                         {isSelected && (
+//                           <View className="ml-2">
+//                             <Ionicons name="checkmark-circle" size={20} color="#000" />
+//                           </View>
+//                         )}
+//                       </TouchableOpacity>
+//                     );
+//                   })}
+//                 </View>
+
+//                 {selectedRejectionReasons.length > 0 && (
+//                   <View className="mt-6 p-4  rounded-2xl ">
+//                     <Text className="text-black font-semibold text-sm">
+//                       {selectedRejectionReasons.length} reason{selectedRejectionReasons.length > 1 ? 's' : ''} selected
+//                     </Text>
+//                     <Text className="text-black text-xs mt-1">
+//                       The user will receive notification about these specific issues
+//                     </Text>
+//                   </View>
+//                 )}
+
+//                 <View className="flex-row mt-8" style={{ gap: 12 }}>
+//                   <TouchableOpacity
+//                     className="flex-1 py-4 px-6 rounded-2xl border-2 border-gray-200 bg-gray-50"
+//                     onPress={closeRejectionModal}
+//                     activeOpacity={0.8}
+//                   >
+//                     <Text className="text-gray-700 font-semibold text-center text-base">Cancel</Text>
+//                   </TouchableOpacity>
+                  
+//                   <TouchableOpacity
+//                     className={`flex-1 py-4 px-6 rounded-2xl ${
+//                       selectedRejectionReasons.length > 0 
+//                         ? 'bg-black' 
+//                         : 'bg-gray-300'
+//                     }`}
+//                     onPress={handleRejectionSubmit}
+//                     activeOpacity={0.8}
+//                     disabled={selectedRejectionReasons.length === 0}
+//                     style={{
+//                       shadowColor: selectedRejectionReasons.length > 0 ? '#ef4444' : 'transparent',
+//                       shadowOffset: { width: 0, height: 4 },
+//                       shadowOpacity: 0.3,
+//                       shadowRadius: 8,
+//                       elevation: selectedRejectionReasons.length > 0 ? 6 : 0,
+//                     }}
+//                   >
+//                     <Text className={`font-semibold text-center text-base ${
+//                       selectedRejectionReasons.length > 0 ? 'text-white' : 'text-gray-500'
+//                     }`}>
+//                       Submit Rejection
+//                     </Text>
+//                   </TouchableOpacity>
+//                 </View>
+//               </View>
+//             </ScrollView>
+//           </View>
+//         </View>
+//       </Modal>
+//       {/* DELETE POST MODAL */}
+//         <CustomModal
+//           visible={isDeleteModalVisible}
+//           type="warning"
+//           title="Delete Post"
+//           message="Are you sure you want to delete this post? This action cannot be undone."
+//           buttons={[
+//             {
+//               text: "Cancel",
+//               style: "cancel",
+//               onPress: () => {
+//                 setIsDeleteModalVisible(false);
+//                 setPostToDelete(null);
+//                 setShowMenuModal(false); 
+//               }
+//             },
+//             {
+//               text: "Delete",
+//               style: "destructive",
+//               onPress: confirmDeletePost
+//             }
+//           ]}
+//           onClose={() => {
+//             setIsDeleteModalVisible(false);
+//             setPostToDelete(null);
+//             setShowMenuModal(false);
+//           }}
+//         />
+
+//         {/* DELETE USER MODAL */}
+//         <CustomModal
+//           visible={isDeleteUserModalVisible}
+//           type="warning"
+//           title="Delete User"
+//           message="Are you sure you want to delete this user? This action cannot be undone."
+//           buttons={[
+//             {
+//               text: "Cancel",
+//               style: "cancel",
+//               onPress: () => {
+//                 setIsDeleteUserModalVisible(false);
+//                 setUserToDelete(null);
+//                 setShowMenuModal(false); 
+//               }
+//             },
+//             {
+//               text: "Delete",
+//               style: "destructive",
+//               onPress: confirmDeleteUser
+//             }
+//           ]}
+//           onClose={() => {
+//             setIsDeleteUserModalVisible(false);
+//             setUserToDelete(null);
+//             setShowMenuModal(false);
+//           }}
+//         />
+
+//         {/* BLOCK USER MODAL */}
+//         <CustomModal
+//           visible={isBlockModalVisible}
+//           loading={isBlockLoading}
+//           type="warning"
+//           title="Block User"
+//           message="You will no longer see their posts. This user will also be reported to our moderation team for review."
+//           buttons={[
+//             {
+//               text: "Cancel",
+//               style: "cancel",
+//               onPress: () => {
+//                 setIsBlockModalVisible(false);
+//                 setBlockUserId(null);
+//                 setBlockUserEmail(null);
+//                 setBlockUserName(null);
+//                 setShowMenuModal(false); 
+//                 setIsBlockLoading(false);
+//               }
+//             },
+//             {
+//               text: "Block",
+//               style: "destructive",
+//               onPress: async() => {
+//                 if (!isBlockLoading) {
+//                   setIsBlockLoading(true); 
+//                   try {
+//                     await blockUser(); 
+//                     // Usually, you close the modal here after success
+//                     setIsBlockModalVisible(false);
+//                   } catch (error) {
+//                     console.error("Block failed", error);
+//                   } finally {
+//                     setIsBlockLoading(false);
+//                   }
+//                 }
+//               }
+//             }
+//           ]}
+//           onClose={() => {
+//             setIsBlockModalVisible(false);
+//             setBlockUserId(null);
+//             setBlockUserEmail(null);
+//             setBlockUserName(null)
+//             setShowMenuModal(false);
+//             setIsBlockLoading(false);
+//           }}
+//         />
+
+
+//       <RepostModal
+//         visible={isRepostModalVisible}
+//         onClose={closeRepostModal}
+//         post={selectedRepostPost}
+//         onSimpleRepost={handleSimpleRepost}
+//         onQuoteRepost={handleQuoteRepost}
+//       />
+
+// <CommentsModal
+//   visible={isCommentModalVisible}
+//   onClose={closeCommentsModal}
+//   postId={selectedPostId}
+//   postType={selectedPostType}
+//   commentTemplate={selectedCommentTemplate}
+//   postData={fetchedData.find(item => item.id === selectedPostId)}
+//   // ✅ ADD THIS — navigation happens here, outside the modal
+//   onNavigateToProfile={handleNavigateToProfile}
+// />
+
+
+//       {/* GRAPH MODAL */}
+//       <TotalSentiment
+//         visible={isGraphModalVisible}
+//         onClose={closeGraphModal}
+//         postId={selectedGraphPostId}
+//         postType={selectedGraphPostType}
+//         postData={fetchedData.find(item => item.id === selectedGraphPostId)}
+//         onAddResponse={addResponseGraphModal} 
+//         userExistingComment={undefined} 
+//         onEditComment={undefined}
+//         commentTemplate={selectedCommentTemplate}
+//         />
+
+//       {/* Custom Alert Modal */}
+//       <CustomModal
+//         visible={modalConfig.visible}
+//         type={modalConfig.type}
+//         title={modalConfig.title}
+//         message={modalConfig.message}
+//         buttons={modalConfig.buttons}
+//         onClose={hideModal}
+//       />
+
+//       {/* Three Dots Menu Modal */}
+//         {showMenuModal && (
+//           <Modal
+//             visible={showMenuModal}
+//             transparent={true}
+//             animationType="fade"
+//             onRequestClose={() => setShowMenuModal(false)}
+//           >
+//             <TouchableOpacity 
+//               style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+//               activeOpacity={1}
+//               onPress={() => setShowMenuModal(false)}
+//             >
+//               <View style={{
+//                 position: 'absolute',
+//                 top: menuPosition.y,
+//                 right: 16, // ✅ Fixed to right edge
+//                 backgroundColor: '#fff',
+//                 borderRadius: 12,
+//                 paddingVertical: 8,
+//                 minWidth: 180,
+//                 shadowColor: '#000',
+//                 shadowOffset: { width: 0, height: 4 },
+//                 shadowOpacity: 0.3,
+//                 shadowRadius: 12,
+//                 elevation: 10,
+//               }}>
+//                 {/* Report Option - FOR ALL USERS */}
+//                 {fetchedData.find(post => post.id === selectedPostId)?.AuthorUserID !== userId &&
+//                     !fetchedData.find(post => post.id === selectedPostId)?.isNew && (
+//                     <TouchableOpacity
+//                       onPress={() => {
+//                         if (selectedPostId) {
+//                           setReportPostId(selectedPostId);
+//                           setShowMenuModal(false);
+//                           setIsReportModalVisible(true);
+//                         }
+//                       }}
+//                       style={{
+//                         paddingHorizontal: 16,
+//                         paddingVertical: 12,
+//                         flexDirection: 'row',
+//                         alignItems: 'center'
+//                       }}
+//                     >
+//                       <Ionicons name="flag" size={18} color="#FF9500" />
+//                       <Text style={{ 
+//                         marginLeft: 12, 
+//                         fontSize: 15, 
+//                         color: '#FF9500', 
+//                         fontWeight: '600' 
+//                       }}>
+//                         Report
+//                       </Text>
+//                     </TouchableOpacity>
+//                 )}
+
+//                 {/* Block Option - FOR ALL USERS */}
+//                 {fetchedData.find((post) => post.id === selectedPostId)?.AuthorUserID !==
+//                   userId && (
+//                     <TouchableOpacity
+//                       onPress={() => {
+//                         if (selectedPostUserId) {
+//                           setBlockUserId(selectedPostUserId);
+//                           setShowMenuModal(false);
+//                           setIsBlockModalVisible(true);
+//                         }
+//                       }}
+//                       style={{
+//                         paddingHorizontal: 16,
+//                         paddingVertical: 12,
+//                         flexDirection: 'row',
+//                         alignItems: 'center'
+//                       }}
+//                     >
+//                       <Ionicons name="ban" size={18} color="#FF3B30" />
+//                       <Text style={{ 
+//                         marginLeft: 12, 
+//                         fontSize: 15, 
+//                         color: '#FF3B30', 
+//                         fontWeight: '600' 
+//                       }}>
+//                         Block User
+//                       </Text>
+//                     </TouchableOpacity>
+//                 )}
+                
+//                 {/* Divider - Only if user owns post */}
+//                 {fetchedData.find(post => post.id === selectedPostId)?.AuthorUserID === userId && (
+//                   <View style={{ 
+//                     height: 1, 
+//                     backgroundColor: '#e5e5e5', 
+//                     marginHorizontal: 12,
+//                     marginVertical: 4 
+//                   }} />
+//                 )}
+                
+//                 {/* Delete Option - ONLY FOR POST OWNER */}
+//                 {fetchedData.find(post => post.id === selectedPostId)?.AuthorUserID === userId && (
+//                   <TouchableOpacity
+//                     onPress={() => {
+//                       if (selectedPostId) {
+//                         setShowMenuModal(false);
+//                         handleDeletePost(selectedPostId);
+//                       }
+//                     }}
+//                     style={{
+//                       paddingHorizontal: 16,
+//                       paddingVertical: 12,
+//                       flexDirection: 'row',
+//                       alignItems: 'center'
+//                     }}
+//                   >
+//                     <Ionicons name="trash" size={18} color="#FF3B30" />
+//                     <Text style={{ 
+//                       marginLeft: 12, 
+//                       fontSize: 15, 
+//                       color: '#FF3B30', 
+//                       fontWeight: '600' 
+//                     }}>
+//                       Delete
+//                     </Text>
+//                   </TouchableOpacity>
+//                 )}
+//                 {userRole != 'User' && (
+//                   <TouchableOpacity
+//                     onPress={() => {
+//                     if (selectedPostUserId) {
+//                       setShowMenuModal(false);
+//                       handleDeleteUser(selectedPostUserId);
+//                     }
+//                   }}
+//                   style={{
+//                     paddingHorizontal: 16,
+//                     paddingVertical: 12,
+//                     flexDirection: 'row',
+//                     alignItems: 'center'
+//                   }}
+//                 >
+//                   <Ionicons name="trash" size={18} color="#FF3B30" />
+//                   <Text style={{ 
+//                     marginLeft: 12, 
+//                     fontSize: 15, 
+//                     color: '#FF3B30', 
+//                     fontWeight: '600' 
+//                   }}>
+//                     Delete User
+//                   </Text>
+//                 </TouchableOpacity>
+//                 )}
+//               </View>
+//             </TouchableOpacity>
+//           </Modal>
+//         )}
+
+
+     
+//     </SafeAreaView>
+//   );
+
+const dedupedData = useMemo(() => {
+  const seen = new Set();
+
+  return filteredData.filter(item => {
+    const key = `${item.uniqueId || item.id}-${item.repostedBy || 'original'}`;
+    
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}, [filteredData]);
+
+return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
       <View className="bg-white border-b border-gray-200 pt-3">
@@ -5583,13 +6390,18 @@ useEffect(() => {
         onTabChange={setActiveTab}
       />
 
-      <ScrollView 
-       key={`feed-${activeTab}-${allBlockedIds instanceof Set ? allBlockedIds.size : 0}-${deletedUserIds.length}`}
+      <FlatList
         ref={scrollViewRef}
-        className="flex-1" 
+        data={dedupedData}
+        keyExtractor={(item) => {
+          return `${item.uniqueId || item.id}-${item.repostedBy || 'original'}`;
+        }}
+        renderItem={({ item, index }) => {
+          return renderPostContent(item, index);
+        }}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ 
-          paddingTop: 6, 
+        contentContainerStyle={{
+          paddingTop: 6,
           paddingBottom: 16,
         }}
         refreshControl={
@@ -5602,54 +6414,40 @@ useEffect(() => {
             titleColor="#64748b"
           />
         }
-        onScroll={handleScroll} 
+        onScroll={handleScroll}
         scrollEventThrottle={16}
-      >
-        {/* {loading ? (
-          <View className="flex-1 justify-center items-center py-20">
-            <LoadingComponent visible={true} size="large" />
-          </View>
-        ) : (activeTab === 'following' || activeTab === 'educational') && listItems.length === 0 ? (
-          renderEmptyState()
-        ) : listItems.length > 0 ? (
-          listItems
-        ) : (
-          <View className="flex-1 justify-center items-center py-20">
-            <LoadingComponent visible={true} size="large" />
-          </View>
-        )} */}
+        initialNumToRender={5}
+        maxToRenderPerBatch={5}
+        windowSize={5}
+        removeClippedSubviews
+        extraData={dedupedData}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
 
-        {loading && !isFetchingMore ? (
-            // Full-screen loader for initial/refresh load
-            <View className="flex-1 justify-center items-center py-20">
-                <LoadingComponent visible={true} size="large" />
+        ListFooterComponent={
+          isFetchingMore ? (
+            <View className="py-4 justify-center items-center">
+              <LoadingComponent visible size="small" />
             </View>
-        ) : (activeTab === 'following' || activeTab === 'educational') && listItems.length === 0 ? (
+          ) : !hasMore && dedupedData.length > BATCH_SIZE ? (
+            <View className="py-4 justify-center items-center">
+              <Text className="text-gray-500">
+                You've reached the end of the feed.
+              </Text>
+            </View>
+          ) : null
+        }
+
+        ListEmptyComponent={
+          loading ? (
+            <View className="flex-1 justify-center items-center py-20">
+              <LoadingComponent visible size="large" />
+            </View>
+          ) : (activeTab === 'following' || activeTab === 'educational') ? (
             renderEmptyState()
-        ) : listItems.length > 0 ? (
-            // The list of items
-            listItems
-        ) : (
-             // Fallback loader if list is empty after initial load (optional)
-            <View className="flex-1 justify-center items-center py-20">
-                <LoadingComponent visible={true} size="large" />
-            </View>
-        )}
-
-        {/* 👇 5. Small Loader for Pagination */}
-        {isFetchingMore && (
-            <View className="py-4 justify-center items-center">
-                <LoadingComponent visible={true} size="small" /> 
-            </View>
-        )}
-
-        {/* 👇 6. "No More Data" Indicator (Optional) */}
-        {!hasMore && listItems.length > BATCH_SIZE && (
-            <View className="py-4 justify-center items-center">
-                <Text className="text-gray-500">You've reached the end of the feed.</Text>
-            </View>
-        )}
-      </ScrollView>
+          ) : null
+        }
+      />
 
       
       {/* IMAGE MODAL */}
