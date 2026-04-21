@@ -5133,7 +5133,7 @@ useEffect(() => {
                     <Text className={`ml-1 text-xs font-semibold ${item.isApproved && !item.isNew ? "text-white" : "text-green-500"}`}>Approve</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    onPress={() => openRejectionModal(item.id)}
+                    onPress={() => openRejectionModal(item.id, item.AuthorUserID)}
                     className={`flex-1 flex-row items-center justify-center py-2 rounded-lg ${!item.isApproved && !item.isNew ? "bg-red-500" : "bg-white border border-red-500"}`}
                     activeOpacity={0.7}
                   >
@@ -5385,7 +5385,7 @@ useEffect(() => {
                   <Text className={`ml-1 text-xs font-semibold ${item.isApproved && !item.isNew ? "text-white" : "text-green-500"}`}>Approve</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  onPress={() => openRejectionModal(item.id)}
+                  onPress={() => openRejectionModal(item.id, item.AuthorUserID)}
                   className={`flex-1 flex-row items-center justify-center py-2 rounded-lg ${!item.isApproved && !item.isNew ? "bg-red-500" : "bg-white border border-red-500"}`}
                   activeOpacity={0.7}
                 >
