@@ -140,58 +140,69 @@ interface VideoPlayerProps {
   currentVideoIndex: number;
 }
 
-const VideoPlayerItem = React.memo(({ videoUrl, index, currentVideoIndex }: VideoPlayerProps) => {
-  const isActive = currentVideoIndex === index;
+  const VideoPlayerItem = React.memo(({ videoUrl, index, currentVideoIndex }: VideoPlayerProps) => {
+    const isActive = currentVideoIndex === index;
+    const player = useVideoPlayer(videoUrl, p => {
+      p.loop = true;
+      p.muted = true;
+    });
 
-  const player = useVideoPlayer(videoUrl, (p) => {
-    p.loop = true;
-    p.muted = true;
-  });
+    
+    const isMounted = useRef(true);
 
-  
-  useEffect(() => {
-    if (!player) return;
-    // Small delay lets the native player finish attaching
-    const timer = setTimeout(() => {
-      if (isActive) {
-        player.play();
-      } else {
-        // player.pause();
-        player.release();
-      }
-    }, 150); // 150ms is enough for both Android & iOS
-    return () => clearTimeout(timer);
-  }, [isActive, player]);
+   
+    useEffect(() => {
+      if (!player) return;
 
-  // useEffect(() => {
-  //   return () => {
-  //     // If the component unmounts, we MUST kill the native instance.
-  //     // Check your expo-video version: it's usually player.release() or player.dispose()
-  //     if (player) {
-  //       console.log("Cleaning up native player resources...");
-  //       player.release(); 
-  //     }
-  //   };
-  // }, [player]);
+      const timer = setTimeout(() => {
+       
+        if (!isMounted.current) return;
 
-  return (
-    <View className="relative rounded-xl overflow-hidden bg-black">
-      <VideoView
-        player={player}
-        style={{ width: '100%', aspectRatio: 16 / 9 }}
-        contentFit="cover"
-        nativeControls={false}
-      />
-      {!isActive && (
-        <View className="absolute inset-0 bg-black/20 items-center justify-center">
-          <View className="w-10 h-10 bg-black/60 rounded-full items-center justify-center">
-            <Ionicons name="play" size={20} color="white" />
+        try {
+          if (isActive) {
+            player.play();
+          } else {
+            player.pause();
+           
+          }
+        } catch (e) {
+         
+        }
+      }, 150);
+
+      return () => clearTimeout(timer);
+    }, [isActive, player]);
+
+    
+    useEffect(() => {
+      isMounted.current = true;
+      return () => {
+        isMounted.current = false; 
+        if (player) {
+          try {
+            player.pause();
+            player.release();
+          } catch (e) {
+           
+          }
+        }
+      };
+    }, [player]);
+
+    return (
+      <View className="relative rounded-xl overflow-hidden bg-black">
+        <VideoView player={player} style={{ width: '100%', aspectRatio: 16 / 9 }}
+          contentFit="cover" nativeControls={false} />
+        {!isActive && (
+          <View className="absolute inset-0 bg-black/20 items-center justify-center">
+            <View className="w-10 h-10 bg-black/60 rounded-full items-center justify-center">
+              <Ionicons name="play" size={20} color="white" />
+            </View>
           </View>
-        </View>
-      )}
-    </View>
-  );
-});
+        )}
+      </View>
+    );
+  });
 const ironExBg = require('../../assets/images/ironex-bg.png');
 // ✅ ExpandableText — fully self-contained, auto See More/See Less
   const ExpandableText = React.memo(({ text }: { text: string }) => {
@@ -1318,7 +1329,7 @@ export default function SentinelFeed(): React.JSX.Element {
   const [blockUserId, setBlockUserId] = useState<string | null>(null);
   const [blockUserEmail, setBlockUserEmail] = useState<string | null>(null);
   const [blockUserName, setBlockUserName] = useState<string | null>(null);
-  const [allBlockedIds, setAllBlockedIds] = useState<any>([]);
+  const [allBlockedIds, setAllBlockedIds] = useState<Set<string>>(new Set());
   const [isBlockLoading, setIsBlockLoading] = useState(false);
   const [deletedUserIds, setDeletedUserIds] = useState<string[]>([]);
   
@@ -2538,7 +2549,7 @@ useEffect(() => {
 
       const unsubscribeSentinelDeletedUsers = onSnapshot(queryBlockedUser, async updateSnapshot => {
         // 1. Collect ALL blocked IDs from all documents into one Set (for O(1) lookup)
-        const newBlockedIds = new Set();
+        const newBlockedIds = new Set<string>();
         
         updateSnapshot.docs.forEach(doc => {
           const data = doc.data();
@@ -3512,6 +3523,22 @@ useEffect(() => {
         });
 
         console.log("✅ Post approved and report data cleared");
+        setFetchedData(prev =>
+          prev.map(p =>
+            p.id === postId
+              ? {
+                  ...p,
+                  isApproved: true,
+                  isNew: false,
+                  isReported: false,        
+                  reportedBy: [],
+                  reportReasons: [],
+                  reportedAt: null,
+                  moderationStatus: 'approved',
+                }
+              : p
+          )
+        );
         if (postUserID) {
           fetchPostUserData(postUserID, "Post Approved", 'Your post is approved');
         }
@@ -4313,11 +4340,20 @@ useEffect(() => {
   }, [handleFetchAllData]);
 
   const filteredData = useMemo(() => {
-    const blockedSet = new Set(allBlockedIds ?? []);
-    // Remove blocked users
-    const sourceData = fetchedData.filter(
-      item => !blockedSet?.has(item.AuthorUserID)
-    );
+    const blockedSet: Set<string> =
+    allBlockedIds instanceof Set
+      ? allBlockedIds
+      : new Set<string>(Array.isArray(allBlockedIds) ? allBlockedIds : []);
+    
+    const deletedSet = new Set<string>(deletedUserIds ?? []);
+
+  
+    const sourceData = fetchedData.filter(item => {
+      if (!item.AuthorUserID) return true;
+      if (blockedSet.has(item.AuthorUserID)) return false;
+      if (deletedSet.has(item.AuthorUserID)) return false;
+      return true;
+    });
 
     // ONE WEEK window constant for data eligibility
     const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -4359,20 +4395,14 @@ useEffect(() => {
     });
 
     const allApprovedData = sourceData.filter(item => {
-      const isXData = item.postType.includes('X-Data');
-
-      if (userRole === 'User') {
-        // ✅ Explicitly hide reported posts for regular users
-        if (item.isReported && item.moderationStatus === 'pending-review') return false;
-        return isXData
-          ? (item.isApproved && !item.isNew)
-          : (item.isApproved && !item.isNew);
-      }
-      // Admins/Mods see everything (intentional)
+  
+      if (item.isApproved === true && item.isNew === false) return true;
+    
+      if (userRole === 'User' && item.isReported === true) return false;
+      
+      if (userRole === 'User' && !item.isApproved) return false;
       return true;
     });
-
-    const deletedSet = new Set(deletedUserIds); // O(1) lookups
 
     const followingData = allApprovedData.filter(item => {
         
@@ -4387,16 +4417,13 @@ useEffect(() => {
 
   
     const publishedData = sourceData.filter(item => {
-      const isXData = item.postType.includes('X-Data');
-
-      if (userRole === 'User') {
-        // ✅ Explicitly hide reported posts for regular users
-        if (item.isReported && item.moderationStatus === 'pending-review') return false;
-        return isXData
-          ? (item.isApproved && !item.isNew)
-          : (item.isApproved && !item.isNew && item.contentType !== 'Educational' && !item.isEducational);
-      }
-      // Admins/Mods see everything (intentional)
+ 
+      if (item.isApproved === true && item.isNew === false) return true;
+    
+      if (userRole === 'User' && item.isReported === true) return false;
+      
+      if (userRole === 'User' && !item.isApproved) return false;
+      
       return item.contentType !== 'Educational' && !item.isEducational;
     });
 
@@ -5409,12 +5436,10 @@ useEffect(() => {
   }, [openCommentsModal, EnhancedCard, getTimeAgo, renderMediaContent, toggleLike, handleRepost, handleBookmark, ApprovalToggle, handleApprovalToggle, dummyAuthorImage, userRole, getPostStatus, areInteractionsDisabled, openGraphModal, renderRepostContent]);
 
  
+  
   const listItems = useMemo(() => {
-    console.log(`🔄 Rendering ${filteredData.length} items for ${activeTab} tab`);
-    
     return filteredData.map((item, index) => {
       initializeCardAnimation(item.uniqueId);
-      
       const baseKey = `${item.postType}-${item.id}`;
       const contextKey = `${activeTab}-${index}`;
       const getTimestamp = (date: any) => {
@@ -5423,22 +5448,15 @@ useEffect(() => {
         if (typeof date === 'string') return date;
         return '';
       };
-      const timestampKey = getTimestamp(item.createdAt) || getTimestamp(item.ContentDate) || index;
+      const timestampKey = `${getTimestamp(item.createdAt) || getTimestamp(item.ContentDate)}-${index}`;
       const uniqueKey = `${baseKey}-${contextKey}-${timestampKey}`;
+
       
-      // if (userRole === "User") {
-      //   return (
-      //     <React.Fragment key={uniqueKey}>
-      //       {renderPostContent(item, index)}
-      //     </React.Fragment>
-      //   );
-      // } else {
-        return (
-          <React.Fragment key={uniqueKey}>
-            {renderPostContent(item, index)}
-          </React.Fragment>
-        );
-      // }
+      return (
+        <React.Fragment key={uniqueKey}>
+          {renderPostContent(item, index)}
+        </React.Fragment>
+      );
     });
   }, [filteredData, userRole, initializeCardAnimation, renderPostContent, activeTab]);
 
@@ -5557,8 +5575,7 @@ useEffect(() => {
       />
 
       <ScrollView 
-        // key={`feed-${activeTab}-${filteredData.length}`}
-        key={`feed-${activeTab}`}
+       key={`feed-${activeTab}-${allBlockedIds instanceof Set ? allBlockedIds.size : 0}-${deletedUserIds.length}`}
         ref={scrollViewRef}
         className="flex-1" 
         showsVerticalScrollIndicator={false}
