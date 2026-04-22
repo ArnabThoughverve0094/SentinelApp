@@ -4444,7 +4444,7 @@ useEffect(() => {
       if (item.isReported === true) return false;
       
       if (!item.isApproved) return false;
-      return true;
+      return false;
     });
 
     const followingData = allApprovedData.filter(item => {
