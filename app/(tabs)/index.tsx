@@ -2740,16 +2740,16 @@ useEffect(() => {
       setLastVisible(null);   // Reset pagination
       setHasMore(true);       // Reset more-data flag
 
-      // // Group your initial fetches
-      // await Promise.all([
-      //   getItem(),
-      //   fetchUserFollowing(),
-      //   // fetchAllUsersForNotifications();
-      //   // handleFetchAllData(),
-      //   fetchCommentTemplate(),
-      //   fetchDeletedUser(),
-      //   fetchBlockedUser(),
-      // ]);
+      // Group your initial fetches
+      await Promise.all([
+        getItem(),
+        fetchUserFollowing(),
+        // fetchAllUsersForNotifications();
+        // handleFetchAllData(),
+        fetchCommentTemplate(),
+        fetchDeletedUser(),
+        fetchBlockedUser(),
+      ]);
 
       await handleFetchAllData(true);
     } catch (error) {
