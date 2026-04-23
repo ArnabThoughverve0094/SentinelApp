@@ -2,7 +2,7 @@ import { db } from '@/FirebaseConfig';
 import { sendPushNotification } from '@/context/NotificationContext';
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Application from 'expo-application';
+import Constants from 'expo-constants';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from "expo-sharing";
 import { VideoView, useVideoPlayer } from 'expo-video';
@@ -2454,7 +2454,7 @@ useEffect(() => {
       console.log("Sentinel Update Called");
 
       // 1. Fetch the user-facing version name (e.g., "1.0.0")
-      const currentVersion = Application.nativeApplicationVersion ?? '1.0.0';
+      const currentVersion = Constants.expoConfig?.version || "1.1.0";
       console.log("Sentinel Current version: ", currentVersion);
 
       const unsubscribeSentinelUpdate = onSnapshot(collSentinelUpdate, updateSnapshot => {
@@ -2471,13 +2471,13 @@ useEffect(() => {
 
           if(updateData.forceLogout || false){
             console.log("Force Logout: true");
-            if(currentVersion != updateData.version) {
+            if(currentVersion < updateData.version) {
               confirmForceLogout();
             }
           } else {
             if(updateData.logout || false){
               console.log("Logout: true");
-              if(currentVersion != updateData.version) {
+              if(currentVersion < updateData.version) {
                 confirmLogout();
               }
             } else{
