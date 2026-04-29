@@ -1116,28 +1116,6 @@ const CustomModal: React.FC<CustomModalProps> = ({
                 </TouchableOpacity>
               ) : (
                 <View className="flex-row" style={{ gap: 12 }}>
-                  {/* {buttons.map((button, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      className={`flex-1 py-4 px-6 rounded-xl items-center shadow-lg ${
-                        button.style === 'cancel' 
-                          ? 'bg-gray-200' 
-                          : button.style === 'destructive'
-                          ? 'bg-red-500'
-                          : 'bg-black'
-                      }`}
-                      onPress={button.onPress}
-                      activeOpacity={0.8}
-                    >
-                      <Text className={`text-lg font-semibold ${
-                        button.style === 'cancel' 
-                          ? 'text-gray-700' 
-                          : 'text-white'
-                      }`}>
-                        {button.text}
-                      </Text>
-                    </TouchableOpacity>
-                  ))} */}
                   {buttons.map((button, index) => {
                     // Check if THIS specific button is the action button (not Cancel)
                     const isActionButton = button.style !== 'cancel';
@@ -1338,6 +1316,10 @@ export default function SentinelFeed(): React.JSX.Element {
   const [allBlockedIds, setAllBlockedIds] = useState<Set<string>>(new Set());
   const [isBlockLoading, setIsBlockLoading] = useState(false);
   const [deletedUserIds, setDeletedUserIds] = useState<string[]>([]);
+
+  const [isHideModalVisible, setIsHideModalVisible] = useState(false);
+  const [hidePostId, setHidePostId] = useState<string | null>(null);
+  const [isHideLoading, setIsHideLoading] = useState(false);
   
 
   const [viewedPosts, setViewedPosts] = useState<Set<string>>(new Set());
@@ -1565,6 +1547,11 @@ useEffect(() => {
       setSelectedReportReasons([]);
     }, []);
 
+    const closeHideModal = useCallback(() => {
+      setIsHideModalVisible(false);
+      setHidePostId(null);
+    }, []);
+
     const toggleReportReason = useCallback((reason: string) => {
       setSelectedReportReasons(prev => {
         if (prev.includes(reason)) {
@@ -1711,12 +1698,41 @@ useEffect(() => {
     }
     }, [selectedReportReasons, reportPostId, userId, closeReportModal, fetchedData]);
 
-    const closeBlockUserModal = useCallback(() => {
-      setIsBlockModalVisible(false);
-      setBlockUserId(null);
-    }, []);
+    const handleHideSubmit = useCallback(async () => {
+      
+      try {
+        const postRef = doc(db, "SentinelPosts", hidePostId);
+    
+        await updateDoc(postRef, {
+          hideBy: arrayUnion(userId),
+        });
 
+        setFetchedData(prev =>
+          prev.filter(post => post.id !== hidePostId)
+        );
 
+        closeReportModal();
+
+        Toast.show({
+          type: "success",
+          text1: "Hide Submitted",
+          text2: "Thank you for helping keep our community safe.",
+          position: "bottom",
+          visibilityTime: 3000,
+        });
+
+        
+      } catch (error) {
+        console.error("Error hide post:", error);
+        Toast.show({
+          type: "error",
+          text1: "Hide Post Failed",
+          text2: "Failed to submit hide post. Please try again.",
+          position: "bottom",
+          visibilityTime: 3000,
+        });
+      }
+    }, [hidePostId, userId, closeHideModal]);
 
         const openUserProfile = useCallback((item: PostItem) => {
           // 🔒 Block profile open for anonymous posts
@@ -2060,7 +2076,7 @@ useEffect(() => {
 
     if (sentinelUnsubscribeRef.current) {
       sentinelUnsubscribeRef.current();
-  }
+    }
 
     setLoading(true);
     try {
@@ -2087,6 +2103,7 @@ useEffect(() => {
           id: doc.id,
           data: doc.data(),
         }))
+        .filter(doc => !doc.data.hideBy?.includes(fetchuserID));
 
         const postsData = [];
         for (const doc of sentineldataArr) {
@@ -6134,6 +6151,54 @@ useEffect(() => {
           }}
         />
 
+        {/* HIDE POST MODAL */}
+        <CustomModal
+          visible={isHideModalVisible}
+          loading={isHideLoading}
+          type="warning"
+          title="Hide Post"
+          message="You will no longer see this post."
+          buttons={[
+            {
+              text: "Cancel",
+              style: "cancel",
+              onPress: () => {
+                setIsHideModalVisible(false);
+                setBlockUserId(null);
+                setBlockUserEmail(null);
+                setBlockUserName(null);
+                setShowMenuModal(false); 
+                setIsHideLoading(false);
+              }
+            },
+            {
+              text: "Confirm",
+              style: "destructive",
+              onPress: async() => {
+                if (!isBlockLoading) {
+                  setIsHideLoading(true); 
+                  try {
+                    await handleHideSubmit(); 
+                    setIsHideModalVisible(false);
+                  } catch (error) {
+                    console.error("Hide failed", error);
+                  } finally {
+                    setIsHideLoading(false);
+                  }
+                }
+              }
+            }
+          ]}
+          onClose={() => {
+            setIsHideModalVisible(false);
+            setBlockUserId(null);
+            setBlockUserEmail(null);
+            setBlockUserName(null)
+            setShowMenuModal(false);
+            setIsHideLoading(false);
+          }}
+        />
+
 
       <RepostModal
         visible={isRepostModalVisible}
@@ -6230,9 +6295,59 @@ useEffect(() => {
                         color: '#FF9500', 
                         fontWeight: '600' 
                       }}>
-                        Report
+                        Report Post
                       </Text>
                     </TouchableOpacity>
+                )}
+
+                {/* Divider - Only if user owns post */}
+                {fetchedData.find(post => post.id === selectedPostId)?.AuthorUserID === userId && (
+                  <View style={{ 
+                    height: 1, 
+                    backgroundColor: '#e5e5e5', 
+                    marginHorizontal: 12,
+                    marginVertical: 4 
+                  }} />
+                )}
+
+                {/* Hide Post Option - FOR ALL USERS */}
+                {fetchedData.find((post) => post.id === selectedPostId)?.AuthorUserID !==
+                  userId && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (selectedPostId) {
+                          setHidePostId(selectedPostId);
+                          setShowMenuModal(false);
+                          setIsHideModalVisible(true);
+                        }
+                      }}
+                      style={{
+                        paddingHorizontal: 16,
+                        paddingVertical: 12,
+                        flexDirection: 'row',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <Ionicons name="eye-off" size={18} color="#FF3B30" />
+                      <Text style={{ 
+                        marginLeft: 12, 
+                        fontSize: 15, 
+                        color: '#FF3B30', 
+                        fontWeight: '600' 
+                      }}>
+                        Hide Post
+                      </Text>
+                    </TouchableOpacity>
+                )}
+                
+                {/* Divider - Only if user owns post */}
+                {fetchedData.find(post => post.id === selectedPostId)?.AuthorUserID === userId && (
+                  <View style={{ 
+                    height: 1, 
+                    backgroundColor: '#e5e5e5', 
+                    marginHorizontal: 12,
+                    marginVertical: 4 
+                  }} />
                 )}
 
                 {/* Block Option - FOR ALL USERS */}
@@ -6243,7 +6358,7 @@ useEffect(() => {
                         if (selectedPostUserId) {
                           setBlockUserId(selectedPostUserId);
                           setShowMenuModal(false);
-                          setIsBlockModalVisible(true);
+                          setIsHideModalVisible(true);
                         }
                       }}
                       style={{
