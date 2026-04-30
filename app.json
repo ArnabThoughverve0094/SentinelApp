@@ -17,7 +17,8 @@
       "infoPlist": {
         "NSCameraUsageDescription": "This app uses the camera to capture images for uploading documents and profile pictures, such as taking a photo to create post.",
         "NSPhotoLibraryUsageDescription": "This app allows you to select images from your photo library to upload documents or profile pictures, such as choosing a image.",
-        "NSPhotoLibraryAddUsageDescription": "This app saves images to your photo library when you download reports or images."
+        "NSPhotoLibraryAddUsageDescription": "This app saves images to your photo library when you download reports or images.",
+        "LSApplicationQueriesSchemes": ["mailto"]
       }
     },
     "android": {

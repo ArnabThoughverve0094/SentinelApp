@@ -2208,29 +2208,6 @@ useEffect(() => {
             startAfter(lastVisible), // Start after the last document fetched
             limit(BATCH_SIZE)
         );
-        // if (activeTab === 'educational') {
-        //   queryNext = query(
-        //       collSentinelRefPost,
-        //       where('contentType', '==', 'Educational'),
-        //       orderBy('ContentDate', 'desc'),
-        //       startAfter(lastVisible),
-        //       limit(BATCH_SIZE)
-        //   );
-        // }
-        // if (activeTab === 'following') {
-        //   if (!followingUserIds || followingUserIds.length === 0) {
-        //     console.log("User is not following anyone. Skipping query.");
-        //     return [];
-        //   } else {
-        //     queryNext = query(
-        //       collSentinelRefPost,
-        //       where("AuthorUserID", "in", followingUserIds),
-        //       orderBy('ContentDate', 'desc'),
-        //       startAfter(lastVisible),
-        //       limit(BATCH_SIZE)
-        //     );
-        //   }
-        // }
 
         if (activeTab === 'following') {
           // GUARD: If not following anyone, stop immediately
@@ -2280,6 +2257,7 @@ useEffect(() => {
           id: doc.id,
           data: doc.data(),
         }))
+        .filter(doc => !doc.data.hideBy?.includes(fetchuserID));
 
         const postsData = [];
         for (const doc of nextPostsData) {

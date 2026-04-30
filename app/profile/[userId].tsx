@@ -1240,7 +1240,8 @@ const fetchFollowerCounts = async () => {
         const sentineldataArr = sentinelSnapshot.docs.map((doc) => ({
           id: doc.id,
           data: doc.data(),
-        }));
+        }))
+        .filter(doc => !doc.data.hideBy?.includes(loggedUserId));
 
         const postsData: PostItem[] = [];
         const loggedUserId = await AsyncStorage.getItem("userId");
